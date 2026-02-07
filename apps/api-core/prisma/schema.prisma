@@ -1,0 +1,90 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Restaurant {
+  id   String @id @default(uuid())
+  name String
+
+  products   Product[]
+  menus      Menu[]
+  categories Category[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id   String @id @default(uuid())
+  name String // Ej: "Cocina Caliente", "Bebidas", "Postres"
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  price       Decimal @default(0.00)
+  stock       Int     @default(0) // Stock Global (Inventario Físico)
+  active      Boolean @default(true)
+  sku         String?
+  imageUrl    String?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  menuItems MenuItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Menu {
+  id     String  @id @default(uuid())
+  name   String // Ej: "Almuerzo Ejecutivo", "Carta Noche"
+  active Boolean @default(true)
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  items MenuItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MenuItem {
+  id String @id @default(uuid())
+
+  menuId String
+  menu   Menu   @relation(fields: [menuId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  // Configuración Específica del Menú
+  price       Decimal? // Precio Override (Si es null, usa Product.price)
+  stock       Int?     // Stock Allocation (Si es null, usa Product.stock global sin límite específico)
+  sectionName String?  // Sección Visual en la Carta (Ej: "Para Empezar", "el ñandu")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
