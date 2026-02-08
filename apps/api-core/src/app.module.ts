@@ -10,7 +10,6 @@ import { OnboardingModule } from './onboarding/onboarding.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
     EventsModule,
     PrismaModule,
     RestaurantsModule,
@@ -20,4 +19,4 @@ import { OnboardingModule } from './onboarding/onboarding.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

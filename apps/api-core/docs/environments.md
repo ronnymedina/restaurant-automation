@@ -33,3 +33,10 @@
 - **MAX_FILES**: Cantidad máxima de fotos a subir.
   - Default: `3`
   - Required: `false`
+
+
+### PRODUCTS MODULE
+
+- **BATCH_SIZE**: Tamaño de lote para la creación de productos.
+  - Default: `10`
+  - Required: `false`

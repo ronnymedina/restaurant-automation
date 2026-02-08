@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { Restaurant } from '@prisma/client';
+
+import { PrismaService } from '../prisma/prisma.service';
 
 export interface CreateRestaurantData {
   name: string;
@@ -8,7 +9,7 @@ export interface CreateRestaurantData {
 
 @Injectable()
 export class RestaurantRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(data: CreateRestaurantData): Promise<Restaurant> {
     return this.prisma.restaurant.create({

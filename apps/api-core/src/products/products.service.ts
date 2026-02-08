@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Inject } from '@nestjs/common';
+import { type ConfigType } from '@nestjs/config';
 import { Product, Category } from '@prisma/client';
+
 import { ProductRepository, CreateProductData } from './product.repository';
 import { CategoryRepository } from './category.repository';
+import { productConfig } from './product.config';
 
 export interface ProductInput {
   name: string;
@@ -19,9 +21,10 @@ export class ProductsService {
   constructor(
     private readonly productRepository: ProductRepository,
     private readonly categoryRepository: CategoryRepository,
-    private readonly configService: ConfigService,
+    @Inject(productConfig.KEY)
+    private readonly configService: ConfigType<typeof productConfig>,
   ) {
-    this.batchSize = this.configService.get<number>('BATCH_SIZE', 10);
+    this.batchSize = this.configService.batchSize;
   }
 
   /**
