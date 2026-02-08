@@ -14,17 +14,3 @@ export class OnboardingFailedException extends BaseException {
     );
   }
 }
-
-/**
- * Thrown when product extraction from photos fails.
- */
-export class PhotoExtractionException extends BaseException {
-  constructor(reason: string, photoCount?: number) {
-    super(
-      `Failed to extract products from photos: ${reason}`,
-      HttpStatus.UNPROCESSABLE_ENTITY,
-      'PHOTO_EXTRACTION_FAILED',
-      photoCount !== undefined ? { photoCount } : undefined,
-    );
-  }
-}

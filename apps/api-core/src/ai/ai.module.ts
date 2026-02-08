@@ -8,4 +8,4 @@ import { aiConfig } from './ai.config';
   providers: [GeminiService],
   exports: [GeminiService],
 })
-export class AiModule { }
+export class AiModule {}

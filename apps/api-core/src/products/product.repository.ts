@@ -16,7 +16,7 @@ export interface CreateProductData {
 
 @Injectable()
 export class ProductRepository {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(data: CreateProductData): Promise<Product> {
     return this.prisma.product.create({

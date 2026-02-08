@@ -5,7 +5,10 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
 import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import { aiConfig } from './ai.config';
-import { GeminiApiException, GeminiConfigException } from './exceptions/ai.exceptions';
+import {
+  GeminiConfigException,
+  ImageProcessingException,
+} from './exceptions/ai.exceptions';
 
 export interface ExtractedProduct {
   name: string;
@@ -21,22 +24,30 @@ export class GeminiService {
 
   constructor(
     @Inject(aiConfig.KEY)
-    private readonly configService: ConfigType<typeof aiConfig>) {
-    const apiKey = this.configService.apiKey as string;
-    const modelToUse = this.configService.model as string;
+    private readonly configService: ConfigType<typeof aiConfig>,
+  ) {
+    const apiKey = this.configService.apiKey;
+    const modelToUse = this.configService.model;
 
     if (!apiKey) {
-      this.logger.warn('GEMINI_API_KEY not configured. AI features will be disabled.');
+      this.logger.warn(
+        'GEMINI_API_KEY not configured. AI features will be disabled.',
+      );
       return;
     }
 
     if (!modelToUse) {
-      throw new GeminiConfigException('GEMINI_MODEL is required when GEMINI_API_KEY is set');
+      throw new GeminiConfigException(
+        'GEMINI_MODEL is required when GEMINI_API_KEY is set',
+      );
     }
 
     this.genAI = new GoogleGenerativeAI(apiKey);
     this.model = this.genAI.getGenerativeModel({ model: modelToUse });
-    this.logger.log('Gemini AI initialized successfully with model: ', modelToUse);
+    this.logger.log(
+      'Gemini AI initialized successfully with model: ',
+      modelToUse,
+    );
   }
 
   async extractProductsFromImage(
@@ -56,12 +67,9 @@ export class GeminiService {
           mimeType,
           data: base64Image,
         },
-      }
+      };
 
-      const result = await this.model.generateContent([
-        requestContent,
-        prompt,
-      ]);
+      const result = await this.model.generateContent([requestContent, prompt]);
 
       const response = result.response;
       const text = response.text();
@@ -73,15 +81,15 @@ export class GeminiService {
         return [];
       }
 
-      const products: ExtractedProduct[] = JSON.parse(jsonMatch[0]);
+      const products = JSON.parse(jsonMatch[0]) as ExtractedProduct[];
       this.logger.log(`Extracted ${products.length} products from image`);
 
       return products;
     } catch (error) {
       this.logger.error('Error extracting products from image', error);
-      throw new GeminiApiException(
-        'extractProductsFromImage',
+      throw new ImageProcessingException(
         error instanceof Error ? error.message : String(error),
+        mimeType,
       );
     }
   }

@@ -20,4 +20,4 @@ import { OnboardingModule } from './onboarding/onboarding.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

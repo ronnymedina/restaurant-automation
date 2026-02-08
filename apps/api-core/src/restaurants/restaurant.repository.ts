@@ -8,7 +8,7 @@ export interface CreateRestaurantData {
 
 @Injectable()
 export class RestaurantRepository {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(data: CreateRestaurantData): Promise<Restaurant> {
     return this.prisma.restaurant.create({
@@ -39,7 +39,10 @@ export class RestaurantRepository {
     return this.prisma.restaurant.findMany();
   }
 
-  async update(id: string, data: Partial<CreateRestaurantData>): Promise<Restaurant> {
+  async update(
+    id: string,
+    data: Partial<CreateRestaurantData>,
+  ): Promise<Restaurant> {
     return this.prisma.restaurant.update({
       where: { id },
       data,

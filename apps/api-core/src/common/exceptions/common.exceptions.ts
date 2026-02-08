@@ -12,12 +12,10 @@ export class EntityNotFoundException extends BaseException {
     const details =
       typeof identifier === 'string' ? { id: identifier } : identifier;
 
-    super(
-      `${entityName} not found`,
-      HttpStatus.NOT_FOUND,
-      'ENTITY_NOT_FOUND',
-      { entity: entityName, ...details },
-    );
+    super(`${entityName} not found`, HttpStatus.NOT_FOUND, 'ENTITY_NOT_FOUND', {
+      entity: entityName,
+      ...details,
+    });
   }
 }
 
@@ -25,10 +23,7 @@ export class EntityNotFoundException extends BaseException {
  * Thrown when validation fails.
  */
 export class ValidationException extends BaseException {
-  constructor(
-    message: string,
-    validationErrors?: Record<string, string[]>,
-  ) {
+  constructor(message: string, validationErrors?: Record<string, string[]>) {
     super(
       message,
       HttpStatus.BAD_REQUEST,
@@ -42,11 +37,7 @@ export class ValidationException extends BaseException {
  * Thrown when attempting to create a duplicate entity.
  */
 export class DuplicateEntityException extends BaseException {
-  constructor(
-    entityName: string,
-    field: string,
-    value: string,
-  ) {
+  constructor(entityName: string, field: string, value: string) {
     super(
       `${entityName} with ${field} '${value}' already exists`,
       HttpStatus.CONFLICT,
@@ -60,10 +51,7 @@ export class DuplicateEntityException extends BaseException {
  * Thrown when an external service call fails.
  */
 export class ExternalServiceException extends BaseException {
-  constructor(
-    serviceName: string,
-    originalError?: string,
-  ) {
+  constructor(serviceName: string, originalError?: string) {
     super(
       `External service '${serviceName}' failed`,
       HttpStatus.BAD_GATEWAY,

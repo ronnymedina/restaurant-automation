@@ -4,11 +4,9 @@ import { Restaurant } from '@prisma/client';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { ProductsService, ProductInput } from '../products/products.service';
 import { GeminiService } from '../ai/gemini.service';
-import {
-  OnboardingFailedException,
-  PhotoExtractionException,
-} from './exceptions/onboarding.exceptions';
-import { ValidationException } from '../common/exceptions';
+import { ImageProcessingException } from '../ai/exceptions/ai.exceptions';
+
+import { OnboardingFailedException } from './exceptions/onboarding.exceptions';
 
 const SourceData = {
   DEMO: 'demo',
@@ -37,10 +35,12 @@ export class OnboardingService {
     private readonly restaurantsService: RestaurantsService,
     private readonly productsService: ProductsService,
     private readonly geminiService: GeminiService,
-  ) { }
+  ) {}
 
   async registerRestaurant(input: OnboardingInput): Promise<OnboardingResult> {
-    this.logger.log(`Starting onboarding for restaurant: ${input.restaurantName}`);
+    this.logger.log(
+      `Starting onboarding for restaurant: ${input.restaurantName}`,
+    );
 
     try {
       // 1. Create the restaurant
@@ -50,7 +50,9 @@ export class OnboardingService {
       // 2. Create default category (single source of truth for category ID)
       const defaultCategory =
         await this.productsService.getOrCreateDefaultCategory(restaurant.id);
-      this.logger.log(`Default category created with ID: ${defaultCategory.id}`);
+      this.logger.log(
+        `Default category created with ID: ${defaultCategory.id}`,
+      );
 
       // 3. Handle products based on input
       if (input.skipProducts) {
@@ -75,18 +77,16 @@ export class OnboardingService {
       // Re-throw known exceptions
       if (
         error instanceof OnboardingFailedException ||
-        error instanceof PhotoExtractionException ||
-        error instanceof ValidationException
+        error instanceof ImageProcessingException
       ) {
         throw error;
       }
 
       // Wrap unknown errors
       this.logger.error('Unexpected error during onboarding', error);
-      throw new OnboardingFailedException(
-        'Unexpected error occurred',
-        { originalError: error instanceof Error ? error.message : String(error) },
-      );
+      throw new OnboardingFailedException('Unexpected error occurred', {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -133,18 +133,8 @@ export class OnboardingService {
     categoryId: string,
     photos: Array<{ buffer: Buffer; mimeType: string }>,
   ): Promise<OnboardingResult> {
-    let extractedProducts;
-
-    try {
-      extractedProducts =
-        await this.geminiService.extractProductsFromMultipleImages(photos);
-    } catch (error) {
-      this.logger.error('Failed to extract products from photos', error);
-      throw new PhotoExtractionException(
-        error instanceof Error ? error.message : 'AI extraction failed',
-        photos.length,
-      );
-    }
+    const extractedProducts =
+      await this.geminiService.extractProductsFromMultipleImages(photos);
 
     // If no products extracted, fall back to demo products
     if (extractedProducts.length === 0) {

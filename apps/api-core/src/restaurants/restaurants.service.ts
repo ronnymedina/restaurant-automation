@@ -7,7 +7,7 @@ import {
 
 @Injectable()
 export class RestaurantsService {
-  constructor(private readonly restaurantRepository: RestaurantRepository) { }
+  constructor(private readonly restaurantRepository: RestaurantRepository) {}
 
   async createRestaurant(name: string): Promise<Restaurant> {
     return this.restaurantRepository.create({ name });
@@ -25,7 +25,10 @@ export class RestaurantsService {
     return this.restaurantRepository.findAll();
   }
 
-  async update(id: string, data: Partial<CreateRestaurantData>): Promise<Restaurant> {
+  async update(
+    id: string,
+    data: Partial<CreateRestaurantData>,
+  ): Promise<Restaurant> {
     return this.restaurantRepository.update(id, data);
   }
 

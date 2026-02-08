@@ -20,13 +20,12 @@ import {
 } from '@nestjs/swagger';
 import { OnboardingService, OnboardingResult } from './onboarding.service';
 import { OnboardingRegisterDto } from './dto';
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+import { MAX_FILE_SIZE, MAX_FILES } from '../config';
 
 @ApiTags('Onboarding')
 @Controller({ version: '1', path: 'onboarding' })
 export class OnboardingController {
-  constructor(private readonly onboardingService: OnboardingService) { }
+  constructor(private readonly onboardingService: OnboardingService) {}
 
   @Post('register')
   @ApiOperation({
@@ -70,7 +69,7 @@ export class OnboardingController {
     status: 400,
     description: 'Archivo inválido (tipo no soportado o tamaño excedido)',
   })
-  @UseInterceptors(FilesInterceptor('photos', 3))
+  @UseInterceptors(FilesInterceptor('photos', MAX_FILES))
   async register(
     @Body() body: OnboardingRegisterDto,
     @UploadedFiles(
@@ -89,13 +88,9 @@ export class OnboardingController {
       mimeType: file.mimetype,
     }));
 
-    const skipProducts =
-      body.skipProducts === true ||
-      (body.skipProducts as unknown as string) === 'true';
-
     return this.onboardingService.registerRestaurant({
       restaurantName: body.restaurantName,
-      skipProducts,
+      skipProducts: body.skipProducts,
       photos,
     });
   }

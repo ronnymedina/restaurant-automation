@@ -11,4 +11,4 @@ import { AiModule } from '../ai/ai.module';
   providers: [OnboardingService],
   exports: [OnboardingService],
 })
-export class OnboardingModule { }
+export class OnboardingModule {}

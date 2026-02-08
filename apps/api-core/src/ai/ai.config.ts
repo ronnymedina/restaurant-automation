@@ -1,6 +1,7 @@
 import { registerAs } from '@nestjs/config';
+import { GEMINI_API_KEY, GEMINI_MODEL } from '../config';
 
 export const aiConfig = registerAs('ai', () => ({
-  apiKey: process.env.GEMINI_API_KEY,
-  model: process.env.GEMINI_MODEL,
+  apiKey: GEMINI_API_KEY,
+  model: GEMINI_MODEL,
 }));

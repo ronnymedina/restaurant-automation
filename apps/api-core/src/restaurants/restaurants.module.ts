@@ -6,4 +6,4 @@ import { RestaurantRepository } from './restaurant.repository';
   providers: [RestaurantsService, RestaurantRepository],
   exports: [RestaurantsService, RestaurantRepository],
 })
-export class RestaurantsModule { }
+export class RestaurantsModule {}

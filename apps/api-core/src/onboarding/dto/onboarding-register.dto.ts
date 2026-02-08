@@ -12,7 +12,8 @@ export class OnboardingRegisterDto {
   restaurantName: string;
 
   @ApiPropertyOptional({
-    description: 'Si es true, se crean 3 productos demo en lugar de procesar fotos',
+    description:
+      'Si es true, se crean 3 productos demo en lugar de procesar fotos',
     example: false,
     default: false,
   })
