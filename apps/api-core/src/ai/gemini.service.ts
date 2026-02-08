@@ -38,10 +38,6 @@ export class GeminiService {
     this.logger.log('Gemini AI initialized successfully with model: ', modelToUse);
   }
 
-  isConfigured(): boolean {
-    return this.model !== null;
-  }
-
   async extractProductsFromImage(
     imageBuffer: Buffer,
     mimeType: string = 'image/jpeg',

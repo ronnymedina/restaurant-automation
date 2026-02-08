@@ -51,7 +51,7 @@ export class OnboardingController {
             type: 'string',
             format: 'binary',
           },
-          description: 'Fotos del menú para extraer productos (máximo 10)',
+          description: 'Fotos del menú para extraer productos (máximo 3)',
         },
       },
     },
@@ -60,7 +60,7 @@ export class OnboardingController {
     status: 201,
     description: 'Restaurante registrado exitosamente',
   })
-  @UseInterceptors(FilesInterceptor('photos', 10))
+  @UseInterceptors(FilesInterceptor('photos', 3))
   async register(
     @Body() body: OnboardingRegisterDto,
     @UploadedFiles() files?: Express.Multer.File[],
