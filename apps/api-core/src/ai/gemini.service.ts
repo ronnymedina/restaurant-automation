@@ -1,6 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import * as fs from 'node:fs';
+import path from 'node:path';
+
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { type ConfigType } from '@nestjs/config';
 import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
+import { aiConfig } from './ai.config';
 
 export interface ExtractedProduct {
   name: string;
@@ -14,17 +18,24 @@ export class GeminiService {
   private genAI: GoogleGenerativeAI | null = null;
   private model: GenerativeModel | null = null;
 
-  constructor(private readonly configService: ConfigService) {
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
-    if (apiKey && apiKey !== 'your-api-key-here') {
-      this.genAI = new GoogleGenerativeAI(apiKey);
-      this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      this.logger.log('Gemini AI initialized successfully');
-    } else {
-      this.logger.warn(
-        'GEMINI_API_KEY not configured. AI features will be disabled.',
-      );
+  constructor(
+    @Inject(aiConfig.KEY)
+    private readonly configService: ConfigType<typeof aiConfig>) {
+    const apiKey = this.configService.apiKey as string;
+    const modelToUse = this.configService.model as string;
+
+    if (!apiKey) {
+      this.logger.warn('GEMINI_API_KEY not configured. AI features will be disabled.');
+      return;
     }
+
+    if (!modelToUse) {
+      throw new Error('GEMINI_MODEL not configured');
+    }
+
+    this.genAI = new GoogleGenerativeAI(apiKey);
+    this.model = this.genAI.getGenerativeModel({ model: modelToUse });
+    this.logger.log('Gemini AI initialized successfully with model: ', modelToUse);
   }
 
   isConfigured(): boolean {
@@ -42,29 +53,16 @@ export class GeminiService {
 
     try {
       const base64Image = imageBuffer.toString('base64');
-
-      const prompt = `Analiza esta imagen de un menú de restaurante y extrae todos los productos que puedas identificar.
-
-Para cada producto, proporciona la siguiente información en formato JSON:
-- name: nombre del producto (obligatorio)
-- description: descripción del producto si está visible
-- price: precio numérico sin símbolos de moneda (ej: 15.50)
-
-Responde ÚNICAMENTE con un array JSON válido, sin texto adicional. Ejemplo:
-[
-  {"name": "Hamburguesa Clásica", "description": "Con queso, lechuga y tomate", "price": 12.50},
-  {"name": "Coca Cola", "price": 3.00}
-]
-
-Si no puedes identificar productos, responde con un array vacío: []`;
+      const prompt = this.getPromptFromFile('extract-products-from-menu.md');
+      const requestContent = {
+        inlineData: {
+          mimeType,
+          data: base64Image,
+        },
+      }
 
       const result = await this.model.generateContent([
-        {
-          inlineData: {
-            mimeType,
-            data: base64Image,
-          },
-        },
+        requestContent,
         prompt,
       ]);
 
@@ -116,5 +114,9 @@ Si no puedes identificar productos, responde con un array vacío: []`;
     );
 
     return uniqueProducts;
+  }
+
+  getPromptFromFile(fileName: string): string {
+    return fs.readFileSync(path.join(__dirname, 'prompts', fileName), 'utf-8');
   }
 }
