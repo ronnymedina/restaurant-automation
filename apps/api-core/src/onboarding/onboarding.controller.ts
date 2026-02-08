@@ -19,7 +19,7 @@ import { OnboardingService, OnboardingResult } from './onboarding.service';
 import { OnboardingRegisterDto } from './dto';
 
 @ApiTags('Onboarding')
-@Controller('onboarding')
+@Controller({ version: '1', path: 'onboarding' })
 export class OnboardingController {
   constructor(private readonly onboardingService: OnboardingService) { }
 
