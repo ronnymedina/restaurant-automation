@@ -3,6 +3,9 @@ import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
+const isProduction = process.env.NODE_ENV === 'production';
+const port = process.env.PORT ?? 3000;
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -19,7 +22,7 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe());
 
   // Setup Swagger only in development
-  if (process.env.NODE_ENV !== 'production') {
+  if (!isProduction) {
     const config = new DocumentBuilder()
       .setTitle('Restaurant API')
       .setDescription('API para gestión de restaurantes y productos')
@@ -30,6 +33,6 @@ async function bootstrap() {
     SwaggerModule.setup('docs', app, document);
   }
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(port);
 }
 bootstrap();
