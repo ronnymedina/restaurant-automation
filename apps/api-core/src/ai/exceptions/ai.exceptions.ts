@@ -28,3 +28,17 @@ export class ImageProcessingException extends BaseException {
     );
   }
 }
+
+/**
+ * Thrown when Gemini AI is not properly configured.
+ */
+export class GeminiConfigException extends BaseException {
+  constructor(missingConfig: string) {
+    super(
+      `Gemini AI configuration error: ${missingConfig}`,
+      HttpStatus.INTERNAL_SERVER_ERROR,
+      'GEMINI_CONFIG_ERROR',
+      { missingConfig },
+    );
+  }
+}

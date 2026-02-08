@@ -5,6 +5,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
 import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import { aiConfig } from './ai.config';
+import { GeminiApiException, GeminiConfigException } from './exceptions/ai.exceptions';
 
 export interface ExtractedProduct {
   name: string;
@@ -30,7 +31,7 @@ export class GeminiService {
     }
 
     if (!modelToUse) {
-      throw new Error('GEMINI_MODEL not configured');
+      throw new GeminiConfigException('GEMINI_MODEL is required when GEMINI_API_KEY is set');
     }
 
     this.genAI = new GoogleGenerativeAI(apiKey);
@@ -78,7 +79,10 @@ export class GeminiService {
       return products;
     } catch (error) {
       this.logger.error('Error extracting products from image', error);
-      return [];
+      throw new GeminiApiException(
+        'extractProductsFromImage',
+        error instanceof Error ? error.message : String(error),
+      );
     }
   }
 

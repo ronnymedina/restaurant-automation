@@ -4,6 +4,11 @@ import { Restaurant } from '@prisma/client';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { ProductsService, ProductInput } from '../products/products.service';
 import { GeminiService } from '../ai/gemini.service';
+import {
+  OnboardingFailedException,
+  PhotoExtractionException,
+} from './exceptions/onboarding.exceptions';
+import { ValidationException } from '../common/exceptions';
 
 const SourceData = {
   DEMO: 'demo',
@@ -37,49 +42,90 @@ export class OnboardingService {
   async registerRestaurant(input: OnboardingInput): Promise<OnboardingResult> {
     this.logger.log(`Starting onboarding for restaurant: ${input.restaurantName}`);
 
-    // 1. Create the restaurant
-    const restaurant = await this.createRestaurant(input.restaurantName);
-    this.logger.log(`Restaurant created with ID: ${restaurant.id}`);
+    try {
+      // 1. Create the restaurant
+      const restaurant = await this.createRestaurant(input.restaurantName);
+      this.logger.log(`Restaurant created with ID: ${restaurant.id}`);
 
-    // 2. Create default category (single source of truth for category ID)
-    const defaultCategory = await this.productsService.getOrCreateDefaultCategory(restaurant.id);
-    this.logger.log(`Default category created with ID: ${defaultCategory.id}`);
+      // 2. Create default category (single source of truth for category ID)
+      const defaultCategory =
+        await this.productsService.getOrCreateDefaultCategory(restaurant.id);
+      this.logger.log(`Default category created with ID: ${defaultCategory.id}`);
 
-    // 3. Handle products based on input
-    if (input.skipProducts) {
-      this.logger.log('Creating demo products');
-      return this.handleDemoProducts(restaurant, defaultCategory.id);
+      // 3. Handle products based on input
+      if (input.skipProducts) {
+        this.logger.log('Creating demo products');
+        return this.handleDemoProducts(restaurant, defaultCategory.id);
+      }
+
+      if (input.photos && input.photos.length > 0) {
+        this.logger.log(
+          `Processing ${input.photos.length} photos with Gemini AI`,
+        );
+        return this.handlePhotoExtraction(
+          restaurant,
+          defaultCategory.id,
+          input.photos,
+        );
+      }
+
+      this.logger.log('No photos provided and skip not selected');
+      return this.handleNoProducts(restaurant);
+    } catch (error) {
+      // Re-throw known exceptions
+      if (
+        error instanceof OnboardingFailedException ||
+        error instanceof PhotoExtractionException ||
+        error instanceof ValidationException
+      ) {
+        throw error;
+      }
+
+      // Wrap unknown errors
+      this.logger.error('Unexpected error during onboarding', error);
+      throw new OnboardingFailedException(
+        'Unexpected error occurred',
+        { originalError: error instanceof Error ? error.message : String(error) },
+      );
     }
-
-    if (input.photos && input.photos.length > 0) {
-      this.logger.log(`Processing ${input.photos.length} photos with Gemini AI`);
-      return this.handlePhotoExtraction(restaurant, defaultCategory.id, input.photos);
-    }
-
-    this.logger.log('No photos provided and skip not selected');
-    return this.handleNoProducts(restaurant);
   }
 
   private async createRestaurant(name: string): Promise<Restaurant> {
-    const restaurant = await this.restaurantsService.createRestaurant(name);
-    return restaurant;
+    try {
+      const restaurant = await this.restaurantsService.createRestaurant(name);
+      return restaurant;
+    } catch (error) {
+      this.logger.error('Failed to create restaurant', error);
+      throw new OnboardingFailedException('Failed to create restaurant', {
+        restaurantName: name,
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   private async handleDemoProducts(
     restaurant: Restaurant,
     categoryId: string,
   ): Promise<OnboardingResult> {
-    const demoCount = await this.productsService.createDemoProducts(
-      restaurant.id,
-      categoryId,
-    );
+    try {
+      const demoCount = await this.productsService.createDemoProducts(
+        restaurant.id,
+        categoryId,
+      );
 
-    return {
-      restaurant,
-      productsCreated: demoCount,
-      batches: 1,
-      source: SourceData.DEMO,
-    };
+      return {
+        restaurant,
+        productsCreated: demoCount,
+        batches: 1,
+        source: SourceData.DEMO,
+      };
+    } catch (error) {
+      this.logger.error('Failed to create demo products', error);
+      throw new OnboardingFailedException('Failed to create demo products', {
+        restaurantId: restaurant.id,
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   private async handlePhotoExtraction(
@@ -87,11 +133,24 @@ export class OnboardingService {
     categoryId: string,
     photos: Array<{ buffer: Buffer; mimeType: string }>,
   ): Promise<OnboardingResult> {
-    const extractedProducts = await this.geminiService.extractProductsFromMultipleImages(photos);
+    let extractedProducts;
+
+    try {
+      extractedProducts =
+        await this.geminiService.extractProductsFromMultipleImages(photos);
+    } catch (error) {
+      this.logger.error('Failed to extract products from photos', error);
+      throw new PhotoExtractionException(
+        error instanceof Error ? error.message : 'AI extraction failed',
+        photos.length,
+      );
+    }
 
     // If no products extracted, fall back to demo products
     if (extractedProducts.length === 0) {
-      this.logger.warn('No products extracted from images, creating demo products');
+      this.logger.warn(
+        'No products extracted from images, creating demo products',
+      );
       return this.handleDemoProducts(restaurant, categoryId);
     }
 
@@ -103,18 +162,29 @@ export class OnboardingService {
     }));
 
     this.logger.log(`Creating ${productInputs.length} products in batches`);
-    const { totalCreated, batches } = await this.productsService.createProductsBatch(
-      restaurant.id,
-      categoryId,
-      productInputs,
-    );
 
-    return {
-      restaurant,
-      productsCreated: totalCreated,
-      batches,
-      source: SourceData.AI_EXTRACTED,
-    };
+    try {
+      const { totalCreated, batches } =
+        await this.productsService.createProductsBatch(
+          restaurant.id,
+          categoryId,
+          productInputs,
+        );
+
+      return {
+        restaurant,
+        productsCreated: totalCreated,
+        batches,
+        source: SourceData.AI_EXTRACTED,
+      };
+    } catch (error) {
+      this.logger.error('Failed to create products batch', error);
+      throw new OnboardingFailedException('Failed to save extracted products', {
+        restaurantId: restaurant.id,
+        productCount: productInputs.length,
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   private handleNoProducts(restaurant: Restaurant): OnboardingResult {

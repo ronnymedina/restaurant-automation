@@ -1,4 +1,4 @@
-import { IsString, IsBoolean, IsOptional } from 'class-validator';
+import { IsString, IsBoolean, IsOptional, IsNotEmpty } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 
@@ -8,6 +8,7 @@ export class OnboardingRegisterDto {
     example: 'Mi Restaurante',
   })
   @IsString()
+  @IsNotEmpty({ message: 'El nombre del restaurante es requerido' })
   restaurantName: string;
 
   @ApiPropertyOptional({

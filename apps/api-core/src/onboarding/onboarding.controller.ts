@@ -4,6 +4,9 @@ import {
   Body,
   UploadedFiles,
   UseInterceptors,
+  ParseFilePipe,
+  FileTypeValidator,
+  MaxFileSizeValidator,
 } from '@nestjs/common';
 
 import { FilesInterceptor } from '@nestjs/platform-express';
@@ -17,6 +20,8 @@ import {
 } from '@nestjs/swagger';
 import { OnboardingService, OnboardingResult } from './onboarding.service';
 import { OnboardingRegisterDto } from './dto';
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 @ApiTags('Onboarding')
 @Controller({ version: '1', path: 'onboarding' })
@@ -51,7 +56,8 @@ export class OnboardingController {
             type: 'string',
             format: 'binary',
           },
-          description: 'Fotos del menú para extraer productos (máximo 3)',
+          description:
+            'Fotos del menú para extraer productos (máximo 3, solo PNG/JPG)',
         },
       },
     },
@@ -60,10 +66,23 @@ export class OnboardingController {
     status: 201,
     description: 'Restaurante registrado exitosamente',
   })
+  @ApiResponse({
+    status: 400,
+    description: 'Archivo inválido (tipo no soportado o tamaño excedido)',
+  })
   @UseInterceptors(FilesInterceptor('photos', 3))
   async register(
     @Body() body: OnboardingRegisterDto,
-    @UploadedFiles() files?: Express.Multer.File[],
+    @UploadedFiles(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: MAX_FILE_SIZE }),
+          new FileTypeValidator({ fileType: /(jpeg|jpg|png)$/ }),
+        ],
+        fileIsRequired: false,
+      }),
+    )
+    files?: Express.Multer.File[],
   ): Promise<OnboardingResult> {
     const photos = files?.map((file) => ({
       buffer: file.buffer,
