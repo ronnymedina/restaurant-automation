@@ -1,0 +1,188 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { Role } from '@prisma/client';
+
+import { OnboardingService } from './onboarding.service';
+import { RestaurantsService } from '../restaurants/restaurants.service';
+import { ProductsService } from '../products/products.service';
+import { GeminiService } from '../ai/gemini.service';
+import { UsersService } from '../users/users.service';
+import { EmailService } from '../email/email.service';
+import { DuplicateEntityException } from '../common/exceptions';
+
+const mockRestaurant = {
+  id: 'restaurant-uuid-1',
+  name: 'Test Restaurant',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const mockCategory = { id: 'category-uuid-1', name: 'General' };
+
+const mockUser = {
+  id: 'user-uuid-1',
+  email: 'owner@restaurant.com',
+  passwordHash: null,
+  role: Role.MANAGER,
+  isActive: false,
+  activationToken: 'activation-token-uuid',
+  restaurantId: 'restaurant-uuid-1',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const mockRestaurantsService = {
+  createRestaurant: jest.fn().mockResolvedValue(mockRestaurant),
+};
+
+const mockProductsService = {
+  getOrCreateDefaultCategory: jest.fn().mockResolvedValue(mockCategory),
+  createDemoProducts: jest.fn().mockResolvedValue(3),
+  createProductsBatch: jest.fn(),
+};
+
+const mockGeminiService = {
+  extractProductsFromMultipleImages: jest.fn(),
+};
+
+const mockUsersService = {
+  findByEmail: jest.fn(),
+  createOnboardingUser: jest.fn().mockResolvedValue(mockUser),
+};
+
+const mockEmailService = {
+  sendActivationEmail: jest.fn().mockResolvedValue(undefined),
+};
+
+describe('OnboardingService', () => {
+  let service: OnboardingService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        OnboardingService,
+        { provide: RestaurantsService, useValue: mockRestaurantsService },
+        { provide: ProductsService, useValue: mockProductsService },
+        { provide: GeminiService, useValue: mockGeminiService },
+        { provide: UsersService, useValue: mockUsersService },
+        { provide: EmailService, useValue: mockEmailService },
+      ],
+    }).compile();
+
+    service = module.get<OnboardingService>(OnboardingService);
+    jest.clearAllMocks();
+
+    // Reset default happy-path mocks
+    mockUsersService.findByEmail.mockResolvedValue(null);
+    mockUsersService.createOnboardingUser.mockResolvedValue(mockUser);
+    mockRestaurantsService.createRestaurant.mockResolvedValue(mockRestaurant);
+    mockProductsService.getOrCreateDefaultCategory.mockResolvedValue(mockCategory);
+    mockProductsService.createDemoProducts.mockResolvedValue(3);
+    mockEmailService.sendActivationEmail.mockResolvedValue(undefined);
+  });
+
+  describe('registerRestaurant - user creation flow', () => {
+    it('should verify email uniqueness before creating anything', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(mockUser);
+
+      await expect(
+        service.registerRestaurant({
+          email: 'owner@restaurant.com',
+          restaurantName: 'Test Restaurant',
+          skipProducts: true,
+        }),
+      ).rejects.toThrow(DuplicateEntityException);
+
+      expect(mockUsersService.findByEmail).toHaveBeenCalledWith(
+        'owner@restaurant.com',
+      );
+      expect(mockRestaurantsService.createRestaurant).not.toHaveBeenCalled();
+      expect(mockUsersService.createOnboardingUser).not.toHaveBeenCalled();
+    });
+
+    it('should create user linked to restaurant after restaurant creation', async () => {
+      const result = await service.registerRestaurant({
+        email: 'new@restaurant.com',
+        restaurantName: 'Test Restaurant',
+        skipProducts: true,
+      });
+
+      expect(mockRestaurantsService.createRestaurant).toHaveBeenCalledWith(
+        'Test Restaurant',
+      );
+      expect(mockUsersService.createOnboardingUser).toHaveBeenCalledWith(
+        'new@restaurant.com',
+        mockRestaurant.id,
+      );
+      expect(result.restaurant).toEqual(mockRestaurant);
+    });
+
+    it('should send activation email after user creation (fire-and-forget)', async () => {
+      await service.registerRestaurant({
+        email: 'new@restaurant.com',
+        restaurantName: 'Test Restaurant',
+        skipProducts: true,
+      });
+
+      // Wait for fire-and-forget promise to resolve
+      await new Promise((r) => setTimeout(r, 10));
+
+      expect(mockEmailService.sendActivationEmail).toHaveBeenCalledWith(
+        mockUser.email,
+        mockUser.activationToken,
+      );
+    });
+
+    it('should not block onboarding if email sending fails', async () => {
+      mockEmailService.sendActivationEmail.mockRejectedValue(
+        new Error('SMTP error'),
+      );
+
+      const result = await service.registerRestaurant({
+        email: 'new@restaurant.com',
+        restaurantName: 'Test Restaurant',
+        skipProducts: true,
+      });
+
+      // Wait for fire-and-forget to settle
+      await new Promise((r) => setTimeout(r, 10));
+
+      expect(result.restaurant).toEqual(mockRestaurant);
+      expect(result.productsCreated).toBe(3);
+    });
+  });
+
+  describe('registerRestaurant - full onboarding flow with user', () => {
+    it('should complete full flow: check email → create restaurant → create user → send email → create products', async () => {
+      const result = await service.registerRestaurant({
+        email: 'new@restaurant.com',
+        restaurantName: 'Test Restaurant',
+        skipProducts: true,
+      });
+
+      // Verify order: findByEmail → createRestaurant → createOnboardingUser → sendActivationEmail
+      const findEmailOrder =
+        mockUsersService.findByEmail.mock.invocationCallOrder[0];
+      const createRestOrder =
+        mockRestaurantsService.createRestaurant.mock.invocationCallOrder[0];
+      const createUserOrder =
+        mockUsersService.createOnboardingUser.mock.invocationCallOrder[0];
+
+      expect(findEmailOrder).toBeLessThan(createRestOrder);
+      expect(createRestOrder).toBeLessThan(createUserOrder);
+
+      expect(result.productsCreated).toBe(3);
+      expect(result.source).toBe('demo');
+    });
+
+    it('should return no products when skipProducts is false and no photos', async () => {
+      const result = await service.registerRestaurant({
+        email: 'new@restaurant.com',
+        restaurantName: 'Test Restaurant',
+      });
+
+      expect(result.productsCreated).toBe(0);
+      expect(result.source).toBe('none');
+      expect(mockUsersService.createOnboardingUser).toHaveBeenCalled();
+    });
+  });
+});

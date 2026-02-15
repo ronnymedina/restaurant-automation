@@ -5,6 +5,9 @@ import { RestaurantsService } from '../restaurants/restaurants.service';
 import { ProductsService, ProductInput } from '../products/products.service';
 import { GeminiService } from '../ai/gemini.service';
 import { ImageProcessingException } from '../ai/exceptions/ai.exceptions';
+import { UsersService } from '../users/users.service';
+import { EmailService } from '../email/email.service';
+import { DuplicateEntityException } from '../common/exceptions';
 
 import { OnboardingFailedException } from './exceptions/onboarding.exceptions';
 
@@ -22,6 +25,7 @@ export interface OnboardingResult {
 }
 
 export interface OnboardingInput {
+  email: string;
   restaurantName: string;
   skipProducts?: boolean;
   photos?: Array<{ buffer: Buffer; mimeType: string }>;
@@ -35,6 +39,8 @@ export class OnboardingService {
     private readonly restaurantsService: RestaurantsService,
     private readonly productsService: ProductsService,
     private readonly geminiService: GeminiService,
+    private readonly usersService: UsersService,
+    private readonly emailService: EmailService,
   ) {}
 
   async registerRestaurant(input: OnboardingInput): Promise<OnboardingResult> {
@@ -43,18 +49,38 @@ export class OnboardingService {
     );
 
     try {
-      // 1. Create the restaurant
+      // 1. Verify email is not already in use (before creating anything)
+      const existingUser = await this.usersService.findByEmail(input.email);
+      if (existingUser) {
+        throw new DuplicateEntityException('User', 'email', input.email);
+      }
+
+      // 2. Create the restaurant
       const restaurant = await this.createRestaurant(input.restaurantName);
       this.logger.log(`Restaurant created with ID: ${restaurant.id}`);
 
-      // 2. Create default category (single source of truth for category ID)
+      // 3. Create user linked to restaurant
+      const user = await this.usersService.createOnboardingUser(
+        input.email,
+        restaurant.id,
+      );
+      this.logger.log(`User created with ID: ${user.id}`);
+
+      // 4. Send activation email (fire-and-forget)
+      this.emailService
+        .sendActivationEmail(user.email, user.activationToken!)
+        .catch((err) =>
+          this.logger.error('Failed to send activation email', err),
+        );
+
+      // 5. Create default category (single source of truth for category ID)
       const defaultCategory =
         await this.productsService.getOrCreateDefaultCategory(restaurant.id);
       this.logger.log(
         `Default category created with ID: ${defaultCategory.id}`,
       );
 
-      // 3. Handle products based on input
+      // 6. Handle products based on input
       if (input.skipProducts) {
         this.logger.log('Creating demo products');
         return this.handleDemoProducts(restaurant, defaultCategory.id);
@@ -77,7 +103,8 @@ export class OnboardingService {
       // Re-throw known exceptions
       if (
         error instanceof OnboardingFailedException ||
-        error instanceof ImageProcessingException
+        error instanceof ImageProcessingException ||
+        error instanceof DuplicateEntityException
       ) {
         throw error;
       }
