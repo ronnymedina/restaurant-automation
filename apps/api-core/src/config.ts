@@ -18,6 +18,14 @@ export const BATCH_SIZE = Number(process.env.BATCH_SIZE) || 10;
 // frontend
 export const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4321';
 
+// pagination
+export const DEFAULT_PAGE_SIZE = Number(process.env.DEFAULT_PAGE_SIZE) || 10;
+
+// jwt
+export const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
+export const JWT_ACCESS_EXPIRATION = process.env.JWT_ACCESS_EXPIRATION || '15m';
+export const JWT_REFRESH_EXPIRATION = process.env.JWT_REFRESH_EXPIRATION || '7d';
+
 // users
 export const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 export const EMAIL_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev';

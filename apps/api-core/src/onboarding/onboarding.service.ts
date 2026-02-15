@@ -7,9 +7,10 @@ import { GeminiService } from '../ai/gemini.service';
 import { ImageProcessingException } from '../ai/exceptions/ai.exceptions';
 import { UsersService } from '../users/users.service';
 import { EmailService } from '../email/email.service';
-import { DuplicateEntityException } from '../common/exceptions';
-
-import { OnboardingFailedException } from './exceptions/onboarding.exceptions';
+import {
+  OnboardingFailedException,
+  EmailAlreadyExistsException,
+} from './exceptions/onboarding.exceptions';
 
 const SourceData = {
   DEMO: 'demo',
@@ -53,7 +54,7 @@ export class OnboardingService {
       // 1. Verify email is not already in use (before creating anything)
       const existingUser = await this.usersService.findByEmail(input.email);
       if (existingUser) {
-        throw new DuplicateEntityException('User', 'email', input.email);
+        throw new EmailAlreadyExistsException(input.email);
       }
 
       // 2. Create the restaurant
@@ -111,7 +112,7 @@ export class OnboardingService {
       if (
         error instanceof OnboardingFailedException ||
         error instanceof ImageProcessingException ||
-        error instanceof DuplicateEntityException
+        error instanceof EmailAlreadyExistsException
       ) {
         throw error;
       }

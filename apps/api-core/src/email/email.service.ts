@@ -1,16 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Resend } from 'resend';
+import { type ConfigType } from '@nestjs/config';
 
-import { RESEND_API_KEY, EMAIL_FROM, FRONTEND_URL } from '../config';
+import { emailConfig } from './email.config';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly resend: Resend | null = null;
 
-  constructor() {
-    if (RESEND_API_KEY) {
-      this.resend = new Resend(RESEND_API_KEY);
+  constructor(
+    @Inject(emailConfig.KEY)
+    private readonly configService: ConfigType<typeof emailConfig>,
+  ) {
+    if (this.configService.resendApiKey) {
+      this.resend = new Resend(this.configService.resendApiKey);
     } else {
       this.logger.warn(
         'RESEND_API_KEY not configured. Emails will not be sent.',
@@ -19,7 +23,7 @@ export class EmailService {
   }
 
   async sendActivationEmail(email: string, token: string): Promise<boolean> {
-    const activationUrl = `${FRONTEND_URL}/activate?token=${token}`;
+    const activationUrl = `${this.configService.frontendUrl}/activate?token=${token}`;
 
     if (!this.resend) {
       this.logger.warn(
@@ -30,7 +34,7 @@ export class EmailService {
 
     try {
       const { error } = await this.resend.emails.send({
-        from: EMAIL_FROM,
+        from: this.configService.emailFrom,
         to: email,
         subject: 'Activa tu cuenta',
         html: this.buildActivationHtml(activationUrl),

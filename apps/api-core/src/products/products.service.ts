@@ -5,6 +5,7 @@ import { Product, Category } from '@prisma/client';
 import { ProductRepository, CreateProductData } from './product.repository';
 import { CategoryRepository } from './category.repository';
 import { productConfig } from './product.config';
+import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 
 export interface ProductInput {
   name: string;
@@ -88,6 +89,33 @@ export class ProductsService {
 
   async findByRestaurantId(restaurantId: string): Promise<Product[]> {
     return this.productRepository.findByRestaurantId(restaurantId);
+  }
+
+  async findByRestaurantIdPaginated(
+    restaurantId: string,
+    page?: number,
+    limit?: number,
+  ): Promise<PaginatedResult<Product>> {
+    const currentPage = page || 1;
+    const currentLimit = limit || this.configService.defaultPageSize;
+    const skip = (currentPage - 1) * currentLimit;
+
+    const { data, total } =
+      await this.productRepository.findByRestaurantIdPaginated(
+        restaurantId,
+        skip,
+        currentLimit,
+      );
+
+    return {
+      data,
+      meta: {
+        total,
+        page: currentPage,
+        limit: currentLimit,
+        totalPages: Math.ceil(total / currentLimit),
+      },
+    };
   }
 
   async findById(id: string): Promise<Product | null> {

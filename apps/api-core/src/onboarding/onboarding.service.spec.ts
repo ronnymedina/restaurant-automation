@@ -7,7 +7,7 @@ import { ProductsService } from '../products/products.service';
 import { GeminiService } from '../ai/gemini.service';
 import { UsersService } from '../users/users.service';
 import { EmailService } from '../email/email.service';
-import { DuplicateEntityException } from '../common/exceptions';
+import { EmailAlreadyExistsException } from './exceptions/onboarding.exceptions';
 
 const mockRestaurant = {
   id: 'restaurant-uuid-1',
@@ -90,7 +90,7 @@ describe('OnboardingService', () => {
           restaurantName: 'Test Restaurant',
           skipProducts: true,
         }),
-      ).rejects.toThrow(DuplicateEntityException);
+      ).rejects.toThrow(EmailAlreadyExistsException);
 
       expect(mockUsersService.findByEmail).toHaveBeenCalledWith(
         'owner@restaurant.com',

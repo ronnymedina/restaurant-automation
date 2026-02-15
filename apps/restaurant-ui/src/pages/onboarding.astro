@@ -3,69 +3,61 @@ import Layout from "../layouts/Layout.astro";
 ---
 
 <Layout>
-  <div class="onboarding-container">
-    <div class="onboarding-card">
+  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#667eea] to-[#764ba2] p-8 px-4">
+    <div class="bg-white/95 rounded-3xl shadow-2xl w-full max-w-[520px] p-10 relative overflow-hidden">
       <!-- Progress Steps -->
-      <div class="steps-indicator">
-        <div class="step active" data-step="1">
-          <div class="step-circle">1</div>
-          <span class="step-label">Información</span>
+      <div class="flex items-center justify-center mb-10 gap-2">
+        <div class="step active flex flex-col items-center gap-2" data-step="1">
+          <div class="step-circle w-10 h-10 rounded-full bg-indigo-500 text-white flex items-center justify-center font-semibold text-base transition-all duration-300">1</div>
+          <span class="text-xs text-indigo-500 font-semibold">Información</span>
         </div>
-        <div class="step-line"></div>
-        <div class="step" data-step="2">
-          <div class="step-circle">2</div>
-          <span class="step-label">Menú</span>
+        <div class="step-line flex-1 h-[3px] bg-slate-200 max-w-[60px] mb-6 transition-colors duration-300"></div>
+        <div class="step flex flex-col items-center gap-2" data-step="2">
+          <div class="step-circle w-10 h-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-semibold text-base transition-all duration-300">2</div>
+          <span class="text-xs text-slate-500 font-medium">Menú</span>
         </div>
-        <div class="step-line"></div>
-        <div class="step" data-step="3">
-          <div class="step-circle">3</div>
-          <span class="step-label">Confirmación</span>
+        <div class="step-line flex-1 h-[3px] bg-slate-200 max-w-[60px] mb-6 transition-colors duration-300"></div>
+        <div class="step flex flex-col items-center gap-2" data-step="3">
+          <div class="step-circle w-10 h-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-semibold text-base transition-all duration-300">3</div>
+          <span class="text-xs text-slate-500 font-medium">Confirmación</span>
         </div>
       </div>
 
       <!-- Step 1: Basic Info -->
       <div class="step-content active" id="step1">
-        <div class="step-header">
-          <h2>¡Bienvenido!</h2>
-          <p>Comienza a digitalizar tu restaurante</p>
+        <div class="text-center mb-8">
+          <h2 class="text-3xl text-slate-800 mb-2 font-bold">¡Bienvenido!</h2>
+          <p class="text-slate-500 text-base">Comienza a digitalizar tu restaurante</p>
         </div>
 
         <form id="step1Form">
-          <div class="form-group">
-            <label for="email">Correo electrónico</label>
+          <div class="mb-6">
+            <label for="email" class="block font-semibold text-slate-800 mb-2 text-sm">Correo electrónico</label>
             <input
               type="email"
               id="email"
               name="email"
               placeholder="tu@email.com"
               required
+              class="w-full py-3.5 px-4 border-2 border-slate-200 rounded-xl text-base transition-all bg-white text-slate-800 box-border focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 placeholder:text-slate-400"
             />
           </div>
 
-          <div class="form-group">
-            <label for="restaurantName">Nombre del restaurante</label>
+          <div class="mb-6">
+            <label for="restaurantName" class="block font-semibold text-slate-800 mb-2 text-sm">Nombre del restaurante</label>
             <input
               type="text"
               id="restaurantName"
               name="restaurantName"
               placeholder="Mi Restaurante"
               required
+              class="w-full py-3.5 px-4 border-2 border-slate-200 rounded-xl text-base transition-all bg-white text-slate-800 box-border focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 placeholder:text-slate-400"
             />
           </div>
 
-          <button type="submit" class="btn-primary">
+          <button type="submit" class="w-full py-4 px-6 bg-indigo-500 text-white border-none rounded-xl text-base font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all hover:bg-indigo-600 hover:-translate-y-0.5">
             Siguiente
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="m9 18 6-6-6-6"></path>
             </svg>
           </button>
@@ -74,81 +66,42 @@ import Layout from "../layouts/Layout.astro";
 
       <!-- Step 2: Menu Upload -->
       <div class="step-content" id="step2">
-        <div class="step-header">
-          <h2>Tu Menú</h2>
-          <p>Sube fotos de tu menú o usa productos demo</p>
+        <div class="text-center mb-8">
+          <h2 class="text-3xl text-slate-800 mb-2 font-bold">Tu Menú</h2>
+          <p class="text-slate-500 text-base">Sube fotos de tu menú o usa productos demo</p>
         </div>
 
         <form id="step2Form">
-          <div class="upload-area" id="uploadArea">
-            <div class="upload-icon">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
+          <div class="upload-area border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center cursor-pointer transition-all relative bg-gray-50 hover:border-indigo-500 hover:bg-indigo-500/5" id="uploadArea">
+            <div class="text-indigo-400 mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="17 8 12 3 7 8"></polyline>
                 <line x1="12" x2="12" y1="3" y2="15"></line>
               </svg>
             </div>
-            <p class="upload-text">
-              Arrastra tus fotos aquí o haz clic para seleccionar
-            </p>
-            <p class="upload-hint">Máximo 10 imágenes del menú</p>
-            <input
-              type="file"
-              id="photos"
-              name="photos"
-              multiple
-              accept="image/*"
-              class="file-input"
-            />
+            <p class="text-slate-800 font-medium m-0 mb-1">Arrastra tus fotos aquí o haz clic para seleccionar</p>
+            <p class="text-slate-500 text-sm m-0">Máximo 10 imágenes del menú</p>
+            <input type="file" id="photos" name="photos" multiple accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" />
           </div>
 
-          <div class="file-preview" id="filePreview"></div>
+          <div class="flex flex-wrap gap-3 mt-4" id="filePreview"></div>
 
-          <div class="step2-actions">
-            <button type="button" class="btn-secondary" id="skipBtn">
+          <div class="flex gap-4 mt-6">
+            <button type="button" class="flex-1 py-4 px-6 bg-white text-slate-500 border-2 border-slate-200 rounded-xl text-base font-semibold cursor-pointer transition-all hover:bg-slate-50 hover:border-slate-500" id="skipBtn">
               Saltar para Demo
             </button>
-            <button type="submit" class="btn-primary" id="uploadBtn" disabled>
+            <button type="submit" class="flex-1 py-4 px-6 bg-indigo-500 text-white border-none rounded-xl text-base font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all hover:bg-indigo-600 hover:-translate-y-0.5 disabled:bg-slate-300 disabled:cursor-not-allowed" id="uploadBtn" disabled>
               Procesar Menú
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="m9 18 6-6-6-6"></path>
               </svg>
             </button>
           </div>
         </form>
 
-        <button type="button" class="btn-back" id="backToStep1">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
+        <button type="button" class="bg-transparent border-none text-slate-500 flex items-center gap-1 cursor-pointer text-sm mt-6 p-2 transition-colors hover:text-indigo-500" id="backToStep1">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="m15 18-6-6 6-6"></path>
           </svg>
           Volver
@@ -157,564 +110,130 @@ import Layout from "../layouts/Layout.astro";
 
       <!-- Step 3: Confirmation -->
       <div class="step-content" id="step3">
-        <div class="step-header success">
-          <div class="success-icon">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="64"
-              height="64"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
+        <div class="text-center mb-8 py-4">
+          <div class="text-emerald-500 mb-4 success-icon-animate">
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
               <polyline points="22 4 12 14.01 9 11.01"></polyline>
             </svg>
           </div>
-          <h2>¡Registro Exitoso!</h2>
-          <p>Tu restaurante ha sido creado</p>
+          <h2 class="text-3xl text-slate-800 mb-2 font-bold">¡Registro Exitoso!</h2>
+          <p class="text-slate-500 text-base">Tu restaurante ha sido creado</p>
         </div>
 
-        <div class="result-info" id="resultInfo">
+        <div class="bg-green-50 rounded-xl p-5 mb-6" id="resultInfo">
           <!-- Filled dynamically -->
         </div>
 
-        <div class="email-notice" id="emailNotice">
-          <div class="email-icon" id="emailIcon">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
+        <div class="email-notice flex gap-4 p-5 bg-gradient-to-br from-blue-50 to-sky-50 rounded-xl border border-blue-200" id="emailNotice">
+          <div class="text-indigo-500 flex-shrink-0" id="emailIcon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect width="20" height="16" x="2" y="4" rx="2"></rect>
               <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
             </svg>
           </div>
-          <div class="email-text">
-            <strong id="emailTitle">Te enviamos un correo</strong>
-            <p id="emailDescription">
-              Revisa tu bandeja de entrada para activar tu cuenta y acceder al
-              dashboard.
+          <div>
+            <strong class="text-slate-800 block mb-1" id="emailTitle">Te enviamos un correo</strong>
+            <p class="text-slate-500 m-0 text-sm leading-relaxed" id="emailDescription">
+              Revisa tu bandeja de entrada para activar tu cuenta y acceder al dashboard.
             </p>
           </div>
         </div>
       </div>
 
       <!-- Loading Overlay -->
-      <div class="loading-overlay" id="loadingOverlay">
-        <div class="spinner"></div>
-        <p>Procesando...</p>
+      <div class="loading-overlay absolute inset-0 bg-white/95 hidden flex-col items-center justify-center gap-4 rounded-3xl z-10" id="loadingOverlay">
+        <div class="spinner w-12 h-12 border-4 border-slate-200 border-t-indigo-500 rounded-full"></div>
+        <p class="text-slate-500 font-medium">Procesando...</p>
       </div>
 
       <!-- Error Message -->
-      <div class="error-message" id="errorMessage">
-        <p></p>
-        <button type="button" class="btn-close" id="closeError">×</button>
+      <div class="error-toast absolute bottom-4 left-4 right-4 bg-red-500 text-white p-4 rounded-xl hidden items-center justify-between" id="errorMessage">
+        <p class="m-0 font-medium"></p>
+        <button type="button" class="bg-transparent border-none text-white text-2xl cursor-pointer p-0 leading-none" id="closeError">×</button>
       </div>
     </div>
   </div>
 </Layout>
 
 <style>
-  :root {
-    --primary: #6366f1;
-    --primary-dark: #4f46e5;
-    --primary-light: #818cf8;
-    --secondary: #64748b;
-    --success: #10b981;
-    --error: #ef4444;
-    --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --card-bg: rgba(255, 255, 255, 0.95);
-    --text-primary: #1e293b;
-    --text-secondary: #64748b;
-    --border: #e2e8f0;
-  }
-
-  .onboarding-container {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg-gradient);
-    padding: 2rem 1rem;
-  }
-
-  .onboarding-card {
-    background: var(--card-bg);
-    border-radius: 24px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    width: 100%;
-    max-width: 520px;
-    padding: 2.5rem;
-    position: relative;
-    overflow: hidden;
-  }
-
-  /* Steps Indicator */
-  .steps-indicator {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 2.5rem;
-    gap: 0.5rem;
-  }
-
-  .step {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .step-circle {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: var(--border);
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 1rem;
-    transition: all 0.3s ease;
-  }
-
-  .step.active .step-circle,
-  .step.completed .step-circle {
-    background: var(--primary);
-    color: white;
-  }
-
-  .step.completed .step-circle {
-    background: var(--success);
-  }
-
-  .step-label {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-  }
-
-  .step.active .step-label {
-    color: var(--primary);
-    font-weight: 600;
-  }
-
-  .step-line {
-    flex: 1;
-    height: 3px;
-    background: var(--border);
-    max-width: 60px;
-    margin-bottom: 1.5rem;
-    transition: background 0.3s ease;
-  }
-
-  .step-line.active {
-    background: var(--primary);
-  }
-
-  /* Step Content */
+  /* Step content visibility */
   .step-content {
     display: none;
     animation: fadeIn 0.4s ease;
   }
-
   .step-content.active {
     display: block;
   }
 
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .step-header {
-    text-align: center;
-    margin-bottom: 2rem;
-  }
-
-  .step-header h2 {
-    font-size: 1.75rem;
-    color: var(--text-primary);
-    margin: 0 0 0.5rem;
-    font-weight: 700;
-  }
-
-  .step-header p {
-    color: var(--text-secondary);
-    margin: 0;
-    font-size: 1rem;
-  }
-
-  /* Form Styles */
-  .form-group {
-    margin-bottom: 1.5rem;
-  }
-
-  .form-group label {
-    display: block;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
-  }
-
-  .form-group input {
-    width: 100%;
-    padding: 0.875rem 1rem;
-    border: 2px solid var(--border);
-    border-radius: 12px;
-    font-size: 1rem;
-    transition: all 0.2s ease;
-    background: white;
-    color: var(--text-primary);
-    box-sizing: border-box;
-  }
-
-  .form-group input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
-  }
-
-  .form-group input::placeholder {
-    color: #94a3b8;
-  }
-
-  /* Buttons */
-  .btn-primary {
-    width: 100%;
-    padding: 1rem 1.5rem;
-    background: var(--primary);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
+  /* Loading & error visibility */
+  .loading-overlay.visible {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    transition: all 0.2s ease;
   }
-
-  .btn-primary:hover:not(:disabled) {
-    background: var(--primary-dark);
-    transform: translateY(-1px);
-  }
-
-  .btn-primary:disabled {
-    background: #cbd5e1;
-    cursor: not-allowed;
-  }
-
-  .btn-secondary {
-    padding: 1rem 1.5rem;
-    background: white;
-    color: var(--secondary);
-    border: 2px solid var(--border);
-    border-radius: 12px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .btn-secondary:hover {
-    background: #f8fafc;
-    border-color: var(--secondary);
-  }
-
-  .btn-back {
-    background: none;
-    border: none;
-    color: var(--secondary);
+  .error-toast.visible {
     display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    cursor: pointer;
-    font-size: 0.9rem;
-    margin-top: 1.5rem;
-    padding: 0.5rem;
-    transition: color 0.2s ease;
   }
 
-  .btn-back:hover {
-    color: var(--primary);
-  }
-
-  /* Upload Area */
-  .upload-area {
-    border: 2px dashed var(--border);
-    border-radius: 16px;
-    padding: 2rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    position: relative;
-    background: #fafafa;
-  }
-
-  .upload-area:hover,
+  /* Upload area dragover */
   .upload-area.dragover {
-    border-color: var(--primary);
+    border-color: #6366f1;
     background: rgba(99, 102, 241, 0.05);
   }
 
-  .upload-icon {
-    color: var(--primary-light);
-    margin-bottom: 1rem;
-  }
-
-  .upload-text {
-    color: var(--text-primary);
-    font-weight: 500;
-    margin: 0 0 0.25rem;
-  }
-
-  .upload-hint {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    margin: 0;
-  }
-
-  .file-input {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
-  }
-
-  /* File Preview */
-  .file-preview {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-top: 1rem;
-  }
-
-  .file-preview .file-item {
-    background: #f1f5f9;
-    padding: 0.5rem 0.75rem;
-    border-radius: 8px;
-    font-size: 0.85rem;
-    color: var(--text-primary);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .file-preview .file-item .remove-file {
-    background: none;
-    border: none;
-    color: var(--error);
-    cursor: pointer;
-    font-size: 1.2rem;
-    padding: 0;
-    line-height: 1;
-  }
-
-  /* Step 2 Actions */
-  .step2-actions {
-    display: flex;
-    gap: 1rem;
-    margin-top: 1.5rem;
-  }
-
-  .step2-actions .btn-secondary {
-    flex: 1;
-  }
-
-  .step2-actions .btn-primary {
-    flex: 1;
-  }
-
-  /* Success Styles */
-  .step-header.success {
-    padding: 1rem 0;
-  }
-
-  .success-icon {
-    color: var(--success);
-    margin-bottom: 1rem;
-    animation: scaleIn 0.5s ease;
-  }
-
-  @keyframes scaleIn {
-    from {
-      transform: scale(0);
-    }
-    to {
-      transform: scale(1);
-    }
-  }
-
-  .result-info {
-    background: #f0fdf4;
-    border-radius: 12px;
-    padding: 1.25rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .result-info p {
-    margin: 0.25rem 0;
-    color: var(--text-primary);
-    font-size: 0.95rem;
-  }
-
-  .result-info strong {
-    color: var(--success);
-  }
-
-  .email-notice {
-    display: flex;
-    gap: 1rem;
-    padding: 1.25rem;
-    background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
-    border-radius: 12px;
-    border: 1px solid #bfdbfe;
-  }
-
+  /* Email notice error variant */
   .email-notice.email-error {
     background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%);
     border-color: #fecaca;
   }
-
-  .email-notice.email-error .email-icon {
-    color: var(--error);
+  .email-notice.email-error .text-indigo-500 {
+    color: #ef4444;
   }
 
-  .email-icon {
-    color: var(--primary);
-    flex-shrink: 0;
+  /* File preview items */
+  .file-item {
+    @apply bg-slate-100 py-2 px-3 rounded-lg text-sm text-slate-800 flex items-center gap-2;
+  }
+  .file-item .remove-file {
+    @apply bg-transparent border-none text-red-500 cursor-pointer text-lg p-0 leading-none;
   }
 
-  .email-text strong {
-    color: var(--text-primary);
-    display: block;
-    margin-bottom: 0.25rem;
+  /* Result info paragraphs */
+  #resultInfo :global(p) {
+    @apply my-1 text-slate-800 text-[0.95rem];
+  }
+  #resultInfo :global(strong) {
+    @apply text-emerald-500;
   }
 
-  .email-text p {
-    color: var(--text-secondary);
-    margin: 0;
-    font-size: 0.9rem;
-    line-height: 1.5;
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes scaleIn {
+    from { transform: scale(0); }
+    to { transform: scale(1); }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
   }
 
-  /* Loading Overlay */
-  .loading-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(255, 255, 255, 0.95);
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-    border-radius: 24px;
-    z-index: 10;
+  .success-icon-animate {
+    animation: scaleIn 0.5s ease;
   }
-
-  .loading-overlay.visible {
-    display: flex;
-  }
-
   .spinner {
-    width: 48px;
-    height: 48px;
-    border: 4px solid var(--border);
-    border-top-color: var(--primary);
-    border-radius: 50%;
     animation: spin 1s linear infinite;
   }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  .loading-overlay p {
-    color: var(--text-secondary);
-    font-weight: 500;
-  }
-
-  /* Error Message */
-  .error-message {
-    position: absolute;
-    bottom: 1rem;
-    left: 1rem;
-    right: 1rem;
-    background: var(--error);
-    color: white;
-    padding: 1rem;
-    border-radius: 12px;
-    display: none;
-    align-items: center;
-    justify-content: space-between;
+  .error-toast {
     animation: slideUp 0.3s ease;
   }
 
-  .error-message.visible {
-    display: flex;
-  }
-
-  @keyframes slideUp {
-    from {
-      transform: translateY(100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-
-  .error-message p {
-    margin: 0;
-    font-weight: 500;
-  }
-
-  .btn-close {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-  }
-
-  /* Responsive */
   @media (max-width: 480px) {
-    .onboarding-card {
-      padding: 1.5rem;
-    }
-
-    .step-label {
+    .step-label-hide {
       display: none;
-    }
-
-    .step2-actions {
-      flex-direction: column;
     }
   }
 </style>
@@ -737,88 +256,91 @@ import Layout from "../layouts/Layout.astro";
   const step2Form = document.getElementById("step2Form") as HTMLFormElement;
   const skipBtn = document.getElementById("skipBtn") as HTMLButtonElement;
   const uploadBtn = document.getElementById("uploadBtn") as HTMLButtonElement;
-  const backToStep1 = document.getElementById(
-    "backToStep1",
-  ) as HTMLButtonElement;
+  const backToStep1 = document.getElementById("backToStep1") as HTMLButtonElement;
   const photosInput = document.getElementById("photos") as HTMLInputElement;
   const uploadArea = document.getElementById("uploadArea") as HTMLDivElement;
   const filePreview = document.getElementById("filePreview") as HTMLDivElement;
-  const loadingOverlay = document.getElementById(
-    "loadingOverlay",
-  ) as HTMLDivElement;
-  const errorMessage = document.getElementById(
-    "errorMessage",
-  ) as HTMLDivElement;
+  const loadingOverlay = document.getElementById("loadingOverlay") as HTMLDivElement;
+  const errorMessage = document.getElementById("errorMessage") as HTMLDivElement;
   const closeError = document.getElementById("closeError") as HTMLButtonElement;
   const resultInfo = document.getElementById("resultInfo") as HTMLDivElement;
 
-  // API URL - adjust based on environment
   const API_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:3000";
 
-  // Step Navigation
   function goToStep(step: number) {
     currentStep = step;
 
-    // Update content visibility
     [step1Content, step2Content, step3Content].forEach((el, i) => {
       el.classList.toggle("active", i + 1 === step);
     });
 
-    // Update step indicators
-    document.querySelectorAll(".steps-indicator .step").forEach((el, i) => {
-      const stepNum = i + 1;
-      el.classList.toggle("active", stepNum === step);
-      el.classList.toggle("completed", stepNum < step);
+    document.querySelectorAll(".steps-indicator .step, [data-step]").forEach((el) => {
+      const stepNum = Number((el as HTMLElement).dataset.step);
+      if (!stepNum) return;
+      const circle = el.querySelector(".step-circle");
+      const label = el.querySelector("span");
+      if (stepNum === step) {
+        circle?.classList.remove("bg-slate-200", "text-slate-500", "bg-emerald-500");
+        circle?.classList.add("bg-indigo-500", "text-white");
+        label?.classList.remove("text-slate-500", "font-medium");
+        label?.classList.add("text-indigo-500", "font-semibold");
+      } else if (stepNum < step) {
+        circle?.classList.remove("bg-slate-200", "text-slate-500", "bg-indigo-500");
+        circle?.classList.add("bg-emerald-500", "text-white");
+        label?.classList.remove("text-indigo-500", "font-semibold");
+        label?.classList.add("text-slate-500", "font-medium");
+      } else {
+        circle?.classList.remove("bg-indigo-500", "bg-emerald-500", "text-white");
+        circle?.classList.add("bg-slate-200", "text-slate-500");
+        label?.classList.remove("text-indigo-500", "font-semibold");
+        label?.classList.add("text-slate-500", "font-medium");
+      }
     });
 
-    // Update step lines
     document.querySelectorAll(".step-line").forEach((el, i) => {
-      el.classList.toggle("active", i + 1 < step);
+      if (i + 1 < step) {
+        el.classList.remove("bg-slate-200");
+        el.classList.add("bg-indigo-500");
+      } else {
+        el.classList.remove("bg-indigo-500");
+        el.classList.add("bg-slate-200");
+      }
     });
   }
 
-  // Show/Hide Loading
   function setLoading(loading: boolean) {
     loadingOverlay.classList.toggle("visible", loading);
   }
 
-  // Show Error
   function showError(message: string) {
     const errorP = errorMessage.querySelector("p") as HTMLParagraphElement;
     errorP.textContent = message;
     errorMessage.classList.add("visible");
-
     setTimeout(() => {
       errorMessage.classList.remove("visible");
     }, 5000);
   }
 
-  // Update File Preview
   function updateFilePreview() {
     filePreview.innerHTML = "";
-
     formData.photos.forEach((file, index) => {
       const item = document.createElement("div");
       item.className = "file-item";
       item.innerHTML = `
-				<span>${file.name}</span>
-				<button type="button" class="remove-file" data-index="${index}">×</button>
-			`;
+        <span>${file.name}</span>
+        <button type="button" class="remove-file" data-index="${index}">×</button>
+      `;
       filePreview.appendChild(item);
     });
-
-    // Enable/disable upload button
     uploadBtn.disabled = formData.photos.length === 0;
   }
 
-  // Handle File Selection
   photosInput.addEventListener("change", () => {
     const files = Array.from(photosInput.files || []);
     formData.photos = [...formData.photos, ...files].slice(0, 10);
     updateFilePreview();
   });
 
-  // Handle Remove File
   filePreview.addEventListener("click", (e) => {
     const target = e.target as HTMLElement;
     if (target.classList.contains("remove-file")) {
@@ -828,7 +350,6 @@ import Layout from "../layouts/Layout.astro";
     }
   });
 
-  // Drag and Drop
   uploadArea.addEventListener("dragover", (e) => {
     e.preventDefault();
     uploadArea.classList.add("dragover");
@@ -841,7 +362,6 @@ import Layout from "../layouts/Layout.astro";
   uploadArea.addEventListener("drop", (e) => {
     e.preventDefault();
     uploadArea.classList.remove("dragover");
-
     const files = Array.from(e.dataTransfer?.files || []).filter((f) =>
       f.type.startsWith("image/"),
     );
@@ -849,50 +369,38 @@ import Layout from "../layouts/Layout.astro";
     updateFilePreview();
   });
 
-  // Step 1 Form Submit
   step1Form.addEventListener("submit", (e) => {
     e.preventDefault();
-
     const emailInput = document.getElementById("email") as HTMLInputElement;
-    const restaurantInput = document.getElementById(
-      "restaurantName",
-    ) as HTMLInputElement;
-
+    const restaurantInput = document.getElementById("restaurantName") as HTMLInputElement;
     formData.email = emailInput.value.trim();
     formData.restaurantName = restaurantInput.value.trim();
-
     if (!formData.email || !formData.restaurantName) {
       showError("Por favor completa todos los campos");
       return;
     }
-
     goToStep(2);
   });
 
-  // Skip Button
   skipBtn.addEventListener("click", async () => {
     formData.skipProducts = true;
     await submitOnboarding();
   });
 
-  // Step 2 Form Submit (Upload Photos)
   step2Form.addEventListener("submit", async (e) => {
     e.preventDefault();
     formData.skipProducts = false;
     await submitOnboarding();
   });
 
-  // Back Button
   backToStep1.addEventListener("click", () => {
     goToStep(1);
   });
 
-  // Close Error
   closeError.addEventListener("click", () => {
     errorMessage.classList.remove("visible");
   });
 
-  // Submit Onboarding
   async function submitOnboarding() {
     setLoading(true);
 
@@ -914,20 +422,24 @@ import Layout from "../layouts/Layout.astro";
       });
 
       if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        if (errorData?.code) {
+          const { getErrorMessage } = await import("../lib/error-messages");
+          showError(getErrorMessage(errorData.code));
+          return;
+        }
         throw new Error("Error al registrar el restaurante");
       }
 
       const result = await response.json();
 
-      // Show results
       resultInfo.innerHTML = `
-				<p><strong>Restaurante:</strong> ${result.restaurant.name}</p>
-				<p><strong>ID:</strong> ${result.restaurant.id}</p>
-				<p><strong>Productos creados:</strong> ${result.productsCreated}</p>
-				<p><strong>Fuente:</strong> ${result.source === "demo" ? "Demo" : result.source === "ai_extracted" ? "IA (Fotos)" : "Ninguno"}</p>
-			`;
+        <p><strong>Restaurante:</strong> ${result.restaurant.name}</p>
+        <p><strong>ID:</strong> ${result.restaurant.id}</p>
+        <p><strong>Productos creados:</strong> ${result.productsCreated}</p>
+        <p><strong>Fuente:</strong> ${result.source === "demo" ? "Demo" : result.source === "ai_extracted" ? "IA (Fotos)" : "Ninguno"}</p>
+      `;
 
-      // Update email notice based on API response
       const emailNotice = document.getElementById("emailNotice") as HTMLDivElement;
       const emailTitle = document.getElementById("emailTitle") as HTMLElement;
       const emailDescription = document.getElementById("emailDescription") as HTMLParagraphElement;

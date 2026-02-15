@@ -33,6 +33,25 @@ export class CategoryRepository {
     });
   }
 
+  async findByRestaurantIdPaginated(
+    restaurantId: string,
+    skip: number,
+    take: number,
+  ): Promise<{ data: Category[]; total: number }> {
+    const [data, total] = await Promise.all([
+      this.prisma.category.findMany({
+        where: { restaurantId },
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.category.count({
+        where: { restaurantId },
+      }),
+    ]);
+    return { data, total };
+  }
+
   async findByNameAndRestaurant(
     name: string,
     restaurantId: string,

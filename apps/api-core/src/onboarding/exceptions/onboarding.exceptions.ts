@@ -14,3 +14,17 @@ export class OnboardingFailedException extends BaseException {
     );
   }
 }
+
+/**
+ * Thrown when a registration attempt uses an email that already exists.
+ */
+export class EmailAlreadyExistsException extends BaseException {
+  constructor(email: string) {
+    super(
+      `Email '${email}' is already registered`,
+      HttpStatus.CONFLICT,
+      'EMAIL_ALREADY_EXISTS',
+      { email },
+    );
+  }
+}

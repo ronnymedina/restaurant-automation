@@ -64,6 +64,25 @@ export class ProductRepository {
     });
   }
 
+  async findByRestaurantIdPaginated(
+    restaurantId: string,
+    skip: number,
+    take: number,
+  ): Promise<{ data: Product[]; total: number }> {
+    const [data, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where: { restaurantId },
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.product.count({
+        where: { restaurantId },
+      }),
+    ]);
+    return { data, total };
+  }
+
   async findAll(): Promise<Product[]> {
     return this.prisma.product.findMany();
   }
