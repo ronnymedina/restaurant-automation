@@ -50,7 +50,7 @@ const mockUsersService = {
 };
 
 const mockEmailService = {
-  sendActivationEmail: jest.fn().mockResolvedValue(undefined),
+  sendActivationEmail: jest.fn().mockResolvedValue(true),
 };
 
 describe('OnboardingService', () => {
@@ -77,7 +77,7 @@ describe('OnboardingService', () => {
     mockRestaurantsService.createRestaurant.mockResolvedValue(mockRestaurant);
     mockProductsService.getOrCreateDefaultCategory.mockResolvedValue(mockCategory);
     mockProductsService.createDemoProducts.mockResolvedValue(3);
-    mockEmailService.sendActivationEmail.mockResolvedValue(undefined);
+    mockEmailService.sendActivationEmail.mockResolvedValue(true);
   });
 
   describe('registerRestaurant - user creation flow', () => {
@@ -116,26 +116,22 @@ describe('OnboardingService', () => {
       expect(result.restaurant).toEqual(mockRestaurant);
     });
 
-    it('should send activation email after user creation (fire-and-forget)', async () => {
-      await service.registerRestaurant({
+    it('should send activation email and return emailSent=true on success', async () => {
+      const result = await service.registerRestaurant({
         email: 'new@restaurant.com',
         restaurantName: 'Test Restaurant',
         skipProducts: true,
       });
 
-      // Wait for fire-and-forget promise to resolve
-      await new Promise((r) => setTimeout(r, 10));
-
       expect(mockEmailService.sendActivationEmail).toHaveBeenCalledWith(
         mockUser.email,
         mockUser.activationToken,
       );
+      expect(result.emailSent).toBe(true);
     });
 
-    it('should not block onboarding if email sending fails', async () => {
-      mockEmailService.sendActivationEmail.mockRejectedValue(
-        new Error('SMTP error'),
-      );
+    it('should return emailSent=false when email fails without blocking onboarding', async () => {
+      mockEmailService.sendActivationEmail.mockResolvedValue(false);
 
       const result = await service.registerRestaurant({
         email: 'new@restaurant.com',
@@ -143,11 +139,9 @@ describe('OnboardingService', () => {
         skipProducts: true,
       });
 
-      // Wait for fire-and-forget to settle
-      await new Promise((r) => setTimeout(r, 10));
-
       expect(result.restaurant).toEqual(mockRestaurant);
       expect(result.productsCreated).toBe(3);
+      expect(result.emailSent).toBe(false);
     });
   });
 

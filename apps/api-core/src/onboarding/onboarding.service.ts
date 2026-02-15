@@ -22,6 +22,7 @@ export interface OnboardingResult {
   productsCreated: number;
   batches: number;
   source: (typeof SourceData)[keyof typeof SourceData];
+  emailSent: boolean;
 }
 
 export interface OnboardingInput {
@@ -66,12 +67,17 @@ export class OnboardingService {
       );
       this.logger.log(`User created with ID: ${user.id}`);
 
-      // 4. Send activation email (fire-and-forget)
-      this.emailService
-        .sendActivationEmail(user.email, user.activationToken!)
-        .catch((err) =>
-          this.logger.error('Failed to send activation email', err),
+      // 4. Send activation email
+      const emailSent = await this.emailService.sendActivationEmail(
+        user.email,
+        user.activationToken!,
+      );
+
+      if (!emailSent) {
+        this.logger.warn(
+          `Activation email could not be sent to ${user.email}`,
         );
+      }
 
       // 5. Create default category (single source of truth for category ID)
       const defaultCategory =
@@ -83,7 +89,7 @@ export class OnboardingService {
       // 6. Handle products based on input
       if (input.skipProducts) {
         this.logger.log('Creating demo products');
-        return this.handleDemoProducts(restaurant, defaultCategory.id);
+        return this.handleDemoProducts(restaurant, defaultCategory.id, emailSent);
       }
 
       if (input.photos && input.photos.length > 0) {
@@ -94,11 +100,12 @@ export class OnboardingService {
           restaurant,
           defaultCategory.id,
           input.photos,
+          emailSent,
         );
       }
 
       this.logger.log('No photos provided and skip not selected');
-      return this.handleNoProducts(restaurant);
+      return this.handleNoProducts(restaurant, emailSent);
     } catch (error) {
       // Re-throw known exceptions
       if (
@@ -133,6 +140,7 @@ export class OnboardingService {
   private async handleDemoProducts(
     restaurant: Restaurant,
     categoryId: string,
+    emailSent: boolean,
   ): Promise<OnboardingResult> {
     try {
       const demoCount = await this.productsService.createDemoProducts(
@@ -145,6 +153,7 @@ export class OnboardingService {
         productsCreated: demoCount,
         batches: 1,
         source: SourceData.DEMO,
+        emailSent,
       };
     } catch (error) {
       this.logger.error('Failed to create demo products', error);
@@ -159,6 +168,7 @@ export class OnboardingService {
     restaurant: Restaurant,
     categoryId: string,
     photos: Array<{ buffer: Buffer; mimeType: string }>,
+    emailSent: boolean,
   ): Promise<OnboardingResult> {
     const extractedProducts =
       await this.geminiService.extractProductsFromMultipleImages(photos);
@@ -168,7 +178,7 @@ export class OnboardingService {
       this.logger.warn(
         'No products extracted from images, creating demo products',
       );
-      return this.handleDemoProducts(restaurant, categoryId);
+      return this.handleDemoProducts(restaurant, categoryId, emailSent);
     }
 
     // Convert extracted products to ProductInput format
@@ -193,6 +203,7 @@ export class OnboardingService {
         productsCreated: totalCreated,
         batches,
         source: SourceData.AI_EXTRACTED,
+        emailSent,
       };
     } catch (error) {
       this.logger.error('Failed to create products batch', error);
@@ -204,11 +215,12 @@ export class OnboardingService {
     }
   }
 
-  private handleNoProducts(restaurant: Restaurant): OnboardingResult {
+  private handleNoProducts(restaurant: Restaurant, emailSent: boolean): OnboardingResult {
     return {
       restaurant,
       productsCreated: 0,
       batches: 0,
+      emailSent,
       source: SourceData.NONE,
     };
   }

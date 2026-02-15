@@ -18,27 +18,36 @@ export class EmailService {
     }
   }
 
-  async sendActivationEmail(email: string, token: string): Promise<void> {
+  async sendActivationEmail(email: string, token: string): Promise<boolean> {
     const activationUrl = `${FRONTEND_URL}/activate?token=${token}`;
 
     if (!this.resend) {
       this.logger.warn(
         `[DEV] Activation email for ${email}: ${activationUrl}`,
       );
-      return;
+      return true;
     }
 
     try {
-      await this.resend.emails.send({
+      const { error } = await this.resend.emails.send({
         from: EMAIL_FROM,
         to: email,
         subject: 'Activa tu cuenta',
         html: this.buildActivationHtml(activationUrl),
       });
 
+      if (error) {
+        this.logger.error(
+          `Resend API error for ${email}: ${error.message}`,
+        );
+        return false;
+      }
+
       this.logger.log(`Activation email sent to ${email}`);
+      return true;
     } catch (error) {
       this.logger.error(`Failed to send activation email to ${email}`, error);
+      return false;
     }
   }
 

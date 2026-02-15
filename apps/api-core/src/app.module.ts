@@ -12,6 +12,7 @@ import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot(),
     EventsModule,
     PrismaModule,
     RestaurantsModule,

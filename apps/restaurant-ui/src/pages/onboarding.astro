@@ -182,8 +182,8 @@ import Layout from "../layouts/Layout.astro";
           <!-- Filled dynamically -->
         </div>
 
-        <div class="email-notice">
-          <div class="email-icon">
+        <div class="email-notice" id="emailNotice">
+          <div class="email-icon" id="emailIcon">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="24"
@@ -200,10 +200,10 @@ import Layout from "../layouts/Layout.astro";
             </svg>
           </div>
           <div class="email-text">
-            <strong>Te enviaremos un correo</strong>
-            <p>
-              Recibirás la información para ingresar al dashboard y administrar
-              tu restaurante.
+            <strong id="emailTitle">Te enviamos un correo</strong>
+            <p id="emailDescription">
+              Revisa tu bandeja de entrada para activar tu cuenta y acceder al
+              dashboard.
             </p>
           </div>
         </div>
@@ -592,6 +592,15 @@ import Layout from "../layouts/Layout.astro";
     border: 1px solid #bfdbfe;
   }
 
+  .email-notice.email-error {
+    background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%);
+    border-color: #fecaca;
+  }
+
+  .email-notice.email-error .email-icon {
+    color: var(--error);
+  }
+
   .email-icon {
     color: var(--primary);
     flex-shrink: 0;
@@ -889,6 +898,7 @@ import Layout from "../layouts/Layout.astro";
 
     try {
       const form = new FormData();
+      form.append("email", formData.email);
       form.append("restaurantName", formData.restaurantName);
       form.append("skipProducts", String(formData.skipProducts));
 
@@ -898,7 +908,7 @@ import Layout from "../layouts/Layout.astro";
         });
       }
 
-      const response = await fetch(`${API_URL}/onboarding/register`, {
+      const response = await fetch(`${API_URL}/v1/onboarding/register`, {
         method: "POST",
         body: form,
       });
@@ -916,6 +926,23 @@ import Layout from "../layouts/Layout.astro";
 				<p><strong>Productos creados:</strong> ${result.productsCreated}</p>
 				<p><strong>Fuente:</strong> ${result.source === "demo" ? "Demo" : result.source === "ai_extracted" ? "IA (Fotos)" : "Ninguno"}</p>
 			`;
+
+      // Update email notice based on API response
+      const emailNotice = document.getElementById("emailNotice") as HTMLDivElement;
+      const emailTitle = document.getElementById("emailTitle") as HTMLElement;
+      const emailDescription = document.getElementById("emailDescription") as HTMLParagraphElement;
+
+      if (result.emailSent) {
+        emailNotice.classList.remove("email-error");
+        emailTitle.textContent = "Te enviamos un correo";
+        emailDescription.textContent =
+          "Revisa tu bandeja de entrada para activar tu cuenta y acceder al dashboard.";
+      } else {
+        emailNotice.classList.add("email-error");
+        emailTitle.textContent = "No pudimos enviar el correo";
+        emailDescription.textContent =
+          "Tu cuenta fue creada, pero hubo un problema al enviar el email de activación. Contacta al soporte para activar tu cuenta.";
+      }
 
       goToStep(3);
     } catch (error) {
