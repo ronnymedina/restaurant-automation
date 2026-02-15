@@ -1,13 +1,20 @@
 flowchart TD
-    A[POST /onboarding/register] --> B{skipProducts?}
-    B -->|Sí| C[Crear 3 productos demo]
-    B -->|No| D{Hay fotos?}
-    D -->|Sí| E[Extraer productos con Gemini]
-    D -->|No| F[Sin productos]
-    E --> G{Gemini configurado?}
-    G -->|Sí| H[Crear categoría 'default']
-    G -->|No| C
-    H --> I[Procesar productos en batches]
-    I --> J[Retornar resultado]
-    C --> J
-    F --> J
+    A[POST /onboarding/register] --> B{Validar Email}
+    B -->|Ya existe| Z[Error: Usuario duplicado]
+    B -->|Nuevo| C[Crear Restaurant]
+    C --> D[Crear Usuario Admin]
+    D --> E[Enviar Email Activación]
+    E --> F[Crear Categoría 'default']
+    F --> G{skipProducts?}
+    G -->|Sí| H[Crear 3 productos demo]
+    G -->|No| I{Hay fotos?}
+    I -->|Sí| J[Extraer productos con Gemini]
+    I -->|No| K[Sin productos]
+    J --> L{Gemini configurado?}
+    L -->|Sí| M[Procesar productos en batches]
+    L -->|No| H
+    M --> N[Retornar resultado]
+    H --> N
+    K --> N
+    E -->|Fallo envío| O[Log Warning (No detiene flujo)]
+    O --> F
