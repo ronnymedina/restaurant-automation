@@ -7,4 +7,5 @@ export {
   ValidationException,
   DuplicateEntityException,
   ExternalServiceException,
+  ForbiddenAccessException,
 } from './common.exceptions';

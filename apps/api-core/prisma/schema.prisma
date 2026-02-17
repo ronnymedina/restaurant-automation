@@ -8,13 +8,46 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  BASIC
+}
+
+model User {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  passwordHash String?
+  role         Role    @default(BASIC)
+  isActive     Boolean @default(false)
+
+  activationToken String? @unique
+
+  restaurantId String?
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
+
+  refreshTokens RefreshToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }
 
 model Restaurant {
   id   String @id @default(uuid())
   name String
 
+  users      User[]
   products   Product[]
   menus      Menu[]
   categories Category[]
@@ -63,6 +96,10 @@ model Menu {
   name   String // Ej: "Almuerzo Ejecutivo", "Carta Noche"
   active Boolean @default(true)
 
+  startTime  String? // "12:00"
+  endTime    String? // "15:00"
+  daysOfWeek String? // "MON,TUE,WED,THU,FRI" (comma-separated)
+
   restaurantId String
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
@@ -76,7 +113,7 @@ model MenuItem {
   id String @id @default(uuid())
 
   menuId String
-  menu   Menu   @relation(fields: [menuId], references: [id])
+  menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
 
   productId String
   product   Product @relation(fields: [productId], references: [id])
@@ -85,6 +122,7 @@ model MenuItem {
   price       Decimal? // Precio Override (Si es null, usa Product.price)
   stock       Int?     // Stock Allocation (Si es null, usa Product.stock global sin límite específico)
   sectionName String?  // Sección Visual en la Carta (Ej: "Para Empezar", "el ñandu")
+  order       Int      @default(0) // Orden dentro de la sección
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

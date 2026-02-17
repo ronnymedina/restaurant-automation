@@ -37,8 +37,14 @@ export class OnboardingController {
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['restaurantName'],
+      required: ['email', 'restaurantName'],
       properties: {
+        email: {
+          type: 'string',
+          format: 'email',
+          description: 'Email del usuario',
+          example: 'usuario@restaurante.com',
+        },
         restaurantName: {
           type: 'string',
           description: 'Nombre del restaurante',
@@ -89,6 +95,7 @@ export class OnboardingController {
     }));
 
     return this.onboardingService.registerRestaurant({
+      email: body.email,
       restaurantName: body.restaurantName,
       skipProducts: body.skipProducts,
       photos,

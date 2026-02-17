@@ -48,6 +48,19 @@ export class DuplicateEntityException extends BaseException {
 }
 
 /**
+ * Thrown when a user tries to access a resource from another tenant.
+ */
+export class ForbiddenAccessException extends BaseException {
+  constructor() {
+    super(
+      'You do not have access to this resource',
+      HttpStatus.FORBIDDEN,
+      'FORBIDDEN_ACCESS',
+    );
+  }
+}
+
+/**
  * Thrown when an external service call fails.
  */
 export class ExternalServiceException extends BaseException {

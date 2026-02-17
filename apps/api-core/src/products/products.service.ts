@@ -5,6 +5,8 @@ import { Product, Category } from '@prisma/client';
 import { ProductRepository, CreateProductData } from './product.repository';
 import { CategoryRepository } from './category.repository';
 import { productConfig } from './product.config';
+import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
+import { EntityNotFoundException, ForbiddenAccessException } from '../common/exceptions';
 
 export interface ProductInput {
   name: string;
@@ -90,8 +92,48 @@ export class ProductsService {
     return this.productRepository.findByRestaurantId(restaurantId);
   }
 
-  async findById(id: string): Promise<Product | null> {
-    return this.productRepository.findById(id);
+  async findByRestaurantIdPaginated(
+    restaurantId: string,
+    page?: number,
+    limit?: number,
+  ): Promise<PaginatedResult<Product>> {
+    const currentPage = page || 1;
+    const currentLimit = limit || this.configService.defaultPageSize;
+    const skip = (currentPage - 1) * currentLimit;
+
+    const { data, total } =
+      await this.productRepository.findByRestaurantIdPaginated(
+        restaurantId,
+        skip,
+        currentLimit,
+      );
+
+    return {
+      data,
+      meta: {
+        total,
+        page: currentPage,
+        limit: currentLimit,
+        totalPages: Math.ceil(total / currentLimit),
+      },
+    };
+  }
+
+  async findById(id: string, restaurantId: string): Promise<Product> {
+    const product = await this.productRepository.findById(id);
+    if (!product) throw new EntityNotFoundException('Product', id);
+    if (product.restaurantId !== restaurantId) throw new ForbiddenAccessException();
+    return product;
+  }
+
+  async updateProduct(id: string, restaurantId: string, data: Partial<CreateProductData>): Promise<Product> {
+    await this.findById(id, restaurantId);
+    return this.productRepository.update(id, data);
+  }
+
+  async deleteProduct(id: string, restaurantId: string): Promise<Product> {
+    await this.findById(id, restaurantId);
+    return this.productRepository.delete(id);
   }
 
   /**

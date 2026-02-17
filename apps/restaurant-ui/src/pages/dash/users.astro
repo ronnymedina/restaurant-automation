@@ -1,0 +1,227 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+---
+
+<DashboardLayout>
+  <div class="space-y-6">
+    <div class="flex justify-between items-center">
+      <h2 class="text-2xl font-bold text-slate-800">Usuarios</h2>
+      <button id="newUserBtn"
+        class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none">
+        Nuevo usuario
+      </button>
+    </div>
+
+    <!-- Create Form -->
+    <div id="createForm" class="hidden bg-white rounded-xl border border-slate-200 p-6">
+      <h3 class="text-lg font-semibold text-slate-800 mb-4">Nuevo usuario</h3>
+      <form id="createFormEl" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+          <input type="email" id="createEmail" required
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
+          <input type="password" id="createPassword" required minlength="8"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Rol</label>
+          <select id="createRole"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="BASIC">Basic</option>
+            <option value="MANAGER">Manager</option>
+          </select>
+        </div>
+        <div class="flex gap-2">
+          <button type="submit"
+            class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none">
+            Crear
+          </button>
+          <button type="button" id="cancelCreateBtn"
+            class="px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors cursor-pointer border-none">
+            Cancelar
+          </button>
+        </div>
+      </form>
+      <p id="createError" class="hidden mt-3 text-sm text-red-600"></p>
+    </div>
+
+    <!-- Edit Form -->
+    <div id="userForm" class="hidden bg-white rounded-xl border border-slate-200 p-6">
+      <h3 class="text-lg font-semibold text-slate-800 mb-4">Editar usuario</h3>
+      <form id="userFormEl" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <input type="hidden" id="userId" />
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+          <input type="email" id="userEmail"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Rol</label>
+          <select id="userRole"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="ADMIN">Admin</option>
+            <option value="MANAGER">Manager</option>
+            <option value="BASIC">Basic</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Activo</label>
+          <select id="userIsActive"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="true">Sí</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+        <div class="md:col-span-3 flex gap-2">
+          <button type="submit"
+            class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none">
+            Guardar
+          </button>
+          <button type="button" id="cancelBtn"
+            class="px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors cursor-pointer border-none">
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 border-b border-slate-200">
+          <tr>
+            <th class="text-left px-4 py-3 font-medium text-slate-600">Email</th>
+            <th class="text-left px-4 py-3 font-medium text-slate-600">Rol</th>
+            <th class="text-left px-4 py-3 font-medium text-slate-600">Activo</th>
+            <th class="text-right px-4 py-3 font-medium text-slate-600">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="usersTableBody">
+          <tr>
+            <td colspan="4" class="px-4 py-8 text-center text-slate-400">Cargando...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  import { apiFetch } from '../../lib/api';
+
+  const tableBody = document.getElementById('usersTableBody')!;
+  const userForm = document.getElementById('userForm')!;
+  const formEl = document.getElementById('userFormEl') as HTMLFormElement;
+  const createForm = document.getElementById('createForm')!;
+  const createFormEl = document.getElementById('createFormEl') as HTMLFormElement;
+  const createError = document.getElementById('createError')!;
+
+  async function loadUsers() {
+    const res = await apiFetch('/v1/users');
+    if (!res.ok) { tableBody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-red-400">Error al cargar</td></tr>'; return; }
+    const data = await res.json();
+
+    if (data.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-slate-400">No hay usuarios</td></tr>';
+      return;
+    }
+
+    tableBody.innerHTML = data.map((u: any) => `
+      <tr class="border-b border-slate-100 hover:bg-slate-50">
+        <td class="px-4 py-3 font-medium text-slate-800">${u.email}</td>
+        <td class="px-4 py-3 text-slate-600">${u.role}</td>
+        <td class="px-4 py-3"><span class="px-2 py-0.5 text-xs rounded-full ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${u.isActive ? 'Sí' : 'No'}</span></td>
+        <td class="px-4 py-3 text-right space-x-2">
+          <button data-edit-id="${u.id}" data-edit-email="${u.email}" data-edit-role="${u.role}" data-edit-active="${u.isActive}" class="edit-btn text-indigo-600 hover:text-indigo-800 cursor-pointer bg-transparent border-none text-sm">Editar</button>
+          <button data-delete="${u.id}" class="delete-btn text-red-600 hover:text-red-800 cursor-pointer bg-transparent border-none text-sm">Eliminar</button>
+        </td>
+      </tr>
+    `).join('');
+
+    bindTableEvents();
+  }
+
+  function bindTableEvents() {
+    tableBody.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const el = btn as HTMLElement;
+        (document.getElementById('userId') as HTMLInputElement).value = el.dataset.editId!;
+        (document.getElementById('userEmail') as HTMLInputElement).value = el.dataset.editEmail!;
+        (document.getElementById('userRole') as HTMLSelectElement).value = el.dataset.editRole!;
+        (document.getElementById('userIsActive') as HTMLSelectElement).value = el.dataset.editActive!;
+        userForm.classList.remove('hidden');
+      });
+    });
+
+    tableBody.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = (btn as HTMLElement).dataset.delete!;
+        if (!confirm('¿Eliminar este usuario?')) return;
+        await apiFetch(`/v1/users/${id}`, { method: 'DELETE' });
+        loadUsers();
+      });
+    });
+  }
+
+  document.getElementById('cancelBtn')!.addEventListener('click', () => {
+    userForm.classList.add('hidden');
+    formEl.reset();
+  });
+
+  formEl.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = (document.getElementById('userId') as HTMLInputElement).value;
+    const body = {
+      email: (document.getElementById('userEmail') as HTMLInputElement).value,
+      role: (document.getElementById('userRole') as HTMLSelectElement).value,
+      isActive: (document.getElementById('userIsActive') as HTMLSelectElement).value === 'true',
+    };
+
+    await apiFetch(`/v1/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+    userForm.classList.add('hidden');
+    formEl.reset();
+    loadUsers();
+  });
+
+  document.getElementById('newUserBtn')!.addEventListener('click', () => {
+    createForm.classList.remove('hidden');
+    userForm.classList.add('hidden');
+    createError.classList.add('hidden');
+  });
+
+  document.getElementById('cancelCreateBtn')!.addEventListener('click', () => {
+    createForm.classList.add('hidden');
+    createFormEl.reset();
+    createError.classList.add('hidden');
+  });
+
+  createFormEl.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    createError.classList.add('hidden');
+
+    const body = {
+      email: (document.getElementById('createEmail') as HTMLInputElement).value,
+      password: (document.getElementById('createPassword') as HTMLInputElement).value,
+      role: (document.getElementById('createRole') as HTMLSelectElement).value,
+    };
+
+    const res = await apiFetch('/v1/users', { method: 'POST', body: JSON.stringify(body) });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      createError.textContent = data?.message || 'Error al crear usuario';
+      createError.classList.remove('hidden');
+      return;
+    }
+
+    createForm.classList.add('hidden');
+    createFormEl.reset();
+    loadUsers();
+  });
+
+  loadUsers();
+</script>

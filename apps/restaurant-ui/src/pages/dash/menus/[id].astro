@@ -1,0 +1,390 @@
+---
+export const prerender = false;
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+const { id } = Astro.params;
+---
+
+<DashboardLayout>
+  <div class="space-y-6" data-menu-id={id}>
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+      <div>
+        <a href="/dash/menus" class="text-sm text-indigo-600 hover:text-indigo-800">&larr; Volver a menús</a>
+        <h2 id="menuTitle" class="text-2xl font-bold text-slate-800 mt-1">Cargando...</h2>
+        <p id="menuMeta" class="text-sm text-slate-500"></p>
+      </div>
+      <button
+        id="addSectionBtn"
+        class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none"
+      >
+        + Nueva sección
+      </button>
+    </div>
+
+    <!-- New Section Form (hidden) -->
+    <div id="sectionForm" class="hidden bg-white rounded-xl border border-slate-200 p-6">
+      <h3 class="text-lg font-semibold text-slate-800 mb-4">Nueva sección</h3>
+      <form id="sectionFormEl" class="flex gap-4 items-end">
+        <div class="flex-1">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Nombre de la sección *</label>
+          <input type="text" id="sectionNameInput" required placeholder="Ej: Carnes, Entradas, Bebidas"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <button type="submit"
+          class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none">
+          Crear y agregar productos
+        </button>
+        <button type="button" id="cancelSectionBtn"
+          class="px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors cursor-pointer border-none">
+          Cancelar
+        </button>
+      </form>
+    </div>
+
+    <!-- Product Picker Modal (hidden) -->
+    <div id="productPicker" class="hidden bg-white rounded-xl border border-indigo-200 p-6 shadow-lg">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold text-slate-800">
+          Agregar productos a: <span id="pickerSectionName" class="text-indigo-600"></span>
+        </h3>
+        <button id="cancelPickerBtn" class="text-slate-400 hover:text-slate-600 cursor-pointer bg-transparent border-none text-lg">&times;</button>
+      </div>
+      <div class="mb-3">
+        <input type="text" id="productSearch" placeholder="Buscar producto..."
+          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      </div>
+      <div id="productList" class="max-h-64 overflow-y-auto space-y-1 mb-4 border border-slate-100 rounded-lg p-2">
+      </div>
+      <div class="flex justify-between items-center">
+        <span id="selectedCount" class="text-sm text-slate-500">0 seleccionados</span>
+        <button id="confirmPickerBtn"
+          class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled>
+          Agregar seleccionados
+        </button>
+      </div>
+    </div>
+
+    <!-- Edit Item Form (hidden) -->
+    <div id="editItemForm" class="hidden bg-white rounded-xl border border-slate-200 p-6">
+      <h3 class="text-lg font-semibold text-slate-800 mb-4">Editar item: <span id="editItemName" class="text-indigo-600"></span></h3>
+      <form id="editItemFormEl" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <input type="hidden" id="editItemId" />
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Precio override</label>
+          <input type="number" id="editItemPrice" step="0.01" min="0" placeholder="Precio del producto"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Stock</label>
+          <input type="number" id="editItemStock" min="0" placeholder="Sin límite"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Sección</label>
+          <input type="text" id="editItemSection"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div class="md:col-span-3 flex gap-2">
+          <button type="submit"
+            class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none">
+            Guardar
+          </button>
+          <button type="button" id="cancelEditBtn"
+            class="px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors cursor-pointer border-none">
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Sections with items -->
+    <div id="sectionsContainer">
+      <div class="text-center py-8 text-slate-400">Cargando...</div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  import { apiFetch } from '../../../lib/api';
+
+  const DAY_LABELS: Record<string, string> = {
+    MON: 'Lun', TUE: 'Mar', WED: 'Mié', THU: 'Jue', FRI: 'Vie', SAT: 'Sáb', SUN: 'Dom',
+  };
+
+  const menuId = document.querySelector('[data-menu-id]')!.getAttribute('data-menu-id')!;
+  let allProducts: any[] = [];
+  let pickerSection = '';
+
+  const sectionsContainer = document.getElementById('sectionsContainer')!;
+  const sectionForm = document.getElementById('sectionForm')!;
+  const sectionFormEl = document.getElementById('sectionFormEl') as HTMLFormElement;
+  const productPicker = document.getElementById('productPicker')!;
+  const productList = document.getElementById('productList')!;
+  const productSearch = document.getElementById('productSearch') as HTMLInputElement;
+  const selectedCount = document.getElementById('selectedCount')!;
+  const confirmPickerBtn = document.getElementById('confirmPickerBtn') as HTMLButtonElement;
+  const editItemForm = document.getElementById('editItemForm')!;
+  const editItemFormEl = document.getElementById('editItemFormEl') as HTMLFormElement;
+
+  // --- Load data ---
+
+  async function loadProducts() {
+    const res = await apiFetch('/v1/products?limit=200');
+    if (res.ok) {
+      const { data } = await res.json();
+      allProducts = data;
+    }
+  }
+
+  async function loadMenu() {
+    const res = await apiFetch(`/v1/menus/${menuId}`);
+    if (!res.ok) {
+      document.getElementById('menuTitle')!.textContent = 'Menú no encontrado';
+      return;
+    }
+    const menu = await res.json();
+
+    document.getElementById('menuTitle')!.textContent = menu.name;
+    const days = menu.daysOfWeek ? menu.daysOfWeek.split(',').map((d: string) => DAY_LABELS[d] || d).join(', ') : '';
+    const schedule = menu.startTime || menu.endTime ? `${menu.startTime || '?'} - ${menu.endTime || '?'}` : '';
+    const parts = [schedule, days, menu.active ? 'Activo' : 'Inactivo'].filter(Boolean);
+    document.getElementById('menuMeta')!.textContent = parts.join(' | ');
+
+    renderSections(menu.items || []);
+  }
+
+  // --- Render sections ---
+
+  function renderSections(items: any[]) {
+    if (items.length === 0) {
+      sectionsContainer.innerHTML = '<div class="bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-400">No hay secciones aún. Crea una con el botón de arriba.</div>';
+      return;
+    }
+
+    const sections: Record<string, any[]> = {};
+    items.forEach((item: any) => {
+      const section = item.sectionName || 'Sin sección';
+      if (!sections[section]) sections[section] = [];
+      sections[section].push(item);
+    });
+
+    let html = '';
+    for (const [sectionName, sectionItems] of Object.entries(sections)) {
+      html += `
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden mb-4">
+          <div class="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+            <h3 class="text-sm font-semibold text-slate-700">${sectionName}</h3>
+            <button data-add-to-section="${sectionName}" class="add-to-section-btn text-xs px-3 py-1 bg-indigo-50 text-indigo-600 rounded-md hover:bg-indigo-100 cursor-pointer border-none font-medium">
+              + Agregar productos
+            </button>
+          </div>
+          <table class="w-full text-sm">
+            <thead class="border-b border-slate-100">
+              <tr>
+                <th class="text-left px-4 py-2 font-medium text-slate-500 text-xs">Orden</th>
+                <th class="text-left px-4 py-2 font-medium text-slate-500 text-xs">Producto</th>
+                <th class="text-left px-4 py-2 font-medium text-slate-500 text-xs">Categoría</th>
+                <th class="text-left px-4 py-2 font-medium text-slate-500 text-xs">Precio</th>
+                <th class="text-left px-4 py-2 font-medium text-slate-500 text-xs">Stock</th>
+                <th class="text-right px-4 py-2 font-medium text-slate-500 text-xs">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sectionItems.map((item: any) => {
+                const displayPrice = item.price !== null ? Number(item.price).toFixed(2) : Number(item.product.price).toFixed(2);
+                const priceLabel = item.price !== null
+                  ? `$${displayPrice} <span class="text-xs text-amber-600">(override)</span>`
+                  : `$${displayPrice}`;
+                const stockLabel = item.stock !== null ? item.stock : '<span class="text-xs text-slate-400">global</span>';
+                const editData = JSON.stringify({
+                  id: item.id,
+                  productName: item.product.name,
+                  price: item.price,
+                  stock: item.stock,
+                  sectionName: item.sectionName,
+                  order: item.order,
+                }).replace(/'/g, '&#39;');
+                return `
+                  <tr class="border-b border-slate-50 hover:bg-slate-50">
+                    <td class="px-4 py-2.5 text-slate-400 text-xs">${item.order}</td>
+                    <td class="px-4 py-2.5 font-medium text-slate-800">${item.product.name}</td>
+                    <td class="px-4 py-2.5 text-slate-500 text-xs">${item.product.category?.name || '-'}</td>
+                    <td class="px-4 py-2.5 text-slate-600">${priceLabel}</td>
+                    <td class="px-4 py-2.5 text-slate-600">${stockLabel}</td>
+                    <td class="px-4 py-2.5 text-right space-x-2">
+                      <button data-edit-item='${editData}' class="edit-item-btn text-indigo-600 hover:text-indigo-800 cursor-pointer bg-transparent border-none text-sm">Editar</button>
+                      <button data-delete-item="${item.id}" class="delete-item-btn text-red-600 hover:text-red-800 cursor-pointer bg-transparent border-none text-sm">Eliminar</button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+    sectionsContainer.innerHTML = html;
+    bindSectionEvents();
+  }
+
+  // --- Section events ---
+
+  function bindSectionEvents() {
+    sectionsContainer.querySelectorAll('.add-to-section-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const section = (btn as HTMLElement).dataset.addToSection!;
+        openProductPicker(section);
+      });
+    });
+
+    sectionsContainer.querySelectorAll('.edit-item-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = JSON.parse((btn as HTMLElement).dataset.editItem!);
+        openEditForm(item);
+      });
+    });
+
+    sectionsContainer.querySelectorAll('.delete-item-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const itemId = (btn as HTMLElement).dataset.deleteItem!;
+        if (!confirm('¿Quitar este producto del menú?')) return;
+        await apiFetch(`/v1/menus/${menuId}/items/${itemId}`, { method: 'DELETE' });
+        loadMenu();
+      });
+    });
+  }
+
+  // --- New Section ---
+
+  document.getElementById('addSectionBtn')!.addEventListener('click', () => {
+    sectionForm.classList.remove('hidden');
+    (document.getElementById('sectionNameInput') as HTMLInputElement).focus();
+  });
+
+  document.getElementById('cancelSectionBtn')!.addEventListener('click', () => {
+    sectionForm.classList.add('hidden');
+    sectionFormEl.reset();
+  });
+
+  sectionFormEl.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = (document.getElementById('sectionNameInput') as HTMLInputElement).value.trim();
+    if (!name) return;
+    sectionForm.classList.add('hidden');
+    sectionFormEl.reset();
+    openProductPicker(name);
+  });
+
+  // --- Product Picker ---
+
+  function openProductPicker(sectionName: string) {
+    pickerSection = sectionName;
+    document.getElementById('pickerSectionName')!.textContent = sectionName;
+    productSearch.value = '';
+    renderProductList('');
+    productPicker.classList.remove('hidden');
+    productSearch.focus();
+  }
+
+  function renderProductList(filter: string) {
+    const lower = filter.toLowerCase();
+    const filtered = allProducts.filter(p =>
+      p.name.toLowerCase().includes(lower) ||
+      (p.description || '').toLowerCase().includes(lower)
+    );
+
+    if (filtered.length === 0) {
+      productList.innerHTML = '<div class="text-center py-4 text-slate-400 text-sm">No hay productos</div>';
+      return;
+    }
+
+    productList.innerHTML = filtered.map(p => `
+      <label class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 cursor-pointer">
+        <input type="checkbox" value="${p.id}" class="product-checkbox w-4 h-4 text-indigo-600 rounded border-slate-300" />
+        <span class="flex-1 text-sm text-slate-800">${p.name}</span>
+        <span class="text-xs text-slate-400">$${Number(p.price).toFixed(2)}</span>
+      </label>
+    `).join('');
+
+    productList.querySelectorAll('.product-checkbox').forEach(cb => {
+      cb.addEventListener('change', updateSelectedCount);
+    });
+  }
+
+  function updateSelectedCount() {
+    const checked = productList.querySelectorAll('.product-checkbox:checked');
+    const count = checked.length;
+    selectedCount.textContent = `${count} seleccionado${count !== 1 ? 's' : ''}`;
+    confirmPickerBtn.disabled = count === 0;
+  }
+
+  productSearch.addEventListener('input', () => {
+    renderProductList(productSearch.value);
+  });
+
+  document.getElementById('cancelPickerBtn')!.addEventListener('click', () => {
+    productPicker.classList.add('hidden');
+  });
+
+  confirmPickerBtn.addEventListener('click', async () => {
+    const checked = productList.querySelectorAll('.product-checkbox:checked') as NodeListOf<HTMLInputElement>;
+    const productIds = Array.from(checked).map(cb => cb.value);
+    if (productIds.length === 0) return;
+
+    confirmPickerBtn.disabled = true;
+    confirmPickerBtn.textContent = 'Agregando...';
+
+    await apiFetch(`/v1/menus/${menuId}/items/bulk`, {
+      method: 'POST',
+      body: JSON.stringify({ productIds, sectionName: pickerSection }),
+    });
+
+    confirmPickerBtn.textContent = 'Agregar seleccionados';
+    productPicker.classList.add('hidden');
+    loadMenu();
+  });
+
+  // --- Edit Item ---
+
+  function openEditForm(item: any) {
+    editItemForm.classList.remove('hidden');
+    document.getElementById('editItemName')!.textContent = item.productName;
+    (document.getElementById('editItemId') as HTMLInputElement).value = item.id;
+    (document.getElementById('editItemPrice') as HTMLInputElement).value = item.price !== null ? item.price : '';
+    (document.getElementById('editItemStock') as HTMLInputElement).value = item.stock !== null ? item.stock : '';
+    (document.getElementById('editItemSection') as HTMLInputElement).value = item.sectionName || '';
+  }
+
+  document.getElementById('cancelEditBtn')!.addEventListener('click', () => {
+    editItemForm.classList.add('hidden');
+    editItemFormEl.reset();
+  });
+
+  editItemFormEl.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const itemId = (document.getElementById('editItemId') as HTMLInputElement).value;
+    const body: any = {};
+
+    const price = (document.getElementById('editItemPrice') as HTMLInputElement).value;
+    const stock = (document.getElementById('editItemStock') as HTMLInputElement).value;
+    const sectionName = (document.getElementById('editItemSection') as HTMLInputElement).value;
+
+    if (price !== '') body.price = Number(price);
+    if (stock !== '') body.stock = Number(stock);
+    if (sectionName) body.sectionName = sectionName;
+
+    await apiFetch(`/v1/menus/${menuId}/items/${itemId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+
+    editItemForm.classList.add('hidden');
+    editItemFormEl.reset();
+    loadMenu();
+  });
+
+  // --- Init ---
+
+  loadProducts().then(() => loadMenu());
+</script>

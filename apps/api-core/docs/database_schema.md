@@ -11,8 +11,19 @@ The root entity representing a business unit.
 *   **products**: One-to-many relation to `Product`.
 *   **menus**: One-to-many relation to `Menu`.
 *   **categories**: One-to-many relation to `Category`.
+*   **users**: One-to-many relation to `User`.
 
-### 2. Product (Catalog)
+### 2. User (System Users)
+Represents a user of the system (e.g., Owner, Manager, Staff).
+*   **id**: Unique UUID.
+*   **email**: Unique email address.
+*   **passwordHash**: Hashed password.
+*   **role**: Role of the user (ADMIN, MANAGER, BASIC).
+*   **isActive**: Account activation status.
+*   **activationToken**: Token for account activation.
+*   **restaurantId**: Foreign key to `Restaurant` (optional).
+
+### 3. Product (Catalog)
 Represents a sellable item in its abstract form (e.g., "Coca Cola", "Pizza Muzarella").
 *   **id**: Unique UUID.
 *   **name**: Name of the product.
@@ -51,6 +62,7 @@ Links a `Product` to a `Menu`, defining how it appears and behaves in that speci
 
 ```mermaid
 erDiagram
+    Restaurant ||--o{ User : has
     Restaurant ||--o{ Product : owns
     Restaurant ||--o{ Menu : owns
     Restaurant ||--o{ Category : owns
