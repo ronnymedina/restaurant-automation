@@ -74,4 +74,12 @@ export class CategoryRepository {
     }
     return this.create(data);
   }
+
+  async update(id: string, data: Partial<CreateCategoryData>): Promise<Category> {
+    return this.prisma.category.update({ where: { id }, data });
+  }
+
+  async delete(id: string): Promise<Category> {
+    return this.prisma.category.delete({ where: { id } });
+  }
 }

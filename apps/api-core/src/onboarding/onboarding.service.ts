@@ -68,7 +68,7 @@ export class OnboardingService {
       );
       this.logger.log(`User created with ID: ${user.id}`);
 
-      // 4. Send activation email
+      // 4. Send activation email (token only sent via email, never in API response)
       const emailSent = await this.emailService.sendActivationEmail(
         user.email,
         user.activationToken!,
@@ -120,7 +120,7 @@ export class OnboardingService {
       // Wrap unknown errors
       this.logger.error('Unexpected error during onboarding', error);
       throw new OnboardingFailedException('Unexpected error occurred', {
-        originalError: error instanceof Error ? error.message : String(error),
+        // originalError stripped — logged server-side only
       });
     }
   }
@@ -133,7 +133,7 @@ export class OnboardingService {
       this.logger.error('Failed to create restaurant', error);
       throw new OnboardingFailedException('Failed to create restaurant', {
         restaurantName: name,
-        originalError: error instanceof Error ? error.message : String(error),
+        // originalError stripped — logged server-side only
       });
     }
   }
@@ -160,7 +160,7 @@ export class OnboardingService {
       this.logger.error('Failed to create demo products', error);
       throw new OnboardingFailedException('Failed to create demo products', {
         restaurantId: restaurant.id,
-        originalError: error instanceof Error ? error.message : String(error),
+        // originalError stripped — logged server-side only
       });
     }
   }
@@ -211,7 +211,7 @@ export class OnboardingService {
       throw new OnboardingFailedException('Failed to save extracted products', {
         restaurantId: restaurant.id,
         productCount: productInputs.length,
-        originalError: error instanceof Error ? error.message : String(error),
+        // originalError stripped — logged server-side only
       });
     }
   }

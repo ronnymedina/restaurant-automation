@@ -75,6 +75,7 @@ export class ProductRepository {
         skip,
         take,
         orderBy: { createdAt: 'desc' },
+        include: { category: true },
       }),
       this.prisma.product.count({
         where: { restaurantId },

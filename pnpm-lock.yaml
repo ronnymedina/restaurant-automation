@@ -65,6 +65,9 @@ importers:
       class-validator:
         specifier: 0.14.3
         version: 0.14.3
+      helmet:
+        specifier: 8.1.0
+        version: 8.1.0
       nest-commander:
         specifier: 3.20.1
         version: 3.20.1(@nestjs/common@11.0.1(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.1))(@nestjs/core@11.0.1)(@types/inquirer@8.2.12)(@types/node@22.10.7)(typescript@5.7.3)
@@ -177,6 +180,9 @@ importers:
 
   apps/restaurant-ui:
     dependencies:
+      '@astrojs/node':
+        specifier: 9.5.3
+        version: 9.5.3(astro@5.17.1(@types/node@22.19.9)(jiti@2.6.1)(rollup@4.57.1)(terser@5.46.0)(typescript@5.9.3)(yaml@2.8.2))
       '@astrojs/tailwind':
         specifier: 6.0.2
         version: 6.0.2(astro@5.17.1(@types/node@22.19.9)(jiti@2.6.1)(rollup@4.57.1)(terser@5.46.0)(typescript@5.9.3)(yaml@2.8.2))(tailwindcss@3.4.19(ts-node@10.9.2(@types/node@22.19.9)(typescript@5.9.3)))(ts-node@10.9.2(@types/node@22.19.9)(typescript@5.9.3))
@@ -232,6 +238,11 @@ packages:
 
   '@astrojs/markdown-remark@6.3.10':
     resolution: {integrity: sha512-kk4HeYR6AcnzC4QV8iSlOfh+N8TZ3MEStxPyenyCtemqn8IpEATBFMTJcfrNW32dgpt6MY3oCkMM/Tv3/I4G3A==}
+
+  '@astrojs/node@9.5.3':
+    resolution: {integrity: sha512-72jrSn0XtrD7COJVO6TxJmyU1yXdYK7MDdN/+fhqhf4YOhxuIPHclkXrJs8FbLCMx5ur56d/1ijX4XBeneqyXQ==}
+    peerDependencies:
+      astro: ^5.14.3
 
   '@astrojs/prism@3.3.0':
     resolution: {integrity: sha512-q8VwfU/fDZNoDOf+r7jUnMC2//H2l0TuQ6FkGJL8vD8nw/q5KiL3DS1KKBI3QhI9UQhpJ5dc7AtqfbXWuOgLCQ==}
@@ -3156,6 +3167,10 @@ packages:
   hastscript@9.0.1:
     resolution: {integrity: sha512-g7df9rMFX/SPi34tyGCyUBREQoKkapwdY/T04Qn9TDWfHhAYt4/I0gMVirzK5wEzeUqIjEB+LXC/ypb7Aqno5w==}
 
+  helmet@8.1.0:
+    resolution: {integrity: sha512-jOiHyAZsmnr8LqoPGmCjYAaiuWwjAPLgY8ZX2XrmHawt99/u1y6RgrZMTeoPfpUbV96HOalYgz1qzkRbw54Pmg==}
+    engines: {node: '>=18.0.0'}
+
   hono@4.11.4:
     resolution: {integrity: sha512-U7tt8JsyrxSRKspfhtLET79pU8K+tInj5QZXs1jSugO1Vq5dFj3kmZsRldo29mTBfcjDRVRXrEZ6LS63Cog9ZA==}
     engines: {node: '>=16.9.0'}
@@ -4594,6 +4609,9 @@ packages:
     resolution: {integrity: sha512-xRXBn0pPqQTVQiC8wyQrKs2MOlX24zQ0POGaj0kultvoOCstBQM5yvOhAVSUwOMjQtTvsPWoNCHfPGwaaQJhTw==}
     engines: {node: '>= 18'}
 
+  server-destroy@1.0.1:
+    resolution: {integrity: sha512-rb+9B5YBIEzYcD6x2VKidaa+cqYBJQKnU4oe4E3ANwRRN56yk/ua1YCJT1n21NTS8w6CcOclAKNP3PhdCXKYtQ==}
+
   setprototypeof@1.2.0:
     resolution: {integrity: sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==}
 
@@ -5540,6 +5558,15 @@ snapshots:
       unist-util-visit: 5.1.0
       unist-util-visit-parents: 6.0.2
       vfile: 6.0.3
+    transitivePeerDependencies:
+      - supports-color
+
+  '@astrojs/node@9.5.3(astro@5.17.1(@types/node@22.19.9)(jiti@2.6.1)(rollup@4.57.1)(terser@5.46.0)(typescript@5.9.3)(yaml@2.8.2))':
+    dependencies:
+      '@astrojs/internal-helpers': 0.7.5
+      astro: 5.17.1(@types/node@22.19.9)(jiti@2.6.1)(rollup@4.57.1)(terser@5.46.0)(typescript@5.9.3)(yaml@2.8.2)
+      send: 1.2.1
+      server-destroy: 1.0.1
     transitivePeerDependencies:
       - supports-color
 
@@ -8755,6 +8782,8 @@ snapshots:
       property-information: 7.1.0
       space-separated-tokens: 2.0.2
 
+  helmet@8.1.0: {}
+
   hono@4.11.4: {}
 
   html-escaper@2.0.2: {}
@@ -10621,6 +10650,8 @@ snapshots:
       send: 1.2.1
     transitivePeerDependencies:
       - supports-color
+
+  server-destroy@1.0.1: {}
 
   setprototypeof@1.2.0: {}
 

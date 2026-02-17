@@ -9,7 +9,6 @@ import { RefreshTokenRepository } from './refresh-token.repository';
 import { authConfig } from './auth.config';
 import {
   InvalidCredentialsException,
-  InactiveAccountException,
   InvalidRefreshTokenException,
 } from './exceptions/auth.exceptions';
 import { JwtPayload } from './strategies/jwt.strategy';
@@ -35,11 +34,13 @@ export class AuthService {
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
+      this.logger.warn(`Failed login attempt for email: ${email}`);
       throw new InvalidCredentialsException();
     }
 
     if (!user.isActive) {
-      throw new InactiveAccountException();
+      this.logger.warn(`Login attempt on inactive account: ${email}`);
+      throw new InvalidCredentialsException();
     }
 
     const accessToken = this.generateAccessToken(user);
@@ -75,6 +76,11 @@ export class AuthService {
     const refreshToken = await this.generateRefreshToken(user.id);
 
     return { accessToken, refreshToken };
+  }
+
+  async revokeAllTokens(userId: string): Promise<void> {
+    await this.refreshTokenRepository.deleteAllByUserId(userId);
+    this.logger.log(`All tokens revoked for user: ${userId}`);
   }
 
   private generateAccessToken(user: {

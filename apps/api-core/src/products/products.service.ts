@@ -6,6 +6,7 @@ import { ProductRepository, CreateProductData } from './product.repository';
 import { CategoryRepository } from './category.repository';
 import { productConfig } from './product.config';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
+import { EntityNotFoundException, ForbiddenAccessException } from '../common/exceptions';
 
 export interface ProductInput {
   name: string;
@@ -118,8 +119,21 @@ export class ProductsService {
     };
   }
 
-  async findById(id: string): Promise<Product | null> {
-    return this.productRepository.findById(id);
+  async findById(id: string, restaurantId: string): Promise<Product> {
+    const product = await this.productRepository.findById(id);
+    if (!product) throw new EntityNotFoundException('Product', id);
+    if (product.restaurantId !== restaurantId) throw new ForbiddenAccessException();
+    return product;
+  }
+
+  async updateProduct(id: string, restaurantId: string, data: Partial<CreateProductData>): Promise<Product> {
+    await this.findById(id, restaurantId);
+    return this.productRepository.update(id, data);
+  }
+
+  async deleteProduct(id: string, restaurantId: string): Promise<Product> {
+    await this.findById(id, restaurantId);
+    return this.productRepository.delete(id);
   }
 
   /**

@@ -1,0 +1,245 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+---
+
+<DashboardLayout>
+  <div class="space-y-6">
+    <div class="flex justify-between items-center">
+      <h2 class="text-2xl font-bold text-slate-800">Productos</h2>
+      <button
+        id="newProductBtn"
+        class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none"
+      >
+        Nuevo producto
+      </button>
+    </div>
+
+    <!-- Create/Edit Form (hidden by default) -->
+    <div id="productForm" class="hidden bg-white rounded-xl border border-slate-200 p-6">
+      <h3 id="formTitle" class="text-lg font-semibold text-slate-800 mb-4">Nuevo producto</h3>
+      <form id="productFormEl" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <input type="hidden" id="productId" />
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
+          <input type="text" id="productName" required
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Precio</label>
+          <input type="number" id="productPrice" step="0.01" min="0"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Stock</label>
+          <input type="number" id="productStock" min="0"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">SKU</label>
+          <input type="text" id="productSku"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Categoría</label>
+          <select id="productCategory"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">Sin categoría</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">URL de imagen</label>
+          <input type="text" id="productImageUrl"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+          <textarea id="productDescription" rows="2"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+        </div>
+        <div class="md:col-span-2 flex gap-2">
+          <button type="submit"
+            class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none">
+            Guardar
+          </button>
+          <button type="button" id="cancelBtn"
+            class="px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors cursor-pointer border-none">
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 border-b border-slate-200">
+          <tr>
+            <th class="text-left px-4 py-3 font-medium text-slate-600">Nombre</th>
+            <th class="text-left px-4 py-3 font-medium text-slate-600">Precio</th>
+            <th class="text-left px-4 py-3 font-medium text-slate-600">Stock</th>
+            <th class="text-left px-4 py-3 font-medium text-slate-600">Categoría</th>
+            <th class="text-left px-4 py-3 font-medium text-slate-600">Activo</th>
+            <th class="text-right px-4 py-3 font-medium text-slate-600">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="productsTableBody">
+          <tr>
+            <td colspan="6" class="px-4 py-8 text-center text-slate-400">Cargando...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div id="pagination" class="flex justify-center gap-2"></div>
+  </div>
+</DashboardLayout>
+
+<script>
+  import { apiFetch } from '../../lib/api';
+
+  let currentPage = 1;
+  let editingId: string | null = null;
+
+  const tableBody = document.getElementById('productsTableBody')!;
+  const productForm = document.getElementById('productForm')!;
+  const formTitle = document.getElementById('formTitle')!;
+  const formEl = document.getElementById('productFormEl') as HTMLFormElement;
+  const paginationEl = document.getElementById('pagination')!;
+  const categorySelect = document.getElementById('productCategory') as HTMLSelectElement;
+
+  async function loadCategories() {
+    const res = await apiFetch('/v1/categories?limit=100');
+    if (res.ok) {
+      const { data } = await res.json();
+      categorySelect.innerHTML = '<option value="">Sin categoría</option>';
+      data.forEach((cat: any) => {
+        const opt = document.createElement('option');
+        opt.value = cat.id;
+        opt.textContent = cat.name;
+        categorySelect.appendChild(opt);
+      });
+    }
+  }
+
+  async function loadProducts(page = 1) {
+    currentPage = page;
+    const res = await apiFetch(`/v1/products?page=${page}&limit=10`);
+    if (!res.ok) { tableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-red-400">Error al cargar</td></tr>'; return; }
+    const { data, meta } = await res.json();
+
+    if (data.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">No hay productos</td></tr>';
+      paginationEl.innerHTML = '';
+      return;
+    }
+
+    tableBody.innerHTML = data.map((p: any) => `
+      <tr class="border-b border-slate-100 hover:bg-slate-50">
+        <td class="px-4 py-3 font-medium text-slate-800">${p.name}</td>
+        <td class="px-4 py-3 text-slate-600">$${Number(p.price).toFixed(2)}</td>
+        <td class="px-4 py-3 text-slate-600">${p.stock}</td>
+        <td class="px-4 py-3 text-slate-600">${p.category?.name || '-'}</td>
+        <td class="px-4 py-3"><span class="px-2 py-0.5 text-xs rounded-full ${p.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${p.active ? 'Sí' : 'No'}</span></td>
+        <td class="px-4 py-3 text-right space-x-2">
+          <button data-edit='${JSON.stringify(p)}' class="edit-btn text-indigo-600 hover:text-indigo-800 cursor-pointer bg-transparent border-none text-sm">Editar</button>
+          <button data-delete="${p.id}" class="delete-btn text-red-600 hover:text-red-800 cursor-pointer bg-transparent border-none text-sm">Eliminar</button>
+        </td>
+      </tr>
+    `).join('');
+
+    // Pagination
+    let pagHtml = '';
+    for (let i = 1; i <= meta.totalPages; i++) {
+      pagHtml += `<button data-page="${i}" class="px-3 py-1 rounded text-sm cursor-pointer border ${i === currentPage ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}">${i}</button>`;
+    }
+    paginationEl.innerHTML = pagHtml;
+
+    bindTableEvents();
+    bindPaginationEvents();
+  }
+
+  function bindTableEvents() {
+    tableBody.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const p = JSON.parse((btn as HTMLElement).dataset.edit!);
+        editingId = p.id;
+        formTitle.textContent = 'Editar producto';
+        (document.getElementById('productId') as HTMLInputElement).value = p.id;
+        (document.getElementById('productName') as HTMLInputElement).value = p.name;
+        (document.getElementById('productPrice') as HTMLInputElement).value = p.price || '';
+        (document.getElementById('productStock') as HTMLInputElement).value = p.stock || '';
+        (document.getElementById('productSku') as HTMLInputElement).value = p.sku || '';
+        (document.getElementById('productImageUrl') as HTMLInputElement).value = p.imageUrl || '';
+        (document.getElementById('productDescription') as HTMLTextAreaElement).value = p.description || '';
+        categorySelect.value = p.categoryId || '';
+        productForm.classList.remove('hidden');
+      });
+    });
+
+    tableBody.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = (btn as HTMLElement).dataset.delete!;
+        if (!confirm('¿Eliminar este producto?')) return;
+        await apiFetch(`/v1/products/${id}`, { method: 'DELETE' });
+        loadProducts(currentPage);
+      });
+    });
+  }
+
+  function bindPaginationEvents() {
+    paginationEl.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        loadProducts(Number((btn as HTMLElement).dataset.page));
+      });
+    });
+  }
+
+  document.getElementById('newProductBtn')!.addEventListener('click', () => {
+    editingId = null;
+    formTitle.textContent = 'Nuevo producto';
+    formEl.reset();
+    productForm.classList.remove('hidden');
+  });
+
+  document.getElementById('cancelBtn')!.addEventListener('click', () => {
+    productForm.classList.add('hidden');
+    formEl.reset();
+    editingId = null;
+  });
+
+  formEl.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body: any = {
+      name: (document.getElementById('productName') as HTMLInputElement).value,
+    };
+    const price = (document.getElementById('productPrice') as HTMLInputElement).value;
+    const stock = (document.getElementById('productStock') as HTMLInputElement).value;
+    const sku = (document.getElementById('productSku') as HTMLInputElement).value;
+    const imageUrl = (document.getElementById('productImageUrl') as HTMLInputElement).value;
+    const description = (document.getElementById('productDescription') as HTMLTextAreaElement).value;
+    const categoryId = categorySelect.value;
+
+    if (price) body.price = Number(price);
+    if (stock) body.stock = Number(stock);
+    if (sku) body.sku = sku;
+    if (imageUrl) body.imageUrl = imageUrl;
+    if (description) body.description = description;
+    if (categoryId) body.categoryId = categoryId;
+
+    if (editingId) {
+      await apiFetch(`/v1/products/${editingId}`, { method: 'PATCH', body: JSON.stringify(body) });
+    } else {
+      await apiFetch('/v1/products', { method: 'POST', body: JSON.stringify(body) });
+    }
+
+    productForm.classList.add('hidden');
+    formEl.reset();
+    editingId = null;
+    loadProducts(currentPage);
+  });
+
+  loadCategories();
+  loadProducts();
+</script>

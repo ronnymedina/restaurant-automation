@@ -35,4 +35,12 @@ export class UserRepository {
   async update(id: string, data: Partial<CreateUserData>): Promise<User> {
     return this.prisma.user.update({ where: { id }, data });
   }
+
+  async findByRestaurantId(restaurantId: string): Promise<User[]> {
+    return this.prisma.user.findMany({ where: { restaurantId } });
+  }
+
+  async delete(id: string): Promise<User> {
+    return this.prisma.user.delete({ where: { id } });
+  }
 }

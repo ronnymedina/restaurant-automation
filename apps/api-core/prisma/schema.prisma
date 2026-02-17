@@ -96,6 +96,10 @@ model Menu {
   name   String // Ej: "Almuerzo Ejecutivo", "Carta Noche"
   active Boolean @default(true)
 
+  startTime  String? // "12:00"
+  endTime    String? // "15:00"
+  daysOfWeek String? // "MON,TUE,WED,THU,FRI" (comma-separated)
+
   restaurantId String
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
@@ -109,7 +113,7 @@ model MenuItem {
   id String @id @default(uuid())
 
   menuId String
-  menu   Menu   @relation(fields: [menuId], references: [id])
+  menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
 
   productId String
   product   Product @relation(fields: [productId], references: [id])
@@ -118,6 +122,7 @@ model MenuItem {
   price       Decimal? // Precio Override (Si es null, usa Product.price)
   stock       Int?     // Stock Allocation (Si es null, usa Product.stock global sin límite específico)
   sectionName String?  // Sección Visual en la Carta (Ej: "Para Empezar", "el ñandu")
+  order       Int      @default(0) // Orden dentro de la sección
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

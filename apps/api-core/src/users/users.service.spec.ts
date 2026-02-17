@@ -8,6 +8,7 @@ import {
   InvalidActivationTokenException,
   UserAlreadyActiveException,
 } from './exceptions/users.exceptions';
+import { userConfig } from './users.config';
 
 const mockUser = (overrides = {}) => ({
   id: 'user-uuid-1',
@@ -38,6 +39,7 @@ describe('UsersService', () => {
       providers: [
         UsersService,
         { provide: UserRepository, useValue: mockUserRepository },
+        { provide: userConfig.KEY, useValue: { bcryptSaltRounds: 10 } },
       ],
     }).compile();
 
