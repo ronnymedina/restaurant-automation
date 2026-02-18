@@ -73,7 +73,11 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   async function loadCategories(page = 1) {
     currentPage = page;
     const res = await apiFetch(`/v1/categories?page=${page}&limit=10`);
-    if (!res.ok) { tableBody.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-red-400">Error al cargar</td></tr>'; return; }
+    if (!res.ok) {
+      const msg = res.status === 403 ? 'No tienes permisos para acceder a esta sección' : 'Error al cargar';
+      tableBody.innerHTML = `<tr><td colspan="3" class="px-4 py-8 text-center text-red-400">${msg}</td></tr>`;
+      return;
+    }
     const { data, meta } = await res.json();
 
     if (data.length === 0) {

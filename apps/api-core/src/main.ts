@@ -23,11 +23,13 @@ async function bootstrap() {
     type: VersioningType.URI,
   });
 
-  app.useGlobalPipes(new ValidationPipe({
-    transform: true,
-    whitelist: true,
-    forbidNonWhitelisted: true,
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
 
   // Setup Swagger only in development
   if (!isProduction) {

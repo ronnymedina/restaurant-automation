@@ -51,7 +51,11 @@ export class ProductsController {
     @Body() dto: CreateProductDto,
   ) {
     const { categoryId, ...data } = dto;
-    return this.productsService.createProduct(user.restaurantId, data, categoryId);
+    return this.productsService.createProduct(
+      user.restaurantId,
+      data,
+      categoryId,
+    );
   }
 
   @Patch(':id')

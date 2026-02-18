@@ -7,16 +7,29 @@ import { MenuItemRepository, CreateMenuItemData } from './menu-item.repository';
 export class MenuItemsService {
   constructor(private readonly menuItemRepository: MenuItemRepository) {}
 
-  async createItem(menuId: string, data: Omit<CreateMenuItemData, 'menuId'>): Promise<MenuItem> {
+  async createItem(
+    menuId: string,
+    data: Omit<CreateMenuItemData, 'menuId'>,
+  ): Promise<MenuItem> {
     if (data.order === undefined) {
-      const maxOrder = await this.menuItemRepository.getMaxOrder(menuId, data.sectionName ?? '');
+      const maxOrder = await this.menuItemRepository.getMaxOrder(
+        menuId,
+        data.sectionName ?? '',
+      );
       data.order = maxOrder + 1;
     }
     return this.menuItemRepository.create({ ...data, menuId });
   }
 
-  async bulkCreateItems(menuId: string, productIds: string[], sectionName: string): Promise<number> {
-    const maxOrder = await this.menuItemRepository.getMaxOrder(menuId, sectionName);
+  async bulkCreateItems(
+    menuId: string,
+    productIds: string[],
+    sectionName: string,
+  ): Promise<number> {
+    const maxOrder = await this.menuItemRepository.getMaxOrder(
+      menuId,
+      sectionName,
+    );
     const items: CreateMenuItemData[] = productIds.map((productId, index) => ({
       menuId,
       productId,
@@ -26,7 +39,10 @@ export class MenuItemsService {
     return this.menuItemRepository.createMany(items);
   }
 
-  async updateItem(itemId: string, data: Partial<Omit<CreateMenuItemData, 'menuId' | 'productId'>>): Promise<MenuItem> {
+  async updateItem(
+    itemId: string,
+    data: Partial<Omit<CreateMenuItemData, 'menuId' | 'productId'>>,
+  ): Promise<MenuItem> {
     return this.menuItemRepository.update(itemId, data);
   }
 

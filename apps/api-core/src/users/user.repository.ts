@@ -9,7 +9,7 @@ export interface CreateUserData {
   role?: Role;
   isActive?: boolean;
   activationToken?: string | null;
-  restaurantId?: string;
+  restaurantId: string;
 }
 
 @Injectable()
@@ -21,15 +21,21 @@ export class UserRepository {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { email } });
+    return this.prisma.user.findFirst({
+      where: { email, deletedAt: null },
+    });
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { id } });
+    return this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+    });
   }
 
   async findByActivationToken(token: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { activationToken: token } });
+    return this.prisma.user.findFirst({
+      where: { activationToken: token, deletedAt: null },
+    });
   }
 
   async update(id: string, data: Partial<CreateUserData>): Promise<User> {
@@ -37,10 +43,15 @@ export class UserRepository {
   }
 
   async findByRestaurantId(restaurantId: string): Promise<User[]> {
-    return this.prisma.user.findMany({ where: { restaurantId } });
+    return this.prisma.user.findMany({
+      where: { restaurantId, deletedAt: null },
+    });
   }
 
   async delete(id: string): Promise<User> {
-    return this.prisma.user.delete({ where: { id } });
+    return this.prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   }
 }

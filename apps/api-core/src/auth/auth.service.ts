@@ -23,7 +23,7 @@ export class AuthService {
     private readonly refreshTokenRepository: RefreshTokenRepository,
     @Inject(authConfig.KEY)
     private readonly configService: ConfigType<typeof authConfig>,
-  ) { }
+  ) {}
 
   async login(email: string, password: string) {
     const user = await this.usersService.findByEmail(email);
@@ -96,17 +96,23 @@ export class AuthService {
       restaurantId: user.restaurantId,
     };
 
-    return this.jwtService.sign({ ...payload }, {
-      secret: this.configService.jwtSecret,
-      expiresIn: this.configService.jwtAccessExpiration as any,
-    });
+    return this.jwtService.sign(
+      { ...payload },
+      {
+        secret: this.configService.jwtSecret,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
+        expiresIn: this.configService.jwtAccessExpiration as any,
+      },
+    );
   }
 
   private async generateRefreshToken(userId: string): Promise<string> {
     const token = randomUUID();
 
     // Parse refresh expiration to milliseconds
-    const expiresIn = this.parseExpiration(this.configService.jwtRefreshExpiration);
+    const expiresIn = this.parseExpiration(
+      this.configService.jwtRefreshExpiration,
+    );
     const expiresAt = new Date(Date.now() + expiresIn);
 
     await this.refreshTokenRepository.create({
@@ -126,11 +132,16 @@ export class AuthService {
     const unit = match[2];
 
     switch (unit) {
-      case 's': return value * 1000;
-      case 'm': return value * 60 * 1000;
-      case 'h': return value * 60 * 60 * 1000;
-      case 'd': return value * 24 * 60 * 60 * 1000;
-      default: return 7 * 24 * 60 * 60 * 1000;
+      case 's':
+        return value * 1000;
+      case 'm':
+        return value * 60 * 1000;
+      case 'h':
+        return value * 60 * 60 * 1000;
+      case 'd':
+        return value * 24 * 60 * 60 * 1000;
+      default:
+        return 7 * 24 * 60 * 60 * 1000;
     }
   }
 }

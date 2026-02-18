@@ -1,0 +1,188 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+---
+
+<DashboardLayout>
+  <div class="space-y-6">
+    <h2 class="text-2xl font-bold text-slate-800">Pedidos</h2>
+
+    <!-- Status Tabs -->
+    <div id="statusTabs" class="flex gap-2 flex-wrap">
+      <button data-status="" class="status-tab px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border-none bg-indigo-600 text-white">Todos</button>
+      <button data-status="CREATED" class="status-tab px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border-none bg-slate-100 text-slate-600 hover:bg-slate-200">Creado</button>
+      <button data-status="PROCESSING" class="status-tab px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border-none bg-slate-100 text-slate-600 hover:bg-slate-200">En Proceso</button>
+      <button data-status="PAID" class="status-tab px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border-none bg-slate-100 text-slate-600 hover:bg-slate-200">Pagado</button>
+      <button data-status="COMPLETED" class="status-tab px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border-none bg-slate-100 text-slate-600 hover:bg-slate-200">Completado</button>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 border-b border-slate-200">
+          <tr>
+            <th class="text-left px-4 py-3 font-medium text-slate-600">#</th>
+            <th class="text-left px-4 py-3 font-medium text-slate-600">Hora</th>
+            <th class="text-left px-4 py-3 font-medium text-slate-600">Items</th>
+            <th class="text-left px-4 py-3 font-medium text-slate-600">Total</th>
+            <th class="text-left px-4 py-3 font-medium text-slate-600">Pago</th>
+            <th class="text-left px-4 py-3 font-medium text-slate-600">Estado</th>
+            <th class="text-right px-4 py-3 font-medium text-slate-600">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="ordersTableBody">
+          <tr>
+            <td colspan="7" class="px-4 py-8 text-center text-slate-400">Cargando...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  import { apiFetch } from '../../lib/api';
+
+  let currentStatus = '';
+  const tableBody = document.getElementById('ordersTableBody')!;
+
+  const statusColors: Record<string, string> = {
+    CREATED: 'bg-yellow-100 text-yellow-700',
+    PROCESSING: 'bg-blue-100 text-blue-700',
+    PAID: 'bg-emerald-100 text-emerald-700',
+    COMPLETED: 'bg-slate-100 text-slate-600',
+  };
+
+  const statusLabels: Record<string, string> = {
+    CREATED: 'Creado',
+    PROCESSING: 'En Proceso',
+    PAID: 'Pagado',
+    COMPLETED: 'Completado',
+  };
+
+  const nextStatus: Record<string, string> = {
+    CREATED: 'PROCESSING',
+    PROCESSING: 'PAID',
+    PAID: 'COMPLETED',
+  };
+
+  const nextStatusLabel: Record<string, string> = {
+    CREATED: 'Procesar',
+    PROCESSING: 'Marcar Pagado',
+    PAID: 'Completar',
+  };
+
+  function updateTabs() {
+    document.querySelectorAll('.status-tab').forEach(btn => {
+      const s = (btn as HTMLElement).dataset.status!;
+      if (s === currentStatus) {
+        btn.className = 'status-tab px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border-none bg-indigo-600 text-white';
+      } else {
+        btn.className = 'status-tab px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border-none bg-slate-100 text-slate-600 hover:bg-slate-200';
+      }
+    });
+  }
+
+  document.querySelectorAll('.status-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentStatus = (btn as HTMLElement).dataset.status!;
+      updateTabs();
+      loadOrders();
+    });
+  });
+
+  async function loadOrders() {
+    const query = currentStatus ? `?status=${currentStatus}` : '';
+    const res = await apiFetch(`/v1/orders${query}`);
+    if (!res.ok) {
+      const msg = res.status === 403 ? 'No tienes permisos para acceder a esta sección' : 'Error al cargar pedidos';
+      tableBody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-red-400">${msg}</td></tr>`;
+      return;
+    }
+    const orders = await res.json();
+
+    if (orders.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">No hay pedidos</td></tr>';
+      return;
+    }
+
+    tableBody.innerHTML = orders.map((o: any) => {
+      const time = new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const itemsSummary = o.items?.map((i: any) => `${i.quantity}x ${i.product?.name || '?'}`).join(', ') || '-';
+      const next = nextStatus[o.status];
+      const badge = statusColors[o.status] || 'bg-slate-100 text-slate-600';
+
+      return `
+        <tr class="border-b border-slate-100 hover:bg-slate-50">
+          <td class="px-4 py-3 font-bold text-slate-800">#${o.orderNumber}</td>
+          <td class="px-4 py-3 text-slate-600">${time}</td>
+          <td class="px-4 py-3 text-slate-600 max-w-[200px] truncate">${itemsSummary}</td>
+          <td class="px-4 py-3 font-semibold text-slate-800">$${Number(o.totalAmount).toFixed(2)}</td>
+          <td class="px-4 py-3 text-slate-600">${o.paymentMethod || '-'}</td>
+          <td class="px-4 py-3"><span class="px-2 py-0.5 text-xs rounded-full font-medium ${badge}">${statusLabels[o.status] || o.status}</span></td>
+          <td class="px-4 py-3 text-right space-x-2">
+            ${next ? `<button data-advance="${o.id}" data-next="${next}" class="advance-btn text-indigo-600 hover:text-indigo-800 cursor-pointer bg-transparent border-none text-sm font-medium">${nextStatusLabel[o.status]}</button>` : ''}
+            <button data-receipt="${o.id}" class="receipt-btn text-slate-500 hover:text-slate-700 cursor-pointer bg-transparent border-none text-sm">Recibo</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    bindEvents();
+  }
+
+  function bindEvents() {
+    tableBody.querySelectorAll('.advance-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = (btn as HTMLElement).dataset.advance!;
+        const next = (btn as HTMLElement).dataset.next!;
+        const res = await apiFetch(`/v1/orders/${id}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: next }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          alert(err?.message || 'Error al actualizar estado');
+          return;
+        }
+        loadOrders();
+      });
+    });
+
+    tableBody.querySelectorAll('.receipt-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = (btn as HTMLElement).dataset.receipt!;
+        const res = await apiFetch(`/v1/print/receipt/${id}`);
+        if (!res.ok) {
+          alert('Error al obtener recibo');
+          return;
+        }
+        const receipt = await res.json();
+        const win = window.open('', '_blank', 'width=400,height=600');
+        if (win) {
+          win.document.write(`
+            <html><head><title>Recibo #${receipt.orderNumber}</title>
+            <style>body{font-family:monospace;padding:20px;max-width:350px;margin:0 auto}table{width:100%;border-collapse:collapse}td,th{padding:4px 0;text-align:left}th:last-child,td:last-child{text-align:right}.total{border-top:2px solid #000;font-weight:bold;font-size:1.2em}</style>
+            </head><body>
+            <h2>${receipt.restaurantName}</h2>
+            <p>Pedido #${receipt.orderNumber}<br>${new Date(receipt.date).toLocaleString()}</p>
+            <table>
+              <tr><th>Producto</th><th>Cant</th><th>Subtotal</th></tr>
+              ${receipt.items.map((i: any) => `<tr><td>${i.productName}</td><td>${i.quantity}</td><td>$${i.subtotal.toFixed(2)}</td></tr>${i.notes ? `<tr><td colspan="3" style="color:#666;font-size:0.9em">${i.notes}</td></tr>` : ''}`).join('')}
+            </table>
+            <p class="total">Total: $${receipt.totalAmount.toFixed(2)}</p>
+            <p>Pago: ${receipt.paymentMethod}</p>
+            </body></html>
+          `);
+          win.document.close();
+          win.print();
+        }
+      });
+    });
+  }
+
+  loadOrders();
+
+  // Auto-refresh every 15 seconds
+  setInterval(loadOrders, 15000);
+</script>

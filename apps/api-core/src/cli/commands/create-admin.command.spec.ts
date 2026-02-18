@@ -11,7 +11,7 @@ const mockAdminUser = {
   role: Role.ADMIN,
   isActive: true,
   activationToken: null,
-  restaurantId: null,
+  restaurantId: 'restaurant-uuid-1',
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -40,31 +40,37 @@ describe('CreateAdminCommand', () => {
       .spyOn(process, 'exit')
       .mockImplementation((code?: number) => {
         throw new Error(`process.exit(${code})`);
-      }) as any;
+      }) as unknown as jest.SpiedFunction<typeof process.exit>;
   });
 
   afterEach(() => {
     exitSpy.mockRestore();
   });
 
-  it('should create an admin user with email and password', async () => {
+  it('should create an admin user with email, password and restaurantId', async () => {
     mockUsersService.createAdminUser.mockResolvedValue(mockAdminUser);
 
     await command.run([], {
       email: 'admin@test.com',
       password: 'SecurePass123',
+      restaurantId: 'restaurant-uuid-1',
     });
 
     expect(mockUsersService.createAdminUser).toHaveBeenCalledWith(
       'admin@test.com',
       'SecurePass123',
+      'restaurant-uuid-1',
     );
     expect(exitSpy).not.toHaveBeenCalled();
   });
 
   it('should exit with code 1 if email is missing', async () => {
     await expect(
-      command.run([], { email: '', password: 'SecurePass123' }),
+      command.run([], {
+        email: '',
+        password: 'SecurePass123',
+        restaurantId: 'restaurant-uuid-1',
+      }),
     ).rejects.toThrow('process.exit(1)');
 
     expect(mockUsersService.createAdminUser).not.toHaveBeenCalled();
@@ -72,7 +78,23 @@ describe('CreateAdminCommand', () => {
 
   it('should exit with code 1 if password is missing', async () => {
     await expect(
-      command.run([], { email: 'admin@test.com', password: '' }),
+      command.run([], {
+        email: 'admin@test.com',
+        password: '',
+        restaurantId: 'restaurant-uuid-1',
+      }),
+    ).rejects.toThrow('process.exit(1)');
+
+    expect(mockUsersService.createAdminUser).not.toHaveBeenCalled();
+  });
+
+  it('should exit with code 1 if restaurantId is missing', async () => {
+    await expect(
+      command.run([], {
+        email: 'admin@test.com',
+        password: 'SecurePass123',
+        restaurantId: '',
+      }),
     ).rejects.toThrow('process.exit(1)');
 
     expect(mockUsersService.createAdminUser).not.toHaveBeenCalled();
@@ -84,7 +106,11 @@ describe('CreateAdminCommand', () => {
     );
 
     await expect(
-      command.run([], { email: 'admin@test.com', password: 'SecurePass123' }),
+      command.run([], {
+        email: 'admin@test.com',
+        password: 'SecurePass123',
+        restaurantId: 'restaurant-uuid-1',
+      }),
     ).rejects.toThrow('process.exit(1)');
   });
 

@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsArray, IsUUID, MaxLength, ArrayMaxSize } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsArray,
+  IsUUID,
+  MaxLength,
+  ArrayMaxSize,
+} from 'class-validator';
 
 export class BulkCreateMenuItemsDto {
   @IsArray()

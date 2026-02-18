@@ -34,7 +34,10 @@ export class UsersController {
   @ApiResponse({ status: 400, description: 'Token inválido o expirado' })
   @ApiResponse({ status: 409, description: 'La cuenta ya está activa' })
   async activate(@Body() body: ActivateUserDto) {
-    const user = await this.usersService.activateUser(body.token, body.password);
+    const user = await this.usersService.activateUser(
+      body.token,
+      body.password,
+    );
     return {
       message: 'Cuenta activada exitosamente',
       userId: user.id,
@@ -47,7 +50,10 @@ export class UsersController {
   @Roles(Role.MANAGER)
   @ApiOperation({ summary: 'Crear usuario (solo MANAGER)' })
   @ApiResponse({ status: 201, description: 'Usuario creado exitosamente' })
-  @ApiResponse({ status: 403, description: 'Solo MANAGER puede crear usuarios' })
+  @ApiResponse({
+    status: 403,
+    description: 'Solo MANAGER puede crear usuarios',
+  })
   @ApiResponse({ status: 409, description: 'Email ya existe' })
   async create(
     @Body() dto: CreateUserDto,

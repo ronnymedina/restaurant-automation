@@ -25,13 +25,16 @@ export const DEFAULT_PAGE_SIZE = Number(process.env.DEFAULT_PAGE_SIZE) || 10;
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
-    throw new Error(`${name} environment variable is required. Set it in your .env file.`);
+    throw new Error(
+      `${name} environment variable is required. Set it in your .env file.`,
+    );
   }
   return value;
 }
 export const JWT_SECRET = requireEnv('JWT_SECRET');
 export const JWT_ACCESS_EXPIRATION = process.env.JWT_ACCESS_EXPIRATION || '15m';
-export const JWT_REFRESH_EXPIRATION = process.env.JWT_REFRESH_EXPIRATION || '7d';
+export const JWT_REFRESH_EXPIRATION =
+  process.env.JWT_REFRESH_EXPIRATION || '7d';
 
 // users
 export const RESEND_API_KEY = process.env.RESEND_API_KEY || '';

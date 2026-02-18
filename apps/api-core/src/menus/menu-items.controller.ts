@@ -11,7 +11,11 @@ import { Role } from '@prisma/client';
 
 import { MenuItemsService } from './menu-items.service';
 import { MenusService } from './menus.service';
-import { CreateMenuItemDto, UpdateMenuItemDto, BulkCreateMenuItemsDto } from './dto';
+import {
+  CreateMenuItemDto,
+  UpdateMenuItemDto,
+  BulkCreateMenuItemsDto,
+} from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';

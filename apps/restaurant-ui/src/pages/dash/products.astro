@@ -44,7 +44,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
           <label class="block text-sm font-medium text-slate-700 mb-1">Categoría</label>
           <select id="productCategory"
             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <option value="">Sin categoría</option>
+            <option value="" disabled selected>Selecciona una categoría</option>
           </select>
         </div>
         <div>
@@ -113,7 +113,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     const res = await apiFetch('/v1/categories?limit=100');
     if (res.ok) {
       const { data } = await res.json();
-      categorySelect.innerHTML = '<option value="">Sin categoría</option>';
+      categorySelect.innerHTML = '<option value="" disabled selected>Selecciona una categoría</option>';
       data.forEach((cat: any) => {
         const opt = document.createElement('option');
         opt.value = cat.id;
@@ -126,7 +126,11 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   async function loadProducts(page = 1) {
     currentPage = page;
     const res = await apiFetch(`/v1/products?page=${page}&limit=10`);
-    if (!res.ok) { tableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-red-400">Error al cargar</td></tr>'; return; }
+    if (!res.ok) {
+      const msg = res.status === 403 ? 'No tienes permisos para acceder a esta sección' : 'Error al cargar';
+      tableBody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-red-400">${msg}</td></tr>`;
+      return;
+    }
     const { data, meta } = await res.json();
 
     if (data.length === 0) {

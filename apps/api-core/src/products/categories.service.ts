@@ -5,7 +5,10 @@ import { Category } from '@prisma/client';
 import { CategoryRepository, CreateCategoryData } from './category.repository';
 import { productConfig } from './product.config';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
-import { EntityNotFoundException, ForbiddenAccessException } from '../common/exceptions';
+import {
+  EntityNotFoundException,
+  ForbiddenAccessException,
+} from '../common/exceptions';
 
 @Injectable()
 export class CategoriesService {
@@ -50,10 +53,14 @@ export class CategoriesService {
     return this.categoryRepository.create({ name, restaurantId });
   }
 
-  private async findByIdAndVerifyOwnership(id: string, restaurantId: string): Promise<Category> {
+  private async findByIdAndVerifyOwnership(
+    id: string,
+    restaurantId: string,
+  ): Promise<Category> {
     const category = await this.categoryRepository.findById(id);
     if (!category) throw new EntityNotFoundException('Category', id);
-    if (category.restaurantId !== restaurantId) throw new ForbiddenAccessException();
+    if (category.restaurantId !== restaurantId)
+      throw new ForbiddenAccessException();
     return category;
   }
 

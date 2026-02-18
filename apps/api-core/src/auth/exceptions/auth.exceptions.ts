@@ -13,11 +13,7 @@ export class InvalidCredentialsException extends BaseException {
 
 export class InactiveAccountException extends BaseException {
   constructor() {
-    super(
-      'Account is not active',
-      HttpStatus.FORBIDDEN,
-      'ACCOUNT_INACTIVE',
-    );
+    super('Account is not active', HttpStatus.FORBIDDEN, 'ACCOUNT_INACTIVE');
   }
 }
 

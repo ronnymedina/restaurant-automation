@@ -139,7 +139,8 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   async function loadMenus() {
     const res = await apiFetch('/v1/menus');
     if (!res.ok) {
-      tableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-red-400">Error al cargar</td></tr>';
+      const msg = res.status === 403 ? 'No tienes permisos para acceder a esta sección' : 'Error al cargar';
+      tableBody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-red-400">${msg}</td></tr>`;
       return;
     }
     const data = await res.json();

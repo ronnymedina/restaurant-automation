@@ -13,7 +13,17 @@ import { productConfig } from './product.config';
 @Module({
   imports: [ConfigModule.forFeature(productConfig)],
   controllers: [ProductsController, CategoriesController],
-  providers: [ProductsService, CategoriesService, ProductRepository, CategoryRepository],
-  exports: [ProductsService, CategoriesService, ProductRepository, CategoryRepository],
+  providers: [
+    ProductsService,
+    CategoriesService,
+    ProductRepository,
+    CategoryRepository,
+  ],
+  exports: [
+    ProductsService,
+    CategoriesService,
+    ProductRepository,
+    CategoryRepository,
+  ],
 })
-export class ProductsModule { }
+export class ProductsModule {}

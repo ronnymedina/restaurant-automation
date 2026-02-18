@@ -16,7 +16,8 @@ export class MenusService {
   async verifyOwnership(menuId: string, restaurantId: string): Promise<Menu> {
     const menu = await this.menuRepository.findById(menuId);
     if (!menu) throw new MenuNotFoundException(menuId);
-    if (menu.restaurantId !== restaurantId) throw new ForbiddenAccessException();
+    if (menu.restaurantId !== restaurantId)
+      throw new ForbiddenAccessException();
     return menu;
   }
 
@@ -27,11 +28,18 @@ export class MenusService {
     return menu;
   }
 
-  async createMenu(restaurantId: string, data: Omit<CreateMenuData, 'restaurantId'>): Promise<Menu> {
+  async createMenu(
+    restaurantId: string,
+    data: Omit<CreateMenuData, 'restaurantId'>,
+  ): Promise<Menu> {
     return this.menuRepository.create({ ...data, restaurantId });
   }
 
-  async updateMenu(id: string, restaurantId: string, data: Partial<CreateMenuData>): Promise<Menu> {
+  async updateMenu(
+    id: string,
+    restaurantId: string,
+    data: Partial<CreateMenuData>,
+  ): Promise<Menu> {
     await this.verifyOwnership(id, restaurantId);
     return this.menuRepository.update(id, data);
   }

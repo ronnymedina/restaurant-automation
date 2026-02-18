@@ -8,7 +8,13 @@ import { UsersModule } from '../users/users.module';
 import { EmailModule } from '../email/email.module';
 
 @Module({
-  imports: [RestaurantsModule, ProductsModule, AiModule, UsersModule, EmailModule],
+  imports: [
+    RestaurantsModule,
+    ProductsModule,
+    AiModule,
+    UsersModule,
+    EmailModule,
+  ],
   controllers: [OnboardingController],
   providers: [OnboardingService],
   exports: [OnboardingService],

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { Test, TestingModule } from '@nestjs/testing';
 import { Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
@@ -86,7 +87,7 @@ describe('UsersService', () => {
   });
 
   describe('createAdminUser', () => {
-    it('should create an active user with ADMIN role and hashed password', async () => {
+    it('should create an active user with ADMIN role and hashed password linked to restaurant', async () => {
       mockUserRepository.create.mockImplementation((data) =>
         Promise.resolve(
           mockUser({
@@ -94,7 +95,7 @@ describe('UsersService', () => {
             isActive: true,
             passwordHash: data.passwordHash,
             activationToken: null,
-            restaurantId: null,
+            restaurantId: 'restaurant-uuid-1',
           }),
         ),
       );
@@ -102,6 +103,7 @@ describe('UsersService', () => {
       const result = await service.createAdminUser(
         'admin@example.com',
         'SecurePass123',
+        'restaurant-uuid-1',
       );
 
       expect(mockUserRepository.create).toHaveBeenCalledWith(
@@ -110,6 +112,7 @@ describe('UsersService', () => {
           role: Role.ADMIN,
           isActive: true,
           passwordHash: expect.any(String),
+          restaurantId: 'restaurant-uuid-1',
         }),
       );
       expect(result.isActive).toBe(true);
@@ -123,7 +126,11 @@ describe('UsersService', () => {
         return Promise.resolve(mockUser({ passwordHash: data.passwordHash }));
       });
 
-      await service.createAdminUser('admin@example.com', 'SecurePass123');
+      await service.createAdminUser(
+        'admin@example.com',
+        'SecurePass123',
+        'restaurant-uuid-1',
+      );
 
       expect(capturedHash).toBeDefined();
       const isValid = await bcrypt.compare('SecurePass123', capturedHash!);

@@ -12,12 +12,12 @@ export interface CreateProductData {
   sku?: string;
   imageUrl?: string;
   restaurantId: string;
-  categoryId?: string;
+  categoryId: string;
 }
 
 @Injectable()
 export class ProductRepository {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(data: CreateProductData): Promise<Product> {
     return this.prisma.product.create({

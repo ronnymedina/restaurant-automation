@@ -10,7 +10,10 @@ import {
   InvalidRoleException,
   UserAlreadyActiveException,
 } from './exceptions/users.exceptions';
-import { EntityNotFoundException, ForbiddenAccessException } from '../common/exceptions';
+import {
+  EntityNotFoundException,
+  ForbiddenAccessException,
+} from '../common/exceptions';
 import { userConfig } from './users.config';
 import { type ConfigType } from '@nestjs/config';
 
@@ -22,7 +25,7 @@ export class UsersService {
     private readonly userRepository: UserRepository,
     @Inject(userConfig.KEY)
     private readonly configService: ConfigType<typeof userConfig>,
-  ) { }
+  ) {}
 
   async createOnboardingUser(
     email: string,
@@ -42,14 +45,22 @@ export class UsersService {
     return user;
   }
 
-  async createAdminUser(email: string, password: string): Promise<User> {
-    const passwordHash = await bcrypt.hash(password, this.configService.bcryptSaltRounds);
+  async createAdminUser(
+    email: string,
+    password: string,
+    restaurantId: string,
+  ): Promise<User> {
+    const passwordHash = await bcrypt.hash(
+      password,
+      this.configService.bcryptSaltRounds,
+    );
 
     const user = await this.userRepository.create({
       email,
       passwordHash,
       role: Role.ADMIN,
       isActive: true,
+      restaurantId,
     });
 
     this.logger.log(`Admin user created: ${email}`);
@@ -67,7 +78,10 @@ export class UsersService {
       throw new UserAlreadyActiveException(user.email);
     }
 
-    const passwordHash = await bcrypt.hash(password, this.configService.bcryptSaltRounds);
+    const passwordHash = await bcrypt.hash(
+      password,
+      this.configService.bcryptSaltRounds,
+    );
 
     const activatedUser = await this.userRepository.update(user.id, {
       passwordHash,
@@ -94,7 +108,10 @@ export class UsersService {
       throw new EmailAlreadyExistsException(email);
     }
 
-    const passwordHash = await bcrypt.hash(password, this.configService.bcryptSaltRounds);
+    const passwordHash = await bcrypt.hash(
+      password,
+      this.configService.bcryptSaltRounds,
+    );
 
     const user = await this.userRepository.create({
       email,
@@ -105,6 +122,7 @@ export class UsersService {
     });
 
     this.logger.log(`User created by manager: ${email} with role ${role}`);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash: _, ...userWithoutPassword } = user;
     return userWithoutPassword;
   }
@@ -121,10 +139,14 @@ export class UsersService {
     return this.userRepository.findByRestaurantId(restaurantId);
   }
 
-  private async findByIdAndVerifyOwnership(id: string, restaurantId: string): Promise<User> {
+  private async findByIdAndVerifyOwnership(
+    id: string,
+    restaurantId: string,
+  ): Promise<User> {
     const user = await this.userRepository.findById(id);
     if (!user) throw new EntityNotFoundException('User', id);
-    if (user.restaurantId !== restaurantId) throw new ForbiddenAccessException();
+    if (user.restaurantId !== restaurantId)
+      throw new ForbiddenAccessException();
     return user;
   }
 

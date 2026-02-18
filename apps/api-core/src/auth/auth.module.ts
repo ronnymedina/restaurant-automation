@@ -24,4 +24,4 @@ import { authConfig } from './auth.config';
   providers: [AuthService, JwtStrategy, RefreshTokenRepository],
   exports: [AuthService],
 })
-export class AuthModule { }
+export class AuthModule {}

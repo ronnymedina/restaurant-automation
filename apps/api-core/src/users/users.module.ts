@@ -13,4 +13,4 @@ import { userConfig } from './users.config';
   providers: [UsersService, UserRepository],
   exports: [UsersService],
 })
-export class UsersModule { }
+export class UsersModule {}

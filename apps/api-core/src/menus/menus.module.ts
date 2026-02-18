@@ -9,7 +9,12 @@ import { MenuItemRepository } from './menu-item.repository';
 
 @Module({
   controllers: [MenusController, MenuItemsController],
-  providers: [MenusService, MenuItemsService, MenuRepository, MenuItemRepository],
-  exports: [MenusService, MenuItemsService],
+  providers: [
+    MenusService,
+    MenuItemsService,
+    MenuRepository,
+    MenuItemRepository,
+  ],
+  exports: [MenusService, MenuItemsService, MenuRepository, MenuItemRepository],
 })
 export class MenusModule {}

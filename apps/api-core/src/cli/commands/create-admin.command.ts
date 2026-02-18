@@ -16,10 +16,12 @@ export class CreateAdminCommand extends CommandRunner {
 
   async run(
     _passedParams: string[],
-    options: { email: string; password: string },
+    options: { email: string; password: string; restaurantId: string },
   ): Promise<void> {
-    if (!options.email || !options.password) {
-      this.logger.error('Both --email and --password are required');
+    if (!options.email || !options.password || !options.restaurantId) {
+      this.logger.error(
+        '--email, --password, and --restaurant-id are all required',
+      );
       return process.exit(1);
     }
 
@@ -27,8 +29,11 @@ export class CreateAdminCommand extends CommandRunner {
       const user = await this.usersService.createAdminUser(
         options.email,
         options.password,
+        options.restaurantId,
       );
-      this.logger.log(`Admin user created successfully: ${user.email} (${user.id})`);
+      this.logger.log(
+        `Admin user created successfully: ${user.email} (${user.id})`,
+      );
     } catch (error) {
       this.logger.error(
         `Failed to create admin: ${error instanceof Error ? error.message : String(error)}`,
@@ -52,6 +57,15 @@ export class CreateAdminCommand extends CommandRunner {
     required: true,
   })
   parsePassword(val: string): string {
+    return val;
+  }
+
+  @Option({
+    flags: '--restaurant-id <restaurantId>',
+    description: 'Restaurant ID to associate with the admin',
+    required: true,
+  })
+  parseRestaurantId(val: string): string {
     return val;
   }
 }

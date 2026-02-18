@@ -37,7 +37,7 @@ export class CreateProductDto {
   @IsUrl({ protocols: ['https', 'http'], require_protocol: true })
   imageUrl?: string;
 
-  @IsOptional()
   @IsUUID()
-  categoryId?: string;
+  @IsNotEmpty()
+  categoryId: string;
 }

@@ -9,4 +9,4 @@ import { emailConfig } from './email.config';
   providers: [EmailService],
   exports: [EmailService],
 })
-export class EmailModule { }
+export class EmailModule {}

@@ -6,7 +6,11 @@ import { ProductRepository, CreateProductData } from './product.repository';
 import { CategoryRepository } from './category.repository';
 import { productConfig } from './product.config';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
-import { EntityNotFoundException, ForbiddenAccessException } from '../common/exceptions';
+import {
+  EntityNotFoundException,
+  ForbiddenAccessException,
+  ValidationException,
+} from '../common/exceptions';
 
 export interface ProductInput {
   name: string;
@@ -43,7 +47,7 @@ export class ProductsService {
   async createProduct(
     restaurantId: string,
     data: ProductInput,
-    categoryId?: string,
+    categoryId: string,
   ): Promise<Product> {
     return this.productRepository.create({
       name: data.name,
@@ -122,13 +126,31 @@ export class ProductsService {
   async findById(id: string, restaurantId: string): Promise<Product> {
     const product = await this.productRepository.findById(id);
     if (!product) throw new EntityNotFoundException('Product', id);
-    if (product.restaurantId !== restaurantId) throw new ForbiddenAccessException();
+    if (product.restaurantId !== restaurantId)
+      throw new ForbiddenAccessException();
     return product;
   }
 
-  async updateProduct(id: string, restaurantId: string, data: Partial<CreateProductData>): Promise<Product> {
+  async updateProduct(
+    id: string,
+    restaurantId: string,
+    data: Partial<CreateProductData>,
+  ): Promise<Product> {
     await this.findById(id, restaurantId);
     return this.productRepository.update(id, data);
+  }
+
+  async decrementStock(productId: string, amount: number): Promise<Product> {
+    const product = await this.productRepository.findById(productId);
+    if (!product) throw new EntityNotFoundException('Product', productId);
+    if (product.stock < amount) {
+      throw new ValidationException(
+        `Insufficient stock for product '${product.name}'. Available: ${product.stock}, requested: ${amount}`,
+      );
+    }
+    return this.productRepository.update(productId, {
+      stock: product.stock - amount,
+    });
   }
 
   async deleteProduct(id: string, restaurantId: string): Promise<Product> {

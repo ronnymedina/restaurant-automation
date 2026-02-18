@@ -75,9 +75,7 @@ export class OnboardingService {
       );
 
       if (!emailSent) {
-        this.logger.warn(
-          `Activation email could not be sent to ${user.email}`,
-        );
+        this.logger.warn(`Activation email could not be sent to ${user.email}`);
       }
 
       // 5. Create default category (single source of truth for category ID)
@@ -90,7 +88,11 @@ export class OnboardingService {
       // 6. Handle products based on input
       if (input.skipProducts) {
         this.logger.log('Creating demo products');
-        return this.handleDemoProducts(restaurant, defaultCategory.id, emailSent);
+        return this.handleDemoProducts(
+          restaurant,
+          defaultCategory.id,
+          emailSent,
+        );
       }
 
       if (input.photos && input.photos.length > 0) {
@@ -216,7 +218,10 @@ export class OnboardingService {
     }
   }
 
-  private handleNoProducts(restaurant: Restaurant, emailSent: boolean): OnboardingResult {
+  private handleNoProducts(
+    restaurant: Restaurant,
+    emailSent: boolean,
+  ): OnboardingResult {
     return {
       restaurant,
       productsCreated: 0,

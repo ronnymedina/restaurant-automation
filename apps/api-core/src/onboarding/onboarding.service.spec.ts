@@ -75,7 +75,9 @@ describe('OnboardingService', () => {
     mockUsersService.findByEmail.mockResolvedValue(null);
     mockUsersService.createOnboardingUser.mockResolvedValue(mockUser);
     mockRestaurantsService.createRestaurant.mockResolvedValue(mockRestaurant);
-    mockProductsService.getOrCreateDefaultCategory.mockResolvedValue(mockCategory);
+    mockProductsService.getOrCreateDefaultCategory.mockResolvedValue(
+      mockCategory,
+    );
     mockProductsService.createDemoProducts.mockResolvedValue(3);
     mockEmailService.sendActivationEmail.mockResolvedValue(true);
   });

@@ -71,7 +71,10 @@ export class MenuItemRepository {
     return result._max.order ?? -1;
   }
 
-  async update(id: string, data: Partial<Omit<CreateMenuItemData, 'menuId' | 'productId'>>): Promise<MenuItem> {
+  async update(
+    id: string,
+    data: Partial<Omit<CreateMenuItemData, 'menuId' | 'productId'>>,
+  ): Promise<MenuItem> {
     return this.prisma.menuItem.update({
       where: { id },
       data,
