@@ -14,7 +14,7 @@ export interface CreateMenuData {
 
 @Injectable()
 export class MenuRepository {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(data: CreateMenuData): Promise<Menu> {
     return this.prisma.menu.create({

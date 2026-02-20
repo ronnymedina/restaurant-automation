@@ -5,9 +5,7 @@ import { Category } from '@prisma/client';
 import { CategoryRepository, CreateCategoryData } from './category.repository';
 import { productConfig } from './product.config';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
-import {
-  EntityNotFoundException,
-} from '../common/exceptions';
+import { EntityNotFoundException } from '../common/exceptions';
 
 @Injectable()
 export class CategoriesService {
@@ -15,7 +13,7 @@ export class CategoriesService {
     private readonly categoryRepository: CategoryRepository,
     @Inject(productConfig.KEY)
     private readonly configService: ConfigType<typeof productConfig>,
-  ) { }
+  ) {}
 
   async findByRestaurantId(restaurantId: string): Promise<Category[]> {
     return this.categoryRepository.findByRestaurantId(restaurantId);
@@ -66,9 +64,10 @@ export class CategoriesService {
     return this.categoryRepository.delete(id, restaurantId);
   }
 
-
-
-  async findCategoryAndThrowIfNotFound(id: string, restaurantId: string): Promise<Category> {
+  async findCategoryAndThrowIfNotFound(
+    id: string,
+    restaurantId: string,
+  ): Promise<Category> {
     const category = await this.categoryRepository.findById(id, restaurantId);
 
     if (!category) {
@@ -76,5 +75,4 @@ export class CategoriesService {
     }
     return category;
   }
-
 }

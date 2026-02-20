@@ -58,8 +58,9 @@ export class CreateDummyCommand extends CommandRunner {
       );
       this.logger.log(`Admin user created: ${user.email} (${user.id})`);
 
-      const category =
-        await this.productsService.getOrCreateDefaultCategory(restaurant.id);
+      const category = await this.productsService.getOrCreateDefaultCategory(
+        restaurant.id,
+      );
       const productsCreated = await this.productsService.createDemoProducts(
         restaurant.id,
         category.id,

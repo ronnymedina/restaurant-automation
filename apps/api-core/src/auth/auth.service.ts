@@ -26,7 +26,7 @@ export class AuthService {
     private readonly restaurantsService: RestaurantsService,
     @Inject(authConfig.KEY)
     private readonly configService: ConfigType<typeof authConfig>,
-  ) { }
+  ) {}
 
   async login(email: string, password: string) {
     const user = await this.usersService.findByEmail(email);
@@ -46,10 +46,13 @@ export class AuthService {
       throw new InvalidCredentialsException();
     }
 
-
-    const restaurant = await this.restaurantsService.findById(user.restaurantId);
+    const restaurant = await this.restaurantsService.findById(
+      user.restaurantId,
+    );
     if (!restaurant) {
-      this.logger.warn(`Login attempt for user ${email} with invalid restaurantId: ${user.restaurantId}`);
+      this.logger.warn(
+        `Login attempt for user ${email} with invalid restaurantId: ${user.restaurantId}`,
+      );
       throw new InvalidCredentialsException();
     }
 
@@ -85,10 +88,13 @@ export class AuthService {
       throw new InvalidRefreshTokenException();
     }
 
-
-    const restaurant = await this.restaurantsService.findById(user.restaurantId);
+    const restaurant = await this.restaurantsService.findById(
+      user.restaurantId,
+    );
     if (!restaurant) {
-      this.logger.warn(`Refresh token attempt for user ${user.email} with invalid restaurantId: ${user.restaurantId}`);
+      this.logger.warn(
+        `Refresh token attempt for user ${user.email} with invalid restaurantId: ${user.restaurantId}`,
+      );
       throw new InvalidRefreshTokenException();
     }
 

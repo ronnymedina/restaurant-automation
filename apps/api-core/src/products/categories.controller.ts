@@ -23,7 +23,7 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.MANAGER)
 export class CategoriesController {
-  constructor(private readonly categoriesService: CategoriesService) { }
+  constructor(private readonly categoriesService: CategoriesService) {}
 
   @Get()
   async findAll(

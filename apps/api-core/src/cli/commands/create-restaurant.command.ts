@@ -14,18 +14,16 @@ export class CreateRestaurantCommand extends CommandRunner {
     super();
   }
 
-  async run(
-    _passedParams: string[],
-    options: { name: string },
-  ): Promise<void> {
+  async run(_passedParams: string[], options: { name: string }): Promise<void> {
     if (!options.name) {
       this.logger.error('--name is required');
       return process.exit(1);
     }
 
     try {
-      const restaurant =
-        await this.restaurantsService.createRestaurant(options.name);
+      const restaurant = await this.restaurantsService.createRestaurant(
+        options.name,
+      );
       this.logger.log(
         `Restaurant created successfully:\n  id:   ${restaurant.id}\n  name: ${restaurant.name}\n  slug: ${restaurant.slug}`,
       );

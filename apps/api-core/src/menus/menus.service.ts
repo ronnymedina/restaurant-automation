@@ -38,8 +38,15 @@ export class MenusService {
     await this.findMenuAndThrowIfNotFound(id, restaurantId);
     return this.menuRepository.delete(id);
   }
+  async verifyOwnership(id: string, restaurantId: string): Promise<Menu> {
+    return this.findMenuAndThrowIfNotFound(id, restaurantId);
+  }
 
-  async findMenuAndThrowIfNotFound(id: string, restaurantId: string): Promise<Menu> {
+
+  async findMenuAndThrowIfNotFound(
+    id: string,
+    restaurantId: string,
+  ): Promise<Menu> {
     const menu = await this.menuRepository.findById(id, restaurantId);
     if (!menu) throw new MenuNotFoundException(id);
     return menu;

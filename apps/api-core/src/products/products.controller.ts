@@ -23,10 +23,13 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.MANAGER)
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) { }
+  constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  async findAll(@CurrentUser() user: { restaurantId: string }, @Query() query: PaginationDto) {
+  async findAll(
+    @CurrentUser() user: { restaurantId: string },
+    @Query() query: PaginationDto,
+  ) {
     return this.productsService.findByRestaurantIdPaginated(
       user.restaurantId,
       query.page || 1,
@@ -35,12 +38,18 @@ export class ProductsController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string, @CurrentUser() user: { restaurantId: string }) {
+  async findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: { restaurantId: string },
+  ) {
     return this.productsService.findById(id, user.restaurantId);
   }
 
   @Post()
-  async create(@Body() createProductDto: CreateProductDto, @CurrentUser() user: { restaurantId: string }) {
+  async create(
+    @Body() createProductDto: CreateProductDto,
+    @CurrentUser() user: { restaurantId: string },
+  ) {
     const { categoryId, ...productData } = createProductDto;
     return this.productsService.createProduct(
       user.restaurantId,
@@ -55,11 +64,18 @@ export class ProductsController {
     @Body() updateProductDto: UpdateProductDto,
     @CurrentUser() user: { restaurantId: string },
   ) {
-    return this.productsService.updateProduct(id, user.restaurantId, updateProductDto);
+    return this.productsService.updateProduct(
+      id,
+      user.restaurantId,
+      updateProductDto,
+    );
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string, @CurrentUser() user: { restaurantId: string }) {
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser() user: { restaurantId: string },
+  ) {
     return this.productsService.deleteProduct(id, user.restaurantId);
   }
 }

@@ -18,7 +18,7 @@ export interface CreateProductData {
 
 @Injectable()
 export class ProductRepository {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(data: CreateProductData): Promise<Product> {
     return this.prisma.product.create({
@@ -111,7 +111,10 @@ export class ProductRepository {
     });
   }
 
-  async findProductAndThrowIfNotFound(id: string, restaurantId: string): Promise<Product> {
+  async findProductAndThrowIfNotFound(
+    id: string,
+    restaurantId: string,
+  ): Promise<Product> {
     const product = await this.findById(id, restaurantId);
     if (!product) {
       throw new EntityNotFoundException('Product', id);

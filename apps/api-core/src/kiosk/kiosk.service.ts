@@ -54,9 +54,12 @@ export class KioskService {
 
   async getMenuItems(slug: string, menuId: string) {
     const restaurant = await this.resolveRestaurant(slug);
-    const menu = await this.menuRepository.findByIdWithItems(menuId);
+    const menu = await this.menuRepository.findByIdWithItems(
+      menuId,
+      restaurant.id,
+    );
 
-    if (!menu || menu.restaurantId !== restaurant.id) {
+    if (!menu) {
       throw new EntityNotFoundException('Menu', menuId);
     }
 

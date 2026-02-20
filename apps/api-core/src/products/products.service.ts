@@ -145,7 +145,10 @@ export class ProductsService {
     restaurantId: string,
     amount: number,
   ): Promise<Product> {
-    const product = await this.productRepository.findById(productId, restaurantId);
+    const product = await this.productRepository.findById(
+      productId,
+      restaurantId,
+    );
 
     if (!product) throw new EntityNotFoundException('Product', productId);
     if (product.stock < amount) {
