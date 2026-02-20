@@ -7,7 +7,6 @@ import { productConfig } from './product.config';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import {
   EntityNotFoundException,
-  ForbiddenAccessException,
 } from '../common/exceptions';
 
 @Injectable()
@@ -16,7 +15,7 @@ export class CategoriesService {
     private readonly categoryRepository: CategoryRepository,
     @Inject(productConfig.KEY)
     private readonly configService: ConfigType<typeof productConfig>,
-  ) {}
+  ) { }
 
   async findByRestaurantId(restaurantId: string): Promise<Category[]> {
     return this.categoryRepository.findByRestaurantId(restaurantId);
@@ -53,28 +52,29 @@ export class CategoriesService {
     return this.categoryRepository.create({ name, restaurantId });
   }
 
-  private async findByIdAndVerifyOwnership(
-    id: string,
-    restaurantId: string,
-  ): Promise<Category> {
-    const category = await this.categoryRepository.findById(id);
-    if (!category) throw new EntityNotFoundException('Category', id);
-    if (category.restaurantId !== restaurantId)
-      throw new ForbiddenAccessException();
-    return category;
-  }
-
   async updateCategory(
     id: string,
     restaurantId: string,
     data: Partial<CreateCategoryData>,
   ): Promise<Category> {
-    await this.findByIdAndVerifyOwnership(id, restaurantId);
-    return this.categoryRepository.update(id, data);
+    await this.findCategoryAndThrowIfNotFound(id, restaurantId);
+    return this.categoryRepository.update(id, restaurantId, data);
   }
 
   async deleteCategory(id: string, restaurantId: string): Promise<Category> {
-    await this.findByIdAndVerifyOwnership(id, restaurantId);
-    return this.categoryRepository.delete(id);
+    await this.findCategoryAndThrowIfNotFound(id, restaurantId);
+    return this.categoryRepository.delete(id, restaurantId);
   }
+
+
+
+  async findCategoryAndThrowIfNotFound(id: string, restaurantId: string): Promise<Category> {
+    const category = await this.categoryRepository.findById(id, restaurantId);
+
+    if (!category) {
+      throw new EntityNotFoundException('Category', id);
+    }
+    return category;
+  }
+
 }

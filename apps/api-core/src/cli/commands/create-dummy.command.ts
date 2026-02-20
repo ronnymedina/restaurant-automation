@@ -5,6 +5,10 @@ import { RestaurantsService } from '../../restaurants/restaurants.service';
 import { UsersService } from '../../users/users.service';
 import { ProductsService } from '../../products/products.service';
 
+const DUMMY_EMAIL = 'admin@demo.com';
+const DUMMY_PASSWORD = '12345678';
+const DUMMY_RESTAURANT_NAME = 'Demo Restaurant';
+
 @Command({
   name: 'create-dummy',
   description:
@@ -23,15 +27,33 @@ export class CreateDummyCommand extends CommandRunner {
 
   async run(): Promise<void> {
     try {
-      const restaurant =
-        await this.restaurantsService.createRestaurant('Demo Restaurant');
+      const existingUser = await this.usersService.findByEmail(DUMMY_EMAIL);
+
+      if (existingUser && existingUser.restaurantId) {
+        const restaurant = await this.restaurantsService.findById(
+          existingUser.restaurantId,
+        );
+
+        this.logger.log('Dummy data already exists:');
+        this.logger.log('\n========== DUMMY DATA ==========');
+        this.logger.log(`Restaurant: ${restaurant?.name ?? 'Unknown'}`);
+        this.logger.log(`Slug:       ${restaurant?.slug ?? 'Unknown'}`);
+        this.logger.log(`Email:      ${DUMMY_EMAIL}`);
+        this.logger.log(`Password:   ${DUMMY_PASSWORD}`);
+        this.logger.log('================================\n');
+        return;
+      }
+
+      const restaurant = await this.restaurantsService.createRestaurant(
+        DUMMY_RESTAURANT_NAME,
+      );
       this.logger.log(
         `Restaurant created: ${restaurant.name} (${restaurant.id})`,
       );
 
       const user = await this.usersService.createAdminUser(
-        'admin@demo.com',
-        'admin1234',
+        DUMMY_EMAIL,
+        DUMMY_PASSWORD,
         restaurant.id,
       );
       this.logger.log(`Admin user created: ${user.email} (${user.id})`);
@@ -47,8 +69,8 @@ export class CreateDummyCommand extends CommandRunner {
       this.logger.log('\n========== DUMMY DATA ==========');
       this.logger.log(`Restaurant: ${restaurant.name}`);
       this.logger.log(`Slug:       ${restaurant.slug}`);
-      this.logger.log(`Email:      admin@demo.com`);
-      this.logger.log(`Password:   admin1234`);
+      this.logger.log(`Email:      ${DUMMY_EMAIL}`);
+      this.logger.log(`Password:   ${DUMMY_PASSWORD}`);
       this.logger.log('================================\n');
     } catch (error) {
       this.logger.error(

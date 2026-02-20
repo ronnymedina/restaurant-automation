@@ -124,10 +124,8 @@ export class ProductsService {
   }
 
   async findById(id: string, restaurantId: string): Promise<Product> {
-    const product = await this.productRepository.findById(id);
+    const product = await this.productRepository.findById(id, restaurantId);
     if (!product) throw new EntityNotFoundException('Product', id);
-    if (product.restaurantId !== restaurantId)
-      throw new ForbiddenAccessException();
     return product;
   }
 
@@ -136,26 +134,33 @@ export class ProductsService {
     restaurantId: string,
     data: Partial<CreateProductData>,
   ): Promise<Product> {
+    // Repository now handles checking existence/ownership via restaurantId
+    // If we want to be explicit, call findById first to throw standard EntityNotFound
     await this.findById(id, restaurantId);
-    return this.productRepository.update(id, data);
+    return this.productRepository.update(id, restaurantId, data);
   }
 
-  async decrementStock(productId: string, amount: number): Promise<Product> {
-    const product = await this.productRepository.findById(productId);
+  async decrementStock(
+    productId: string,
+    restaurantId: string,
+    amount: number,
+  ): Promise<Product> {
+    const product = await this.productRepository.findById(productId, restaurantId);
+
     if (!product) throw new EntityNotFoundException('Product', productId);
     if (product.stock < amount) {
       throw new ValidationException(
         `Insufficient stock for product '${product.name}'. Available: ${product.stock}, requested: ${amount}`,
       );
     }
-    return this.productRepository.update(productId, {
+    return this.productRepository.update(productId, restaurantId, {
       stock: product.stock - amount,
     });
   }
 
   async deleteProduct(id: string, restaurantId: string): Promise<Product> {
     await this.findById(id, restaurantId);
-    return this.productRepository.delete(id);
+    return this.productRepository.delete(id, restaurantId);
   }
 
   /**

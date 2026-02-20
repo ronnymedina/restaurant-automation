@@ -14,7 +14,7 @@ export interface CreateMenuData {
 
 @Injectable()
 export class MenuRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(data: CreateMenuData): Promise<Menu> {
     return this.prisma.menu.create({
@@ -29,15 +29,15 @@ export class MenuRepository {
     });
   }
 
-  async findById(id: string): Promise<Menu | null> {
-    return this.prisma.menu.findUnique({
-      where: { id },
+  async findById(id: string, restaurantId: string): Promise<Menu | null> {
+    return this.prisma.menu.findFirst({
+      where: { id, restaurantId },
     });
   }
 
-  async findByIdWithItems(id: string) {
-    return this.prisma.menu.findUnique({
-      where: { id },
+  async findByIdWithItems(id: string, restaurantId: string) {
+    return this.prisma.menu.findFirst({
+      where: { id, restaurantId },
       include: {
         items: {
           include: {

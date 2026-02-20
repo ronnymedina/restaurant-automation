@@ -1,10 +1,12 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { ConfigType } from '@nestjs/config';
+
 import * as bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 
 import { UsersService } from '../users/users.service';
+import { RestaurantsService } from '../restaurants/restaurants.service';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import { authConfig } from './auth.config';
 import {
@@ -18,12 +20,13 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly refreshTokenRepository: RefreshTokenRepository,
+    private readonly usersService: UsersService,
+    private readonly restaurantsService: RestaurantsService,
     @Inject(authConfig.KEY)
     private readonly configService: ConfigType<typeof authConfig>,
-  ) {}
+  ) { }
 
   async login(email: string, password: string) {
     const user = await this.usersService.findByEmail(email);
@@ -43,7 +46,17 @@ export class AuthService {
       throw new InvalidCredentialsException();
     }
 
-    const accessToken = this.generateAccessToken(user);
+
+    const restaurant = await this.restaurantsService.findById(user.restaurantId);
+    if (!restaurant) {
+      this.logger.warn(`Login attempt for user ${email} with invalid restaurantId: ${user.restaurantId}`);
+      throw new InvalidCredentialsException();
+    }
+
+    const accessToken = this.generateAccessToken({
+      ...user,
+      restaurantId: user.restaurantId,
+    });
     const refreshToken = await this.generateRefreshToken(user.id);
 
     this.logger.log(`User logged in: ${user.email}`);
@@ -72,7 +85,18 @@ export class AuthService {
       throw new InvalidRefreshTokenException();
     }
 
-    const accessToken = this.generateAccessToken(user);
+
+    const restaurant = await this.restaurantsService.findById(user.restaurantId);
+    if (!restaurant) {
+      this.logger.warn(`Refresh token attempt for user ${user.email} with invalid restaurantId: ${user.restaurantId}`);
+      throw new InvalidRefreshTokenException();
+    }
+
+    const accessToken = this.generateAccessToken({
+      ...user,
+      restaurantId: user.restaurantId,
+    });
+
     const refreshToken = await this.generateRefreshToken(user.id);
 
     return { accessToken, refreshToken };
@@ -87,7 +111,7 @@ export class AuthService {
     id: string;
     email: string;
     role: string;
-    restaurantId: string | null;
+    restaurantId: string;
   }): string {
     const payload: JwtPayload = {
       sub: user.id,

@@ -8,12 +8,14 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import { UsersModule } from '../users/users.module';
+import { RestaurantsModule } from '../restaurants/restaurants.module';
 import { JWT_SECRET } from '../config';
 import { authConfig } from './auth.config';
 
 @Module({
   imports: [
     UsersModule,
+    RestaurantsModule,
     PassportModule,
     ConfigModule.forFeature(authConfig),
     JwtModule.register({
@@ -24,4 +26,4 @@ import { authConfig } from './auth.config';
   providers: [AuthService, JwtStrategy, RefreshTokenRepository],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule { }

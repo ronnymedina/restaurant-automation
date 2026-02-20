@@ -23,37 +23,28 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.MANAGER)
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(private readonly productsService: ProductsService) { }
 
   @Get()
-  async findAll(
-    @CurrentUser() user: { restaurantId: string },
-    @Query() query: PaginationDto,
-  ) {
+  async findAll(@CurrentUser() user: { restaurantId: string }, @Query() query: PaginationDto) {
     return this.productsService.findByRestaurantIdPaginated(
       user.restaurantId,
-      query.page,
-      query.limit,
+      query.page || 1,
+      query.limit || 10,
     );
   }
 
   @Get(':id')
-  async findOne(
-    @Param('id') id: string,
-    @CurrentUser() user: { restaurantId: string },
-  ) {
+  async findOne(@Param('id') id: string, @CurrentUser() user: { restaurantId: string }) {
     return this.productsService.findById(id, user.restaurantId);
   }
 
   @Post()
-  async create(
-    @CurrentUser() user: { restaurantId: string },
-    @Body() dto: CreateProductDto,
-  ) {
-    const { categoryId, ...data } = dto;
+  async create(@Body() createProductDto: CreateProductDto, @CurrentUser() user: { restaurantId: string }) {
+    const { categoryId, ...productData } = createProductDto;
     return this.productsService.createProduct(
       user.restaurantId,
-      data,
+      productData,
       categoryId,
     );
   }
@@ -61,17 +52,14 @@ export class ProductsController {
   @Patch(':id')
   async update(
     @Param('id') id: string,
+    @Body() updateProductDto: UpdateProductDto,
     @CurrentUser() user: { restaurantId: string },
-    @Body() dto: UpdateProductDto,
   ) {
-    return this.productsService.updateProduct(id, user.restaurantId, dto);
+    return this.productsService.updateProduct(id, user.restaurantId, updateProductDto);
   }
 
   @Delete(':id')
-  async remove(
-    @Param('id') id: string,
-    @CurrentUser() user: { restaurantId: string },
-  ) {
+  async remove(@Param('id') id: string, @CurrentUser() user: { restaurantId: string }) {
     return this.productsService.deleteProduct(id, user.restaurantId);
   }
 }
