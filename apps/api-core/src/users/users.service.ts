@@ -16,6 +16,8 @@ import {
 } from '../common/exceptions';
 import { userConfig } from './users.config';
 import { type ConfigType } from '@nestjs/config';
+import { DEFAULT_PAGE_SIZE } from '../config';
+import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 
 @Injectable()
 export class UsersService {
@@ -137,6 +139,32 @@ export class UsersService {
 
   async findByRestaurantId(restaurantId: string): Promise<User[]> {
     return this.userRepository.findByRestaurantId(restaurantId);
+  }
+
+  async findByRestaurantIdPaginated(
+    restaurantId: string,
+    page?: number,
+    limit?: number,
+  ): Promise<PaginatedResult<User>> {
+    const currentPage = page || 1;
+    const currentLimit = limit || DEFAULT_PAGE_SIZE;
+    const skip = (currentPage - 1) * currentLimit;
+
+    const { data, total } = await this.userRepository.findByRestaurantIdPaginated(
+      restaurantId,
+      skip,
+      currentLimit,
+    );
+
+    return {
+      data,
+      meta: {
+        total,
+        page: currentPage,
+        limit: currentLimit,
+        totalPages: Math.ceil(total / currentLimit),
+      },
+    };
   }
 
   private async findByIdAndVerifyOwnership(

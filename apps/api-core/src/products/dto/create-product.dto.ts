@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsNumber,
   IsInt,
+  IsBoolean,
   IsUUID,
   MaxLength,
   IsUrl,
@@ -36,6 +37,10 @@ export class CreateProductDto {
   @IsOptional()
   @IsUrl({ protocols: ['https', 'http'], require_protocol: true })
   imageUrl?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
 
   @IsUUID()
   @IsNotEmpty()

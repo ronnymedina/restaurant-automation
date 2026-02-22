@@ -48,6 +48,25 @@ export class UserRepository {
     });
   }
 
+  async findByRestaurantIdPaginated(
+    restaurantId: string,
+    skip: number,
+    take: number,
+  ): Promise<{ data: User[]; total: number }> {
+    const [data, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { restaurantId, deletedAt: null },
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.user.count({
+        where: { restaurantId, deletedAt: null },
+      }),
+    ]);
+    return { data, total };
+  }
+
   async delete(id: string): Promise<User> {
     return this.prisma.user.update({
       where: { id },

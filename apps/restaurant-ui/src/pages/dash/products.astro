@@ -1,6 +1,8 @@
 ---
 export const prerender = true;
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import ActiveToggle from '../../components/dash/ActiveToggle.astro';
+import DataTable from '../../components/dash/DataTable.astro';
 ---
 
 <DashboardLayout>
@@ -57,6 +59,9 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
           <textarea id="productDescription" rows="2"
             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
         </div>
+        <div class="md:col-span-2">
+          <ActiveToggle id="productActive" label="Producto activo" />
+        </div>
         <div class="md:col-span-2 flex gap-2">
           <button type="submit"
             class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none">
@@ -67,38 +72,31 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
             Cancelar
           </button>
         </div>
+        <p id="productFormError" class="hidden md:col-span-2 text-sm text-red-600"></p>
       </form>
     </div>
 
-    <!-- Table -->
-    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 border-b border-slate-200">
-          <tr>
-            <th class="text-left px-4 py-3 font-medium text-slate-600">Nombre</th>
-            <th class="text-left px-4 py-3 font-medium text-slate-600">Precio</th>
-            <th class="text-left px-4 py-3 font-medium text-slate-600">Stock</th>
-            <th class="text-left px-4 py-3 font-medium text-slate-600">Categoría</th>
-            <th class="text-left px-4 py-3 font-medium text-slate-600">Activo</th>
-            <th class="text-right px-4 py-3 font-medium text-slate-600">Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="productsTableBody">
-          <tr>
-            <td colspan="6" class="px-4 py-8 text-center text-slate-400">Cargando...</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Pagination -->
-    <div id="pagination" class="flex justify-center gap-2"></div>
+    <DataTable
+      tbodyId="productsTableBody"
+      paginationId="pagination"
+      minWidth="640px"
+      columns={[
+        { label: 'Nombre' },
+        { label: 'Precio', nowrap: true },
+        { label: 'Stock', nowrap: true },
+        { label: 'Categoría', nowrap: true },
+        { label: 'Activo', nowrap: true },
+        { label: 'Acciones', align: 'right', nowrap: true },
+      ]}
+    />
   </div>
 </DashboardLayout>
 
 <script>
   import { apiFetch } from '../../lib/api';
+  import { renderPagination, setTableLoading, setTableEmpty, setTableError } from '../../lib/pagination';
 
+  const COLSPAN = 6;
   let currentPage = 1;
   let editingId: string | null = null;
 
@@ -106,8 +104,20 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   const productForm = document.getElementById('productForm')!;
   const formTitle = document.getElementById('formTitle')!;
   const formEl = document.getElementById('productFormEl') as HTMLFormElement;
+  const formError = document.getElementById('productFormError')!;
   const paginationEl = document.getElementById('pagination')!;
   const categorySelect = document.getElementById('productCategory') as HTMLSelectElement;
+
+  function showFormError(messages: string | string[]) {
+    const text = Array.isArray(messages) ? messages.join(', ') : messages;
+    formError.textContent = text;
+    formError.classList.remove('hidden');
+  }
+
+  function clearFormError() {
+    formError.textContent = '';
+    formError.classList.add('hidden');
+  }
 
   async function loadCategories() {
     const res = await apiFetch('/v1/categories?limit=100');
@@ -125,43 +135,39 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 
   async function loadProducts(page = 1) {
     currentPage = page;
-    const res = await apiFetch(`/v1/products?page=${page}&limit=10`);
+    setTableLoading(tableBody, COLSPAN);
+
+    const res = await apiFetch(`/v1/products?page=${page}&limit=50`);
     if (!res.ok) {
       const msg = res.status === 403 ? 'No tienes permisos para acceder a esta sección' : 'Error al cargar';
-      tableBody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-red-400">${msg}</td></tr>`;
+      setTableError(tableBody, COLSPAN, msg);
+      paginationEl.innerHTML = '';
       return;
     }
     const { data, meta } = await res.json();
 
     if (data.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">No hay productos</td></tr>';
+      setTableEmpty(tableBody, COLSPAN, 'No hay productos');
       paginationEl.innerHTML = '';
       return;
     }
 
     tableBody.innerHTML = data.map((p: any) => `
       <tr class="border-b border-slate-100 hover:bg-slate-50">
-        <td class="px-4 py-3 font-medium text-slate-800">${p.name}</td>
-        <td class="px-4 py-3 text-slate-600">$${Number(p.price).toFixed(2)}</td>
-        <td class="px-4 py-3 text-slate-600">${p.stock}</td>
-        <td class="px-4 py-3 text-slate-600">${p.category?.name || '-'}</td>
-        <td class="px-4 py-3"><span class="px-2 py-0.5 text-xs rounded-full ${p.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${p.active ? 'Sí' : 'No'}</span></td>
-        <td class="px-4 py-3 text-right space-x-2">
+        <td class="px-4 py-3 font-medium text-slate-800 max-w-[200px] truncate">${p.name}</td>
+        <td class="px-4 py-3 text-slate-600 whitespace-nowrap">$${Number(p.price).toFixed(2)}</td>
+        <td class="px-4 py-3 text-slate-600 whitespace-nowrap">${p.stock}</td>
+        <td class="px-4 py-3 text-slate-600 max-w-[160px] truncate">${p.category?.name || '-'}</td>
+        <td class="px-4 py-3 whitespace-nowrap"><span class="px-2 py-0.5 text-xs rounded-full ${p.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${p.active ? 'Sí' : 'No'}</span></td>
+        <td class="px-4 py-3 text-right whitespace-nowrap space-x-2">
           <button data-edit='${JSON.stringify(p)}' class="edit-btn text-indigo-600 hover:text-indigo-800 cursor-pointer bg-transparent border-none text-sm">Editar</button>
           <button data-delete="${p.id}" class="delete-btn text-red-600 hover:text-red-800 cursor-pointer bg-transparent border-none text-sm">Eliminar</button>
         </td>
       </tr>
     `).join('');
 
-    // Pagination
-    let pagHtml = '';
-    for (let i = 1; i <= meta.totalPages; i++) {
-      pagHtml += `<button data-page="${i}" class="px-3 py-1 rounded text-sm cursor-pointer border ${i === currentPage ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}">${i}</button>`;
-    }
-    paginationEl.innerHTML = pagHtml;
-
+    renderPagination(paginationEl, meta, currentPage, loadProducts);
     bindTableEvents();
-    bindPaginationEvents();
   }
 
   function bindTableEvents() {
@@ -177,6 +183,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
         (document.getElementById('productSku') as HTMLInputElement).value = p.sku || '';
         (document.getElementById('productImageUrl') as HTMLInputElement).value = p.imageUrl || '';
         (document.getElementById('productDescription') as HTMLTextAreaElement).value = p.description || '';
+        (document.getElementById('productActive') as HTMLInputElement).checked = p.active !== false;
         categorySelect.value = p.categoryId || '';
         productForm.classList.remove('hidden');
       });
@@ -192,14 +199,6 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     });
   }
 
-  function bindPaginationEvents() {
-    paginationEl.querySelectorAll('button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        loadProducts(Number((btn as HTMLElement).dataset.page));
-      });
-    });
-  }
-
   document.getElementById('newProductBtn')!.addEventListener('click', () => {
     editingId = null;
     formTitle.textContent = 'Nuevo producto';
@@ -210,36 +209,52 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   document.getElementById('cancelBtn')!.addEventListener('click', () => {
     productForm.classList.add('hidden');
     formEl.reset();
+    clearFormError();
     editingId = null;
   });
 
   formEl.addEventListener('submit', async (e) => {
     e.preventDefault();
+    clearFormError();
+
+    const categoryId = categorySelect.value;
+    if (!categoryId) {
+      showFormError('Debes seleccionar una categoría');
+      categorySelect.focus();
+      return;
+    }
+
     const body: any = {
       name: (document.getElementById('productName') as HTMLInputElement).value,
+      categoryId,
     };
     const price = (document.getElementById('productPrice') as HTMLInputElement).value;
     const stock = (document.getElementById('productStock') as HTMLInputElement).value;
     const sku = (document.getElementById('productSku') as HTMLInputElement).value;
     const imageUrl = (document.getElementById('productImageUrl') as HTMLInputElement).value;
     const description = (document.getElementById('productDescription') as HTMLTextAreaElement).value;
-    const categoryId = categorySelect.value;
+    const active = (document.getElementById('productActive') as HTMLInputElement).checked;
 
     if (price) body.price = Number(price);
     if (stock) body.stock = Number(stock);
     if (sku) body.sku = sku;
     if (imageUrl) body.imageUrl = imageUrl;
     if (description) body.description = description;
-    if (categoryId) body.categoryId = categoryId;
+    body.active = active;
 
-    if (editingId) {
-      await apiFetch(`/v1/products/${editingId}`, { method: 'PATCH', body: JSON.stringify(body) });
-    } else {
-      await apiFetch('/v1/products', { method: 'POST', body: JSON.stringify(body) });
+    const res = editingId
+      ? await apiFetch(`/v1/products/${editingId}`, { method: 'PATCH', body: JSON.stringify(body) })
+      : await apiFetch('/v1/products', { method: 'POST', body: JSON.stringify(body) });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      showFormError(err?.message || 'Error al guardar el producto');
+      return;
     }
 
     productForm.classList.add('hidden');
     formEl.reset();
+    clearFormError();
     editingId = null;
     loadProducts(currentPage);
   });

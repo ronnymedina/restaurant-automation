@@ -19,6 +19,14 @@ Offer a management interface for restaurant owners to manage their restaurants. 
 
 * Turborepo is used to manage the monorepo.
 
+### Skills
+
+* The [web-design-guidelines](apps/restaurant-ui/.claude/skills/web-design-guidelines/SKILL.md) is a skill that can be used to review UI code for Web Interface Guidelines compliance.
+
+* The [nestjs-best-practices](apps/api-core/.claude/skills/nestjs-best-practices/SKILL.md) is a skill that can be used to review API code for NestJS best practices compliance.
+
+
+
 ### Commands
 
 * To run the development server  `npm run dev`.
