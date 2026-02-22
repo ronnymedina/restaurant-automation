@@ -1,0 +1,396 @@
+---
+export const prerender = false;
+import KioskLayout from '../../layouts/KioskLayout.astro';
+
+const { slug } = Astro.params;
+---
+
+<KioskLayout>
+  <div id="kioskApp" class="h-screen flex flex-col bg-amber-50 text-slate-800" data-slug={slug}>
+    <!-- Header -->
+    <header class="bg-emerald-700 text-white px-4 py-3 flex items-center justify-between shadow-md">
+      <h1 id="restaurantName" class="text-lg font-bold truncate">Cargando...</h1>
+      <span id="menuLabel" class="text-sm opacity-80"></span>
+    </header>
+
+    <!-- Menu Tabs -->
+    <div id="menuTabs" class="bg-white border-b border-slate-200 px-2 overflow-x-auto flex gap-1 py-2 shrink-0">
+      <span class="text-sm text-slate-400 px-3 py-2">Cargando menús...</span>
+    </div>
+
+    <!-- Products Grid -->
+    <main id="productsGrid" class="flex-1 overflow-y-auto p-4">
+      <div class="text-center text-slate-400 py-12">Selecciona un menú para ver los productos</div>
+    </main>
+
+    <!-- Cart FAB -->
+    <button
+      id="cartFab"
+      class="hidden fixed bottom-6 right-6 bg-emerald-600 text-white rounded-full w-16 h-16 shadow-lg flex items-center justify-center text-2xl active:scale-95 transition-transform z-40 cursor-pointer border-none"
+    >
+      <span>🛒</span>
+      <span id="cartBadge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">0</span>
+    </button>
+
+    <!-- Cart Overlay -->
+    <div id="cartOverlay" class="hidden fixed inset-0 bg-black/50 z-50">
+      <div id="cartPanel" class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85vh] flex flex-col shadow-2xl">
+        <div class="p-4 border-b border-slate-200 flex justify-between items-center">
+          <h2 class="text-lg font-bold">Tu Pedido</h2>
+          <button id="closeCart" class="text-2xl text-slate-400 cursor-pointer bg-transparent border-none">&times;</button>
+        </div>
+        <div id="cartItems" class="flex-1 overflow-y-auto p-4 space-y-3">
+          <p class="text-slate-400 text-center">El carrito está vacío</p>
+        </div>
+        <div class="p-4 border-t border-slate-200 space-y-3">
+          <div class="flex justify-between items-center text-lg font-bold">
+            <span>Total</span>
+            <span id="cartTotal">$0.00</span>
+          </div>
+          <button
+            id="checkoutBtn"
+            class="w-full py-4 bg-emerald-600 text-white font-bold text-lg rounded-xl active:bg-emerald-700 transition-colors cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled
+          >
+            Pagar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Checkout Overlay -->
+    <div id="checkoutOverlay" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl w-full max-w-md p-6 space-y-6">
+        <h2 class="text-xl font-bold text-center">Método de Pago</h2>
+        <div id="paymentMethods" class="grid grid-cols-1 gap-3">
+          <button data-method="CASH" class="payment-btn py-4 px-6 border-2 border-slate-200 rounded-xl text-lg font-medium flex items-center gap-3 active:border-emerald-500 cursor-pointer bg-white transition-colors">
+            <span class="text-2xl">💵</span> Efectivo
+          </button>
+          <button data-method="CARD" class="payment-btn py-4 px-6 border-2 border-slate-200 rounded-xl text-lg font-medium flex items-center gap-3 active:border-emerald-500 cursor-pointer bg-white transition-colors">
+            <span class="text-2xl">💳</span> Tarjeta
+          </button>
+          <button data-method="DIGITAL_WALLET" class="payment-btn py-4 px-6 border-2 border-slate-200 rounded-xl text-lg font-medium flex items-center gap-3 active:border-emerald-500 cursor-pointer bg-white transition-colors">
+            <span class="text-2xl">📱</span> Billetera Digital
+          </button>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Email (opcional, para recibo)</label>
+          <input id="customerEmail" type="email" placeholder="tu@email.com"
+            class="w-full px-4 py-3 border border-slate-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+        </div>
+        <div class="flex gap-3">
+          <button id="cancelCheckout" class="flex-1 py-3 border-2 border-slate-200 rounded-xl font-medium cursor-pointer bg-white text-slate-700">
+            Volver
+          </button>
+          <button id="confirmOrder" class="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold cursor-pointer border-none disabled:opacity-50" disabled>
+            Confirmar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirmation Screen -->
+    <div id="confirmationScreen" class="hidden fixed inset-0 bg-emerald-600 z-50 flex items-center justify-center p-6">
+      <div class="bg-white rounded-2xl w-full max-w-md p-8 text-center space-y-6">
+        <div class="text-6xl">✅</div>
+        <h2 class="text-2xl font-bold text-slate-800">¡Pedido Confirmado!</h2>
+        <div class="bg-emerald-50 rounded-xl p-6">
+          <p class="text-sm text-emerald-600 font-medium">Tu número de pedido</p>
+          <p id="orderNumber" class="text-6xl font-black text-emerald-700 my-2">#0</p>
+        </div>
+        <div id="orderSummary" class="text-left text-sm text-slate-600 space-y-1"></div>
+        <button id="newOrderBtn" class="w-full py-4 bg-emerald-600 text-white font-bold text-lg rounded-xl cursor-pointer border-none active:bg-emerald-700">
+          Nuevo Pedido
+        </button>
+      </div>
+    </div>
+
+    <!-- Error Toast -->
+    <div id="errorToast" class="hidden fixed top-4 left-4 right-4 bg-red-500 text-white px-4 py-3 rounded-xl shadow-lg z-50 text-center font-medium"></div>
+  </div>
+</KioskLayout>
+
+<script>
+  import { kioskFetch } from '../../lib/kiosk-api';
+
+  const slug = document.getElementById('kioskApp')!.dataset.slug!;
+
+  // State
+  let menus: any[] = [];
+  let activeMenuId: string | null = null;
+  let cart: Array<{ productId: string; menuItemId?: string; name: string; price: number; quantity: number; notes: string }> = [];
+  let selectedPayment: string | null = null;
+
+  // DOM refs
+  const menuTabs = document.getElementById('menuTabs')!;
+  const productsGrid = document.getElementById('productsGrid')!;
+  const cartFab = document.getElementById('cartFab')!;
+  const cartBadge = document.getElementById('cartBadge')!;
+  const cartOverlay = document.getElementById('cartOverlay')!;
+  const cartItems = document.getElementById('cartItems')!;
+  const cartTotal = document.getElementById('cartTotal')!;
+  const checkoutBtn = document.getElementById('checkoutBtn') as HTMLButtonElement;
+  const checkoutOverlay = document.getElementById('checkoutOverlay')!;
+  const confirmationScreen = document.getElementById('confirmationScreen')!;
+  const errorToast = document.getElementById('errorToast')!;
+  const restaurantNameEl = document.getElementById('restaurantName')!;
+
+  function showError(msg: string) {
+    errorToast.textContent = msg;
+    errorToast.classList.remove('hidden');
+    setTimeout(() => errorToast.classList.add('hidden'), 4000);
+  }
+
+  // Load menus
+  async function loadMenus() {
+    const res = await kioskFetch(`/v1/kiosk/${slug}/menus`);
+    if (!res.ok) { showError('No se pudieron cargar los menús'); return; }
+    menus = await res.json();
+    if (menus.length === 0) {
+      menuTabs.innerHTML = '<span class="text-sm text-slate-400 px-3 py-2">No hay menús disponibles en este momento</span>';
+      return;
+    }
+    renderMenuTabs();
+    selectMenu(menus[0].id);
+  }
+
+  function renderMenuTabs() {
+    menuTabs.innerHTML = menus.map(m => `
+      <button data-menu-id="${m.id}" class="menu-tab whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border-none ${m.id === activeMenuId ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+        ${m.name}
+      </button>
+    `).join('');
+    menuTabs.querySelectorAll('.menu-tab').forEach(btn => {
+      btn.addEventListener('click', () => selectMenu((btn as HTMLElement).dataset.menuId!));
+    });
+  }
+
+  async function selectMenu(menuId: string) {
+    activeMenuId = menuId;
+    renderMenuTabs();
+    productsGrid.innerHTML = '<div class="text-center text-slate-400 py-12">Cargando productos...</div>';
+
+    const res = await kioskFetch(`/v1/kiosk/${slug}/menus/${menuId}/items`);
+    if (!res.ok) { showError('Error al cargar productos'); return; }
+    const data = await res.json();
+    restaurantNameEl.textContent = data.menuName || 'Menú';
+    renderProducts(data.sections);
+  }
+
+  function renderProducts(sections: Record<string, any[]>) {
+    const keys = Object.keys(sections);
+    if (keys.length === 0) {
+      productsGrid.innerHTML = '<div class="text-center text-slate-400 py-12">No hay productos en este menú</div>';
+      return;
+    }
+
+    let html = '';
+    for (const sectionName of keys) {
+      html += `<h3 class="text-lg font-bold text-slate-700 mt-6 mb-3 first:mt-0">${sectionName}</h3>`;
+      html += '<div class="grid grid-cols-2 md:grid-cols-3 gap-3">';
+      for (const item of sections[sectionName]) {
+        const isOut = item.stockStatus === 'out_of_stock';
+        const isLow = item.stockStatus === 'low_stock';
+        html += `
+          <div class="bg-white rounded-xl border border-slate-200 overflow-hidden ${isOut ? 'opacity-50' : ''} flex flex-col">
+            <div class="aspect-[4/3] bg-slate-100 flex items-center justify-center text-4xl">
+              ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${item.name}" class="w-full h-full object-cover" />` : '🍽️'}
+            </div>
+            <div class="p-3 flex-1 flex flex-col">
+              <h4 class="font-semibold text-sm leading-tight mb-1">${item.name}</h4>
+              ${item.description ? `<p class="text-xs text-slate-500 mb-2 line-clamp-2">${item.description}</p>` : ''}
+              <div class="mt-auto flex items-center justify-between">
+                <span class="font-bold text-emerald-700">$${item.price.toFixed(2)}</span>
+                ${isLow ? '<span class="text-xs text-amber-600 font-medium">Últimos</span>' : ''}
+                ${isOut ? '<span class="text-xs text-red-500 font-medium">Agotado</span>' : ''}
+              </div>
+              ${!isOut ? `
+                <button
+                  data-add='${JSON.stringify({ productId: item.id, menuItemId: item.menuItemId, name: item.name, price: item.price })}'
+                  class="add-btn mt-2 w-full py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg active:bg-emerald-700 transition-colors cursor-pointer border-none"
+                >
+                  Agregar
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }
+      html += '</div>';
+    }
+    productsGrid.innerHTML = html;
+    productsGrid.querySelectorAll('.add-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const data = JSON.parse((btn as HTMLElement).dataset.add!);
+        addToCart(data);
+      });
+    });
+  }
+
+  function addToCart(item: { productId: string; menuItemId?: string; name: string; price: number }) {
+    const existing = cart.find(c => c.productId === item.productId && c.menuItemId === item.menuItemId);
+    if (existing) {
+      existing.quantity++;
+    } else {
+      cart.push({ ...item, quantity: 1, notes: '' });
+    }
+    updateCartUI();
+  }
+
+  function updateCartUI() {
+    const totalQty = cart.reduce((s, c) => s + c.quantity, 0);
+    const totalPrice = cart.reduce((s, c) => s + c.price * c.quantity, 0);
+
+    if (totalQty > 0) {
+      cartFab.classList.remove('hidden');
+      cartFab.classList.add('flex');
+    } else {
+      cartFab.classList.add('hidden');
+      cartFab.classList.remove('flex');
+    }
+    cartBadge.textContent = String(totalQty);
+    cartTotal.textContent = `$${totalPrice.toFixed(2)}`;
+    checkoutBtn.disabled = cart.length === 0;
+
+    if (cart.length === 0) {
+      cartItems.innerHTML = '<p class="text-slate-400 text-center">El carrito está vacío</p>';
+    } else {
+      cartItems.innerHTML = cart.map((item, idx) => `
+        <div class="bg-slate-50 rounded-xl p-3 space-y-2">
+          <div class="flex justify-between items-start">
+            <div>
+              <p class="font-medium text-sm">${item.name}</p>
+              <p class="text-emerald-600 font-bold text-sm">$${(item.price * item.quantity).toFixed(2)}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button data-dec="${idx}" class="cart-dec w-8 h-8 rounded-full bg-white border border-slate-300 text-lg cursor-pointer flex items-center justify-center">−</button>
+              <span class="font-bold text-sm w-6 text-center">${item.quantity}</span>
+              <button data-inc="${idx}" class="cart-inc w-8 h-8 rounded-full bg-white border border-slate-300 text-lg cursor-pointer flex items-center justify-center">+</button>
+            </div>
+          </div>
+          <input data-notes="${idx}" type="text" value="${item.notes}" placeholder="Notas (ej: sin cebolla)"
+            class="cart-notes w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+        </div>
+      `).join('');
+
+      cartItems.querySelectorAll('.cart-dec').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = Number((btn as HTMLElement).dataset.dec);
+          cart[idx].quantity--;
+          if (cart[idx].quantity <= 0) cart.splice(idx, 1);
+          updateCartUI();
+        });
+      });
+      cartItems.querySelectorAll('.cart-inc').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = Number((btn as HTMLElement).dataset.inc);
+          cart[idx].quantity++;
+          updateCartUI();
+        });
+      });
+      cartItems.querySelectorAll('.cart-notes').forEach(input => {
+        input.addEventListener('change', () => {
+          const idx = Number((input as HTMLInputElement).dataset.notes);
+          cart[idx].notes = (input as HTMLInputElement).value;
+        });
+      });
+    }
+  }
+
+  // Cart open/close
+  cartFab.addEventListener('click', () => {
+    updateCartUI();
+    cartOverlay.classList.remove('hidden');
+  });
+  document.getElementById('closeCart')!.addEventListener('click', () => {
+    cartOverlay.classList.add('hidden');
+  });
+  cartOverlay.addEventListener('click', (e) => {
+    if (e.target === cartOverlay) cartOverlay.classList.add('hidden');
+  });
+
+  // Checkout flow
+  checkoutBtn.addEventListener('click', () => {
+    cartOverlay.classList.add('hidden');
+    selectedPayment = null;
+    document.querySelectorAll('.payment-btn').forEach(b => b.classList.remove('border-emerald-500', 'bg-emerald-50'));
+    (document.getElementById('confirmOrder') as HTMLButtonElement).disabled = true;
+    checkoutOverlay.classList.remove('hidden');
+  });
+
+  document.querySelectorAll('.payment-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.payment-btn').forEach(b => b.classList.remove('border-emerald-500', 'bg-emerald-50'));
+      btn.classList.add('border-emerald-500', 'bg-emerald-50');
+      selectedPayment = (btn as HTMLElement).dataset.method!;
+      (document.getElementById('confirmOrder') as HTMLButtonElement).disabled = false;
+    });
+  });
+
+  document.getElementById('cancelCheckout')!.addEventListener('click', () => {
+    checkoutOverlay.classList.add('hidden');
+  });
+
+  document.getElementById('confirmOrder')!.addEventListener('click', async () => {
+    if (!selectedPayment || cart.length === 0) return;
+    const confirmBtn = document.getElementById('confirmOrder') as HTMLButtonElement;
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Procesando...';
+
+    const email = (document.getElementById('customerEmail') as HTMLInputElement).value || undefined;
+
+    const body = {
+      items: cart.map(c => ({
+        productId: c.productId,
+        menuItemId: c.menuItemId,
+        quantity: c.quantity,
+        notes: c.notes || undefined,
+      })),
+      paymentMethod: selectedPayment,
+      customerEmail: email,
+    };
+
+    try {
+      const res = await kioskFetch(`/v1/kiosk/${slug}/orders`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        showError(err?.message || 'Error al crear el pedido');
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirmar';
+        return;
+      }
+
+      const order = await res.json();
+      checkoutOverlay.classList.add('hidden');
+
+      // Show confirmation
+      document.getElementById('orderNumber')!.textContent = `#${order.orderNumber}`;
+      const summaryEl = document.getElementById('orderSummary')!;
+      summaryEl.innerHTML = cart.map(c =>
+        `<div class="flex justify-between"><span>${c.quantity}x ${c.name}</span><span>$${(c.price * c.quantity).toFixed(2)}</span></div>`
+      ).join('') + `<div class="flex justify-between font-bold border-t border-slate-200 pt-2 mt-2"><span>Total</span><span>$${Number(order.totalAmount).toFixed(2)}</span></div>`;
+
+      confirmationScreen.classList.remove('hidden');
+    } catch {
+      showError('Error de conexión');
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Confirmar';
+    }
+  });
+
+  document.getElementById('newOrderBtn')!.addEventListener('click', () => {
+    cart = [];
+    selectedPayment = null;
+    (document.getElementById('customerEmail') as HTMLInputElement).value = '';
+    updateCartUI();
+    confirmationScreen.classList.add('hidden');
+    if (activeMenuId) selectMenu(activeMenuId);
+  });
+
+  // Init
+  loadMenus();
+</script>

@@ -1,0 +1,142 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+---
+
+<DashboardLayout>
+  <div class="space-y-6">
+    <h2 class="text-2xl font-bold text-slate-800">Caja Registradora</h2>
+
+    <!-- Status Card -->
+    <div id="registerStatus" class="bg-white rounded-xl border border-slate-200 p-6">
+      <p class="text-slate-400 text-center">Cargando...</p>
+    </div>
+
+    <!-- Summary Modal -->
+    <div id="summaryModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl w-full max-w-lg p-6 space-y-4">
+        <h3 class="text-xl font-bold text-slate-800">Resumen de Caja</h3>
+        <div id="summaryContent" class="space-y-4"></div>
+        <button id="closeSummary" class="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium cursor-pointer border-none hover:bg-indigo-700">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  import { apiFetch } from '../../lib/api';
+
+  const statusEl = document.getElementById('registerStatus')!;
+  const summaryModal = document.getElementById('summaryModal')!;
+  const summaryContent = document.getElementById('summaryContent')!;
+
+  async function loadStatus() {
+    const res = await apiFetch('/v1/register/current');
+    if (!res.ok) {
+      const msg = res.status === 403 ? 'No tienes permisos para acceder a esta sección' : 'Error al cargar el estado de la caja';
+      statusEl.innerHTML = `<p class="text-red-400 text-center">${msg}</p>`;
+      return;
+    }
+    const data = await res.json();
+
+    if (!data || !data.id) {
+      statusEl.innerHTML = `
+        <div class="text-center space-y-4">
+          <div class="text-5xl">🔒</div>
+          <h3 class="text-xl font-semibold text-slate-700">Caja Cerrada</h3>
+          <p class="text-slate-500">No hay una sesión de caja abierta.</p>
+          <button id="openRegister" class="px-6 py-3 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors cursor-pointer border-none">
+            Abrir Caja
+          </button>
+        </div>
+      `;
+      document.getElementById('openRegister')!.addEventListener('click', openRegister);
+    } else {
+      const openedAt = new Date(data.openedAt).toLocaleString();
+      const orderCount = data._count?.orders ?? 0;
+      statusEl.innerHTML = `
+        <div class="space-y-4">
+          <div class="flex items-center gap-3">
+            <div class="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+            <h3 class="text-xl font-semibold text-emerald-700">Caja Abierta</h3>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-slate-50 rounded-lg p-4">
+              <p class="text-sm text-slate-500">Abierta desde</p>
+              <p class="text-lg font-semibold">${openedAt}</p>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-4">
+              <p class="text-sm text-slate-500">Pedidos</p>
+              <p class="text-lg font-semibold">${orderCount}</p>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-4">
+              <p class="text-sm text-slate-500">Último # de orden</p>
+              <p class="text-lg font-semibold">${data.lastOrderNumber}</p>
+            </div>
+          </div>
+          <button id="closeRegister" class="px-6 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors cursor-pointer border-none">
+            Cerrar Caja
+          </button>
+        </div>
+      `;
+      document.getElementById('closeRegister')!.addEventListener('click', closeRegister);
+    }
+  }
+
+  async function openRegister() {
+    const res = await apiFetch('/v1/register/open', { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      alert(err?.message || 'Error al abrir caja');
+      return;
+    }
+    loadStatus();
+  }
+
+  async function closeRegister() {
+    if (!confirm('¿Estás seguro de cerrar la caja?')) return;
+
+    const res = await apiFetch('/v1/register/close', { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      alert(err?.message || 'Error al cerrar caja');
+      return;
+    }
+
+    const data = await res.json();
+    const summary = data.summary;
+
+    const breakdownHtml = Object.entries(summary.paymentBreakdown)
+      .map(([method, info]: [string, any]) =>
+        `<div class="flex justify-between"><span>${method}</span><span>${info.count} pedidos - $${info.total.toFixed(2)}</span></div>`
+      ).join('');
+
+    summaryContent.innerHTML = `
+      <div class="bg-emerald-50 rounded-lg p-4 space-y-2">
+        <div class="flex justify-between text-lg">
+          <span class="font-medium">Total Pedidos</span>
+          <span class="font-bold">${summary.totalOrders}</span>
+        </div>
+        <div class="flex justify-between text-lg">
+          <span class="font-medium">Total Ventas</span>
+          <span class="font-bold text-emerald-700">$${summary.totalSales.toFixed(2)}</span>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <h4 class="font-semibold text-slate-700">Desglose por Método de Pago</h4>
+        ${breakdownHtml || '<p class="text-slate-400">Sin pedidos</p>'}
+      </div>
+    `;
+
+    summaryModal.classList.remove('hidden');
+    loadStatus();
+  }
+
+  document.getElementById('closeSummary')!.addEventListener('click', () => {
+    summaryModal.classList.add('hidden');
+  });
+
+  loadStatus();
+</script>

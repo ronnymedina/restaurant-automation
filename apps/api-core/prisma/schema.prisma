@@ -8,16 +8,74 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  BASIC
+}
+
+model User {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  passwordHash String?
+  role         Role    @default(BASIC)
+  isActive     Boolean @default(false)
+
+  activationToken String? @unique
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  refreshTokens RefreshToken[]
+
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deletedAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+enum OrderStatus {
+  CREATED
+  PROCESSING
+  PAID
+  COMPLETED
+}
+
+enum PaymentMethod {
+  CARD
+  CASH
+  DIGITAL_WALLET
+}
+
+enum RegisterSessionStatus {
+  OPEN
+  CLOSED
 }
 
 model Restaurant {
   id   String @id @default(uuid())
   name String
+  slug String @unique
 
-  products   Product[]
-  menus      Menu[]
-  categories Category[]
+  users            User[]
+  products         Product[]
+  menus            Menu[]
+  categories       Category[]
+  orders           Order[]
+  registerSessions RegisterSession[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -49,10 +107,11 @@ model Product {
   restaurantId String
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
-  categoryId String?
-  category   Category? @relation(fields: [categoryId], references: [id])
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
 
-  menuItems MenuItem[]
+  menuItems  MenuItem[]
+  orderItems OrderItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -62,6 +121,10 @@ model Menu {
   id     String  @id @default(uuid())
   name   String // Ej: "Almuerzo Ejecutivo", "Carta Noche"
   active Boolean @default(true)
+
+  startTime  String? // "12:00"
+  endTime    String? // "15:00"
+  daysOfWeek String? // "MON,TUE,WED,THU,FRI" (comma-separated)
 
   restaurantId String
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
@@ -76,7 +139,7 @@ model MenuItem {
   id String @id @default(uuid())
 
   menuId String
-  menu   Menu   @relation(fields: [menuId], references: [id])
+  menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
 
   productId String
   product   Product @relation(fields: [productId], references: [id])
@@ -85,7 +148,69 @@ model MenuItem {
   price       Decimal? // Precio Override (Si es null, usa Product.price)
   stock       Int?     // Stock Allocation (Si es null, usa Product.stock global sin límite específico)
   sectionName String?  // Sección Visual en la Carta (Ej: "Para Empezar", "el ñandu")
+  order       Int      @default(0) // Orden dentro de la sección
+
+  orderItems OrderItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Order {
+  id            String        @id @default(uuid())
+  orderNumber   Int
+  status        OrderStatus   @default(CREATED)
+  paymentMethod PaymentMethod?
+  customerEmail String?
+  totalAmount   Decimal
+
+  restaurantId      String
+  restaurant        Restaurant      @relation(fields: [restaurantId], references: [id])
+  registerSessionId String
+  registerSession   RegisterSession @relation(fields: [registerSessionId], references: [id])
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId, createdAt])
+  @@index([registerSessionId])
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  quantity  Int
+  unitPrice Decimal
+  subtotal  Decimal
+  notes     String?
+
+  orderId    String
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product   @relation(fields: [productId], references: [id])
+  menuItemId String?
+  menuItem   MenuItem? @relation(fields: [menuItemId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model RegisterSession {
+  id              String                @id @default(uuid())
+  status          RegisterSessionStatus @default(OPEN)
+  lastOrderNumber Int                   @default(0)
+
+  totalSales  Decimal?
+  totalOrders Int?
+  closedBy    String?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  orders Order[]
+
+  openedAt DateTime @default(now())
+  closedAt DateTime?
+
+  @@index([restaurantId, status])
 }

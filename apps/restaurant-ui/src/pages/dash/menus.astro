@@ -1,0 +1,231 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import ActiveToggle from '../../components/dash/ActiveToggle.astro';
+import DataTable from '../../components/dash/DataTable.astro';
+---
+
+<DashboardLayout>
+  <div class="space-y-6">
+    <div class="flex justify-between items-center">
+      <h2 class="text-2xl font-bold text-slate-800">Menús</h2>
+      <button
+        id="newMenuBtn"
+        class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none"
+      >
+        Nuevo menú
+      </button>
+    </div>
+
+    <!-- Create/Edit Form (hidden by default) -->
+    <div id="menuForm" class="hidden bg-white rounded-xl border border-slate-200 p-6">
+      <h3 id="formTitle" class="text-lg font-semibold text-slate-800 mb-4">Nuevo menú</h3>
+      <form id="menuFormEl" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <input type="hidden" id="menuId" />
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
+          <input type="text" id="menuName" required
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Hora inicio</label>
+          <input type="time" id="menuStartTime"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Hora fin</label>
+          <input type="time" id="menuEndTime"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div class="pt-6">
+          <ActiveToggle id="menuActive" label="Menú activo" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-slate-700 mb-2">Días de la semana</label>
+          <div class="flex flex-wrap gap-3" id="daysCheckboxes">
+            <label class="flex items-center gap-1.5 text-sm text-slate-600">
+              <input type="checkbox" value="MON" class="day-checkbox w-4 h-4 text-indigo-600 rounded border-slate-300" /> Lun
+            </label>
+            <label class="flex items-center gap-1.5 text-sm text-slate-600">
+              <input type="checkbox" value="TUE" class="day-checkbox w-4 h-4 text-indigo-600 rounded border-slate-300" /> Mar
+            </label>
+            <label class="flex items-center gap-1.5 text-sm text-slate-600">
+              <input type="checkbox" value="WED" class="day-checkbox w-4 h-4 text-indigo-600 rounded border-slate-300" /> Mié
+            </label>
+            <label class="flex items-center gap-1.5 text-sm text-slate-600">
+              <input type="checkbox" value="THU" class="day-checkbox w-4 h-4 text-indigo-600 rounded border-slate-300" /> Jue
+            </label>
+            <label class="flex items-center gap-1.5 text-sm text-slate-600">
+              <input type="checkbox" value="FRI" class="day-checkbox w-4 h-4 text-indigo-600 rounded border-slate-300" /> Vie
+            </label>
+            <label class="flex items-center gap-1.5 text-sm text-slate-600">
+              <input type="checkbox" value="SAT" class="day-checkbox w-4 h-4 text-indigo-600 rounded border-slate-300" /> Sáb
+            </label>
+            <label class="flex items-center gap-1.5 text-sm text-slate-600">
+              <input type="checkbox" value="SUN" class="day-checkbox w-4 h-4 text-indigo-600 rounded border-slate-300" /> Dom
+            </label>
+          </div>
+        </div>
+        <div class="md:col-span-2 flex gap-2">
+          <button type="submit"
+            class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none">
+            Guardar
+          </button>
+          <button type="button" id="cancelBtn"
+            class="px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors cursor-pointer border-none">
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <DataTable
+      tbodyId="menusTableBody"
+      minWidth="600px"
+      columns={[
+        { label: 'Nombre' },
+        { label: 'Horario', nowrap: true },
+        { label: 'Días', nowrap: true },
+        { label: 'Activo', nowrap: true },
+        { label: '# Items', nowrap: true },
+        { label: 'Acciones', align: 'right', nowrap: true },
+      ]}
+    />
+  </div>
+</DashboardLayout>
+
+<script>
+  import { apiFetch } from '../../lib/api';
+
+  const DAY_LABELS: Record<string, string> = {
+    MON: 'Lun', TUE: 'Mar', WED: 'Mié', THU: 'Jue', FRI: 'Vie', SAT: 'Sáb', SUN: 'Dom',
+  };
+
+  let editingId: string | null = null;
+
+  const tableBody = document.getElementById('menusTableBody')!;
+  const menuForm = document.getElementById('menuForm')!;
+  const formTitle = document.getElementById('formTitle')!;
+  const formEl = document.getElementById('menuFormEl') as HTMLFormElement;
+  const dayCheckboxes = document.querySelectorAll('.day-checkbox') as NodeListOf<HTMLInputElement>;
+
+  function getSelectedDays(): string {
+    return Array.from(dayCheckboxes).filter(cb => cb.checked).map(cb => cb.value).join(',');
+  }
+
+  function setSelectedDays(daysStr: string) {
+    const days = daysStr ? daysStr.split(',') : [];
+    dayCheckboxes.forEach(cb => { cb.checked = days.includes(cb.value); });
+  }
+
+  function formatDays(daysStr: string | null): string {
+    if (!daysStr) return '-';
+    return daysStr.split(',').map(d => DAY_LABELS[d] || d).join(', ');
+  }
+
+  function formatSchedule(start: string | null, end: string | null): string {
+    if (!start && !end) return '-';
+    return `${start || '?'} - ${end || '?'}`;
+  }
+
+  async function loadMenus() {
+    const res = await apiFetch('/v1/menus');
+    if (!res.ok) {
+      const msg = res.status === 403 ? 'No tienes permisos para acceder a esta sección' : 'Error al cargar';
+      tableBody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-red-400">${msg}</td></tr>`;
+      return;
+    }
+    const data = await res.json();
+
+    if (data.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">No hay menús</td></tr>';
+      return;
+    }
+
+    tableBody.innerHTML = data.map((m: any) => `
+      <tr class="border-b border-slate-100 hover:bg-slate-50">
+        <td class="px-4 py-3 font-medium text-slate-800 max-w-[180px] truncate">${m.name}</td>
+        <td class="px-4 py-3 text-slate-600 whitespace-nowrap">${formatSchedule(m.startTime, m.endTime)}</td>
+        <td class="px-4 py-3 text-slate-600 text-xs whitespace-nowrap">${formatDays(m.daysOfWeek)}</td>
+        <td class="px-4 py-3 whitespace-nowrap"><span class="px-2 py-0.5 text-xs rounded-full ${m.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${m.active ? 'Sí' : 'No'}</span></td>
+        <td class="px-4 py-3 text-slate-600 whitespace-nowrap">${m._count?.items ?? 0}</td>
+        <td class="px-4 py-3 text-right whitespace-nowrap space-x-2">
+          <button data-edit='${JSON.stringify(m).replace(/'/g, '&#39;')}' class="edit-btn text-indigo-600 hover:text-indigo-800 cursor-pointer bg-transparent border-none text-sm">Editar</button>
+          <a href="/dash/menus/${m.id}" class="text-emerald-600 hover:text-emerald-800 text-sm">Items</a>
+          <button data-delete="${m.id}" class="delete-btn text-red-600 hover:text-red-800 cursor-pointer bg-transparent border-none text-sm">Eliminar</button>
+        </td>
+      </tr>
+    `).join('');
+
+    bindTableEvents();
+  }
+
+  function bindTableEvents() {
+    tableBody.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const m = JSON.parse((btn as HTMLElement).dataset.edit!);
+        editingId = m.id;
+        formTitle.textContent = 'Editar menú';
+        (document.getElementById('menuId') as HTMLInputElement).value = m.id;
+        (document.getElementById('menuName') as HTMLInputElement).value = m.name;
+        (document.getElementById('menuStartTime') as HTMLInputElement).value = m.startTime || '';
+        (document.getElementById('menuEndTime') as HTMLInputElement).value = m.endTime || '';
+        (document.getElementById('menuActive') as HTMLInputElement).checked = m.active;
+        setSelectedDays(m.daysOfWeek || '');
+        menuForm.classList.remove('hidden');
+      });
+    });
+
+    tableBody.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = (btn as HTMLElement).dataset.delete!;
+        if (!confirm('¿Eliminar este menú y todos sus items?')) return;
+        await apiFetch(`/v1/menus/${id}`, { method: 'DELETE' });
+        loadMenus();
+      });
+    });
+  }
+
+  document.getElementById('newMenuBtn')!.addEventListener('click', () => {
+    editingId = null;
+    formTitle.textContent = 'Nuevo menú';
+    formEl.reset();
+    (document.getElementById('menuActive') as HTMLInputElement).checked = true;
+    dayCheckboxes.forEach(cb => { cb.checked = false; });
+    menuForm.classList.remove('hidden');
+  });
+
+  document.getElementById('cancelBtn')!.addEventListener('click', () => {
+    menuForm.classList.add('hidden');
+    formEl.reset();
+    editingId = null;
+  });
+
+  formEl.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body: any = {
+      name: (document.getElementById('menuName') as HTMLInputElement).value,
+      active: (document.getElementById('menuActive') as HTMLInputElement).checked,
+    };
+    const startTime = (document.getElementById('menuStartTime') as HTMLInputElement).value;
+    const endTime = (document.getElementById('menuEndTime') as HTMLInputElement).value;
+    const daysOfWeek = getSelectedDays();
+
+    if (startTime) body.startTime = startTime;
+    if (endTime) body.endTime = endTime;
+    if (daysOfWeek) body.daysOfWeek = daysOfWeek;
+
+    if (editingId) {
+      await apiFetch(`/v1/menus/${editingId}`, { method: 'PATCH', body: JSON.stringify(body) });
+    } else {
+      await apiFetch('/v1/menus', { method: 'POST', body: JSON.stringify(body) });
+    }
+
+    menuForm.classList.add('hidden');
+    formEl.reset();
+    editingId = null;
+    loadMenus();
+  });
+
+  loadMenus();
+</script>

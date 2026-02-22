@@ -5,6 +5,12 @@ import { Product, Category } from '@prisma/client';
 import { ProductRepository, CreateProductData } from './product.repository';
 import { CategoryRepository } from './category.repository';
 import { productConfig } from './product.config';
+import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
+import {
+  EntityNotFoundException,
+  ForbiddenAccessException,
+  ValidationException,
+} from '../common/exceptions';
 
 export interface ProductInput {
   name: string;
@@ -41,7 +47,7 @@ export class ProductsService {
   async createProduct(
     restaurantId: string,
     data: ProductInput,
-    categoryId?: string,
+    categoryId: string,
   ): Promise<Product> {
     return this.productRepository.create({
       name: data.name,
@@ -90,8 +96,74 @@ export class ProductsService {
     return this.productRepository.findByRestaurantId(restaurantId);
   }
 
-  async findById(id: string): Promise<Product | null> {
-    return this.productRepository.findById(id);
+  async findByRestaurantIdPaginated(
+    restaurantId: string,
+    page?: number,
+    limit?: number,
+  ): Promise<PaginatedResult<Product>> {
+    const currentPage = page || 1;
+    const currentLimit = limit || this.configService.defaultPageSize;
+    const skip = (currentPage - 1) * currentLimit;
+
+    const { data, total } =
+      await this.productRepository.findByRestaurantIdPaginated(
+        restaurantId,
+        skip,
+        currentLimit,
+      );
+
+    return {
+      data,
+      meta: {
+        total,
+        page: currentPage,
+        limit: currentLimit,
+        totalPages: Math.ceil(total / currentLimit),
+      },
+    };
+  }
+
+  async findById(id: string, restaurantId: string): Promise<Product> {
+    const product = await this.productRepository.findById(id, restaurantId);
+    if (!product) throw new EntityNotFoundException('Product', id);
+    return product;
+  }
+
+  async updateProduct(
+    id: string,
+    restaurantId: string,
+    data: Partial<CreateProductData>,
+  ): Promise<Product> {
+    // Repository now handles checking existence/ownership via restaurantId
+    // If we want to be explicit, call findById first to throw standard EntityNotFound
+    await this.findById(id, restaurantId);
+    return this.productRepository.update(id, restaurantId, data);
+  }
+
+  async decrementStock(
+    productId: string,
+    restaurantId: string,
+    amount: number,
+  ): Promise<Product> {
+    const product = await this.productRepository.findById(
+      productId,
+      restaurantId,
+    );
+
+    if (!product) throw new EntityNotFoundException('Product', productId);
+    if (product.stock < amount) {
+      throw new ValidationException(
+        `Insufficient stock for product '${product.name}'. Available: ${product.stock}, requested: ${amount}`,
+      );
+    }
+    return this.productRepository.update(productId, restaurantId, {
+      stock: product.stock - amount,
+    });
+  }
+
+  async deleteProduct(id: string, restaurantId: string): Promise<Product> {
+    await this.findById(id, restaurantId);
+    return this.productRepository.delete(id, restaurantId);
   }
 
   /**

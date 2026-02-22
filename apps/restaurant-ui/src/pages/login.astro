@@ -1,0 +1,166 @@
+---
+export const prerender = true;
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout>
+  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#667eea] to-[#764ba2] p-8 px-4">
+    <div class="bg-white/95 rounded-3xl shadow-2xl w-full max-w-[440px] p-10 relative overflow-hidden">
+      <div class="text-center mb-8">
+        <div class="text-indigo-500 mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+            <polyline points="10 17 15 12 10 7"></polyline>
+            <line x1="15" x2="3" y1="12" y2="12"></line>
+          </svg>
+        </div>
+        <h2 class="text-3xl text-slate-800 mb-2 font-bold">Iniciar sesión</h2>
+        <p class="text-slate-500 text-base m-0">Ingresa a tu dashboard</p>
+      </div>
+
+      <form id="loginForm">
+        <div class="mb-6">
+          <label for="email" class="block font-semibold text-slate-800 mb-2 text-sm">Correo electrónico</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            placeholder="tu@email.com"
+            required
+            class="w-full py-3.5 px-4 border-2 border-slate-200 rounded-xl text-base transition-all bg-white text-slate-800 box-border focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 placeholder:text-slate-400"
+          />
+        </div>
+
+        <div class="mb-6">
+          <label for="password" class="block font-semibold text-slate-800 mb-2 text-sm">Contraseña</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="Tu contraseña"
+            minlength="8"
+            required
+            class="w-full py-3.5 px-4 border-2 border-slate-200 rounded-xl text-base transition-all bg-white text-slate-800 box-border focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 placeholder:text-slate-400"
+          />
+        </div>
+
+        <button type="submit" class="w-full py-4 px-6 bg-indigo-500 text-white border-none rounded-xl text-base font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all hover:bg-indigo-600 hover:-translate-y-0.5 disabled:bg-slate-300 disabled:cursor-not-allowed" id="submitBtn">
+          Entrar
+        </button>
+      </form>
+
+      <p class="text-center text-slate-500 text-sm mt-6">
+        ¿No tienes cuenta? <a href="/onboarding" class="text-indigo-500 font-semibold no-underline hover:text-indigo-600">Regístrate aquí</a>
+      </p>
+
+      <!-- Loading Overlay -->
+      <div class="loading-overlay absolute inset-0 bg-white/95 hidden flex-col items-center justify-center gap-4 rounded-3xl z-10" id="loadingOverlay">
+        <div class="spinner w-12 h-12 border-4 border-slate-200 border-t-indigo-500 rounded-full"></div>
+        <p class="text-slate-500 font-medium">Iniciando sesión...</p>
+      </div>
+
+      <!-- Error Message -->
+      <div class="error-toast absolute bottom-4 left-4 right-4 bg-red-500 text-white p-4 rounded-xl hidden items-center justify-between" id="errorMessage">
+        <p class="m-0 font-medium"></p>
+        <button type="button" class="bg-transparent border-none text-white text-2xl cursor-pointer p-0 leading-none" id="closeError">×</button>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .loading-overlay.visible {
+    display: flex;
+  }
+  .error-toast.visible {
+    display: flex;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .spinner {
+    animation: spin 1s linear infinite;
+  }
+  .error-toast {
+    animation: slideUp 0.3s ease;
+  }
+</style>
+
+<script>
+  import { setTokens, isAuthenticated } from '../lib/auth';
+  import { getErrorMessage } from '../lib/error-messages';
+
+  // Redirect if already authenticated
+  if (isAuthenticated()) {
+    window.location.href = '/dash';
+  }
+
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
+
+  const loginForm = document.getElementById('loginForm') as HTMLFormElement;
+  const loadingOverlay = document.getElementById('loadingOverlay') as HTMLDivElement;
+  const errorMessage = document.getElementById('errorMessage') as HTMLDivElement;
+  const closeError = document.getElementById('closeError') as HTMLButtonElement;
+
+  function setLoading(loading: boolean) {
+    loadingOverlay.classList.toggle('visible', loading);
+  }
+
+  function showError(message: string) {
+    const errorP = errorMessage.querySelector('p') as HTMLParagraphElement;
+    errorP.textContent = message;
+    errorMessage.classList.add('visible');
+    setTimeout(() => errorMessage.classList.remove('visible'), 5000);
+  }
+
+  closeError.addEventListener('click', () => {
+    errorMessage.classList.remove('visible');
+  });
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const email = (document.getElementById('email') as HTMLInputElement).value.trim();
+    const password = (document.getElementById('password') as HTMLInputElement).value;
+
+    if (!email || !password) {
+      showError('Por favor completa todos los campos');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        if (errorData?.code) {
+          showError(getErrorMessage(errorData.code));
+        } else {
+          showError('Error al iniciar sesión');
+        }
+        return;
+      }
+
+      const result = await response.json();
+      setTokens(result.accessToken, result.refreshToken);
+      window.location.href = '/dash';
+    } catch (error) {
+      console.error('Login error:', error);
+      showError('Error de conexión. Intenta nuevamente.');
+    } finally {
+      setLoading(false);
+    }
+  });
+</script>

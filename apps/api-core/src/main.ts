@@ -1,8 +1,10 @@
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { NODE_ENV, PORT } from './config';
+import helmet from 'helmet';
+import { NODE_ENV, PORT, FRONTEND_URL } from './config';
 
 const isProduction = NODE_ENV === 'production';
 const port = PORT;
@@ -10,9 +12,10 @@ const port = PORT;
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS for frontend
+  app.use(helmet());
+
   app.enableCors({
-    origin: true, // Allow all origins in development
+    origin: isProduction ? FRONTEND_URL : true,
     credentials: true,
   });
 
@@ -20,7 +23,13 @@ async function bootstrap() {
     type: VersioningType.URI,
   });
 
-  app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
 
   // Setup Swagger only in development
   if (!isProduction) {
