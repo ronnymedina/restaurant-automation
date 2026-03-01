@@ -14,6 +14,7 @@ import {
   OrderNotFoundException,
   StockInsufficientException,
   InvalidStatusTransitionException,
+  OrderAlreadyCancelledException,
 } from './exceptions/orders.exceptions';
 import { ForbiddenAccessException } from '../common/exceptions';
 import { EmailService } from '../email/email.service';
@@ -22,7 +23,6 @@ import { PrintService } from '../print/print.service';
 const STATUS_ORDER: OrderStatus[] = [
   'CREATED',
   'PROCESSING',
-  'PAID',
   'COMPLETED',
 ];
 
@@ -37,7 +37,7 @@ export class OrdersService {
     @Optional()
     @Inject(forwardRef(() => PrintService))
     private readonly printService?: PrintService,
-  ) {}
+  ) { }
 
   async createOrder(
     restaurantId: string,
@@ -166,18 +166,39 @@ export class OrdersService {
   ) {
     const order = await this.findById(id, restaurantId);
 
+    if (order.status === 'CANCELLED') {
+      throw new OrderAlreadyCancelledException(id);
+    }
+
     const currentIdx = STATUS_ORDER.indexOf(order.status);
     const targetIdx = STATUS_ORDER.indexOf(newStatus);
 
-    if (targetIdx <= currentIdx) {
+    if (targetIdx <= currentIdx || targetIdx === -1) {
       throw new InvalidStatusTransitionException(order.status, newStatus);
     }
 
-    const updatedOrder = await this.orderRepository.updateStatus(id, newStatus);
+    return this.orderRepository.updateStatus(id, newStatus);
+  }
 
-    // Send receipt email when order is marked as PAID
+  async cancelOrder(id: string, restaurantId: string, reason: string) {
+    const order = await this.findById(id, restaurantId);
+
+    if (order.status === 'CANCELLED') {
+      throw new OrderAlreadyCancelledException(id);
+    }
+
+    if (order.status !== 'CREATED' && order.status !== 'PROCESSING') {
+      throw new InvalidStatusTransitionException(order.status, 'CANCELLED');
+    }
+
+    return this.orderRepository.cancelOrder(id, reason);
+  }
+
+  async markAsPaid(id: string, restaurantId: string) {
+    const order = await this.findById(id, restaurantId);
+    const updatedOrder = await this.orderRepository.markAsPaid(id);
+
     if (
-      newStatus === 'PAID' &&
       updatedOrder.customerEmail &&
       this.printService &&
       this.emailService

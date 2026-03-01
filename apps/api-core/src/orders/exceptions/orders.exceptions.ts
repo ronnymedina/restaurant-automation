@@ -43,3 +43,14 @@ export class InvalidStatusTransitionException extends BaseException {
     );
   }
 }
+
+export class OrderAlreadyCancelledException extends BaseException {
+  constructor(orderId: string) {
+    super(
+      `Order '${orderId}' is already cancelled`,
+      HttpStatus.CONFLICT,
+      'ORDER_ALREADY_CANCELLED',
+      { orderId },
+    );
+  }
+}

@@ -26,7 +26,7 @@ export class AuthService {
     private readonly restaurantsService: RestaurantsService,
     @Inject(authConfig.KEY)
     private readonly configService: ConfigType<typeof authConfig>,
-  ) {}
+  ) { }
 
   async login(email: string, password: string) {
     const user = await this.usersService.findByEmail(email);
@@ -106,6 +106,26 @@ export class AuthService {
     const refreshToken = await this.generateRefreshToken(user.id);
 
     return { accessToken, refreshToken };
+  }
+
+  async getProfile(userId: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) return null;
+
+    const restaurant = await this.restaurantsService.findById(user.restaurantId);
+    if (!restaurant) {
+      this.logger.warn(
+        `Profile attempt for user ${user.email} with invalid restaurantId: ${user.restaurantId}`,
+      );
+      return null;
+    };
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      restaurant: { id: restaurant.id, name: restaurant.name, slug: restaurant.slug }
+    };
   }
 
   async revokeAllTokens(userId: string): Promise<void> {

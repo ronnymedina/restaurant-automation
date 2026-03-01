@@ -8,18 +8,22 @@ import {
   RegisterNotFoundException,
   NoOpenRegisterException,
 } from './exceptions/register.exceptions';
+import { DEFAULT_PAGE_SIZE } from '../config';
+import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 
 @Injectable()
 export class RegisterService {
   constructor(
     private readonly registerSessionRepository: RegisterSessionRepository,
     private readonly orderRepository: OrderRepository,
-  ) {}
+  ) { }
 
   async openSession(restaurantId: string): Promise<RegisterSession> {
     const existing =
       await this.registerSessionRepository.findOpen(restaurantId);
+
     if (existing) throw new RegisterAlreadyOpenException();
+
     return this.registerSessionRepository.create(restaurantId);
   }
 
@@ -27,7 +31,7 @@ export class RegisterService {
     const session = await this.registerSessionRepository.findOpen(restaurantId);
     if (!session) throw new NoOpenRegisterException();
 
-    const orders = await this.orderRepository.findBySessionId(session.id);
+    const orders = await this.orderRepository.findBySessionId(session.id, restaurantId);
 
     const totalSales = orders.reduce(
       (sum, o) => sum + Number(o.totalAmount),
@@ -62,17 +66,44 @@ export class RegisterService {
     };
   }
 
+  async getSessionHistory(
+    restaurantId: string,
+    page?: number,
+    limit?: number,
+  ): Promise<PaginatedResult<RegisterSession>> {
+    const currentPage = page || 1;
+    const currentLimit = limit || DEFAULT_PAGE_SIZE;
+    const skip = (currentPage - 1) * currentLimit;
+
+    const { data, total } =
+      await this.registerSessionRepository.findByRestaurantIdPaginated(
+        restaurantId,
+        skip,
+        currentLimit,
+      );
+
+    return {
+      data,
+      meta: {
+        total,
+        page: currentPage,
+        limit: currentLimit,
+        totalPages: Math.ceil(total / currentLimit),
+      },
+    };
+  }
+
   async getCurrentSession(restaurantId: string) {
     const session =
       await this.registerSessionRepository.findOpenWithOrderCount(restaurantId);
-    return session || null;
+    return session || {};
   }
 
   async getSessionSummary(sessionId: string) {
     const session = await this.registerSessionRepository.findById(sessionId);
     if (!session) throw new RegisterNotFoundException(sessionId);
 
-    const orders = await this.orderRepository.findBySessionId(sessionId);
+    const orders = await this.orderRepository.findBySessionId(sessionId, session.restaurantId);
 
     const paymentBreakdown: Record<string, { count: number; total: number }> =
       {};

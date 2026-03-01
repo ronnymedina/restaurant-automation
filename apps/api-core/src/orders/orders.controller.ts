@@ -11,6 +11,7 @@ import { Role, OrderStatus } from '@prisma/client';
 
 import { OrdersService } from './orders.service';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { CancelOrderDto } from './dto/cancel-order.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -49,5 +50,22 @@ export class OrdersController {
       user.restaurantId,
       dto.status,
     );
+  }
+
+  @Patch(':id/pay')
+  async markAsPaid(
+    @Param('id') id: string,
+    @CurrentUser() user: { restaurantId: string },
+  ) {
+    return this.ordersService.markAsPaid(id, user.restaurantId);
+  }
+
+  @Patch(':id/cancel')
+  async cancelOrder(
+    @Param('id') id: string,
+    @CurrentUser() user: { restaurantId: string },
+    @Body() dto: CancelOrderDto,
+  ) {
+    return this.ordersService.cancelOrder(id, user.restaurantId, dto.reason);
   }
 }

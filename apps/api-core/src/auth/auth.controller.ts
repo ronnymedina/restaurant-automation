@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
 
 import { AuthService } from './auth.service';
 import { LoginDto, RefreshTokenDto } from './dto';
@@ -17,6 +17,12 @@ export class AuthController {
   @Post('refresh')
   async refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refreshTokens(dto.refreshToken);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async me(@CurrentUser() user: { id: string }) {
+    return this.authService.getProfile(user.id);
   }
 
   @Post('logout')
