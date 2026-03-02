@@ -130,7 +130,7 @@ const { id } = Astro.params;
   // --- Load data ---
 
   async function loadProducts() {
-    const res = await apiFetch('/v1/products?limit=200');
+    const res = await apiFetch('/v1/products?limit=100');
     if (res.ok) {
       const { data } = await res.json();
       allProducts = data;

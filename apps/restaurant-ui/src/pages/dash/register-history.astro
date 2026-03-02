@@ -1,0 +1,88 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import DataTable from '../../components/dash/DataTable.astro';
+---
+
+<DashboardLayout>
+  <div class="space-y-6">
+    <h2 class="text-2xl font-bold text-slate-800">Historial de Caja</h2>
+
+    <DataTable
+      tbodyId="historyTableBody"
+      paginationId="pagination"
+      minWidth="640px"
+      columns={[
+        { label: 'Fecha apertura', nowrap: true },
+        { label: 'Fecha cierre', nowrap: true },
+        { label: 'Estado', nowrap: true },
+        { label: 'Pedidos', nowrap: true },
+        { label: 'Total ventas', align: 'right', nowrap: true },
+      ]}
+    />
+  </div>
+</DashboardLayout>
+
+<script>
+  import { apiFetch } from '../../lib/api';
+  import { renderPagination, setTableLoading, setTableEmpty, setTableError } from '../../lib/pagination';
+
+  const COLSPAN = 5;
+  let currentPage = 1;
+
+  const tableBody = document.getElementById('historyTableBody')!;
+  const paginationEl = document.getElementById('pagination')!;
+
+  function formatDate(value: string | null): string {
+    if (!value) return '—';
+    return new Date(value).toLocaleString();
+  }
+
+  function formatCurrency(value: number | null): string {
+    if (value == null) return '$0.00';
+    return `$${Number(value).toFixed(2)}`;
+  }
+
+  async function loadHistory(page = 1) {
+    currentPage = page;
+    setTableLoading(tableBody, COLSPAN);
+
+    const res = await apiFetch(`/v1/register/history?page=${page}&limit=10`);
+    if (!res.ok) {
+      const msg = res.status === 403 ? 'No tienes permisos para acceder a esta sección' : 'Error al cargar';
+      setTableError(tableBody, COLSPAN, msg);
+      paginationEl.innerHTML = '';
+      return;
+    }
+    const { data, meta } = await res.json();
+
+    if (data.length === 0) {
+      setTableEmpty(tableBody, COLSPAN, 'No hay sesiones de caja');
+      paginationEl.innerHTML = '';
+      return;
+    }
+
+    tableBody.innerHTML = data.map((s: any) => {
+      const isOpen = s.status === 'OPEN';
+      const badgeClass = isOpen
+        ? 'bg-green-100 text-green-700'
+        : 'bg-slate-100 text-slate-700';
+      const badgeLabel = isOpen ? 'Abierta' : 'Cerrada';
+      const orderCount = s._count?.orders ?? s.totalOrders ?? 0;
+
+      return `
+        <tr class="border-b border-slate-100 hover:bg-slate-50">
+          <td class="px-4 py-3 text-slate-800 whitespace-nowrap">${formatDate(s.openedAt)}</td>
+          <td class="px-4 py-3 text-slate-600 whitespace-nowrap">${formatDate(s.closedAt)}</td>
+          <td class="px-4 py-3 whitespace-nowrap"><span class="px-2 py-0.5 text-xs rounded-full ${badgeClass}">${badgeLabel}</span></td>
+          <td class="px-4 py-3 text-slate-600 whitespace-nowrap">${orderCount}</td>
+          <td class="px-4 py-3 text-slate-800 text-right whitespace-nowrap font-medium">${formatCurrency(s.totalSales)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    renderPagination(paginationEl, meta, currentPage, loadHistory);
+  }
+
+  loadHistory();
+</script>

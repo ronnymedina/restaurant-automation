@@ -13,15 +13,30 @@ const { slug } = Astro.params;
       <span id="menuLabel" class="text-sm opacity-80"></span>
     </header>
 
-    <!-- Menu Tabs -->
-    <div id="menuTabs" class="bg-white border-b border-slate-200 px-2 overflow-x-auto flex gap-1 py-2 shrink-0">
-      <span class="text-sm text-slate-400 px-3 py-2">Cargando menús...</span>
+    <!-- Kiosk content (hidden until session is confirmed open) -->
+    <div id="kioskContent" class="hidden flex-1 flex flex-col overflow-hidden">
+      <!-- Menu Tabs -->
+      <div id="menuTabs" class="bg-white border-b border-slate-200 px-2 overflow-x-auto flex gap-1 py-2 shrink-0">
+        <span class="text-sm text-slate-400 px-3 py-2">Cargando menús...</span>
+      </div>
+      <!-- Products Grid -->
+      <main id="productsGrid" class="flex-1 overflow-y-auto p-4">
+        <div class="text-center text-slate-400 py-12">Selecciona un menú para ver los productos</div>
+      </main>
     </div>
 
-    <!-- Products Grid -->
-    <main id="productsGrid" class="flex-1 overflow-y-auto p-4">
-      <div class="text-center text-slate-400 py-12">Selecciona un menú para ver los productos</div>
-    </main>
+    <!-- Session Closed Screen -->
+    <div id="sessionClosedScreen" class="hidden flex-1 flex flex-col items-center justify-center p-8 text-center">
+      <div class="text-6xl mb-6">🔒</div>
+      <h2 class="text-2xl font-bold text-slate-800 mb-3">Caja cerrada</h2>
+      <p class="text-slate-500 text-base max-w-sm">Las compras no están habilitadas en este momento.</p>
+      <p class="text-slate-400 text-sm mt-2">Por favor contacte al personal del restaurante.</p>
+    </div>
+
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="flex-1 flex items-center justify-center">
+      <p class="text-slate-400 text-sm">Cargando...</p>
+    </div>
 
     <!-- Cart FAB -->
     <button
@@ -83,7 +98,7 @@ const { slug } = Astro.params;
             Volver
           </button>
           <button id="confirmOrder" class="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold cursor-pointer border-none disabled:opacity-50" disabled>
-            Confirmar
+            Completar Pedido
           </button>
         </div>
       </div>
@@ -120,6 +135,7 @@ const { slug } = Astro.params;
   let activeMenuId: string | null = null;
   let cart: Array<{ productId: string; menuItemId?: string; name: string; price: number; quantity: number; notes: string }> = [];
   let selectedPayment: string | null = null;
+  let sessionOpen = false;
 
   // DOM refs
   const menuTabs = document.getElementById('menuTabs')!;
@@ -139,6 +155,47 @@ const { slug } = Astro.params;
     errorToast.textContent = msg;
     errorToast.classList.remove('hidden');
     setTimeout(() => errorToast.classList.add('hidden'), 4000);
+  }
+
+  const kioskContent = document.getElementById('kioskContent')!;
+  const sessionClosedScreen = document.getElementById('sessionClosedScreen')!;
+  const loadingScreen = document.getElementById('loadingScreen')!;
+
+  function showKioskContent() {
+    loadingScreen.classList.add('hidden');
+    sessionClosedScreen.classList.add('hidden');
+    kioskContent.classList.remove('hidden');
+    kioskContent.classList.add('flex');
+  }
+
+  function showSessionClosed() {
+    loadingScreen.classList.add('hidden');
+    kioskContent.classList.add('hidden');
+    kioskContent.classList.remove('flex');
+    sessionClosedScreen.classList.remove('hidden');
+    sessionClosedScreen.classList.add('flex');
+  }
+
+  // Init: check session first, then load content
+  async function init() {
+    try {
+      const res = await kioskFetch(`/v1/kiosk/${slug}/status`);
+      if (res.ok) {
+        const data = await res.json();
+        sessionOpen = data.registerOpen;
+      }
+    } catch {
+      // if status check fails, assume closed for safety
+      sessionOpen = false;
+    }
+
+    if (!sessionOpen) {
+      showSessionClosed();
+      return;
+    }
+
+    showKioskContent();
+    loadMenus();
   }
 
   // Load menus
@@ -313,14 +370,23 @@ const { slug } = Astro.params;
   checkoutBtn.addEventListener('click', () => {
     cartOverlay.classList.add('hidden');
     selectedPayment = null;
-    document.querySelectorAll('.payment-btn').forEach(b => b.classList.remove('border-emerald-500', 'bg-emerald-50'));
-    (document.getElementById('confirmOrder') as HTMLButtonElement).disabled = true;
+    document.querySelectorAll('.payment-btn').forEach(b => {
+      b.classList.remove('border-emerald-500', 'bg-emerald-50');
+      b.classList.add('border-slate-200');
+    });
+    const confirmBtn = document.getElementById('confirmOrder') as HTMLButtonElement;
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Completar Pedido';
     checkoutOverlay.classList.remove('hidden');
   });
 
   document.querySelectorAll('.payment-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.payment-btn').forEach(b => b.classList.remove('border-emerald-500', 'bg-emerald-50'));
+      document.querySelectorAll('.payment-btn').forEach(b => {
+        b.classList.remove('border-emerald-500', 'bg-emerald-50');
+        b.classList.add('border-slate-200');
+      });
+      btn.classList.remove('border-slate-200');
       btn.classList.add('border-emerald-500', 'bg-emerald-50');
       selectedPayment = (btn as HTMLElement).dataset.method!;
       (document.getElementById('confirmOrder') as HTMLButtonElement).disabled = false;
@@ -360,7 +426,7 @@ const { slug } = Astro.params;
         const err = await res.json().catch(() => null);
         showError(err?.message || 'Error al crear el pedido');
         confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirmar';
+        confirmBtn.textContent = 'Completar Pedido';
         return;
       }
 
@@ -378,7 +444,7 @@ const { slug } = Astro.params;
     } catch {
       showError('Error de conexión');
       confirmBtn.disabled = false;
-      confirmBtn.textContent = 'Confirmar';
+      confirmBtn.textContent = 'Completar Pedido';
     }
   });
 
@@ -392,5 +458,5 @@ const { slug } = Astro.params;
   });
 
   // Init
-  loadMenus();
+  init();
 </script>

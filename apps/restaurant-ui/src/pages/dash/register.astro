@@ -33,6 +33,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   const summaryContent = document.getElementById('summaryContent')!;
 
   async function loadStatus() {
+    try {
     const res = await apiFetch('/v1/register/current');
     if (!res.ok) {
       const msg = res.status === 403 ? 'No tienes permisos para acceder a esta sección' : 'Error al cargar el estado de la caja';
@@ -82,6 +83,9 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
         </div>
       `;
       document.getElementById('closeRegister')!.addEventListener('click', closeRegister);
+    }
+    } catch {
+      statusEl.innerHTML = `<p class="text-red-400 text-center">Error al cargar el estado de la caja</p>`;
     }
   }
 
