@@ -15,8 +15,8 @@ import {
 export interface ProductInput {
   name: string;
   description?: string;
-  price?: number;
-  stock?: number;
+  price: number;
+  stock?: number | null;
   imageUrl?: string;
 }
 
@@ -151,6 +151,7 @@ export class ProductsService {
     );
 
     if (!product) throw new EntityNotFoundException('Product', productId);
+    if (product.stock === null) return product; // infinite stock
     if (product.stock < amount) {
       throw new ValidationException(
         `Insufficient stock for product '${product.name}'. Available: ${product.stock}, requested: ${amount}`,
@@ -177,21 +178,21 @@ export class ProductsService {
       {
         name: 'Producto Demo 1',
         description: 'Este es un producto de demostración',
-        price: 0,
+        price: 5.99,
         restaurantId,
         categoryId,
       },
       {
         name: 'Producto Demo 2',
         description: 'Este es un producto de demostración',
-        price: 0,
+        price: 8.50,
         restaurantId,
         categoryId,
       },
       {
         name: 'Producto Demo 3',
         description: 'Este es un producto de demostración',
-        price: 0,
+        price: 12.00,
         restaurantId,
         categoryId,
       },

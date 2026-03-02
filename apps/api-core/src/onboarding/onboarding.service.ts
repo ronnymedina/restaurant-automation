@@ -184,12 +184,21 @@ export class OnboardingService {
       return this.handleDemoProducts(restaurant, categoryId, emailSent);
     }
 
-    // Convert extracted products to ProductInput format
-    const productInputs: ProductInput[] = extractedProducts.map((p) => ({
-      name: p.name,
-      description: p.description,
-      price: p.price,
-    }));
+    // Convert extracted products to ProductInput format (only those with a valid price)
+    const productInputs: ProductInput[] = extractedProducts
+      .filter((p) => p.price !== undefined && p.price > 0)
+      .map((p) => ({
+        name: p.name,
+        description: p.description,
+        price: p.price as number,
+      }));
+
+    if (productInputs.length === 0) {
+      this.logger.warn(
+        'No products with valid prices extracted from images, creating demo products',
+      );
+      return this.handleDemoProducts(restaurant, categoryId, emailSent);
+    }
 
     this.logger.log(`Creating ${productInputs.length} products in batches`);
 

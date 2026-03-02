@@ -4,6 +4,8 @@ import { Logger } from '@nestjs/common';
 import { RestaurantsService } from '../../restaurants/restaurants.service';
 import { UsersService } from '../../users/users.service';
 import { ProductsService } from '../../products/products.service';
+import { MenusService } from '../../menus/menus.service';
+import { MenuItemsService } from '../../menus/menu-items.service';
 
 const DUMMY_EMAIL = 'admin@demo.com';
 const DUMMY_PASSWORD = '12345678';
@@ -12,7 +14,7 @@ const DUMMY_RESTAURANT_NAME = 'Demo Restaurant';
 @Command({
   name: 'create-dummy',
   description:
-    'Create a demo restaurant with an admin user and sample products',
+    'Create a demo restaurant with an admin user, sample products and a demo menu',
 })
 export class CreateDummyCommand extends CommandRunner {
   private readonly logger = new Logger(CreateDummyCommand.name);
@@ -21,6 +23,8 @@ export class CreateDummyCommand extends CommandRunner {
     private readonly restaurantsService: RestaurantsService,
     private readonly usersService: UsersService,
     private readonly productsService: ProductsService,
+    private readonly menusService: MenusService,
+    private readonly menuItemsService: MenuItemsService,
   ) {
     super();
   }
@@ -61,11 +65,49 @@ export class CreateDummyCommand extends CommandRunner {
       const category = await this.productsService.getOrCreateDefaultCategory(
         restaurant.id,
       );
-      const productsCreated = await this.productsService.createDemoProducts(
-        restaurant.id,
-        category.id,
-      );
-      this.logger.log(`${productsCreated} demo products created`);
+
+      // Create demo products with real prices
+      const demoProductsData = [
+        { name: 'Hamburguesa Clásica', description: 'Carne de res, lechuga, tomate y queso', price: 8.50 },
+        { name: 'Pizza Margherita', description: 'Salsa de tomate, mozzarella y albahaca', price: 12.00 },
+        { name: 'Ensalada César', description: 'Lechuga romana, crutones y aderezo César', price: 6.50 },
+        { name: 'Limonada Natural', description: 'Limonada fresca con hielo', price: 2.50 },
+        { name: 'Brownie de Chocolate', description: 'Brownie caliente con helado de vainilla', price: 4.00 },
+      ];
+
+      const createdProducts: { id: string; name: string }[] = [];
+      for (const p of demoProductsData) {
+        const product = await this.productsService.createProduct(
+          restaurant.id,
+          { name: p.name, description: p.description, price: p.price },
+          category.id,
+        );
+        createdProducts.push({ id: product.id, name: product.name });
+      }
+      this.logger.log(`${createdProducts.length} demo products created`);
+
+      // Create a demo menu with all products
+      const menu = await this.menusService.createMenu(restaurant.id, {
+        name: 'Carta General',
+        active: true,
+      });
+      this.logger.log(`Demo menu created: ${menu.name} (${menu.id})`);
+
+      const sections = [
+        { label: 'Principales', ids: [createdProducts[0].id, createdProducts[1].id] },
+        { label: 'Entradas', ids: [createdProducts[2].id] },
+        { label: 'Bebidas', ids: [createdProducts[3].id] },
+        { label: 'Postres', ids: [createdProducts[4].id] },
+      ];
+
+      for (const section of sections) {
+        await this.menuItemsService.bulkCreateItems(
+          menu.id,
+          section.ids,
+          section.label,
+        );
+      }
+      this.logger.log(`Demo menu items created across ${sections.length} sections`);
 
       this.logger.log('\n========== DUMMY DATA ==========');
       this.logger.log(`Restaurant: ${restaurant.name}`);

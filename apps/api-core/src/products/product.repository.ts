@@ -7,8 +7,8 @@ import { EntityNotFoundException } from '../common/exceptions';
 export interface CreateProductData {
   name: string;
   description?: string;
-  price?: number;
-  stock?: number;
+  price: number;
+  stock?: number | null;
   active?: boolean;
   sku?: string;
   imageUrl?: string;
@@ -25,8 +25,8 @@ export class ProductRepository {
       data: {
         name: data.name,
         description: data.description,
-        price: data.price ?? 0,
-        stock: data.stock ?? 0,
+        price: data.price,
+        stock: data.stock ?? null,
         active: data.active ?? true,
         sku: data.sku,
         imageUrl: data.imageUrl,
@@ -42,7 +42,7 @@ export class ProductRepository {
         name: p.name,
         description: p.description,
         price: p.price,
-        stock: p.stock ?? 0,
+        stock: p.stock ?? null,
         active: p.active ?? true,
         sku: p.sku,
         imageUrl: p.imageUrl,

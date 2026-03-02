@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsNumber,
   IsInt,
+  IsPositive,
   IsBoolean,
   IsUUID,
   MaxLength,
@@ -21,9 +22,9 @@ export class CreateProductDto {
   @MaxLength(1000)
   description?: string;
 
-  @IsOptional()
   @IsNumber()
-  price?: number;
+  @IsPositive()
+  price: number;
 
   @IsOptional()
   @IsInt()

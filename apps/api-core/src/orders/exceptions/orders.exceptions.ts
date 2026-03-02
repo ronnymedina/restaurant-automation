@@ -44,6 +44,17 @@ export class InvalidStatusTransitionException extends BaseException {
   }
 }
 
+export class OrderNotPaidException extends BaseException {
+  constructor(orderId: string) {
+    super(
+      `Order '${orderId}' must be paid before it can be completed`,
+      HttpStatus.CONFLICT,
+      'ORDER_NOT_PAID',
+      { orderId },
+    );
+  }
+}
+
 export class OrderAlreadyCancelledException extends BaseException {
   constructor(orderId: string) {
     super(

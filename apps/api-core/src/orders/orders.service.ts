@@ -15,6 +15,7 @@ import {
   StockInsufficientException,
   InvalidStatusTransitionException,
   OrderAlreadyCancelledException,
+  OrderNotPaidException,
 } from './exceptions/orders.exceptions';
 import { ForbiddenAccessException } from '../common/exceptions';
 import { EmailService } from '../email/email.service';
@@ -77,8 +78,8 @@ export class OrdersService {
           unitPrice = Number(menuItem.price);
         }
 
-        // Validate product stock
-        if (product.stock < item.quantity) {
+        // Validate product stock (null = infinite, skip check)
+        if (product.stock !== null && product.stock < item.quantity) {
           throw new StockInsufficientException(
             product.name,
             product.stock,
@@ -99,11 +100,13 @@ export class OrdersService {
           );
         }
 
-        // Decrement product stock
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { decrement: item.quantity } },
-        });
+        // Decrement product stock only if finite
+        if (product.stock !== null) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { decrement: item.quantity } },
+          });
+        }
 
         // Decrement menu item stock if applicable
         if (menuItem && menuItem.stock !== null) {
@@ -175,6 +178,10 @@ export class OrdersService {
 
     if (targetIdx <= currentIdx || targetIdx === -1) {
       throw new InvalidStatusTransitionException(order.status, newStatus);
+    }
+
+    if (newStatus === 'COMPLETED' && !order.isPaid) {
+      throw new OrderNotPaidException(id);
     }
 
     return this.orderRepository.updateStatus(id, newStatus);

@@ -99,7 +99,7 @@ model Product {
   name        String
   description String?
   price       Decimal @default(0.00)
-  stock       Int     @default(0) // Stock Global (Inventario Físico)
+  stock       Int?               // Stock Global (null = infinito; 0 = agotado)
   active      Boolean @default(true)
   sku         String?
   imageUrl    String?
