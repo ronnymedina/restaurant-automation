@@ -10,7 +10,7 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Controller({ version: '1', path: 'register' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.MANAGER)
+@Roles(Role.ADMIN, Role.MANAGER)
 export class RegisterController {
   constructor(private readonly registerService: RegisterService) { }
 

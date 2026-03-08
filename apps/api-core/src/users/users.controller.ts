@@ -36,8 +36,6 @@ export class UsersController {
   @ApiResponse({ status: 400, description: 'Token inválido o expirado' })
   @ApiResponse({ status: 409, description: 'La cuenta ya está activa' })
   async activate(@Body() body: ActivateUserDto): Promise<{
-    message: string;
-    userId: string;
     email: string;
   }> {
     const user = await this.usersService.activateUser(
@@ -45,20 +43,18 @@ export class UsersController {
       body.password,
     );
     return {
-      message: 'Cuenta activada exitosamente',
-      userId: user.id,
       email: user.email,
     };
   }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.MANAGER)
-  @ApiOperation({ summary: 'Crear usuario (solo MANAGER)' })
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Crear usuario (ADMIN por DEFAULT)' })
   @ApiResponse({ status: 201, description: 'Usuario creado exitosamente' })
   @ApiResponse({
     status: 403,
-    description: 'Solo MANAGER puede crear usuarios',
+    description: 'Solo ADMIN puede crear usuarios',
   })
   @ApiResponse({ status: 409, description: 'Email ya existe' })
   async create(
@@ -89,7 +85,7 @@ export class UsersController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN)
   async update(
     @Param('id') id: string,
     @CurrentUser() user: { restaurantId: string },
@@ -100,7 +96,7 @@ export class UsersController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN)
   async remove(
     @Param('id') id: string,
     @CurrentUser() user: { restaurantId: string },
