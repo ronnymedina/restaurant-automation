@@ -66,6 +66,7 @@ describe('UsersService', () => {
           restaurantId: 'restaurant-uuid-1',
           activationToken: expect.any(String),
         }),
+        undefined,
       );
       expect(result.email).toBe('test@example.com');
       expect(result.isActive).toBe(false);

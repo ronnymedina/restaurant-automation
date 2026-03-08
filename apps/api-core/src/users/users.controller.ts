@@ -24,7 +24,7 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 @ApiTags('Users')
 @Controller({ version: '1', path: 'users' })
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Put('activate')
   @ApiOperation({
@@ -35,7 +35,11 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Cuenta activada exitosamente' })
   @ApiResponse({ status: 400, description: 'Token inválido o expirado' })
   @ApiResponse({ status: 409, description: 'La cuenta ya está activa' })
-  async activate(@Body() body: ActivateUserDto) {
+  async activate(@Body() body: ActivateUserDto): Promise<{
+    message: string;
+    userId: string;
+    email: string;
+  }> {
     const user = await this.usersService.activateUser(
       body.token,
       body.password,

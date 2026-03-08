@@ -1,191 +1,206 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Restaurant } from '@prisma/client';
+import { Prisma, Restaurant, User } from '@prisma/client';
 
+import { PrismaService } from '../prisma/prisma.service';
 import { RestaurantsService } from '../restaurants/restaurants.service';
-import { ProductsService, ProductInput } from '../products/products.service';
+import { ProductsService } from '../products/products.service';
+import { MenusService } from '../menus/menus.service';
+import { MenuItemsService } from '../menus/menu-items.service';
 import { GeminiService } from '../ai/gemini.service';
-import { ImageProcessingException } from '../ai/exceptions/ai.exceptions';
 import { UsersService } from '../users/users.service';
 import { EmailService } from '../email/email.service';
 import {
   OnboardingFailedException,
   EmailAlreadyExistsException,
+  RestaurantCreationFailedException,
+  UserCreationFailedException,
 } from './exceptions/onboarding.exceptions';
 
-const SourceData = {
-  DEMO: 'demo',
-  AI_EXTRACTED: 'ai_extracted',
-  NONE: 'none',
-} as const;
+type TransactionClient = Prisma.TransactionClient;
 
 export interface OnboardingResult {
-  restaurant: Restaurant;
   productsCreated: number;
-  batches: number;
-  source: (typeof SourceData)[keyof typeof SourceData];
-  emailSent: boolean;
 }
 
 export interface OnboardingInput {
   email: string;
   restaurantName: string;
-  skipProducts?: boolean;
+  createDemoData?: boolean;
   photos?: Array<{ buffer: Buffer; mimeType: string }>;
 }
+
+const DEMO_PRODUCTS = [
+  { name: 'Hamburguesa Clásica', description: 'Hamburguesa con queso y vegetales frescos', price: 8.99 },
+  { name: 'Pizza Margherita', description: 'Pizza con salsa de tomate y mozzarella', price: 10.50 },
+  { name: 'Pasta Carbonara', description: 'Pasta con salsa cremosa y tocino', price: 9.75 },
+  { name: 'Limonada Natural', description: 'Limonada fresca con menta', price: 3.50 },
+  { name: 'Agua Mineral', description: 'Agua mineral 500ml', price: 1.50 },
+] as const;
+
+const DEMO_SECTIONS = {
+  MAIN: 'Platos Principales',
+  DRINKS: 'Bebidas',
+} as const;
 
 @Injectable()
 export class OnboardingService {
   private readonly logger = new Logger(OnboardingService.name);
 
   constructor(
+    private readonly prisma: PrismaService,
     private readonly restaurantsService: RestaurantsService,
     private readonly productsService: ProductsService,
+    private readonly menusService: MenusService,
+    private readonly menuItemsService: MenuItemsService,
     private readonly geminiService: GeminiService,
     private readonly usersService: UsersService,
     private readonly emailService: EmailService,
   ) {}
 
   async registerRestaurant(input: OnboardingInput): Promise<OnboardingResult> {
-    this.logger.log(
-      `Starting onboarding for restaurant: ${input.restaurantName}`,
-    );
+    this.logger.log(`Starting onboarding for restaurant: ${input.restaurantName}`);
 
+    // 1. Validate email uniqueness before creating anything
+    const existingUser = await this.usersService.findByEmail(input.email);
+    if (existingUser) {
+      throw new EmailAlreadyExistsException(input.email);
+    }
+
+    // 2-4. Create restaurant + user + default category atomically
+    const { restaurant, user, defaultCategoryId } = await this.setupCoreEntities(input);
+
+    // 5. Handle products
+    const productsCreated = await this.resolveProducts(restaurant.id, defaultCategoryId, input);
+
+    // 6. Send activation email LAST — after all DB operations succeed
     try {
-      // 1. Verify email is not already in use (before creating anything)
-      const existingUser = await this.usersService.findByEmail(input.email);
-      if (existingUser) {
-        throw new EmailAlreadyExistsException(input.email);
-      }
-
-      // 2. Create the restaurant
-      const restaurant = await this.createRestaurant(input.restaurantName);
-      this.logger.log(`Restaurant created with ID: ${restaurant.id}`);
-
-      // 3. Create user linked to restaurant
-      const user = await this.usersService.createOnboardingUser(
-        input.email,
-        restaurant.id,
-      );
-      this.logger.log(`User created with ID: ${user.id}`);
-
-      // 4. Send activation email (token only sent via email, never in API response)
-      const emailSent = await this.emailService.sendActivationEmail(
-        user.email,
-        user.activationToken!,
-      );
-
-      if (!emailSent) {
+      const sent = await this.emailService.sendActivationEmail(user.email, user.activationToken!);
+      if (!sent) {
         this.logger.warn(`Activation email could not be sent to ${user.email}`);
       }
-
-      // 5. Create default category (single source of truth for category ID)
-      const defaultCategory =
-        await this.productsService.getOrCreateDefaultCategory(restaurant.id);
-      this.logger.log(
-        `Default category created with ID: ${defaultCategory.id}`,
-      );
-
-      // 6. Handle products based on input
-      if (input.skipProducts) {
-        this.logger.log('Creating demo products');
-        return this.handleDemoProducts(
-          restaurant,
-          defaultCategory.id,
-          emailSent,
-        );
-      }
-
-      if (input.photos && input.photos.length > 0) {
-        this.logger.log(
-          `Processing ${input.photos.length} photos with Gemini AI`,
-        );
-        return this.handlePhotoExtraction(
-          restaurant,
-          defaultCategory.id,
-          input.photos,
-          emailSent,
-        );
-      }
-
-      this.logger.log('No photos provided and skip not selected');
-      return this.handleNoProducts(restaurant, emailSent);
     } catch (error) {
-      // Re-throw known exceptions
+      this.logger.error(`Failed to send activation email to ${user.email}`, error);
+    }
+
+    return { productsCreated };
+  }
+
+  private async setupCoreEntities(
+    input: OnboardingInput,
+  ): Promise<{ restaurant: Restaurant; user: User; defaultCategoryId: string }> {
+    try {
+      return await this.prisma.$transaction(async (tx: TransactionClient) => {
+        let restaurant: Restaurant;
+        try {
+          restaurant = await this.restaurantsService.createRestaurant(input.restaurantName, tx);
+        } catch (error) {
+          this.logger.error('Failed to create restaurant', error);
+          throw new RestaurantCreationFailedException({ restaurantName: input.restaurantName });
+        }
+
+        let user: User;
+        try {
+          user = await this.usersService.createOnboardingUser(input.email, restaurant.id, tx);
+        } catch (error) {
+          this.logger.error('Failed to create onboarding user', error);
+          throw new UserCreationFailedException({ email: input.email });
+        }
+
+        let defaultCategoryId: string;
+        try {
+          const category = await this.productsService.getOrCreateDefaultCategory(restaurant.id, tx);
+          defaultCategoryId = category.id;
+        } catch (error) {
+          this.logger.error('Failed to create default category', error);
+          throw new OnboardingFailedException('Failed to create default category');
+        }
+
+        this.logger.log(`Core entities created — restaurant: ${restaurant.id}, user: ${user.id}`);
+        return { restaurant, user, defaultCategoryId };
+      });
+    } catch (error) {
       if (
-        error instanceof OnboardingFailedException ||
-        error instanceof ImageProcessingException ||
-        error instanceof EmailAlreadyExistsException
+        error instanceof RestaurantCreationFailedException ||
+        error instanceof UserCreationFailedException ||
+        error instanceof OnboardingFailedException
       ) {
         throw error;
       }
-
-      // Wrap unknown errors
-      this.logger.error('Unexpected error during onboarding', error);
-      throw new OnboardingFailedException('Unexpected error occurred', {
-        // originalError stripped — logged server-side only
-      });
+      this.logger.error('Unexpected error during core entity setup', error);
+      throw new OnboardingFailedException('Unexpected error during setup');
     }
   }
 
-  private async createRestaurant(name: string): Promise<Restaurant> {
-    try {
-      const restaurant = await this.restaurantsService.createRestaurant(name);
-      return restaurant;
-    } catch (error) {
-      this.logger.error('Failed to create restaurant', error);
-      throw new OnboardingFailedException('Failed to create restaurant', {
-        restaurantName: name,
-        // originalError stripped — logged server-side only
-      });
-    }
-  }
-
-  private async handleDemoProducts(
-    restaurant: Restaurant,
+  private async resolveProducts(
+    restaurantId: string,
     categoryId: string,
-    emailSent: boolean,
-  ): Promise<OnboardingResult> {
-    try {
-      const demoCount = await this.productsService.createDemoProducts(
-        restaurant.id,
-        categoryId,
-      );
-
-      return {
-        restaurant,
-        productsCreated: demoCount,
-        batches: 1,
-        source: SourceData.DEMO,
-        emailSent,
-      };
-    } catch (error) {
-      this.logger.error('Failed to create demo products', error);
-      throw new OnboardingFailedException('Failed to create demo products', {
-        restaurantId: restaurant.id,
-        // originalError stripped — logged server-side only
-      });
+    input: Pick<OnboardingInput, 'photos' | 'createDemoData'>,
+  ): Promise<number> {
+    if (input.photos?.length) {
+      this.logger.log(`Processing ${input.photos.length} photo(s) with Gemini AI`);
+      return this.tryPhotoExtraction(restaurantId, categoryId, input.photos);
     }
+
+    if (input.createDemoData) {
+      this.logger.log('Creating demo products and menu');
+      try {
+        return await this.handleDemoProducts(restaurantId, categoryId);
+      } catch (error) {
+        this.logger.error('Failed to create demo products', error);
+        throw new OnboardingFailedException('Failed to create demo products');
+      }
+    }
+
+    return 0;
+  }
+
+  private async tryPhotoExtraction(
+    restaurantId: string,
+    categoryId: string,
+    photos: NonNullable<OnboardingInput['photos']>,
+  ): Promise<number> {
+    try {
+      return await this.handlePhotoExtraction(restaurantId, categoryId, photos);
+    } catch (error) {
+      this.logger.error('Photo extraction failed — continuing without products', error);
+      return 0;
+    }
+  }
+
+  private async handleDemoProducts(restaurantId: string, categoryId: string): Promise<number> {
+    const products = await Promise.all(
+      DEMO_PRODUCTS.map((p) =>
+        this.productsService.createProduct(restaurantId, p, categoryId),
+      ),
+    );
+
+    const menu = await this.menusService.createMenu(restaurantId, {
+      name: 'Menú Principal',
+      active: true,
+    });
+
+    const mainDishIds = products.slice(0, 3).map((p) => p.id);
+    const drinkIds = products.slice(3).map((p) => p.id);
+
+    await this.menuItemsService.bulkCreateItems(menu.id, mainDishIds, DEMO_SECTIONS.MAIN);
+    await this.menuItemsService.bulkCreateItems(menu.id, drinkIds, DEMO_SECTIONS.DRINKS);
+
+    return products.length;
   }
 
   private async handlePhotoExtraction(
-    restaurant: Restaurant,
+    restaurantId: string,
     categoryId: string,
     photos: Array<{ buffer: Buffer; mimeType: string }>,
-    emailSent: boolean,
-  ): Promise<OnboardingResult> {
-    const extractedProducts =
-      await this.geminiService.extractProductsFromMultipleImages(photos);
+  ): Promise<number> {
+    const extractedProducts = await this.geminiService.extractProductsFromMultipleImages(photos);
 
-    // If no products extracted, fall back to demo products
     if (extractedProducts.length === 0) {
-      this.logger.warn(
-        'No products extracted from images, creating demo products',
-      );
-      return this.handleDemoProducts(restaurant, categoryId, emailSent);
+      this.logger.warn('No products extracted from images');
+      return 0;
     }
 
-    // Convert extracted products to ProductInput format (only those with a valid price)
-    const productInputs: ProductInput[] = extractedProducts
+    const validProducts = extractedProducts
       .filter((p) => p.price !== undefined && p.price > 0)
       .map((p) => ({
         name: p.name,
@@ -193,50 +208,18 @@ export class OnboardingService {
         price: p.price as number,
       }));
 
-    if (productInputs.length === 0) {
-      this.logger.warn(
-        'No products with valid prices extracted from images, creating demo products',
-      );
-      return this.handleDemoProducts(restaurant, categoryId, emailSent);
+    if (validProducts.length === 0) {
+      this.logger.warn('No products with valid prices extracted from images');
+      return 0;
     }
 
-    this.logger.log(`Creating ${productInputs.length} products in batches`);
+    this.logger.log(`Creating ${validProducts.length} extracted products in batches`);
+    const { totalCreated } = await this.productsService.createProductsBatch(
+      restaurantId,
+      categoryId,
+      validProducts,
+    );
 
-    try {
-      const { totalCreated, batches } =
-        await this.productsService.createProductsBatch(
-          restaurant.id,
-          categoryId,
-          productInputs,
-        );
-
-      return {
-        restaurant,
-        productsCreated: totalCreated,
-        batches,
-        source: SourceData.AI_EXTRACTED,
-        emailSent,
-      };
-    } catch (error) {
-      this.logger.error('Failed to create products batch', error);
-      throw new OnboardingFailedException('Failed to save extracted products', {
-        restaurantId: restaurant.id,
-        productCount: productInputs.length,
-        // originalError stripped — logged server-side only
-      });
-    }
-  }
-
-  private handleNoProducts(
-    restaurant: Restaurant,
-    emailSent: boolean,
-  ): OnboardingResult {
-    return {
-      restaurant,
-      productsCreated: 0,
-      batches: 0,
-      emailSent,
-      source: SourceData.NONE,
-    };
+    return totalCreated;
   }
 }

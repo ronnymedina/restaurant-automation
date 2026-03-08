@@ -1,6 +1,6 @@
 import { Injectable, Inject, Optional } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
-import { Product, Category } from '@prisma/client';
+import { Prisma, Product, Category } from '@prisma/client';
 
 import { ProductRepository, CreateProductData } from './product.repository';
 import { CategoryRepository } from './category.repository';
@@ -39,11 +39,11 @@ export class ProductsService {
    * Creates or retrieves the default category for a restaurant.
    * This is the single entry point for getting the default category.
    */
-  async getOrCreateDefaultCategory(restaurantId: string): Promise<Category> {
-    return this.categoryRepository.findOrCreate({
-      name: 'default',
-      restaurantId,
-    });
+  async getOrCreateDefaultCategory(
+    restaurantId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Category> {
+    return this.categoryRepository.findOrCreate({ name: 'default', restaurantId }, tx);
   }
 
   async createProduct(

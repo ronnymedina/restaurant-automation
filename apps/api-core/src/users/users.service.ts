@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { User, Role } from '@prisma/client';
+import { Prisma, User, Role } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 
@@ -32,6 +32,7 @@ export class UsersService {
   async createOnboardingUser(
     email: string,
     restaurantId: string,
+    tx?: Prisma.TransactionClient,
   ): Promise<User> {
     const activationToken = randomUUID();
 
@@ -41,7 +42,7 @@ export class UsersService {
       isActive: false,
       activationToken,
       restaurantId,
-    });
+    }, tx);
 
     this.logger.log(`Onboarding user created: ${email}`);
     return user;

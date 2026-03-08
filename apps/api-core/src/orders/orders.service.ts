@@ -6,7 +6,7 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, Product, MenuItem } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderRepository } from './order.repository';
@@ -58,7 +58,7 @@ export class OrdersService {
         subtotal: number;
         notes?: string;
       }[] = [];
-      const stockEntries: { product: any; menuItem: any; item: (typeof dto.items)[number] }[] = [];
+      const stockEntries: { product: Product; menuItem: MenuItem | null; item: (typeof dto.items)[number] }[] = [];
 
       for (const item of dto.items) {
         const product = await tx.product.findUnique({
