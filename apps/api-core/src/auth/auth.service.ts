@@ -11,6 +11,7 @@ import { RefreshTokenRepository } from './refresh-token.repository';
 import { authConfig } from './auth.config';
 import {
   InvalidCredentialsException,
+  InactiveAccountException,
   InvalidRefreshTokenException,
 } from './exceptions/auth.exceptions';
 import { JwtPayload } from './strategies/jwt.strategy';
@@ -32,6 +33,7 @@ export class AuthService {
     const user = await this.usersService.findByEmail(email);
 
     if (!user || !user.passwordHash) {
+      this.logger.warn(`Failed login attempt for email: ${email} - User not found or password hash is missing`);
       throw new InvalidCredentialsException();
     }
 
@@ -43,12 +45,13 @@ export class AuthService {
 
     if (!user.isActive) {
       this.logger.warn(`Login attempt on inactive account: ${email}`);
-      throw new InvalidCredentialsException();
+      throw new InactiveAccountException();
     }
 
     const restaurant = await this.restaurantsService.findById(
       user.restaurantId,
     );
+
     if (!restaurant) {
       this.logger.warn(
         `Login attempt for user ${email} with invalid restaurantId: ${user.restaurantId}`,
