@@ -107,6 +107,10 @@ export class UsersService {
       throw new EmailAlreadyExistsException(email);
     }
 
+    if (role === Role.ADMIN) {
+      throw new InvalidRoleException(role);
+    }
+
     const passwordHash = await bcrypt.hash(
       password,
       this.configService.bcryptSaltRounds,
@@ -181,6 +185,11 @@ export class UsersService {
     data: { email?: string; role?: Role; isActive?: boolean },
   ): Promise<User> {
     await this.findByIdAndVerifyOwnership(id, restaurantId);
+
+    if (data.role === Role.ADMIN) {
+      throw new InvalidRoleException(data.role);
+    }
+
     return this.userRepository.update(id, data);
   }
 

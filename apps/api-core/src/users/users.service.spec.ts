@@ -8,6 +8,7 @@ import { UserRepository } from './user.repository';
 import {
   EmailAlreadyExistsException,
   InvalidActivationTokenException,
+  InvalidRoleException,
   UserAlreadyActiveException,
 } from './exceptions/users.exceptions';
 import {
@@ -15,6 +16,7 @@ import {
   ForbiddenAccessException,
 } from '../common/exceptions';
 import { userConfig } from './users.config';
+import { DEFAULT_PAGE_SIZE } from '../config';
 
 const mockUser = (overrides = {}) => ({
   id: 'user-uuid-1',
@@ -247,6 +249,16 @@ describe('UsersService', () => {
       expect(mockUserRepository.create).not.toHaveBeenCalled();
     });
 
+    it('throws InvalidRoleException when trying to create a user with ADMIN role', async () => {
+      mockUserRepository.findByEmail.mockResolvedValue(null);
+
+      await expect(
+        service.createUser('new@example.com', 'Password123', Role.ADMIN, 'restaurant-uuid-1'),
+      ).rejects.toThrow(InvalidRoleException);
+
+      expect(mockUserRepository.create).not.toHaveBeenCalled();
+    });
+
     it('creates user with hashed password, bound to caller restaurantId', async () => {
       mockUserRepository.findByEmail.mockResolvedValue(null);
       mockUserRepository.create.mockImplementation((data) =>
@@ -299,14 +311,24 @@ describe('UsersService', () => {
     it('updates user when ownership is verified', async () => {
       const existing = mockUser({ isActive: true });
       mockUserRepository.findById.mockResolvedValue(existing);
-      mockUserRepository.update.mockResolvedValue({ ...existing, role: Role.ADMIN });
+      mockUserRepository.update.mockResolvedValue({ ...existing, role: Role.BASIC });
 
       const result = await service.updateUser('user-uuid-1', 'restaurant-uuid-1', {
-        role: Role.ADMIN,
+        role: Role.BASIC,
       });
 
-      expect(mockUserRepository.update).toHaveBeenCalledWith('user-uuid-1', { role: Role.ADMIN });
-      expect(result.role).toBe(Role.ADMIN);
+      expect(mockUserRepository.update).toHaveBeenCalledWith('user-uuid-1', { role: Role.BASIC });
+      expect(result.role).toBe(Role.BASIC);
+    });
+
+    it('throws InvalidRoleException when trying to promote a user to ADMIN role', async () => {
+      mockUserRepository.findById.mockResolvedValue(mockUser());
+
+      await expect(
+        service.updateUser('user-uuid-1', 'restaurant-uuid-1', { role: Role.ADMIN }),
+      ).rejects.toThrow(InvalidRoleException);
+
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
     });
   });
 
@@ -375,7 +397,7 @@ describe('UsersService', () => {
       const result = await service.findByRestaurantIdPaginated('restaurant-uuid-1');
 
       expect(result.meta.page).toBe(1);
-      expect(result.meta.limit).toBeGreaterThan(0);
+      expect(result.meta.limit).toBe(DEFAULT_PAGE_SIZE);
     });
   });
 });
