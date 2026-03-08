@@ -6,9 +6,14 @@ import * as bcrypt from 'bcryptjs';
 import { UsersService } from './users.service';
 import { UserRepository } from './user.repository';
 import {
+  EmailAlreadyExistsException,
   InvalidActivationTokenException,
   UserAlreadyActiveException,
 } from './exceptions/users.exceptions';
+import {
+  EntityNotFoundException,
+  ForbiddenAccessException,
+} from '../common/exceptions';
 import { userConfig } from './users.config';
 
 const mockUser = (overrides = {}) => ({
@@ -30,6 +35,8 @@ const mockUserRepository = {
   findById: jest.fn(),
   findByActivationToken: jest.fn(),
   update: jest.fn(),
+  delete: jest.fn(),
+  findByRestaurantIdPaginated: jest.fn(),
 };
 
 describe('UsersService', () => {
@@ -226,6 +233,149 @@ describe('UsersService', () => {
       const result = await service.findByEmail('unknown@example.com');
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('createUser', () => {
+    it('throws EmailAlreadyExistsException when email is taken', async () => {
+      mockUserRepository.findByEmail.mockResolvedValue(mockUser());
+
+      await expect(
+        service.createUser('test@example.com', 'Password123', Role.MANAGER, 'restaurant-uuid-1'),
+      ).rejects.toThrow(EmailAlreadyExistsException);
+
+      expect(mockUserRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('creates user with hashed password, bound to caller restaurantId', async () => {
+      mockUserRepository.findByEmail.mockResolvedValue(null);
+      mockUserRepository.create.mockImplementation((data) =>
+        Promise.resolve(mockUser({ ...data, id: 'new-user-uuid' })),
+      );
+
+      const result = await service.createUser(
+        'new@example.com',
+        'Password123',
+        Role.MANAGER,
+        'restaurant-uuid-1',
+      );
+
+      expect(mockUserRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'new@example.com',
+          role: Role.MANAGER,
+          isActive: true,
+          restaurantId: 'restaurant-uuid-1',
+          passwordHash: expect.any(String),
+        }),
+      );
+      expect(result).not.toHaveProperty('passwordHash');
+    });
+  });
+
+  describe('updateUser', () => {
+    it('throws EntityNotFoundException when user does not exist', async () => {
+      mockUserRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.updateUser('nonexistent-id', 'restaurant-uuid-1', { role: Role.ADMIN }),
+      ).rejects.toThrow(EntityNotFoundException);
+
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenAccessException when user belongs to a different restaurant', async () => {
+      mockUserRepository.findById.mockResolvedValue(
+        mockUser({ restaurantId: 'other-restaurant-uuid' }),
+      );
+
+      await expect(
+        service.updateUser('user-uuid-1', 'restaurant-uuid-1', { role: Role.ADMIN }),
+      ).rejects.toThrow(ForbiddenAccessException);
+
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('updates user when ownership is verified', async () => {
+      const existing = mockUser({ isActive: true });
+      mockUserRepository.findById.mockResolvedValue(existing);
+      mockUserRepository.update.mockResolvedValue({ ...existing, role: Role.ADMIN });
+
+      const result = await service.updateUser('user-uuid-1', 'restaurant-uuid-1', {
+        role: Role.ADMIN,
+      });
+
+      expect(mockUserRepository.update).toHaveBeenCalledWith('user-uuid-1', { role: Role.ADMIN });
+      expect(result.role).toBe(Role.ADMIN);
+    });
+  });
+
+  describe('deleteUser', () => {
+    it('throws EntityNotFoundException when user does not exist', async () => {
+      mockUserRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.deleteUser('nonexistent-id', 'restaurant-uuid-1'),
+      ).rejects.toThrow(EntityNotFoundException);
+
+      expect(mockUserRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenAccessException when user belongs to a different restaurant', async () => {
+      mockUserRepository.findById.mockResolvedValue(
+        mockUser({ restaurantId: 'other-restaurant-uuid' }),
+      );
+
+      await expect(
+        service.deleteUser('user-uuid-1', 'restaurant-uuid-1'),
+      ).rejects.toThrow(ForbiddenAccessException);
+
+      expect(mockUserRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('deletes user when ownership is verified', async () => {
+      const existing = mockUser();
+      mockUserRepository.findById.mockResolvedValue(existing);
+      mockUserRepository.delete.mockResolvedValue(existing);
+
+      const result = await service.deleteUser('user-uuid-1', 'restaurant-uuid-1');
+
+      expect(mockUserRepository.delete).toHaveBeenCalledWith('user-uuid-1');
+      expect(result.id).toBe('user-uuid-1');
+    });
+  });
+
+  describe('findByRestaurantIdPaginated', () => {
+    it('returns paginated users for the restaurant', async () => {
+      const users = [mockUser(), mockUser({ id: 'user-uuid-2', email: 'other@example.com' })];
+      mockUserRepository.findByRestaurantIdPaginated.mockResolvedValue({
+        data: users,
+        total: 2,
+      });
+
+      const result = await service.findByRestaurantIdPaginated('restaurant-uuid-1', 1, 10);
+
+      expect(mockUserRepository.findByRestaurantIdPaginated).toHaveBeenCalledWith(
+        'restaurant-uuid-1',
+        0,  // skip = (page - 1) * limit = 0
+        10,
+      );
+      expect(result.data).toHaveLength(2);
+      expect(result.meta).toEqual({
+        total: 2,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+      });
+    });
+
+    it('uses defaults when page and limit are not provided', async () => {
+      mockUserRepository.findByRestaurantIdPaginated.mockResolvedValue({ data: [], total: 0 });
+
+      const result = await service.findByRestaurantIdPaginated('restaurant-uuid-1');
+
+      expect(result.meta.page).toBe(1);
+      expect(result.meta.limit).toBeGreaterThan(0);
     });
   });
 });

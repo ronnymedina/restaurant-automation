@@ -27,7 +27,7 @@ export class UsersService {
     private readonly userRepository: UserRepository,
     @Inject(userConfig.KEY)
     private readonly configService: ConfigType<typeof userConfig>,
-  ) {}
+  ) { }
 
   async createOnboardingUser(
     email: string,
@@ -102,10 +102,6 @@ export class UsersService {
     role: Role,
     restaurantId: string,
   ): Promise<Omit<User, 'passwordHash'>> {
-    if (role === Role.ADMIN) {
-      throw new InvalidRoleException(role);
-    }
-
     const existing = await this.userRepository.findByEmail(email);
     if (existing) {
       throw new EmailAlreadyExistsException(email);
@@ -124,7 +120,7 @@ export class UsersService {
       restaurantId,
     });
 
-    this.logger.log(`User created by manager: ${email} with role ${role}`);
+    this.logger.log(`User created by admin: ${email} with role ${role}`);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash: _, ...userWithoutPassword } = user;
     return userWithoutPassword;
@@ -185,9 +181,6 @@ export class UsersService {
     data: { email?: string; role?: Role; isActive?: boolean },
   ): Promise<User> {
     await this.findByIdAndVerifyOwnership(id, restaurantId);
-    if (data.role === Role.ADMIN) {
-      throw new InvalidRoleException(data.role);
-    }
     return this.userRepository.update(id, data);
   }
 
