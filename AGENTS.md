@@ -1,14 +1,16 @@
 ### Context
 
-This monorepo contains two applications, to create a restaurant and manage it.
+This monorepo contains applications, to manage a restaurant. The dashboard is for the restaurant owners and the kiosk is for the customers.
 
 #### Principal Product
 
-Offer a kiosk interface for customers to order from the menu. This interface should be accessible through a unique URL for each restaurant. This module must be accesible from Totem Kiosk on site.
+The
+
+Offer a dashboard and a kiosk interface for customers to order from the menu. This interface should be accessible through a unique URL for each restaurant. This module must be accesible from Totem Kiosk on site. The project is called [ui-storefront](restaurants/apps/ui-storefront).
 
 #### Secondary Product
 
-Offer a management interface for restaurant owners to manage their restaurants. This interface should be accessible through a unique URL for each restaurant. This module must be accesible from Totem Admin on site.
+Offer a management interface for restaurant owners to manage their restaurants. This interface should be accessible through a unique URL for each restaurant. This module must be accesible from Totem Admin on site. The project is called [ui-admin](restaurants/apps/ui-admin).
 
 
 ### Stack

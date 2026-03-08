@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 
 import { RegisterService } from './register.service';
@@ -6,12 +6,13 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Controller({ version: '1', path: 'register' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.MANAGER)
+@Roles(Role.ADMIN, Role.MANAGER)
 export class RegisterController {
-  constructor(private readonly registerService: RegisterService) {}
+  constructor(private readonly registerService: RegisterService) { }
 
   @Post('open')
   async open(@CurrentUser() user: { restaurantId: string }) {
@@ -19,8 +20,20 @@ export class RegisterController {
   }
 
   @Post('close')
-  async close(@CurrentUser() user: { restaurantId: string; sub: string }) {
-    return this.registerService.closeSession(user.restaurantId, user.sub);
+  async close(@CurrentUser() user: { restaurantId: string; id: string }) {
+    return this.registerService.closeSession(user.restaurantId, user.id);
+  }
+
+  @Get('history')
+  async history(
+    @CurrentUser() user: { restaurantId: string },
+    @Query() query: PaginationDto,
+  ) {
+    return this.registerService.getSessionHistory(
+      user.restaurantId,
+      query.page,
+      query.limit,
+    );
   }
 
   @Get('current')

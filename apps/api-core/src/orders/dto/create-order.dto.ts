@@ -1,6 +1,7 @@
 import {
   IsArray,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Min,
@@ -41,4 +42,8 @@ export class CreateOrderDto {
   @IsEmail()
   @IsOptional()
   customerEmail?: string;
+
+  @IsNumber()
+  @IsOptional()
+  expectedTotal?: number;
 }

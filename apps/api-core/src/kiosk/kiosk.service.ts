@@ -82,10 +82,11 @@ export class KioskService {
       const sectionName = item.sectionName || 'General';
       if (!sections[sectionName]) sections[sectionName] = [];
 
-      const stock = item.stock !== null ? item.stock : item.product.stock;
+      const effectiveStock = item.stock !== null ? item.stock : item.product.stock;
       let stockStatus: 'available' | 'low_stock' | 'out_of_stock';
-      if (stock <= 0) stockStatus = 'out_of_stock';
-      else if (stock <= 3) stockStatus = 'low_stock';
+      if (effectiveStock === null) stockStatus = 'available'; // null = infinite
+      else if (effectiveStock <= 0) stockStatus = 'out_of_stock';
+      else if (effectiveStock <= 3) stockStatus = 'low_stock';
       else stockStatus = 'available';
 
       const price =
@@ -103,6 +104,12 @@ export class KioskService {
     }
 
     return { menuId: menu.id, menuName: menu.name, sections };
+  }
+
+  async getStatus(slug: string) {
+    const restaurant = await this.resolveRestaurant(slug);
+    const session = await this.registerSessionRepository.findOpen(restaurant.id);
+    return { registerOpen: !!session };
   }
 
   async createKioskOrder(slug: string, dto: CreateOrderDto) {

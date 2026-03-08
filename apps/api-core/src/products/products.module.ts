@@ -7,11 +7,12 @@ import { ProductsController } from './products.controller';
 import { CategoriesController } from './categories.controller';
 import { ProductRepository } from './product.repository';
 import { CategoryRepository } from './category.repository';
+import { EventsModule } from '../events/events.module';
 
 import { productConfig } from './product.config';
 
 @Module({
-  imports: [ConfigModule.forFeature(productConfig)],
+  imports: [ConfigModule.forFeature(productConfig), EventsModule],
   controllers: [ProductsController, CategoriesController],
   providers: [
     ProductsService,

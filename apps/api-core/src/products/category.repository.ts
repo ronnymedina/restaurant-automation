@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { Category } from '@prisma/client';
+import { Prisma, Category } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
+
+type TransactionClient = Prisma.TransactionClient;
 
 export interface CreateCategoryData {
   name: string;
@@ -12,8 +14,9 @@ export interface CreateCategoryData {
 export class CategoryRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: CreateCategoryData): Promise<Category> {
-    return this.prisma.category.create({
+  async create(data: CreateCategoryData, tx?: TransactionClient): Promise<Category> {
+    const client = tx ?? this.prisma;
+    return client.category.create({
       data: {
         name: data.name,
         restaurantId: data.restaurantId,
@@ -55,24 +58,18 @@ export class CategoryRepository {
   async findByNameAndRestaurant(
     name: string,
     restaurantId: string,
+    tx?: TransactionClient,
   ): Promise<Category | null> {
-    return this.prisma.category.findFirst({
-      where: {
-        name,
-        restaurantId,
-      },
+    const client = tx ?? this.prisma;
+    return client.category.findFirst({
+      where: { name, restaurantId },
     });
   }
 
-  async findOrCreate(data: CreateCategoryData): Promise<Category> {
-    const existing = await this.findByNameAndRestaurant(
-      data.name,
-      data.restaurantId,
-    );
-    if (existing) {
-      return existing;
-    }
-    return this.create(data);
+  async findOrCreate(data: CreateCategoryData, tx?: TransactionClient): Promise<Category> {
+    const existing = await this.findByNameAndRestaurant(data.name, data.restaurantId, tx);
+    if (existing) return existing;
+    return this.create(data, tx);
   }
 
   async update(

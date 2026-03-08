@@ -11,6 +11,7 @@ import { RefreshTokenRepository } from './refresh-token.repository';
 import { authConfig } from './auth.config';
 import {
   InvalidCredentialsException,
+  InactiveAccountException,
   InvalidRefreshTokenException,
 } from './exceptions/auth.exceptions';
 import { JwtPayload } from './strategies/jwt.strategy';
@@ -26,12 +27,13 @@ export class AuthService {
     private readonly restaurantsService: RestaurantsService,
     @Inject(authConfig.KEY)
     private readonly configService: ConfigType<typeof authConfig>,
-  ) {}
+  ) { }
 
   async login(email: string, password: string) {
     const user = await this.usersService.findByEmail(email);
 
     if (!user || !user.passwordHash) {
+      this.logger.warn(`Failed login attempt for email: ${email} - User not found or password hash is missing`);
       throw new InvalidCredentialsException();
     }
 
@@ -43,12 +45,13 @@ export class AuthService {
 
     if (!user.isActive) {
       this.logger.warn(`Login attempt on inactive account: ${email}`);
-      throw new InvalidCredentialsException();
+      throw new InactiveAccountException();
     }
 
     const restaurant = await this.restaurantsService.findById(
       user.restaurantId,
     );
+
     if (!restaurant) {
       this.logger.warn(
         `Login attempt for user ${email} with invalid restaurantId: ${user.restaurantId}`,
@@ -106,6 +109,26 @@ export class AuthService {
     const refreshToken = await this.generateRefreshToken(user.id);
 
     return { accessToken, refreshToken };
+  }
+
+  async getProfile(userId: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) return null;
+
+    const restaurant = await this.restaurantsService.findById(user.restaurantId);
+    if (!restaurant) {
+      this.logger.warn(
+        `Profile attempt for user ${user.email} with invalid restaurantId: ${user.restaurantId}`,
+      );
+      return null;
+    };
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      restaurant: { id: restaurant.id, name: restaurant.name, slug: restaurant.slug }
+    };
   }
 
   async revokeAllTokens(userId: string): Promise<void> {

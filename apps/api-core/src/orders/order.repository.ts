@@ -28,7 +28,7 @@ export interface CreateOrderData {
 
 @Injectable()
 export class OrderRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async createWithItems(data: CreateOrderData, tx?: Prisma.TransactionClient) {
     const client = tx || this.prisma;
@@ -85,9 +85,25 @@ export class OrderRepository {
     });
   }
 
-  async findBySessionId(sessionId: string) {
+  async markAsPaid(id: string) {
+    return this.prisma.order.update({
+      where: { id },
+      data: { isPaid: true },
+      include: ORDER_WITH_ITEMS,
+    });
+  }
+
+  async cancelOrder(id: string, reason: string) {
+    return this.prisma.order.update({
+      where: { id },
+      data: { status: OrderStatus.CANCELLED, cancellationReason: reason },
+      include: ORDER_WITH_ITEMS,
+    });
+  }
+
+  async findBySessionId(sessionId: string, restaurantId: string) {
     return this.prisma.order.findMany({
-      where: { registerSessionId: sessionId },
+      where: { registerSessionId: sessionId, restaurantId },
       include: ORDER_WITH_ITEMS,
     });
   }

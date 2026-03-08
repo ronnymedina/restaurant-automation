@@ -1,11 +1,12 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   Optional,
   Inject,
   forwardRef,
 } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, Product, MenuItem } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderRepository } from './order.repository';
@@ -14,15 +15,17 @@ import {
   OrderNotFoundException,
   StockInsufficientException,
   InvalidStatusTransitionException,
+  OrderAlreadyCancelledException,
+  OrderNotPaidException,
 } from './exceptions/orders.exceptions';
 import { ForbiddenAccessException } from '../common/exceptions';
 import { EmailService } from '../email/email.service';
 import { PrintService } from '../print/print.service';
+import { EventsGateway } from '../events/events.gateway';
 
 const STATUS_ORDER: OrderStatus[] = [
   'CREATED',
   'PROCESSING',
-  'PAID',
   'COMPLETED',
 ];
 
@@ -33,11 +36,12 @@ export class OrdersService {
   constructor(
     private readonly orderRepository: OrderRepository,
     private readonly prisma: PrismaService,
+    @Optional() private readonly eventsGateway?: EventsGateway,
     @Optional() private readonly emailService?: EmailService,
     @Optional()
     @Inject(forwardRef(() => PrintService))
     private readonly printService?: PrintService,
-  ) {}
+  ) { }
 
   async createOrder(
     restaurantId: string,
@@ -45,7 +49,7 @@ export class OrdersService {
     dto: CreateOrderDto,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      // Validate all products and compute prices
+      // Phase 1: validate all products, compute prices (no mutations yet)
       const orderItems: {
         productId: string;
         menuItemId?: string;
@@ -54,6 +58,7 @@ export class OrdersService {
         subtotal: number;
         notes?: string;
       }[] = [];
+      const stockEntries: { product: Product; menuItem: MenuItem | null; item: (typeof dto.items)[number] }[] = [];
 
       for (const item of dto.items) {
         const product = await tx.product.findUnique({
@@ -77,8 +82,8 @@ export class OrdersService {
           unitPrice = Number(menuItem.price);
         }
 
-        // Validate product stock
-        if (product.stock < item.quantity) {
+        // Validate product stock (null = infinite, skip check)
+        if (product.stock !== null && product.stock < item.quantity) {
           throw new StockInsufficientException(
             product.name,
             product.stock,
@@ -99,20 +104,6 @@ export class OrdersService {
           );
         }
 
-        // Decrement product stock
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { decrement: item.quantity } },
-        });
-
-        // Decrement menu item stock if applicable
-        if (menuItem && menuItem.stock !== null) {
-          await tx.menuItem.update({
-            where: { id: item.menuItemId },
-            data: { stock: { decrement: item.quantity } },
-          });
-        }
-
         const subtotal = unitPrice * item.quantity;
         orderItems.push({
           productId: item.productId,
@@ -122,9 +113,37 @@ export class OrdersService {
           subtotal,
           notes: item.notes,
         });
+        stockEntries.push({ product, menuItem, item });
       }
 
       const totalAmount = orderItems.reduce((sum, i) => sum + i.subtotal, 0);
+
+      // Validate expected total before any mutations
+      if (
+        dto.expectedTotal !== undefined &&
+        Math.abs(totalAmount - dto.expectedTotal) > 0.01
+      ) {
+        throw new BadRequestException(
+          'Los precios de tu pedido han cambiado. Por favor revisa el carrito e intenta de nuevo.',
+        );
+      }
+
+      // Phase 2: decrement stock
+      for (const { product, menuItem, item } of stockEntries) {
+        if (product.stock !== null) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { decrement: item.quantity } },
+          });
+        }
+
+        if (menuItem && menuItem.stock !== null) {
+          await tx.menuItem.update({
+            where: { id: item.menuItemId },
+            data: { stock: { decrement: item.quantity } },
+          });
+        }
+      }
 
       // Increment order number atomically
       const session = await tx.registerSession.update({
@@ -132,7 +151,7 @@ export class OrdersService {
         data: { lastOrderNumber: { increment: 1 } },
       });
 
-      return this.orderRepository.createWithItems(
+      const order = await this.orderRepository.createWithItems(
         {
           orderNumber: session.lastOrderNumber,
           totalAmount,
@@ -144,6 +163,10 @@ export class OrdersService {
         },
         tx,
       );
+
+      this.eventsGateway?.emitToRestaurant(restaurantId, 'order:new', { order });
+
+      return order;
     });
   }
 
@@ -166,18 +189,49 @@ export class OrdersService {
   ) {
     const order = await this.findById(id, restaurantId);
 
+    if (order.status === 'CANCELLED') {
+      throw new OrderAlreadyCancelledException(id);
+    }
+
     const currentIdx = STATUS_ORDER.indexOf(order.status);
     const targetIdx = STATUS_ORDER.indexOf(newStatus);
 
-    if (targetIdx <= currentIdx) {
+    if (targetIdx <= currentIdx || targetIdx === -1) {
       throw new InvalidStatusTransitionException(order.status, newStatus);
     }
 
-    const updatedOrder = await this.orderRepository.updateStatus(id, newStatus);
+    if (newStatus === 'COMPLETED' && !order.isPaid) {
+      throw new OrderNotPaidException(id);
+    }
 
-    // Send receipt email when order is marked as PAID
+    const updated = await this.orderRepository.updateStatus(id, newStatus);
+    this.eventsGateway?.emitToRestaurant(restaurantId, 'order:updated', { order: updated });
+    return updated;
+  }
+
+  async cancelOrder(id: string, restaurantId: string, reason: string) {
+    const order = await this.findById(id, restaurantId);
+
+    if (order.status === 'CANCELLED') {
+      throw new OrderAlreadyCancelledException(id);
+    }
+
+    if (order.status !== 'CREATED' && order.status !== 'PROCESSING') {
+      throw new InvalidStatusTransitionException(order.status, 'CANCELLED');
+    }
+
+    const cancelled = await this.orderRepository.cancelOrder(id, reason);
+    this.eventsGateway?.emitToRestaurant(restaurantId, 'order:updated', { order: cancelled });
+    return cancelled;
+  }
+
+  async markAsPaid(id: string, restaurantId: string) {
+    const order = await this.findById(id, restaurantId);
+    const updatedOrder = await this.orderRepository.markAsPaid(id);
+
+    this.eventsGateway?.emitToRestaurant(restaurantId, 'order:updated', { order: updatedOrder });
+
     if (
-      newStatus === 'PAID' &&
       updatedOrder.customerEmail &&
       this.printService &&
       this.emailService

@@ -17,10 +17,16 @@ import {
   ApiConsumes,
   ApiBody,
   ApiResponse,
+  ApiProperty,
 } from '@nestjs/swagger';
-import { OnboardingService, OnboardingResult } from './onboarding.service';
-import { OnboardingRegisterDto } from './dto';
+import { OnboardingService } from './onboarding.service';
+import { OnboardingRegisterDto, OnboardingRegisterSwaggerDto } from './dto';
 import { MAX_FILE_SIZE, MAX_FILES } from '../config';
+
+export class OnboardingResponse {
+  @ApiProperty({ description: 'Número de productos creados durante el onboarding', example: 5 })
+  productsCreated: number;
+}
 
 @ApiTags('Onboarding')
 @Controller({ version: '1', path: 'onboarding' })
@@ -31,50 +37,14 @@ export class OnboardingController {
   @ApiOperation({
     summary: 'Registrar un nuevo restaurante',
     description:
-      'Crea un restaurante y opcionalmente extrae productos desde fotos de menú usando IA',
+      'Crea un restaurante y opcionalmente extrae productos desde fotos de menú usando IA. El email de activación se envía al finalizar todo el proceso.',
   })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      required: ['email', 'restaurantName'],
-      properties: {
-        email: {
-          type: 'string',
-          format: 'email',
-          description: 'Email del usuario',
-          example: 'usuario@restaurante.com',
-        },
-        restaurantName: {
-          type: 'string',
-          description: 'Nombre del restaurante',
-          example: 'Mi Restaurante',
-        },
-        skipProducts: {
-          type: 'boolean',
-          description: 'Si es true, crea 3 productos demo',
-          default: false,
-        },
-        photos: {
-          type: 'array',
-          items: {
-            type: 'string',
-            format: 'binary',
-          },
-          description:
-            'Fotos del menú para extraer productos (máximo 3, solo PNG/JPG)',
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Restaurante registrado exitosamente',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Archivo inválido (tipo no soportado o tamaño excedido)',
-  })
+  @ApiBody({ type: OnboardingRegisterSwaggerDto })
+  @ApiResponse({ status: 201, description: 'Restaurante registrado exitosamente', type: OnboardingResponse })
+  @ApiResponse({ status: 400, description: 'Datos inválidos o archivo no soportado' })
+  @ApiResponse({ status: 409, description: 'El email ya está registrado' })
+  @ApiResponse({ status: 500, description: 'Error interno durante el onboarding' })
   @UseInterceptors(FilesInterceptor('photos', MAX_FILES))
   async register(
     @Body() body: OnboardingRegisterDto,
@@ -88,17 +58,19 @@ export class OnboardingController {
       }),
     )
     files?: Express.Multer.File[],
-  ): Promise<OnboardingResult> {
+  ): Promise<OnboardingResponse> {
     const photos = files?.map((file) => ({
       buffer: file.buffer,
       mimeType: file.mimetype,
     }));
 
-    return this.onboardingService.registerRestaurant({
+    const result = await this.onboardingService.registerRestaurant({
       email: body.email,
       restaurantName: body.restaurantName,
-      skipProducts: body.skipProducts,
+      createDemoData: body.createDemoData,
       photos,
     });
+
+    return { productsCreated: result.productsCreated };
   }
 }

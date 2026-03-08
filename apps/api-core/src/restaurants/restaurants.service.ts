@@ -1,17 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { Restaurant } from '@prisma/client';
+import { Prisma, Restaurant } from '@prisma/client';
 import {
   RestaurantRepository,
   CreateRestaurantData,
 } from './restaurant.repository';
 
+type TransactionClient = Prisma.TransactionClient;
+
 @Injectable()
 export class RestaurantsService {
   constructor(private readonly restaurantRepository: RestaurantRepository) {}
 
-  async createRestaurant(name: string): Promise<Restaurant> {
-    const slug = await this.generateSlug(name);
-    return this.restaurantRepository.create({ name, slug });
+  async createRestaurant(name: string, tx?: TransactionClient): Promise<Restaurant> {
+    const slug = await this.generateSlug(name, tx);
+    return this.restaurantRepository.create({ name, slug }, tx);
   }
 
   async findById(id: string): Promise<Restaurant | null> {
@@ -41,7 +43,7 @@ export class RestaurantsService {
     return this.restaurantRepository.delete(id);
   }
 
-  private async generateSlug(name: string): Promise<string> {
+  private async generateSlug(name: string, tx?: TransactionClient): Promise<string> {
     const base = name
       .toLowerCase()
       .normalize('NFD')
@@ -50,11 +52,11 @@ export class RestaurantsService {
       .replace(/^-|-$/g, '');
 
     let slug = base;
-    let existing = await this.restaurantRepository.findBySlug(slug);
+    let existing = await this.restaurantRepository.findBySlug(slug, tx);
     while (existing) {
       const suffix = Math.random().toString(36).substring(2, 6);
       slug = `${base}-${suffix}`;
-      existing = await this.restaurantRepository.findBySlug(slug);
+      existing = await this.restaurantRepository.findBySlug(slug, tx);
     }
     return slug;
   }

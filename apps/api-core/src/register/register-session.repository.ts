@@ -48,6 +48,30 @@ export class RegisterSessionRepository {
     });
   }
 
+  async findByRestaurantIdPaginated(
+    restaurantId: string,
+    skip: number,
+    take: number,
+  ): Promise<{ data: RegisterSession[]; total: number }> {
+    const [data, total] = await Promise.all([
+      this.prisma.registerSession.findMany({
+        where: { restaurantId },
+        skip,
+        take,
+        orderBy: { openedAt: 'desc' },
+        include: {
+          _count: {
+            select: { orders: true },
+          },
+        },
+      }),
+      this.prisma.registerSession.count({
+        where: { restaurantId },
+      }),
+    ]);
+    return { data, total };
+  }
+
   async findOpenWithOrderCount(restaurantId: string) {
     return this.prisma.registerSession.findFirst({
       where: {

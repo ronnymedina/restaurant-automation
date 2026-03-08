@@ -1,6 +1,6 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Optional } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
-import { Product, Category } from '@prisma/client';
+import { Prisma, Product, Category } from '@prisma/client';
 
 import { ProductRepository, CreateProductData } from './product.repository';
 import { CategoryRepository } from './category.repository';
@@ -11,12 +11,13 @@ import {
   ForbiddenAccessException,
   ValidationException,
 } from '../common/exceptions';
+import { EventsGateway } from '../events/events.gateway';
 
 export interface ProductInput {
   name: string;
   description?: string;
-  price?: number;
-  stock?: number;
+  price: number;
+  stock?: number | null;
   imageUrl?: string;
 }
 
@@ -29,6 +30,7 @@ export class ProductsService {
     private readonly categoryRepository: CategoryRepository,
     @Inject(productConfig.KEY)
     private readonly configService: ConfigType<typeof productConfig>,
+    @Optional() private readonly eventsGateway?: EventsGateway,
   ) {
     this.batchSize = this.configService.batchSize;
   }
@@ -37,11 +39,11 @@ export class ProductsService {
    * Creates or retrieves the default category for a restaurant.
    * This is the single entry point for getting the default category.
    */
-  async getOrCreateDefaultCategory(restaurantId: string): Promise<Category> {
-    return this.categoryRepository.findOrCreate({
-      name: 'default',
-      restaurantId,
-    });
+  async getOrCreateDefaultCategory(
+    restaurantId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Category> {
+    return this.categoryRepository.findOrCreate({ name: 'default', restaurantId }, tx);
   }
 
   async createProduct(
@@ -49,7 +51,7 @@ export class ProductsService {
     data: ProductInput,
     categoryId: string,
   ): Promise<Product> {
-    return this.productRepository.create({
+    const product = await this.productRepository.create({
       name: data.name,
       description: data.description,
       price: data.price,
@@ -58,6 +60,8 @@ export class ProductsService {
       restaurantId,
       categoryId,
     });
+    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'product', action: 'created' });
+    return product;
   }
 
   /**
@@ -134,10 +138,10 @@ export class ProductsService {
     restaurantId: string,
     data: Partial<CreateProductData>,
   ): Promise<Product> {
-    // Repository now handles checking existence/ownership via restaurantId
-    // If we want to be explicit, call findById first to throw standard EntityNotFound
     await this.findById(id, restaurantId);
-    return this.productRepository.update(id, restaurantId, data);
+    const product = await this.productRepository.update(id, restaurantId, data);
+    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'product', action: 'updated' });
+    return product;
   }
 
   async decrementStock(
@@ -151,6 +155,7 @@ export class ProductsService {
     );
 
     if (!product) throw new EntityNotFoundException('Product', productId);
+    if (product.stock === null) return product; // infinite stock
     if (product.stock < amount) {
       throw new ValidationException(
         `Insufficient stock for product '${product.name}'. Available: ${product.stock}, requested: ${amount}`,
@@ -163,7 +168,9 @@ export class ProductsService {
 
   async deleteProduct(id: string, restaurantId: string): Promise<Product> {
     await this.findById(id, restaurantId);
-    return this.productRepository.delete(id, restaurantId);
+    const product = await this.productRepository.delete(id, restaurantId);
+    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'product', action: 'deleted' });
+    return product;
   }
 
   /**
@@ -177,21 +184,21 @@ export class ProductsService {
       {
         name: 'Producto Demo 1',
         description: 'Este es un producto de demostración',
-        price: 0,
+        price: 5.99,
         restaurantId,
         categoryId,
       },
       {
         name: 'Producto Demo 2',
         description: 'Este es un producto de demostración',
-        price: 0,
+        price: 8.50,
         restaurantId,
         categoryId,
       },
       {
         name: 'Producto Demo 3',
         description: 'Este es un producto de demostración',
-        price: 0,
+        price: 12.00,
         restaurantId,
         categoryId,
       },

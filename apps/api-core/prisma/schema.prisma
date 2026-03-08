@@ -50,8 +50,8 @@ model RefreshToken {
 enum OrderStatus {
   CREATED
   PROCESSING
-  PAID
   COMPLETED
+  CANCELLED
 }
 
 enum PaymentMethod {
@@ -99,7 +99,7 @@ model Product {
   name        String
   description String?
   price       Decimal @default(0.00)
-  stock       Int     @default(0) // Stock Global (Inventario Físico)
+  stock       Int?               // Stock Global (null = infinito; 0 = agotado)
   active      Boolean @default(true)
   sku         String?
   imageUrl    String?
@@ -159,10 +159,12 @@ model MenuItem {
 model Order {
   id            String        @id @default(uuid())
   orderNumber   Int
-  status        OrderStatus   @default(CREATED)
-  paymentMethod PaymentMethod?
-  customerEmail String?
-  totalAmount   Decimal
+  status             OrderStatus   @default(CREATED)
+  paymentMethod      PaymentMethod?
+  customerEmail      String?
+  totalAmount        Decimal
+  isPaid             Boolean       @default(false)
+  cancellationReason String?
 
   restaurantId      String
   restaurant        Restaurant      @relation(fields: [restaurantId], references: [id])

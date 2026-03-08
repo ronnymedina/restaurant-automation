@@ -1,0 +1,110 @@
+---
+import ProtectedLayout from './ProtectedLayout.astro';
+
+const currentPath = Astro.url.pathname;
+
+const navItems = [
+  { href: '/dash/orders', label: 'Pedidos' },
+  { href: '/dash/register', label: 'Caja' },
+  { href: '/dash/register-history', label: 'Historial Caja' },
+  { href: '/dash/products', label: 'Productos' },
+  { href: '/dash/categories', label: 'Categorías' },
+  { href: '/dash/menus', label: 'Menús' },
+  { href: '/dash/users', label: 'Usuarios' },
+];
+---
+
+<ProtectedLayout>
+  <div class="min-h-screen bg-slate-50 flex">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white border-r border-slate-200 min-h-screen">
+      <div class="p-6">
+        <h1 class="text-xl font-bold text-slate-800">Dashboard</h1>
+      </div>
+      <nav class="px-4 space-y-1">
+        {navItems.map((item) => (
+          <a
+            href={item.href}
+            class:list={[
+              'block px-4 py-2.5 rounded-lg text-sm font-medium transition-colors',
+              currentPath === item.href
+                ? 'bg-indigo-50 text-indigo-700'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+            ]}
+          >
+            {item.label}
+          </a>
+        ))}
+      </nav>
+      <div id="kioskLinkContainer" class="hidden px-4 mt-6 pt-4 border-t border-slate-200">
+        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 mb-2">Kiosko público</p>
+        <div class="flex items-center gap-2 px-4">
+          <a id="kioskLink" href="#" target="_blank" class="text-sm text-indigo-600 hover:text-indigo-800 truncate"></a>
+          <button id="copyKioskUrl" title="Copiar URL" class="shrink-0 p-1 text-slate-400 hover:text-indigo-600 bg-transparent border-none cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <div class="flex-1 flex flex-col">
+      <nav class="bg-white shadow-sm border-b border-slate-200">
+        <div class="px-6 flex justify-end h-14 items-center">
+          <button
+            id="logoutBtn"
+            class="px-4 py-2 text-sm font-medium text-slate-500 hover:text-red-500 transition-colors cursor-pointer bg-transparent border-none"
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      </nav>
+
+      <main class="flex-1 p-6">
+        <slot />
+      </main>
+    </div>
+  </div>
+</ProtectedLayout>
+
+<script>
+  import { clearTokens } from '../lib/auth';
+  import { apiFetch } from '../lib/api';
+
+  const logoutBtn = document.getElementById('logoutBtn') as HTMLButtonElement;
+  logoutBtn.addEventListener('click', () => {
+    clearTokens();
+    window.location.href = '/login';
+  });
+
+  async function loadKioskLink() {
+    try {
+      const res = await apiFetch('/v1/auth/me');
+      if (!res.ok) return;
+      const data = await res.json();
+      const slug = data?.restaurant?.slug;
+      if (!slug) return;
+
+      const container = document.getElementById('kioskLinkContainer')!;
+      const link = document.getElementById('kioskLink') as HTMLAnchorElement;
+      const copyBtn = document.getElementById('copyKioskUrl')!;
+
+      const kioskPath = `/kiosk/${slug}`;
+      const kioskUrl = `${window.location.origin}${kioskPath}`;
+
+      link.href = kioskPath;
+      link.textContent = kioskPath;
+      container.classList.remove('hidden');
+
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(kioskUrl);
+        copyBtn.title = '¡Copiado!';
+        setTimeout(() => { copyBtn.title = 'Copiar URL'; }, 2000);
+      });
+    } catch {
+      // silently ignore — kiosk link is non-critical
+    }
+  }
+
+  loadKioskLink();
+</script>

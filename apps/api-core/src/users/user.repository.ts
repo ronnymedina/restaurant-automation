@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { User, Role } from '@prisma/client';
+import { Prisma, User, Role } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -12,12 +12,15 @@ export interface CreateUserData {
   restaurantId: string;
 }
 
+type TransactionClient = Prisma.TransactionClient;
+
 @Injectable()
 export class UserRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: CreateUserData): Promise<User> {
-    return this.prisma.user.create({ data });
+  async create(data: CreateUserData, tx?: TransactionClient): Promise<User> {
+    const client = tx ?? this.prisma;
+    return client.user.create({ data });
   }
 
   async findByEmail(email: string): Promise<User | null> {

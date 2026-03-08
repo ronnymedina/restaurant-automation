@@ -1,0 +1,205 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import DataTable from '../../components/dash/DataTable.astro';
+---
+
+<DashboardLayout>
+  <div class="space-y-6">
+    <h2 class="text-2xl font-bold text-slate-800">Historial de Caja</h2>
+
+    <DataTable
+      tbodyId="historyTableBody"
+      paginationId="pagination"
+      minWidth="640px"
+      columns={[
+        { label: 'Fecha apertura', nowrap: true },
+        { label: 'Fecha cierre', nowrap: true },
+        { label: 'Estado', nowrap: true },
+        { label: 'Pedidos', nowrap: true },
+        { label: 'Total ventas', align: 'right', nowrap: true },
+      ]}
+    />
+  </div>
+
+  <!-- Detail Modal -->
+  <div id="detailModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="p-6 space-y-5">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xl font-bold text-slate-800">Detalle de Sesión</h3>
+          <button id="closeDetail" class="text-slate-400 hover:text-slate-600 cursor-pointer border-none bg-transparent text-2xl leading-none">&times;</button>
+        </div>
+
+        <div id="detailLoading" class="py-8 text-center text-slate-400">Cargando...</div>
+        <div id="detailContent" class="hidden space-y-5"></div>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  import { apiFetch } from '../../lib/api';
+  import { renderPagination, setTableLoading, setTableEmpty, setTableError } from '../../lib/pagination';
+
+  const COLSPAN = 5;
+  let currentPage = 1;
+
+  const tableBody = document.getElementById('historyTableBody')!;
+  const paginationEl = document.getElementById('pagination')!;
+  const detailModal = document.getElementById('detailModal')!;
+  const detailLoading = document.getElementById('detailLoading')!;
+  const detailContent = document.getElementById('detailContent')!;
+
+  function formatDate(value: string | null): string {
+    if (!value) return '—';
+    return new Date(value).toLocaleString();
+  }
+
+  function formatCurrency(value: number | null): string {
+    if (value == null) return '$0.00';
+    return `$${Number(value).toFixed(2)}`;
+  }
+
+  async function loadHistory(page = 1) {
+    currentPage = page;
+    setTableLoading(tableBody, COLSPAN);
+
+    const res = await apiFetch(`/v1/register/history?page=${page}&limit=10`);
+    if (!res.ok) {
+      const msg = res.status === 403 ? 'No tienes permisos para acceder a esta sección' : 'Error al cargar';
+      setTableError(tableBody, COLSPAN, msg);
+      paginationEl.innerHTML = '';
+      return;
+    }
+    const { data, meta } = await res.json();
+
+    if (data.length === 0) {
+      setTableEmpty(tableBody, COLSPAN, 'No hay sesiones de caja');
+      paginationEl.innerHTML = '';
+      return;
+    }
+
+    tableBody.innerHTML = data.map((s: any) => {
+      const isOpen = s.status === 'OPEN';
+      const badgeClass = isOpen
+        ? 'bg-green-100 text-green-700'
+        : 'bg-slate-100 text-slate-700';
+      const badgeLabel = isOpen ? 'Abierta' : 'Cerrada';
+      const orderCount = s._count?.orders ?? s.totalOrders ?? 0;
+
+      return `
+        <tr
+          class="border-b border-slate-100 hover:bg-indigo-50 cursor-pointer transition-colors"
+          data-session-id="${s.id}"
+        >
+          <td class="px-4 py-3 text-slate-800 whitespace-nowrap">${formatDate(s.openedAt)}</td>
+          <td class="px-4 py-3 text-slate-600 whitespace-nowrap">${formatDate(s.closedAt)}</td>
+          <td class="px-4 py-3 whitespace-nowrap"><span class="px-2 py-0.5 text-xs rounded-full ${badgeClass}">${badgeLabel}</span></td>
+          <td class="px-4 py-3 text-slate-600 whitespace-nowrap">${orderCount}</td>
+          <td class="px-4 py-3 text-slate-800 text-right whitespace-nowrap font-medium">${formatCurrency(s.totalSales)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    // Attach click listeners
+    tableBody.querySelectorAll<HTMLTableRowElement>('tr[data-session-id]').forEach(row => {
+      row.addEventListener('click', () => openDetail(row.dataset.sessionId!));
+    });
+
+    renderPagination(paginationEl, meta, currentPage, loadHistory);
+  }
+
+  async function openDetail(sessionId: string) {
+    detailModal.classList.remove('hidden');
+    detailLoading.classList.remove('hidden');
+    detailContent.classList.add('hidden');
+    detailContent.innerHTML = '';
+
+    const res = await apiFetch(`/v1/register/summary/${sessionId}`);
+    detailLoading.classList.add('hidden');
+
+    if (!res.ok) {
+      detailContent.innerHTML = `<p class="text-red-400 text-center">Error al cargar el detalle</p>`;
+      detailContent.classList.remove('hidden');
+      return;
+    }
+
+    const { session, summary } = await res.json();
+
+    const paymentRows = Object.entries(summary.paymentBreakdown as Record<string, { count: number; total: number }>)
+      .map(([method, info]) => `
+        <div class="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
+          <span class="text-slate-600">${method}</span>
+          <span class="text-slate-800 font-medium">${info.count} pedidos &mdash; ${formatCurrency(info.total)}</span>
+        </div>
+      `).join('') || '<p class="text-slate-400 text-sm">Sin pedidos</p>';
+
+    const topProductRows = (summary.topProducts as any[] ?? []).length > 0
+      ? summary.topProducts.map((p: any, i: number) => `
+          <div class="flex items-center gap-3 py-1.5 border-b border-slate-100 last:border-0">
+            <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center flex-shrink-0">${i + 1}</span>
+            <span class="flex-1 text-slate-700">${p.name}</span>
+            <span class="text-slate-500 text-sm">${p.quantity} uds.</span>
+            <span class="text-slate-800 font-medium ml-4">${formatCurrency(p.total)}</span>
+          </div>
+        `).join('')
+      : '<p class="text-slate-400 text-sm">Sin datos de productos</p>';
+
+    detailContent.innerHTML = `
+      <!-- Header info -->
+      <div class="text-sm text-slate-500 space-y-0.5">
+        <p>Apertura: <span class="text-slate-700 font-medium">${formatDate(session.openedAt)}</span></p>
+        <p>Cierre: <span class="text-slate-700 font-medium">${formatDate(session.closedAt)}</span></p>
+      </div>
+
+      <!-- KPI grid -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="bg-emerald-50 rounded-lg p-4 text-center">
+          <p class="text-2xl font-bold text-emerald-700">${formatCurrency(summary.totalSales)}</p>
+          <p class="text-xs text-emerald-600 mt-1">Total ventas</p>
+        </div>
+        <div class="bg-slate-50 rounded-lg p-4 text-center">
+          <p class="text-2xl font-bold text-slate-800">${summary.totalOrders}</p>
+          <p class="text-xs text-slate-500 mt-1">Total pedidos</p>
+        </div>
+        <div class="bg-blue-50 rounded-lg p-4 text-center">
+          <p class="text-2xl font-bold text-blue-700">${summary.completedOrders ?? '—'}</p>
+          <p class="text-xs text-blue-600 mt-1">Completados</p>
+        </div>
+        <div class="bg-red-50 rounded-lg p-4 text-center">
+          <p class="text-2xl font-bold text-red-600">${summary.cancelledOrders ?? '—'}</p>
+          <p class="text-xs text-red-500 mt-1">Cancelados</p>
+        </div>
+      </div>
+
+      <!-- Payment breakdown -->
+      <div>
+        <h4 class="font-semibold text-slate-700 mb-2">Desglose por método de pago</h4>
+        <div class="bg-slate-50 rounded-lg px-4 py-2">
+          ${paymentRows}
+        </div>
+      </div>
+
+      <!-- Top products -->
+      <div>
+        <h4 class="font-semibold text-slate-700 mb-2">Platillos más vendidos</h4>
+        <div class="bg-slate-50 rounded-lg px-4 py-2">
+          ${topProductRows}
+        </div>
+      </div>
+    `;
+
+    detailContent.classList.remove('hidden');
+  }
+
+  document.getElementById('closeDetail')!.addEventListener('click', () => {
+    detailModal.classList.add('hidden');
+  });
+
+  detailModal.addEventListener('click', (e) => {
+    if (e.target === detailModal) detailModal.classList.add('hidden');
+  });
+
+  loadHistory();
+</script>

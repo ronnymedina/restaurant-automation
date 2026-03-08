@@ -13,6 +13,11 @@ export class KioskController {
     private readonly orderRepository: OrderRepository,
   ) {}
 
+  @Get(':slug/status')
+  async getStatus(@Param('slug') slug: string) {
+    return this.kioskService.getStatus(slug);
+  }
+
   @Get(':slug/menus')
   async getMenus(@Param('slug') slug: string) {
     return this.kioskService.getAvailableMenus(slug);

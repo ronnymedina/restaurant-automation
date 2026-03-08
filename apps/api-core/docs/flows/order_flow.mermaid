@@ -1,0 +1,92 @@
+%%{init: {"theme": "base"}}%%
+sequenceDiagram
+    actor C  as 👤 Cliente
+    participant UI as Interfaz<br/>(Kiosk · WhatsApp · Mobile · ...)
+    participant API as API Core
+    participant DB  as Base de Datos
+    actor M  as 👨‍💼 Manager
+
+    note over UI: Cada canal implementa el mismo contrato.<br/>El backend no sabe ni le importa desde dónde viene la petición.
+
+    %% ─────────────────────────────────────────
+    rect rgb(240, 253, 244)
+        note over C,DB: FLUJO 1 — Pedido normal (sin cambios de precio)
+
+        C  ->> UI  : Abre kiosk / inicia conversación
+        UI ->> API : GET /kiosk/:slug/status
+        API -->> UI: { registerOpen: true }
+
+        UI ->> API : GET /kiosk/:slug/menus
+        API -->> UI: [{ id, name }, ...]
+
+        UI ->> API : GET /kiosk/:slug/menus/:id/items
+        API -->> UI: { sections: { Categoría: [{ id, name, price }] } }
+
+        C  ->> UI  : Agrega productos al carrito
+        note over UI: cart = [{ productId, price, qty }]<br/>expectedTotal = Σ price × qty
+
+        C  ->> UI  : Selecciona método de pago y confirma
+        UI ->> API : POST /kiosk/:slug/orders<br/>{ items, paymentMethod, expectedTotal }
+
+        API ->> DB : Recalcula totalAmount desde DB
+        note over API,DB: |totalAmount − expectedTotal| ≤ 0.01 ✓<br/>Decrementa stock
+        DB -->> API: OK
+        API -->> UI: 201 { orderNumber, totalAmount }
+        UI ->>  C  : ✅ Pedido confirmado #42
+    end
+
+    %% ─────────────────────────────────────────
+    rect rgb(255, 251, 235)
+        note over C,DB: FLUJO 2 — Precio cambia mientras el cliente arma el carrito
+
+        C  ->> UI  : Carga menú, agrega "Milanesa $300" al carrito
+
+        M  ->> API : PATCH /products/:id  { price: 500 }
+        API ->> DB : Actualiza precio
+        API -->> UI: WS catalog:changed { type: "product" }
+        note over UI: El evento llega pero el cliente<br/>ya armó el carrito con precio viejo
+
+        C  ->> UI  : Confirma pedido
+        UI ->> API : POST /kiosk/:slug/orders<br/>{ items, expectedTotal: 300 }
+
+        API ->> DB : Recalcula → totalAmount = 500
+        note over API: |500 − 300| > 0.01 → RECHAZAR<br/>Sin tocar stock (validación previa a mutaciones)
+        API -->> UI: 400 "Los precios han cambiado.<br/>Por favor revisa el carrito e intenta de nuevo."
+
+        note over UI: Captura snapshot { productId → precioViejo }<br/>antes de recargar
+        UI ->> API : GET /kiosk/:slug/menus/:id/items
+        API -->> UI: items con precio actualizado (500)
+
+        note over UI: Compara snapshot vs precios nuevos:<br/>• Actualiza cart.price = 500, cart.oldPrice = 300<br/>• Grilla: borde amber + "Antes $300 · Precio actualizado"<br/>• Carrito: precio tachado + nuevo precio en amber
+
+        UI ->>  C  : ⚠️ Muestra error + grilla con diferencias visuales
+
+        C  ->> UI  : Revisa cambios y confirma de nuevo
+        UI ->> API : POST /kiosk/:slug/orders<br/>{ items, expectedTotal: 500 }
+        API ->> DB : |500 − 500| ≤ 0.01 ✓ · Decrementa stock
+        API -->> UI: 201 { orderNumber, totalAmount: 500 }
+        UI ->>  C  : ✅ Pedido confirmado #43
+    end
+
+    %% ─────────────────────────────────────────
+    rect rgb(240, 245, 255)
+        note over C,DB: FLUJO 3 — Cambio de catálogo en tiempo real (menú nuevo o renombrado)
+
+        M  ->> API : POST /menus  { name: "Desayunos" }
+        API ->> DB : Crea menú
+        API -->> UI: WS catalog:changed { type: "menu", action: "created" }
+
+        note over UI: type === "menu" → recargar lista de tabs
+        UI ->> API : GET /kiosk/:slug/menus
+        API -->> UI: menus actualizados (incluye "Desayunos")
+
+        note over UI: Re-renderiza pestañas.<br/>Preserva menú activo si sigue existiendo;<br/>si fue eliminado, selecciona el primero.
+        UI ->>  C  : Pestaña "Desayunos" aparece sin recargar la página
+
+        M  ->> API : PATCH /menus/:id  { name: "Desayunos y Meriendas" }
+        API ->> DB : Actualiza nombre
+        API -->> UI: WS catalog:changed { type: "menu", action: "updated" }
+        UI ->> API : GET /kiosk/:slug/menus
+        API -->> UI: menus con nombre actualizado
+        UI ->>  C  : Tab muestra "Desayunos y Meriendas"
+    end

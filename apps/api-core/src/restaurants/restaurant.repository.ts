@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Restaurant } from '@prisma/client';
+import { Prisma, Restaurant } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -8,12 +8,15 @@ export interface CreateRestaurantData {
   slug: string;
 }
 
+type TransactionClient = Prisma.TransactionClient;
+
 @Injectable()
 export class RestaurantRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: CreateRestaurantData): Promise<Restaurant> {
-    return this.prisma.restaurant.create({
+  async create(data: CreateRestaurantData, tx?: TransactionClient): Promise<Restaurant> {
+    const client = tx ?? this.prisma;
+    return client.restaurant.create({
       data: {
         name: data.name,
         slug: data.slug,
@@ -21,8 +24,9 @@ export class RestaurantRepository {
     });
   }
 
-  async findBySlug(slug: string): Promise<Restaurant | null> {
-    return this.prisma.restaurant.findUnique({
+  async findBySlug(slug: string, tx?: TransactionClient): Promise<Restaurant | null> {
+    const client = tx ?? this.prisma;
+    return client.restaurant.findUnique({
       where: { slug },
     });
   }
