@@ -105,8 +105,10 @@ export class RegisterService {
 
     const orders = await this.orderRepository.findBySessionId(sessionId, session.restaurantId);
 
-    const paymentBreakdown: Record<string, { count: number; total: number }> =
-      {};
+    const paymentBreakdown: Record<string, { count: number; total: number }> = {};
+    let completedOrders = 0;
+    let cancelledOrders = 0;
+
     for (const order of orders) {
       const method = order.paymentMethod || 'UNKNOWN';
       if (!paymentBreakdown[method]) {
@@ -114,7 +116,33 @@ export class RegisterService {
       }
       paymentBreakdown[method].count++;
       paymentBreakdown[method].total += Number(order.totalAmount);
+
+      if (order.status === 'COMPLETED') completedOrders++;
+      else if (order.status === 'CANCELLED') cancelledOrders++;
     }
+
+    // Top-selling products aggregated from order items
+    const productMap: Record<string, { name: string; quantity: number; total: number }> = {};
+    for (const order of orders) {
+      if (order.status === 'CANCELLED') continue;
+      for (const item of order.items) {
+        const pid = item.productId;
+        if (!productMap[pid]) {
+          productMap[pid] = {
+            name: item.product?.name ?? 'Producto',
+            quantity: 0,
+            total: 0,
+          };
+        }
+        productMap[pid].quantity += item.quantity;
+        productMap[pid].total += Number(item.subtotal);
+      }
+    }
+
+    const topProducts = Object.entries(productMap)
+      .map(([id, data]) => ({ id, ...data }))
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 10);
 
     return {
       session,
@@ -123,7 +151,10 @@ export class RegisterService {
         totalSales:
           Number(session.totalSales) ||
           orders.reduce((s, o) => s + Number(o.totalAmount), 0),
+        completedOrders,
+        cancelledOrders,
         paymentBreakdown,
+        topProducts,
       },
       orders,
     };

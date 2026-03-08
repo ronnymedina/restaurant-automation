@@ -1,0 +1,55 @@
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#ecfdf5", "primaryBorderColor": "#059669", "lineColor": "#64748b"}}}%%
+flowchart TD
+
+    subgraph CHANNELS["Capa de Canal  —  cualquier interfaz que implemente el contrato"]
+        direction LR
+        CH1["🖥️  Kiosk Web\n(actual)"]
+        CH2["💬  WhatsApp Bot\n(futuro)"]
+        CH3["📱  Mobile App\n(futuro)"]
+        CH4["🔌  Otro canal\n(cualquiera)"]
+    end
+
+    subgraph CONTRACT["Contrato mínimo que debe cumplir cada canal"]
+        direction TB
+        C1["1️⃣  GET /kiosk/:slug/status\nVerificar que la caja esté abierta"]
+        C2["2️⃣  GET /kiosk/:slug/menus\nCargar lista de menús"]
+        C3["3️⃣  GET /kiosk/:slug/menus/:id/items\nCargar productos con precios actuales"]
+        C4["4️⃣  Construir carrito\nGuardar price por ítem al momento de agregar"]
+        C5["5️⃣  POST /kiosk/:slug/orders\nEnviar items + paymentMethod + expectedTotal"]
+        C6["6️⃣  Manejar HTTP 400\nRecargar precios, mostrar qué cambió"]
+        C7["7️⃣  Escuchar WS catalog:changed\nActualizar menús y productos en tiempo real"]
+
+        C1 --> C2 --> C3 --> C4 --> C5
+        C5 -->|"✅ 201"| SUCCESS["Pedido creado — mostrar #número"]
+        C5 -->|"❌ 400 precio cambió"| C6
+        C6 --> C3
+        C7 -->|"type: menu"| C2
+        C7 -->|"type: product / menuItem"| C3
+    end
+
+    subgraph BACKEND["API Core"]
+        direction TB
+        REST["REST\n/v1/kiosk/*"]
+        WS["WebSocket\ncatalog:changed\norder:new / order:updated"]
+        DB[("PostgreSQL\nFuente de verdad\nde precios y stock")]
+
+        REST <--> DB
+        WS --> DB
+    end
+
+    subgraph DASHBOARD["Dashboard Manager"]
+        D1["Cambiar precio"]
+        D2["Crear / renombrar menú"]
+        D3["Actualizar stock"]
+    end
+
+    CHANNELS -- "implementan" --> CONTRACT
+    CONTRACT -- "HTTP + WebSocket" --> BACKEND
+    DASHBOARD -- "PATCH /products\nPOST /menus\n..." --> BACKEND
+    BACKEND -- "emitToKiosk()\ncatalog:changed" --> CONTRACT
+
+    style CHANNELS fill:#f0fdf4,stroke:#059669,stroke-width:2px
+    style CONTRACT fill:#eff6ff,stroke:#3b82f6,stroke-width:2px
+    style BACKEND fill:#fefce8,stroke:#ca8a04,stroke-width:2px
+    style DASHBOARD fill:#fff1f2,stroke:#e11d48,stroke-width:2px
+    style SUCCESS fill:#dcfce7,stroke:#16a34a

@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Optional } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
 import { Product, Category } from '@prisma/client';
 
@@ -11,6 +11,7 @@ import {
   ForbiddenAccessException,
   ValidationException,
 } from '../common/exceptions';
+import { EventsGateway } from '../events/events.gateway';
 
 export interface ProductInput {
   name: string;
@@ -29,6 +30,7 @@ export class ProductsService {
     private readonly categoryRepository: CategoryRepository,
     @Inject(productConfig.KEY)
     private readonly configService: ConfigType<typeof productConfig>,
+    @Optional() private readonly eventsGateway?: EventsGateway,
   ) {
     this.batchSize = this.configService.batchSize;
   }
@@ -49,7 +51,7 @@ export class ProductsService {
     data: ProductInput,
     categoryId: string,
   ): Promise<Product> {
-    return this.productRepository.create({
+    const product = await this.productRepository.create({
       name: data.name,
       description: data.description,
       price: data.price,
@@ -58,6 +60,8 @@ export class ProductsService {
       restaurantId,
       categoryId,
     });
+    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'product', action: 'created' });
+    return product;
   }
 
   /**
@@ -134,10 +138,10 @@ export class ProductsService {
     restaurantId: string,
     data: Partial<CreateProductData>,
   ): Promise<Product> {
-    // Repository now handles checking existence/ownership via restaurantId
-    // If we want to be explicit, call findById first to throw standard EntityNotFound
     await this.findById(id, restaurantId);
-    return this.productRepository.update(id, restaurantId, data);
+    const product = await this.productRepository.update(id, restaurantId, data);
+    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'product', action: 'updated' });
+    return product;
   }
 
   async decrementStock(
@@ -164,7 +168,9 @@ export class ProductsService {
 
   async deleteProduct(id: string, restaurantId: string): Promise<Product> {
     await this.findById(id, restaurantId);
-    return this.productRepository.delete(id, restaurantId);
+    const product = await this.productRepository.delete(id, restaurantId);
+    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'product', action: 'deleted' });
+    return product;
   }
 
   /**

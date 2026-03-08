@@ -1,0 +1,358 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+---
+
+<DashboardLayout>
+  <div class="space-y-4">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <h2 class="text-2xl font-bold text-slate-800">Cocina (KDS)</h2>
+    </div>
+
+    <!-- Kanban Board: 4 columns -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 min-h-[60vh]">
+      <!-- CREATED -->
+      <div class="flex flex-col">
+        <div class="bg-yellow-50 border border-yellow-200 rounded-t-xl px-4 py-3 flex items-center justify-between">
+          <h3 class="font-bold text-yellow-800">Creado</h3>
+          <span id="countCreated" class="text-xs font-medium bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded-full">0</span>
+        </div>
+        <div id="colCreated" class="flex-1 bg-yellow-50/30 border-x border-b border-yellow-200 rounded-b-xl p-3 space-y-3 overflow-y-auto max-h-[70vh]">
+          <p class="text-sm text-slate-400 text-center py-4">Cargando...</p>
+        </div>
+      </div>
+
+      <!-- PROCESSING -->
+      <div class="flex flex-col">
+        <div class="bg-blue-50 border border-blue-200 rounded-t-xl px-4 py-3 flex items-center justify-between">
+          <h3 class="font-bold text-blue-800">En Proceso</h3>
+          <span id="countProcessing" class="text-xs font-medium bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full">0</span>
+        </div>
+        <div id="colProcessing" class="flex-1 bg-blue-50/30 border-x border-b border-blue-200 rounded-b-xl p-3 space-y-3 overflow-y-auto max-h-[70vh]">
+          <p class="text-sm text-slate-400 text-center py-4">Cargando...</p>
+        </div>
+      </div>
+
+      <!-- COMPLETED -->
+      <div class="flex flex-col">
+        <div class="bg-green-50 border border-green-200 rounded-t-xl px-4 py-3 flex items-center justify-between">
+          <h3 class="font-bold text-green-800">Completado</h3>
+          <span id="countCompleted" class="text-xs font-medium bg-green-200 text-green-800 px-2 py-0.5 rounded-full">0</span>
+        </div>
+        <div id="colCompleted" class="flex-1 bg-green-50/30 border-x border-b border-green-200 rounded-b-xl p-3 space-y-3 overflow-y-auto max-h-[70vh]">
+          <p class="text-sm text-slate-400 text-center py-4">Cargando...</p>
+        </div>
+      </div>
+
+      <!-- CANCELLED -->
+      <div class="flex flex-col">
+        <div class="bg-red-50 border border-red-200 rounded-t-xl px-4 py-3 flex items-center justify-between">
+          <h3 class="font-bold text-red-800">Cancelado</h3>
+          <span id="countCancelled" class="text-xs font-medium bg-red-200 text-red-800 px-2 py-0.5 rounded-full">0</span>
+        </div>
+        <div id="colCancelled" class="flex-1 bg-red-50/30 border-x border-b border-red-200 rounded-b-xl p-3 space-y-3 overflow-y-auto max-h-[70vh]">
+          <p class="text-sm text-slate-400 text-center py-4">Cargando...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error Toast -->
+    <div id="orderToast" class="hidden fixed top-4 right-4 px-4 py-3 rounded-xl shadow-lg z-50 text-sm font-medium"></div>
+
+    <!-- Cancel Modal (fixed, outside columns so it survives re-renders) -->
+    <div id="cancelModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-xl">
+        <h3 class="text-lg font-bold text-slate-800">Cancelar pedido</h3>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Motivo de cancelación *</label>
+          <input
+            id="cancelReasonInput"
+            type="text"
+            placeholder="Ej: Pedido duplicado, error del cliente..."
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+          />
+          <p id="cancelReasonError" class="hidden mt-1 text-xs text-red-500">El motivo es requerido</p>
+        </div>
+        <div class="flex gap-3">
+          <button id="cancelModalDismiss" class="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 cursor-pointer bg-white hover:bg-slate-50">
+            Volver
+          </button>
+          <button id="cancelModalConfirm" class="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-medium cursor-pointer border-none hover:bg-red-600">
+            Confirmar cancelación
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  import { apiFetch } from '../../lib/api';
+  import { createDashboardSocket } from '../../lib/socket';
+  import { getAccessToken } from '../../lib/auth';
+
+  const colCreated = document.getElementById('colCreated')!;
+  const colProcessing = document.getElementById('colProcessing')!;
+  const colCompleted = document.getElementById('colCompleted')!;
+  const colCancelled = document.getElementById('colCancelled')!;
+  const countCreated = document.getElementById('countCreated')!;
+  const countProcessing = document.getElementById('countProcessing')!;
+  const countCompleted = document.getElementById('countCompleted')!;
+  const countCancelled = document.getElementById('countCancelled')!;
+  const toast = document.getElementById('orderToast')!;
+
+  // Cancel modal elements
+  const cancelModal = document.getElementById('cancelModal')!;
+  const cancelReasonInput = document.getElementById('cancelReasonInput') as HTMLInputElement;
+  const cancelReasonError = document.getElementById('cancelReasonError')!;
+  const cancelModalDismiss = document.getElementById('cancelModalDismiss')!;
+  const cancelModalConfirm = document.getElementById('cancelModalConfirm')!;
+  let pendingCancelId: string | null = null;
+
+  const paymentLabels: Record<string, string> = {
+    CASH: 'Efectivo',
+    CARD: 'Tarjeta',
+    DIGITAL_WALLET: 'Digital',
+  };
+
+  const borderColors: Record<string, string> = {
+    CREATED: 'border-l-yellow-400',
+    PROCESSING: 'border-l-blue-400',
+    COMPLETED: 'border-l-green-400',
+    CANCELLED: 'border-l-red-400',
+  };
+
+  function showToast(msg: string, isError = false) {
+    toast.textContent = msg;
+    toast.className = `fixed top-4 right-4 px-4 py-3 rounded-xl shadow-lg z-50 text-sm font-medium ${isError ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`;
+    setTimeout(() => toast.classList.add('hidden'), 3000);
+  }
+
+  function openCancelModal(orderId: string) {
+    pendingCancelId = orderId;
+    cancelReasonInput.value = '';
+    cancelReasonError.classList.add('hidden');
+    cancelReasonInput.classList.remove('border-red-400', 'ring-2', 'ring-red-400');
+    cancelModal.classList.remove('hidden');
+    setTimeout(() => cancelReasonInput.focus(), 50);
+  }
+
+  function closeCancelModal() {
+    cancelModal.classList.add('hidden');
+    pendingCancelId = null;
+  }
+
+  cancelModalDismiss.addEventListener('click', closeCancelModal);
+  cancelModal.addEventListener('click', (e) => {
+    if (e.target === cancelModal) closeCancelModal();
+  });
+
+  cancelModalConfirm.addEventListener('click', async () => {
+    const reason = cancelReasonInput.value.trim();
+    if (!reason) {
+      cancelReasonError.classList.remove('hidden');
+      cancelReasonInput.classList.add('ring-2', 'ring-red-400');
+      cancelReasonInput.focus();
+      return;
+    }
+    if (!pendingCancelId) return;
+
+    cancelModalConfirm.textContent = 'Cancelando...';
+    (cancelModalConfirm as HTMLButtonElement).disabled = true;
+
+    const res = await apiFetch(`/v1/orders/${pendingCancelId}/cancel`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reason }),
+    });
+
+    cancelModalConfirm.textContent = 'Confirmar cancelación';
+    (cancelModalConfirm as HTMLButtonElement).disabled = false;
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      showToast(err?.message || 'Error al cancelar', true);
+      return;
+    }
+
+    closeCancelModal();
+    showToast('Pedido cancelado');
+    loadOrders();
+  });
+
+  function renderCard(order: any): string {
+    const time = new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const border = borderColors[order.status] || 'border-l-slate-300';
+    const isPaidBadge = order.isPaid
+      ? '<span class="px-2 py-0.5 text-xs rounded-full font-medium bg-green-100 text-green-700">Pagado</span>'
+      : '<span class="px-2 py-0.5 text-xs rounded-full font-medium bg-red-100 text-red-700">No pagado</span>';
+
+    const items = (order.items || []).map((i: any) => {
+      const name = i.product?.name || '?';
+      const notesHtml = i.notes ? `<p class="text-xs italic text-amber-600 ml-5">${i.notes}</p>` : '';
+      return `<p class="text-sm text-slate-700"><span class="font-medium">${i.quantity}x</span> ${name}</p>${notesHtml}`;
+    }).join('');
+
+    let actions = '';
+    if (order.status === 'CREATED') {
+      actions += `<button data-advance="${order.id}" data-next="PROCESSING" data-paid="${order.isPaid}" class="advance-btn flex-1 py-1.5 text-xs font-medium bg-blue-500 text-white rounded-lg cursor-pointer border-none hover:bg-blue-600">Procesar</button>`;
+    } else if (order.status === 'PROCESSING') {
+      actions += `<button data-advance="${order.id}" data-next="COMPLETED" data-paid="${order.isPaid}" class="advance-btn flex-1 py-1.5 text-xs font-medium bg-green-500 text-white rounded-lg cursor-pointer border-none hover:bg-green-600">Completar</button>`;
+    }
+
+    if (!order.isPaid && order.status !== 'CANCELLED') {
+      actions += `<button data-pay="${order.id}" class="pay-btn py-1.5 px-2 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-lg cursor-pointer border-none hover:bg-emerald-200">Marcar Pagado</button>`;
+    }
+
+    if (order.status === 'CREATED' || order.status === 'PROCESSING') {
+      actions += `<button data-cancel="${order.id}" class="cancel-btn py-1.5 px-2 text-xs font-medium bg-red-100 text-red-700 rounded-lg cursor-pointer border-none hover:bg-red-200">Cancelar</button>`;
+    }
+
+    actions += `<button data-receipt="${order.id}" class="receipt-btn py-1.5 px-2 text-xs font-medium bg-slate-100 text-slate-600 rounded-lg cursor-pointer border-none hover:bg-slate-200">Recibo</button>`;
+
+    const cancellationInfo = order.status === 'CANCELLED' && order.cancellationReason
+      ? `<p class="text-xs text-red-600 italic mt-1">Motivo: ${order.cancellationReason}</p>`
+      : '';
+
+    return `
+      <div class="bg-white rounded-xl border border-slate-200 border-l-4 ${border} shadow-sm" data-order-id="${order.id}">
+        <div class="p-3 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-800">#${order.orderNumber}</span>
+            <span class="text-xs text-slate-500">${time}</span>
+          </div>
+          <div class="space-y-0.5">${items}</div>
+          <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+            <span class="font-semibold text-sm text-slate-800">$${Number(order.totalAmount).toFixed(2)}</span>
+            <span class="text-xs text-slate-500">${paymentLabels[order.paymentMethod] || order.paymentMethod || '-'}</span>
+          </div>
+          <div class="flex items-center gap-2">${isPaidBadge}</div>
+          ${cancellationInfo}
+          ${actions ? `<div class="flex gap-1.5 flex-wrap pt-1">${actions}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  function bindCardEvents(container: Element) {
+    container.querySelectorAll('.advance-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const el = btn as HTMLElement;
+        const id = el.dataset.advance!;
+        const next = el.dataset.next!;
+        const isPaid = el.dataset.paid === 'true';
+
+        if (next === 'COMPLETED' && !isPaid) {
+          showToast('El pedido debe estar pagado antes de completarse', true);
+          return;
+        }
+
+        const res = await apiFetch(`/v1/orders/${id}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: next }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          showToast(err?.message || 'Error al actualizar', true);
+          return;
+        }
+        loadOrders();
+      });
+    });
+
+    container.querySelectorAll('.pay-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = (btn as HTMLElement).dataset.pay!;
+        const res = await apiFetch(`/v1/orders/${id}/pay`, { method: 'PATCH' });
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          showToast(err?.message || 'Error al marcar pagado', true);
+          return;
+        }
+        showToast('Marcado como pagado');
+        loadOrders();
+      });
+    });
+
+    container.querySelectorAll('.cancel-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = (btn as HTMLElement).dataset.cancel!;
+        openCancelModal(id);
+      });
+    });
+
+    container.querySelectorAll('.receipt-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = (btn as HTMLElement).dataset.receipt!;
+        const res = await apiFetch(`/v1/print/receipt/${id}`);
+        if (!res.ok) { showToast('Error al obtener recibo', true); return; }
+        const receipt = await res.json();
+        const win = window.open('', '_blank', 'width=400,height=600');
+        if (win) {
+          win.document.write(`
+            <html><head><title>Recibo #${receipt.orderNumber}</title>
+            <style>body{font-family:monospace;padding:20px;max-width:350px;margin:0 auto}table{width:100%;border-collapse:collapse}td,th{padding:4px 0;text-align:left}th:last-child,td:last-child{text-align:right}.total{border-top:2px solid #000;font-weight:bold;font-size:1.2em}</style>
+            </head><body>
+            <h2>${receipt.restaurantName}</h2>
+            <p>Pedido #${receipt.orderNumber}<br>${new Date(receipt.date).toLocaleString()}</p>
+            <table>
+              <tr><th>Producto</th><th>Cant</th><th>Subtotal</th></tr>
+              ${receipt.items.map((i: any) => `<tr><td>${i.productName}</td><td>${i.quantity}</td><td>$${i.subtotal.toFixed(2)}</td></tr>${i.notes ? `<tr><td colspan="3" style="color:#666;font-size:0.9em">${i.notes}</td></tr>` : ''}`).join('')}
+            </table>
+            <p class="total">Total: $${receipt.totalAmount.toFixed(2)}</p>
+            <p>Pago: ${receipt.paymentMethod}</p>
+            </body></html>
+          `);
+          win.document.close();
+          win.print();
+        }
+      });
+    });
+  }
+
+  async function loadOrders() {
+    const res = await apiFetch('/v1/orders');
+    if (!res.ok) {
+      const msg = res.status === 403 ? 'No tienes permisos' : 'Error al cargar pedidos';
+      colCreated.innerHTML = `<p class="text-sm text-red-400 text-center py-4">${msg}</p>`;
+      colProcessing.innerHTML = '';
+      colCompleted.innerHTML = '';
+      colCancelled.innerHTML = '';
+      return;
+    }
+
+    const orders: any[] = await res.json();
+
+    const created = orders.filter(o => o.status === 'CREATED');
+    const processing = orders.filter(o => o.status === 'PROCESSING');
+    const completed = orders.filter(o => o.status === 'COMPLETED');
+    const cancelled = orders.filter(o => o.status === 'CANCELLED');
+
+    countCreated.textContent = String(created.length);
+    countProcessing.textContent = String(processing.length);
+    countCompleted.textContent = String(completed.length);
+    countCancelled.textContent = String(cancelled.length);
+
+    const emptyMsg = '<p class="text-sm text-slate-400 text-center py-4">Sin pedidos</p>';
+
+    colCreated.innerHTML = created.length ? created.map(renderCard).join('') : emptyMsg;
+    colProcessing.innerHTML = processing.length ? processing.map(renderCard).join('') : emptyMsg;
+    colCompleted.innerHTML = completed.length ? completed.map(renderCard).join('') : emptyMsg;
+    colCancelled.innerHTML = cancelled.length ? cancelled.map(renderCard).join('') : emptyMsg;
+
+    bindCardEvents(colCreated);
+    bindCardEvents(colProcessing);
+    bindCardEvents(colCompleted);
+    bindCardEvents(colCancelled);
+  }
+
+  loadOrders();
+
+  const token = getAccessToken();
+  if (token) {
+    const socket = createDashboardSocket(token);
+    socket.on('order:new', () => loadOrders());
+    socket.on('order:updated', () => loadOrders());
+    window.addEventListener('beforeunload', () => socket.disconnect());
+  }
+</script>

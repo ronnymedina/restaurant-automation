@@ -37,7 +37,7 @@ export class MenuItemsController {
     @Body() dto: CreateMenuItemDto,
   ) {
     await this.menusService.verifyOwnership(menuId, user.restaurantId);
-    return this.menuItemsService.createItem(menuId, dto);
+    return this.menuItemsService.createItem(menuId, user.restaurantId, dto);
   }
 
   @Post('bulk')
@@ -63,7 +63,7 @@ export class MenuItemsController {
     @Body() dto: UpdateMenuItemDto,
   ) {
     await this.menusService.verifyOwnership(menuId, user.restaurantId);
-    return this.menuItemsService.updateItem(itemId, dto);
+    return this.menuItemsService.updateItem(itemId, user.restaurantId, dto);
   }
 
   @Delete(':itemId')
@@ -73,6 +73,6 @@ export class MenuItemsController {
     @CurrentUser() user: { restaurantId: string },
   ) {
     await this.menusService.verifyOwnership(menuId, user.restaurantId);
-    return this.menuItemsService.deleteItem(itemId);
+    return this.menuItemsService.deleteItem(itemId, user.restaurantId);
   }
 }

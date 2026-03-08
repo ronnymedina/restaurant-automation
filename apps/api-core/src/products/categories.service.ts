@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Optional } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
 import { Category } from '@prisma/client';
 
@@ -6,6 +6,7 @@ import { CategoryRepository, CreateCategoryData } from './category.repository';
 import { productConfig } from './product.config';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import { EntityNotFoundException } from '../common/exceptions';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class CategoriesService {
@@ -13,6 +14,7 @@ export class CategoriesService {
     private readonly categoryRepository: CategoryRepository,
     @Inject(productConfig.KEY)
     private readonly configService: ConfigType<typeof productConfig>,
+    @Optional() private readonly eventsGateway?: EventsGateway,
   ) {}
 
   async findByRestaurantId(restaurantId: string): Promise<Category[]> {
@@ -47,7 +49,9 @@ export class CategoriesService {
   }
 
   async createCategory(restaurantId: string, name: string): Promise<Category> {
-    return this.categoryRepository.create({ name, restaurantId });
+    const category = await this.categoryRepository.create({ name, restaurantId });
+    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'category', action: 'created' });
+    return category;
   }
 
   async updateCategory(
@@ -56,12 +60,16 @@ export class CategoriesService {
     data: Partial<CreateCategoryData>,
   ): Promise<Category> {
     await this.findCategoryAndThrowIfNotFound(id, restaurantId);
-    return this.categoryRepository.update(id, restaurantId, data);
+    const category = await this.categoryRepository.update(id, restaurantId, data);
+    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'category', action: 'updated' });
+    return category;
   }
 
   async deleteCategory(id: string, restaurantId: string): Promise<Category> {
     await this.findCategoryAndThrowIfNotFound(id, restaurantId);
-    return this.categoryRepository.delete(id, restaurantId);
+    const category = await this.categoryRepository.delete(id, restaurantId);
+    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'category', action: 'deleted' });
+    return category;
   }
 
   async findCategoryAndThrowIfNotFound(

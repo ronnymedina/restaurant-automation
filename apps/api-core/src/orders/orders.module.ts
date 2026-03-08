@@ -5,9 +5,10 @@ import { OrdersController } from './orders.controller';
 import { OrderRepository } from './order.repository';
 import { EmailModule } from '../email/email.module';
 import { PrintModule } from '../print/print.module';
+import { EventsModule } from '../events/events.module';
 
 @Module({
-  imports: [EmailModule, forwardRef(() => PrintModule)],
+  imports: [EmailModule, forwardRef(() => PrintModule), EventsModule],
   controllers: [OrdersController],
   providers: [OrdersService, OrderRepository],
   exports: [OrdersService, OrderRepository],

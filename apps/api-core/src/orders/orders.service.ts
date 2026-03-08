@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   Optional,
@@ -20,6 +21,7 @@ import {
 import { ForbiddenAccessException } from '../common/exceptions';
 import { EmailService } from '../email/email.service';
 import { PrintService } from '../print/print.service';
+import { EventsGateway } from '../events/events.gateway';
 
 const STATUS_ORDER: OrderStatus[] = [
   'CREATED',
@@ -34,6 +36,7 @@ export class OrdersService {
   constructor(
     private readonly orderRepository: OrderRepository,
     private readonly prisma: PrismaService,
+    @Optional() private readonly eventsGateway?: EventsGateway,
     @Optional() private readonly emailService?: EmailService,
     @Optional()
     @Inject(forwardRef(() => PrintService))
@@ -46,7 +49,7 @@ export class OrdersService {
     dto: CreateOrderDto,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      // Validate all products and compute prices
+      // Phase 1: validate all products, compute prices (no mutations yet)
       const orderItems: {
         productId: string;
         menuItemId?: string;
@@ -55,6 +58,7 @@ export class OrdersService {
         subtotal: number;
         notes?: string;
       }[] = [];
+      const stockEntries: { product: any; menuItem: any; item: (typeof dto.items)[number] }[] = [];
 
       for (const item of dto.items) {
         const product = await tx.product.findUnique({
@@ -100,22 +104,6 @@ export class OrdersService {
           );
         }
 
-        // Decrement product stock only if finite
-        if (product.stock !== null) {
-          await tx.product.update({
-            where: { id: item.productId },
-            data: { stock: { decrement: item.quantity } },
-          });
-        }
-
-        // Decrement menu item stock if applicable
-        if (menuItem && menuItem.stock !== null) {
-          await tx.menuItem.update({
-            where: { id: item.menuItemId },
-            data: { stock: { decrement: item.quantity } },
-          });
-        }
-
         const subtotal = unitPrice * item.quantity;
         orderItems.push({
           productId: item.productId,
@@ -125,9 +113,37 @@ export class OrdersService {
           subtotal,
           notes: item.notes,
         });
+        stockEntries.push({ product, menuItem, item });
       }
 
       const totalAmount = orderItems.reduce((sum, i) => sum + i.subtotal, 0);
+
+      // Validate expected total before any mutations
+      if (
+        dto.expectedTotal !== undefined &&
+        Math.abs(totalAmount - dto.expectedTotal) > 0.01
+      ) {
+        throw new BadRequestException(
+          'Los precios de tu pedido han cambiado. Por favor revisa el carrito e intenta de nuevo.',
+        );
+      }
+
+      // Phase 2: decrement stock
+      for (const { product, menuItem, item } of stockEntries) {
+        if (product.stock !== null) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { decrement: item.quantity } },
+          });
+        }
+
+        if (menuItem && menuItem.stock !== null) {
+          await tx.menuItem.update({
+            where: { id: item.menuItemId },
+            data: { stock: { decrement: item.quantity } },
+          });
+        }
+      }
 
       // Increment order number atomically
       const session = await tx.registerSession.update({
@@ -135,7 +151,7 @@ export class OrdersService {
         data: { lastOrderNumber: { increment: 1 } },
       });
 
-      return this.orderRepository.createWithItems(
+      const order = await this.orderRepository.createWithItems(
         {
           orderNumber: session.lastOrderNumber,
           totalAmount,
@@ -147,6 +163,10 @@ export class OrdersService {
         },
         tx,
       );
+
+      this.eventsGateway?.emitToRestaurant(restaurantId, 'order:new', { order });
+
+      return order;
     });
   }
 
@@ -184,7 +204,9 @@ export class OrdersService {
       throw new OrderNotPaidException(id);
     }
 
-    return this.orderRepository.updateStatus(id, newStatus);
+    const updated = await this.orderRepository.updateStatus(id, newStatus);
+    this.eventsGateway?.emitToRestaurant(restaurantId, 'order:updated', { order: updated });
+    return updated;
   }
 
   async cancelOrder(id: string, restaurantId: string, reason: string) {
@@ -198,12 +220,16 @@ export class OrdersService {
       throw new InvalidStatusTransitionException(order.status, 'CANCELLED');
     }
 
-    return this.orderRepository.cancelOrder(id, reason);
+    const cancelled = await this.orderRepository.cancelOrder(id, reason);
+    this.eventsGateway?.emitToRestaurant(restaurantId, 'order:updated', { order: cancelled });
+    return cancelled;
   }
 
   async markAsPaid(id: string, restaurantId: string) {
     const order = await this.findById(id, restaurantId);
     const updatedOrder = await this.orderRepository.markAsPaid(id);
+
+    this.eventsGateway?.emitToRestaurant(restaurantId, 'order:updated', { order: updatedOrder });
 
     if (
       updatedOrder.customerEmail &&
