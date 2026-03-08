@@ -42,7 +42,7 @@ export class OnboardingController {
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: OnboardingRegisterSwaggerDto })
   @ApiResponse({ status: 201, description: 'Restaurante registrado exitosamente', type: OnboardingResponse })
-  @ApiResponse({ status: 400, description: 'Datos inválidos o archivo no soportado' })
+  @ApiResponse({ status: 400, description: 'Datos de entrada inválidos (email, nombre) o archivo rechazado (tipo no permitido o tamaño excedido)' })
   @ApiResponse({ status: 409, description: 'El email ya está registrado' })
   @ApiResponse({ status: 500, description: 'Error interno durante el onboarding' })
   @UseInterceptors(FilesInterceptor('photos', MAX_FILES))

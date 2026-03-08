@@ -10,11 +10,26 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiBody,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 
 import { UsersService } from './users.service';
-import { ActivateUserDto, CreateUserDto, UpdateUserDto } from './dto';
+import {
+  ActivateUserDto,
+  ActivateUserResponseDto,
+  CreateUserDto,
+  UpdateUserDto,
+  UserResponseDto,
+  PaginatedUsersResponseDto,
+} from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -32,12 +47,15 @@ export class UsersController {
     description:
       'Activa una cuenta usando el token de activación y establece la contraseña',
   })
-  @ApiResponse({ status: 200, description: 'Cuenta activada exitosamente' })
-  @ApiResponse({ status: 400, description: 'Token inválido o expirado' })
+  @ApiBody({ type: ActivateUserDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Cuenta activada exitosamente',
+    type: ActivateUserResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Token inválido o expirado, o datos de entrada no válidos' })
   @ApiResponse({ status: 409, description: 'La cuenta ya está activa' })
-  async activate(@Body() body: ActivateUserDto): Promise<{
-    email: string;
-  }> {
+  async activate(@Body() body: ActivateUserDto): Promise<ActivateUserResponseDto> {
     const user = await this.usersService.activateUser(
       body.token,
       body.password,
@@ -50,17 +68,22 @@ export class UsersController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Crear usuario (ADMIN por DEFAULT)' })
-  @ApiResponse({ status: 201, description: 'Usuario creado exitosamente' })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Crear usuario (solo ADMIN)' })
+  @ApiBody({ type: CreateUserDto })
   @ApiResponse({
-    status: 403,
-    description: 'Solo ADMIN puede crear usuarios',
+    status: 201,
+    description: 'Usuario creado exitosamente',
+    type: UserResponseDto,
   })
-  @ApiResponse({ status: 409, description: 'Email ya existe' })
+  @ApiResponse({ status: 400, description: 'Datos de entrada no válidos o rol no permitido' })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  @ApiResponse({ status: 403, description: 'Solo ADMIN puede crear usuarios' })
+  @ApiResponse({ status: 409, description: 'El email ya existe' })
   async create(
     @Body() dto: CreateUserDto,
     @CurrentUser() user: { restaurantId: string },
-  ) {
+  ): Promise<Omit<UserResponseDto, 'passwordHash'>> {
     return this.usersService.createUser(
       dto.email,
       dto.password,
@@ -72,10 +95,21 @@ export class UsersController {
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Listar usuarios del restaurante (ADMIN y MANAGER)' })
+  @ApiQuery({ name: 'page', required: false, description: 'Número de página (comienza en 1)', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, description: 'Registros por página (máximo 100)', example: 20 })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista paginada de usuarios del restaurante',
+    type: PaginatedUsersResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  @ApiResponse({ status: 403, description: 'Solo ADMIN o MANAGER pueden listar usuarios' })
   async findAll(
     @CurrentUser() user: { restaurantId: string },
     @Query() query: PaginationDto,
-  ) {
+  ): Promise<PaginatedUsersResponseDto> {
     return this.usersService.findByRestaurantIdPaginated(
       user.restaurantId,
       query.page,
@@ -86,21 +120,45 @@ export class UsersController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Editar usuario (solo ADMIN)' })
+  @ApiParam({ name: 'id', description: 'ID del usuario a editar', example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiBody({ type: UpdateUserDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Usuario actualizado exitosamente',
+    type: UserResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Datos de entrada no válidos o rol no permitido' })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  @ApiResponse({ status: 403, description: 'Solo ADMIN puede editar usuarios, o el usuario pertenece a otro restaurante' })
+  @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
   async update(
     @Param('id') id: string,
     @CurrentUser() user: { restaurantId: string },
     @Body() dto: UpdateUserDto,
-  ) {
+  ): Promise<UserResponseDto> {
     return this.usersService.updateUser(id, user.restaurantId, dto);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Eliminar usuario (solo ADMIN)' })
+  @ApiParam({ name: 'id', description: 'ID del usuario a eliminar', example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiResponse({
+    status: 200,
+    description: 'Usuario eliminado exitosamente',
+    type: UserResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  @ApiResponse({ status: 403, description: 'Solo ADMIN puede eliminar usuarios, o el usuario pertenece a otro restaurante' })
+  @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
   async remove(
     @Param('id') id: string,
     @CurrentUser() user: { restaurantId: string },
-  ) {
+  ): Promise<UserResponseDto> {
     return this.usersService.deleteUser(id, user.restaurantId);
   }
 }

@@ -4,7 +4,7 @@ import { RegisterSession, RegisterSessionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
-export class RegisterSessionRepository {
+export class CashRegisterSessionRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(restaurantId: string): Promise<RegisterSession> {

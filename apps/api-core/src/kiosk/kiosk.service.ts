@@ -4,7 +4,7 @@ import { Restaurant } from '@prisma/client';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { MenuRepository } from '../menus/menu.repository';
 import { OrdersService } from '../orders/orders.service';
-import { RegisterSessionRepository } from '../register/register-session.repository';
+import { CashRegisterSessionRepository } from '../cash-register/cash-register-session.repository';
 import { CreateOrderDto } from '../orders/dto/create-order.dto';
 import { EntityNotFoundException } from '../common/exceptions';
 import { RegisterNotOpenException } from '../orders/exceptions/orders.exceptions';
@@ -15,8 +15,8 @@ export class KioskService {
     private readonly restaurantsService: RestaurantsService,
     private readonly menuRepository: MenuRepository,
     private readonly ordersService: OrdersService,
-    private readonly registerSessionRepository: RegisterSessionRepository,
-  ) {}
+    private readonly registerSessionRepository: CashRegisterSessionRepository,
+  ) { }
 
   async resolveRestaurant(slug: string): Promise<Restaurant> {
     const restaurant = await this.restaurantsService.findBySlug(slug);
