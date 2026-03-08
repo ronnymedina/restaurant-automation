@@ -14,6 +14,7 @@ export const MAX_FILES = Number(process.env.MAX_FILES) || 3;
 
 // products
 export const BATCH_SIZE = Number(process.env.BATCH_SIZE) || 10;
+export const DEFAULT_CATEGORY_NAME = 'default';
 
 // frontend
 export const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4321';
