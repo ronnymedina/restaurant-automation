@@ -221,6 +221,7 @@ describe('AuthService', () => {
       const result = await service.refreshTokens(mockRefreshToken.token);
 
       expect(mockRefreshTokenRepository.deleteByToken).toHaveBeenCalledWith(mockRefreshToken.token);
+      expect(mockRefreshTokenRepository.deleteByToken).toHaveBeenCalledTimes(1);
       expect(result).toEqual({
         accessToken: 'signed-jwt-token',
         refreshToken: expect.any(String),
@@ -278,15 +279,28 @@ describe('AuthService', () => {
     });
   });
 
-  // ── parseExpiration (via generateRefreshToken) ─────────────────────────────
+  // ── parseExpiration (via login) ─────────────────────────────────────────────
 
   describe('parseExpiration (via login)', () => {
-    beforeEach(() => {
+    async function createServiceWithRefreshExpiration(jwtRefreshExpiration: string) {
       mockUsersService.findByEmail.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       mockRestaurantsService.findById.mockResolvedValue(mockRestaurant);
       mockRefreshTokenRepository.create.mockResolvedValue(mockRefreshToken);
-    });
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          AuthService,
+          { provide: JwtService, useValue: mockJwtService },
+          { provide: UsersService, useValue: mockUsersService },
+          { provide: RestaurantsService, useValue: mockRestaurantsService },
+          { provide: RefreshTokenRepository, useValue: mockRefreshTokenRepository },
+          { provide: authConfig.KEY, useValue: { ...mockAuthConfig, jwtRefreshExpiration } },
+        ],
+      }).compile();
+
+      return module.get<AuthService>(AuthService);
+    }
 
     it.each([
       ['30s', 30 * 1000],
@@ -294,11 +308,10 @@ describe('AuthService', () => {
       ['2h', 2 * 60 * 60 * 1000],
       ['7d', 7 * 24 * 60 * 60 * 1000],
     ])('parses %s correctly', async (expiration, expectedMs) => {
-      // Override config for this test
-      (service as any).configService = { ...mockAuthConfig, jwtRefreshExpiration: expiration };
+      const svc = await createServiceWithRefreshExpiration(expiration);
 
       const now = Date.now();
-      await service.login(mockUser.email, 'password');
+      await svc.login(mockUser.email, 'password');
 
       const createCall = mockRefreshTokenRepository.create.mock.calls[0][0];
       const actualMs = createCall.expiresAt.getTime() - now;
@@ -308,10 +321,10 @@ describe('AuthService', () => {
     });
 
     it('defaults to 7 days for invalid format', async () => {
-      (service as any).configService = { ...mockAuthConfig, jwtRefreshExpiration: 'invalid' };
+      const svc = await createServiceWithRefreshExpiration('invalid');
 
       const now = Date.now();
-      await service.login(mockUser.email, 'password');
+      await svc.login(mockUser.email, 'password');
 
       const createCall = mockRefreshTokenRepository.create.mock.calls[0][0];
       const actualMs = createCall.expiresAt.getTime() - now;
