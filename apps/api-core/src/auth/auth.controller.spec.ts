@@ -69,6 +69,7 @@ describe('AuthController', () => {
 
       const result = await controller.me({ id: 'nonexistent-id' });
 
+      expect(mockAuthService.getProfile).toHaveBeenCalledWith('nonexistent-id');
       expect(result).toBeNull();
     });
   });
