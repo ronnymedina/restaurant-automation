@@ -14,3 +14,14 @@ export class DuplicateProductException extends BaseException {
     );
   }
 }
+
+export class InsufficientStockException extends BaseException {
+  constructor(productName: string, available: number, requested: number) {
+    super(
+      `Insufficient stock for product '${productName}'. Available: ${available}, requested: ${requested}`,
+      HttpStatus.CONFLICT,
+      'INSUFFICIENT_STOCK',
+      { productName, available, requested },
+    );
+  }
+}

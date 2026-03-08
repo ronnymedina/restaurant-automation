@@ -21,9 +21,9 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Controller({ version: '1', path: 'categories' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.MANAGER)
+@Roles(Role.ADMIN, Role.MANAGER)
 export class CategoriesController {
-  constructor(private readonly categoriesService: CategoriesService) {}
+  constructor(private readonly categoriesService: CategoriesService) { }
 
   @Get()
   async findAll(
