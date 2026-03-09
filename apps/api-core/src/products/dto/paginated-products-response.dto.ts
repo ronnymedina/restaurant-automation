@@ -1,4 +1,8 @@
-import { Product } from '@prisma/client';
-import { PaginatedResult } from '../../common/interfaces/paginated-result.interface';
+import { ApiProperty } from '@nestjs/swagger';
+import { PaginationMetaDto } from '../../common/dto/pagination-meta.dto';
+import { ProductDto } from './product.dto';
 
-export type PaginatedProductsResponseDto = PaginatedResult<Product>;
+export class PaginatedProductsResponseDto {
+  @ApiProperty({ type: [ProductDto] }) data: ProductDto[];
+  @ApiProperty({ type: PaginationMetaDto }) meta: PaginationMetaDto;
+}

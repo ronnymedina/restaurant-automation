@@ -2,7 +2,7 @@ import {
   Controller, Get, Patch, Param, Query, Body, UseGuards,
 } from '@nestjs/common';
 import { Role, OrderStatus } from '@prisma/client';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 
 import { OrdersService } from './orders.service';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -11,6 +11,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { OrderDto, OrderWithItemsDto } from './dto/order.dto';
 
 @ApiTags('orders')
 @ApiBearerAuth()
@@ -22,8 +23,11 @@ export class OrdersController {
 
   @Get()
   @Roles(Role.ADMIN, Role.MANAGER, Role.BASIC)
-  @ApiOperation({ summary: 'List orders by restaurant' })
-  @ApiResponse({ status: 200, description: 'List of orders' })
+  @ApiOperation({ summary: 'Listar órdenes del restaurante' })
+  @ApiQuery({ name: 'status', required: false, enum: OrderStatus, description: 'Filtrar por estado' })
+  @ApiResponse({ status: 200, description: 'Lista de órdenes', type: [OrderDto] })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  @ApiResponse({ status: 403, description: 'Sin permisos' })
   async findAll(
     @CurrentUser() user: { restaurantId: string },
     @Query('status') status?: OrderStatus,
@@ -33,9 +37,11 @@ export class OrdersController {
 
   @Get(':id')
   @Roles(Role.ADMIN, Role.MANAGER, Role.BASIC)
-  @ApiOperation({ summary: 'Get order by ID' })
-  @ApiResponse({ status: 200, description: 'Order found' })
-  @ApiResponse({ status: 404, description: 'Order not found' })
+  @ApiOperation({ summary: 'Obtener orden por ID' })
+  @ApiParam({ name: 'id', description: 'ID de la orden', type: String })
+  @ApiResponse({ status: 200, description: 'Orden encontrada', type: OrderWithItemsDto })
+  @ApiResponse({ status: 404, description: 'Orden no encontrada' })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
   async findOne(
     @Param('id') id: string,
     @CurrentUser() user: { restaurantId: string },
@@ -44,8 +50,11 @@ export class OrdersController {
   }
 
   @Patch(':id/status')
-  @ApiOperation({ summary: 'Update order status' })
-  @ApiResponse({ status: 200, description: 'Status updated' })
+  @ApiOperation({ summary: 'Actualizar estado de la orden' })
+  @ApiParam({ name: 'id', description: 'ID de la orden', type: String })
+  @ApiResponse({ status: 200, description: 'Estado actualizado', type: OrderDto })
+  @ApiResponse({ status: 404, description: 'Orden no encontrada' })
+  @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async updateStatus(
     @Param('id') id: string,
     @CurrentUser() user: { restaurantId: string },
@@ -55,8 +64,11 @@ export class OrdersController {
   }
 
   @Patch(':id/pay')
-  @ApiOperation({ summary: 'Mark order as paid' })
-  @ApiResponse({ status: 200, description: 'Order marked as paid' })
+  @ApiOperation({ summary: 'Marcar orden como pagada' })
+  @ApiParam({ name: 'id', description: 'ID de la orden', type: String })
+  @ApiResponse({ status: 200, description: 'Orden marcada como pagada', type: OrderDto })
+  @ApiResponse({ status: 404, description: 'Orden no encontrada' })
+  @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async markAsPaid(
     @Param('id') id: string,
     @CurrentUser() user: { restaurantId: string },
@@ -65,8 +77,11 @@ export class OrdersController {
   }
 
   @Patch(':id/cancel')
-  @ApiOperation({ summary: 'Cancel order' })
-  @ApiResponse({ status: 200, description: 'Order cancelled' })
+  @ApiOperation({ summary: 'Cancelar una orden' })
+  @ApiParam({ name: 'id', description: 'ID de la orden', type: String })
+  @ApiResponse({ status: 200, description: 'Orden cancelada', type: OrderDto })
+  @ApiResponse({ status: 404, description: 'Orden no encontrada' })
+  @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async cancelOrder(
     @Param('id') id: string,
     @CurrentUser() user: { restaurantId: string },

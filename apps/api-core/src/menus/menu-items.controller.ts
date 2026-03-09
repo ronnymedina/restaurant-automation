@@ -8,6 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 
 import { MenuItemsService } from './menu-items.service';
 import { MenusService } from './menus.service';
@@ -20,7 +21,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { MenuItemDto, BulkCreateResultDto } from './dto/menu.dto';
 
+@ApiTags('menu-items')
+@ApiBearerAuth()
 @Controller({ version: '1', path: 'menus/:menuId/items' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.MANAGER)
@@ -31,6 +35,12 @@ export class MenuItemsController {
   ) {}
 
   @Post()
+  @ApiOperation({ summary: 'Agregar un item al menú' })
+  @ApiParam({ name: 'menuId', description: 'ID del menú', type: String })
+  @ApiResponse({ status: 201, description: 'Item creado', type: MenuItemDto })
+  @ApiResponse({ status: 404, description: 'Menú o producto no encontrado' })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  @ApiResponse({ status: 403, description: 'Sin permisos (requiere MANAGER)' })
   async create(
     @Param('menuId') menuId: string,
     @CurrentUser() user: { restaurantId: string },
@@ -41,6 +51,12 @@ export class MenuItemsController {
   }
 
   @Post('bulk')
+  @ApiOperation({ summary: 'Agregar múltiples productos al menú en lote' })
+  @ApiParam({ name: 'menuId', description: 'ID del menú', type: String })
+  @ApiResponse({ status: 201, description: 'Items creados en lote', type: BulkCreateResultDto })
+  @ApiResponse({ status: 404, description: 'Menú no encontrado' })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  @ApiResponse({ status: 403, description: 'Sin permisos (requiere MANAGER)' })
   async bulkCreate(
     @Param('menuId') menuId: string,
     @CurrentUser() user: { restaurantId: string },
@@ -56,6 +72,12 @@ export class MenuItemsController {
   }
 
   @Patch(':itemId')
+  @ApiOperation({ summary: 'Actualizar un item del menú' })
+  @ApiParam({ name: 'menuId', description: 'ID del menú', type: String })
+  @ApiParam({ name: 'itemId', description: 'ID del item de menú', type: String })
+  @ApiResponse({ status: 200, description: 'Item actualizado', type: MenuItemDto })
+  @ApiResponse({ status: 404, description: 'Menú o item no encontrado' })
+  @ApiResponse({ status: 403, description: 'Sin permisos (requiere MANAGER)' })
   async update(
     @Param('menuId') menuId: string,
     @Param('itemId') itemId: string,
@@ -67,6 +89,12 @@ export class MenuItemsController {
   }
 
   @Delete(':itemId')
+  @ApiOperation({ summary: 'Eliminar un item del menú' })
+  @ApiParam({ name: 'menuId', description: 'ID del menú', type: String })
+  @ApiParam({ name: 'itemId', description: 'ID del item de menú', type: String })
+  @ApiResponse({ status: 200, description: 'Item eliminado', type: MenuItemDto })
+  @ApiResponse({ status: 404, description: 'Menú o item no encontrado' })
+  @ApiResponse({ status: 403, description: 'Sin permisos (requiere MANAGER)' })
   async remove(
     @Param('menuId') menuId: string,
     @Param('itemId') itemId: string,
