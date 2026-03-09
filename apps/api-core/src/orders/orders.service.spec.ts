@@ -11,8 +11,10 @@ import {
   OrderAlreadyCancelledException,
   InvalidStatusTransitionException,
   OrderNotPaidException,
+  StockInsufficientException,
 } from './exceptions/orders.exceptions';
 import { ForbiddenAccessException } from '../common/exceptions';
+import { BadRequestException } from '@nestjs/common';
 
 const mockOrderRepository = {
   findById: jest.fn(),
@@ -134,6 +136,212 @@ describe('OrdersService', () => {
       const result = await service.markAsPaid('o1', 'r1');
       expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', paid);
       expect(result).toEqual(paid);
+    });
+
+    it('sends receipt email when customerEmail is set', async () => {
+      const paid = makeOrder({ isPaid: true, customerEmail: 'customer@test.com' });
+      mockOrderRepository.findById.mockResolvedValue(makeOrder());
+      mockOrderRepository.markAsPaid.mockResolvedValue(paid);
+      mockPrint.generateReceipt.mockResolvedValue('<html>receipt</html>');
+      mockEmail.sendReceiptEmail.mockResolvedValue(undefined);
+
+      await service.markAsPaid('o1', 'r1');
+
+      expect(mockPrint.generateReceipt).toHaveBeenCalledWith('o1');
+      expect(mockEmail.sendReceiptEmail).toHaveBeenCalledWith('customer@test.com', '<html>receipt</html>');
+    });
+
+    it('logs error but does not throw when receipt email fails', async () => {
+      const paid = makeOrder({ isPaid: true, customerEmail: 'customer@test.com' });
+      mockOrderRepository.findById.mockResolvedValue(makeOrder());
+      mockOrderRepository.markAsPaid.mockResolvedValue(paid);
+      mockPrint.generateReceipt.mockRejectedValue(new Error('Print failed'));
+
+      await expect(service.markAsPaid('o1', 'r1')).resolves.toEqual(paid);
+    });
+  });
+
+  describe('createOrder', () => {
+    const baseDto = {
+      items: [{ productId: 'p1', quantity: 2, notes: undefined, menuItemId: undefined }],
+      paymentMethod: 'cash',
+      customerEmail: undefined,
+      expectedTotal: undefined,
+    };
+
+    beforeEach(() => {
+      mockPrisma.registerSession.update.mockResolvedValue({ lastOrderNumber: 1 });
+      mockOrderRepository.createWithItems.mockResolvedValue(makeOrder());
+    });
+
+    it('creates an order successfully with sufficient stock', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue({
+        id: 'p1',
+        restaurantId: 'r1',
+        price: 5,
+        stock: 10,
+        name: 'Widget',
+      });
+      mockPrisma.menuItem.findUnique.mockResolvedValue(null);
+
+      const result = await service.createOrder('r1', 'session1', baseDto as any);
+      expect(mockOrderRepository.createWithItems).toHaveBeenCalled();
+      expect(mockOrderEvents.emitOrderCreated).toHaveBeenCalledWith('r1', expect.anything());
+      expect(result).toBeDefined();
+    });
+
+    it('creates order with null stock (infinite)', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue({
+        id: 'p1',
+        restaurantId: 'r1',
+        price: 5,
+        stock: null,
+        name: 'Widget',
+      });
+      mockPrisma.menuItem.findUnique.mockResolvedValue(null);
+
+      await expect(service.createOrder('r1', 'session1', baseDto as any)).resolves.toBeDefined();
+    });
+
+    it('throws StockInsufficientException when product not found', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue(null);
+
+      await expect(service.createOrder('r1', 'session1', baseDto as any)).rejects.toThrow(
+        StockInsufficientException,
+      );
+    });
+
+    it('throws StockInsufficientException when product belongs to another restaurant', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue({
+        id: 'p1',
+        restaurantId: 'other',
+        price: 5,
+        stock: 10,
+        name: 'Widget',
+      });
+
+      await expect(service.createOrder('r1', 'session1', baseDto as any)).rejects.toThrow(
+        StockInsufficientException,
+      );
+    });
+
+    it('throws StockInsufficientException when product stock is insufficient', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue({
+        id: 'p1',
+        restaurantId: 'r1',
+        price: 5,
+        stock: 1,
+        name: 'Widget',
+      });
+      mockPrisma.menuItem.findUnique.mockResolvedValue(null);
+
+      const dto = { ...baseDto, items: [{ productId: 'p1', quantity: 5 }] };
+      await expect(service.createOrder('r1', 'session1', dto as any)).rejects.toThrow(
+        StockInsufficientException,
+      );
+    });
+
+    it('throws BadRequestException when expectedTotal does not match', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue({
+        id: 'p1',
+        restaurantId: 'r1',
+        price: 5,
+        stock: null,
+        name: 'Widget',
+      });
+      mockPrisma.menuItem.findUnique.mockResolvedValue(null);
+
+      const dto = { ...baseDto, items: [{ productId: 'p1', quantity: 2 }], expectedTotal: 99.99 };
+      await expect(service.createOrder('r1', 'session1', dto as any)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('uses menuItem price when menuItemId is provided', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue({
+        id: 'p1',
+        restaurantId: 'r1',
+        price: 5,
+        stock: null,
+        name: 'Widget',
+      });
+      mockPrisma.menuItem.findUnique.mockResolvedValue({
+        id: 'mi1',
+        price: 8,
+        stock: null,
+      });
+
+      const dto = { ...baseDto, items: [{ productId: 'p1', menuItemId: 'mi1', quantity: 1 }] };
+      const result = await service.createOrder('r1', 'session1', dto as any);
+      expect(mockOrderRepository.createWithItems).toHaveBeenCalledWith(
+        expect.objectContaining({ totalAmount: 8 }),
+        expect.anything(),
+      );
+      expect(result).toBeDefined();
+    });
+
+    it('throws StockInsufficientException when menuItem stock is insufficient', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue({
+        id: 'p1',
+        restaurantId: 'r1',
+        price: 5,
+        stock: null,
+        name: 'Widget',
+      });
+      mockPrisma.menuItem.findUnique.mockResolvedValue({
+        id: 'mi1',
+        price: 8,
+        stock: 1,
+      });
+
+      const dto = { ...baseDto, items: [{ productId: 'p1', menuItemId: 'mi1', quantity: 5 }] };
+      await expect(service.createOrder('r1', 'session1', dto as any)).rejects.toThrow(
+        StockInsufficientException,
+      );
+    });
+
+    it('decrements menuItem stock when both product and menuItem have finite stock', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue({
+        id: 'p1',
+        restaurantId: 'r1',
+        price: 5,
+        stock: 10,
+        name: 'Widget',
+      });
+      mockPrisma.menuItem.findUnique.mockResolvedValue({
+        id: 'mi1',
+        price: 8,
+        stock: 10,
+      });
+      mockPrisma.product.update.mockResolvedValue({});
+      mockPrisma.menuItem.update.mockResolvedValue({});
+
+      const dto = { ...baseDto, items: [{ productId: 'p1', menuItemId: 'mi1', quantity: 2 }] };
+      await service.createOrder('r1', 'session1', dto as any);
+
+      expect(mockPrisma.product.update).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        data: { stock: { decrement: 2 } },
+      });
+      expect(mockPrisma.menuItem.update).toHaveBeenCalledWith({
+        where: { id: 'mi1' },
+        data: { stock: { decrement: 2 } },
+      });
+    });
+  });
+
+  describe('findByRestaurantId', () => {
+    it('returns orders filtered by restaurantId', async () => {
+      const orders = [makeOrder()];
+      mockOrderRepository.findByRestaurantId.mockResolvedValue(orders);
+      const result = await service.findByRestaurantId('r1');
+      expect(result).toEqual(orders);
+    });
+
+    it('passes status filter to repository', async () => {
+      mockOrderRepository.findByRestaurantId.mockResolvedValue([]);
+      await service.findByRestaurantId('r1', OrderStatus.CREATED);
+      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith('r1', OrderStatus.CREATED);
     });
   });
 });

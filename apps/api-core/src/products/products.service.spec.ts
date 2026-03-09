@@ -118,4 +118,95 @@ describe('ProductsService', () => {
       expect(mockEvents.emitProductDeleted).toHaveBeenCalledWith('r1');
     });
   });
+
+  describe('createProductsBatch', () => {
+    it('creates products in batches and returns totals', async () => {
+      mockProductRepo.createMany.mockResolvedValue(3);
+      const products = [
+        { name: 'A', price: 1 },
+        { name: 'B', price: 2 },
+        { name: 'C', price: 3 },
+      ];
+      const result = await service.createProductsBatch('r1', 'c1', products);
+      expect(mockProductRepo.createMany).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ totalCreated: 3, batches: 1 });
+    });
+
+    it('splits into multiple batches when products exceed batch size', async () => {
+      mockProductRepo.createMany.mockResolvedValue(5);
+      // Use a small batchSize by reinitializing the service with batchSize=5
+      const module = await Test.createTestingModule({
+        providers: [
+          ProductsService,
+          { provide: ProductRepository, useValue: mockProductRepo },
+          { provide: CategoryRepository, useValue: mockCategoryRepo },
+          { provide: productConfig.KEY, useValue: { batchSize: 2, defaultPageSize: 10 } },
+          { provide: ProductEventsService, useValue: mockEvents },
+        ],
+      }).compile();
+      const smallBatchService = module.get<ProductsService>(ProductsService);
+      mockProductRepo.createMany.mockResolvedValue(2);
+
+      const products = Array.from({ length: 5 }, (_, i) => ({ name: `P${i}`, price: i + 1 }));
+      const result = await smallBatchService.createProductsBatch('r1', 'c1', products);
+      expect(result.batches).toBe(3);
+    });
+  });
+
+  describe('findByRestaurantIdPaginated', () => {
+    it('returns paginated results with meta', async () => {
+      const data = [{ id: 'p1' }, { id: 'p2' }];
+      mockProductRepo.findByRestaurantIdPaginated.mockResolvedValue({ data, total: 2 });
+      const result = await service.findByRestaurantIdPaginated('r1', 1, 10);
+      expect(result.data).toEqual(data);
+      expect(result.meta).toEqual({ total: 2, page: 1, limit: 10, totalPages: 1 });
+    });
+
+    it('uses default page and limit when not provided', async () => {
+      mockProductRepo.findByRestaurantIdPaginated.mockResolvedValue({ data: [], total: 0 });
+      const result = await service.findByRestaurantIdPaginated('r1');
+      expect(result.meta.page).toBe(1);
+      expect(result.meta.limit).toBe(10); // defaultPageSize from mock config
+    });
+  });
+
+  describe('updateProduct', () => {
+    it('updates product and emits event', async () => {
+      const product = { id: 'p1', restaurantId: 'r1', name: 'Updated' };
+      mockProductRepo.findById.mockResolvedValue(product);
+      mockProductRepo.update.mockResolvedValue(product);
+      const result = await service.updateProduct('p1', 'r1', { name: 'Updated' });
+      expect(mockProductRepo.update).toHaveBeenCalledWith('p1', 'r1', { name: 'Updated' });
+      expect(mockEvents.emitProductUpdated).toHaveBeenCalledWith('r1');
+      expect(result).toEqual(product);
+    });
+
+    it('throws EntityNotFoundException when product not found', async () => {
+      mockProductRepo.findById.mockResolvedValue(null);
+      await expect(service.updateProduct('bad', 'r1', {})).rejects.toThrow(EntityNotFoundException);
+    });
+  });
+
+  describe('createDemoProducts', () => {
+    it('creates 3 demo products and returns total count', async () => {
+      mockProductRepo.createMany.mockResolvedValue(3);
+      const result = await service.createDemoProducts('r1', 'c1');
+      expect(mockProductRepo.createMany).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'Producto Demo 1', restaurantId: 'r1', categoryId: 'c1' }),
+          expect.objectContaining({ name: 'Producto Demo 2' }),
+          expect.objectContaining({ name: 'Producto Demo 3' }),
+        ]),
+      );
+      expect(result).toBe(3);
+    });
+  });
+
+  describe('findByRestaurantId', () => {
+    it('returns products for a restaurant', async () => {
+      const products = [{ id: 'p1' }];
+      mockProductRepo.findByRestaurantId.mockResolvedValue(products);
+      expect(await service.findByRestaurantId('r1')).toEqual(products);
+    });
+  });
 });
