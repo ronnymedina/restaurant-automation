@@ -1,4 +1,4 @@
-import { Injectable, Inject, Optional } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
 import { Prisma, Product, Category } from '@prisma/client';
 
@@ -6,12 +6,10 @@ import { ProductRepository, CreateProductData } from './product.repository';
 import { CategoryRepository } from './category.repository';
 import { productConfig } from './product.config';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
-import {
-  EntityNotFoundException,
-  ForbiddenAccessException,
-  ValidationException,
-} from '../common/exceptions';
-import { EventsGateway } from '../events/events.gateway';
+import { EntityNotFoundException } from '../common/exceptions';
+import { InsufficientStockException } from './exceptions/products.exceptions';
+import { ProductEventsService } from '../events/products.events';
+import { DEFAULT_CATEGORY_NAME } from '../config';
 
 export interface ProductInput {
   name: string;
@@ -30,7 +28,7 @@ export class ProductsService {
     private readonly categoryRepository: CategoryRepository,
     @Inject(productConfig.KEY)
     private readonly configService: ConfigType<typeof productConfig>,
-    @Optional() private readonly eventsGateway?: EventsGateway,
+    private readonly productEventsService: ProductEventsService,
   ) {
     this.batchSize = this.configService.batchSize;
   }
@@ -43,7 +41,7 @@ export class ProductsService {
     restaurantId: string,
     tx?: Prisma.TransactionClient,
   ): Promise<Category> {
-    return this.categoryRepository.findOrCreate({ name: 'default', restaurantId }, tx);
+    return this.categoryRepository.findOrCreate({ name: DEFAULT_CATEGORY_NAME, restaurantId }, tx);
   }
 
   async createProduct(
@@ -60,7 +58,7 @@ export class ProductsService {
       restaurantId,
       categoryId,
     });
-    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'product', action: 'created' });
+    this.productEventsService.emitProductCreated(restaurantId);
     return product;
   }
 
@@ -140,7 +138,7 @@ export class ProductsService {
   ): Promise<Product> {
     await this.findById(id, restaurantId);
     const product = await this.productRepository.update(id, restaurantId, data);
-    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'product', action: 'updated' });
+    this.productEventsService.emitProductUpdated(restaurantId);
     return product;
   }
 
@@ -157,9 +155,7 @@ export class ProductsService {
     if (!product) throw new EntityNotFoundException('Product', productId);
     if (product.stock === null) return product; // infinite stock
     if (product.stock < amount) {
-      throw new ValidationException(
-        `Insufficient stock for product '${product.name}'. Available: ${product.stock}, requested: ${amount}`,
-      );
+      throw new InsufficientStockException(product.name, product.stock, amount);
     }
     return this.productRepository.update(productId, restaurantId, {
       stock: product.stock - amount,
@@ -169,7 +165,7 @@ export class ProductsService {
   async deleteProduct(id: string, restaurantId: string): Promise<Product> {
     await this.findById(id, restaurantId);
     const product = await this.productRepository.delete(id, restaurantId);
-    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'product', action: 'deleted' });
+    this.productEventsService.emitProductDeleted(restaurantId);
     return product;
   }
 

@@ -1,4 +1,4 @@
-import { Injectable, Inject, Optional } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
 import { Category } from '@prisma/client';
 
@@ -6,7 +6,7 @@ import { CategoryRepository, CreateCategoryData } from './category.repository';
 import { productConfig } from './product.config';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import { EntityNotFoundException } from '../common/exceptions';
-import { EventsGateway } from '../events/events.gateway';
+import { ProductEventsService } from '../events/products.events';
 
 @Injectable()
 export class CategoriesService {
@@ -14,7 +14,7 @@ export class CategoriesService {
     private readonly categoryRepository: CategoryRepository,
     @Inject(productConfig.KEY)
     private readonly configService: ConfigType<typeof productConfig>,
-    @Optional() private readonly eventsGateway?: EventsGateway,
+    private readonly productEventsService: ProductEventsService,
   ) {}
 
   async findByRestaurantId(restaurantId: string): Promise<Category[]> {
@@ -50,7 +50,7 @@ export class CategoriesService {
 
   async createCategory(restaurantId: string, name: string): Promise<Category> {
     const category = await this.categoryRepository.create({ name, restaurantId });
-    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'category', action: 'created' });
+    this.productEventsService.emitCategoryCreated(restaurantId);
     return category;
   }
 
@@ -61,14 +61,14 @@ export class CategoriesService {
   ): Promise<Category> {
     await this.findCategoryAndThrowIfNotFound(id, restaurantId);
     const category = await this.categoryRepository.update(id, restaurantId, data);
-    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'category', action: 'updated' });
+    this.productEventsService.emitCategoryUpdated(restaurantId);
     return category;
   }
 
   async deleteCategory(id: string, restaurantId: string): Promise<Category> {
     await this.findCategoryAndThrowIfNotFound(id, restaurantId);
     const category = await this.categoryRepository.delete(id, restaurantId);
-    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'category', action: 'deleted' });
+    this.productEventsService.emitCategoryDeleted(restaurantId);
     return category;
   }
 

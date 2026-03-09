@@ -12,7 +12,7 @@ export interface CreateCategoryData {
 
 @Injectable()
 export class CategoryRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(data: CreateCategoryData, tx?: TransactionClient): Promise<Category> {
     const client = tx ?? this.prisma;
@@ -77,10 +77,10 @@ export class CategoryRepository {
     restaurantId: string,
     data: Partial<CreateCategoryData>,
   ): Promise<Category> {
-    return this.prisma.category.update({ where: { id }, data });
+    return this.prisma.category.update({ where: { id, restaurantId }, data });
   }
 
   async delete(id: string, restaurantId: string): Promise<Category> {
-    return this.prisma.category.delete({ where: { id } });
+    return this.prisma.category.delete({ where: { id, restaurantId } });
   }
 }

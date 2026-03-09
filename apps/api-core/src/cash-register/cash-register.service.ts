@@ -1,20 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { RegisterSession } from '@prisma/client';
 
-import { RegisterSessionRepository } from './register-session.repository';
+import { CashRegisterSessionRepository } from './cash-register-session.repository';
 import { OrderRepository } from '../orders/order.repository';
 import {
-  RegisterAlreadyOpenException,
-  RegisterNotFoundException,
-  NoOpenRegisterException,
-} from './exceptions/register.exceptions';
+  CashRegisterAlreadyOpenException,
+  CashRegisterNotFoundException,
+  NoOpenCashRegisterException,
+} from './exceptions/cash-register.exceptions';
 import { DEFAULT_PAGE_SIZE } from '../config';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 
 @Injectable()
-export class RegisterService {
+export class CashRegisterService {
   constructor(
-    private readonly registerSessionRepository: RegisterSessionRepository,
+    private readonly registerSessionRepository: CashRegisterSessionRepository,
     private readonly orderRepository: OrderRepository,
   ) { }
 
@@ -22,14 +22,14 @@ export class RegisterService {
     const existing =
       await this.registerSessionRepository.findOpen(restaurantId);
 
-    if (existing) throw new RegisterAlreadyOpenException();
+    if (existing) throw new CashRegisterAlreadyOpenException();
 
     return this.registerSessionRepository.create(restaurantId);
   }
 
   async closeSession(restaurantId: string, closedBy?: string) {
     const session = await this.registerSessionRepository.findOpen(restaurantId);
-    if (!session) throw new NoOpenRegisterException();
+    if (!session) throw new NoOpenCashRegisterException();
 
     const orders = await this.orderRepository.findBySessionId(session.id, restaurantId);
 
@@ -101,7 +101,7 @@ export class RegisterService {
 
   async getSessionSummary(sessionId: string) {
     const session = await this.registerSessionRepository.findById(sessionId);
-    if (!session) throw new RegisterNotFoundException(sessionId);
+    if (!session) throw new CashRegisterNotFoundException(sessionId);
 
     const orders = await this.orderRepository.findBySessionId(sessionId, session.restaurantId);
 

@@ -1,7 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import { BaseException } from '../../common/exceptions';
 
-export class RegisterAlreadyOpenException extends BaseException {
+export class CashRegisterAlreadyOpenException extends BaseException {
   constructor() {
     super(
       'A register session is already open',
@@ -11,7 +11,7 @@ export class RegisterAlreadyOpenException extends BaseException {
   }
 }
 
-export class RegisterNotFoundException extends BaseException {
+export class CashRegisterNotFoundException extends BaseException {
   constructor(sessionId: string) {
     super(
       `Register session '${sessionId}' not found`,
@@ -22,7 +22,7 @@ export class RegisterNotFoundException extends BaseException {
   }
 }
 
-export class NoOpenRegisterException extends BaseException {
+export class NoOpenCashRegisterException extends BaseException {
   constructor() {
     super(
       'No register session is currently open',
