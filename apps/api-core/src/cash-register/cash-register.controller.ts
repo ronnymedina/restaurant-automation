@@ -54,7 +54,7 @@ export class CashRegisterController {
   @ApiResponse({ status: 200, description: 'Sesión cerrada con resumen de ventas', type: CloseSessionResponseDto })
   @ApiResponse({ status: 409, description: 'No hay sesión de caja abierta (NO_OPEN_CASH_REGISTER)' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
-  @ApiResponse({ status: 403, description: 'Sin permisos' })
+  @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async close(@CurrentUser() user: { restaurantId: string; id: string }) {
     return this.registerService.closeSession(user.restaurantId, user.id);
   }
@@ -63,9 +63,22 @@ export class CashRegisterController {
   @ApiOperation({ summary: 'Historial paginado de sesiones de caja' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Número de página (default: 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Elementos por página (default: 10)' })
-  @ApiResponse({ status: 200, description: 'Lista paginada de sesiones' })
+  @ApiResponse({ status: 200, description: 'Lista paginada de sesiones', schema: {
+    properties: {
+      data: { type: 'array', items: { $ref: '#/components/schemas/RegisterSessionDto' } },
+      meta: {
+        type: 'object',
+        properties: {
+          total: { type: 'number' },
+          page: { type: 'number' },
+          limit: { type: 'number' },
+          totalPages: { type: 'number' },
+        },
+      },
+    },
+  }})
   @ApiResponse({ status: 401, description: 'No autenticado' })
-  @ApiResponse({ status: 403, description: 'Sin permisos' })
+  @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async history(
     @CurrentUser() user: { restaurantId: string },
     @Query() query: PaginationDto,
@@ -81,7 +94,7 @@ export class CashRegisterController {
   @ApiOperation({ summary: 'Sesión de caja actualmente abierta' })
   @ApiResponse({ status: 200, description: 'Sesión activa con conteo de órdenes, o {} si no hay sesión abierta', type: RegisterSessionDto })
   @ApiResponse({ status: 401, description: 'No autenticado' })
-  @ApiResponse({ status: 403, description: 'Sin permisos' })
+  @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async current(@CurrentUser() user: { restaurantId: string }) {
     return this.registerService.getCurrentSession(user.restaurantId);
   }
@@ -92,7 +105,7 @@ export class CashRegisterController {
   @ApiResponse({ status: 200, description: 'Resumen completo con órdenes y productos más vendidos', type: SessionSummaryResponseDto })
   @ApiResponse({ status: 404, description: 'Sesión no encontrada (CASH_REGISTER_NOT_FOUND)' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
-  @ApiResponse({ status: 403, description: 'Sin permisos' })
+  @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async summary(@Param('sessionId') sessionId: string) {
     return this.registerService.getSessionSummary(sessionId);
   }
