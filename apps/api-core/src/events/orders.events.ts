@@ -13,9 +13,11 @@ export class OrderEventsService {
 
   emitOrderCreated(restaurantId: string, order: Order): void {
     this.gateway.emitToRestaurant(restaurantId, ORDER_EVENTS.NEW, { order });
+    this.gateway.emitToKitchen(restaurantId, ORDER_EVENTS.NEW, { order });
   }
 
   emitOrderUpdated(restaurantId: string, order: Order): void {
     this.gateway.emitToRestaurant(restaurantId, ORDER_EVENTS.UPDATED, { order });
+    this.gateway.emitToKitchen(restaurantId, ORDER_EVENTS.UPDATED, { order });
   }
 }
