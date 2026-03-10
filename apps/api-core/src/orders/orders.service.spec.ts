@@ -35,7 +35,11 @@ const mockOrderEvents = {
   emitOrderUpdated: jest.fn(),
 };
 const mockEmail = { sendReceiptEmail: jest.fn() };
-const mockPrint = { generateReceipt: jest.fn() };
+const mockPrint = {
+  generateReceipt: jest.fn(),
+  generateBoth: jest.fn().mockResolvedValue({ receipt: {}, kitchenTicket: {} }),
+  printKitchenTicket: jest.fn().mockResolvedValue({ success: true, message: '' }),
+};
 
 const makeOrder = (overrides = {}) => ({
   id: 'o1',
