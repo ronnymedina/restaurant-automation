@@ -54,13 +54,36 @@ describe('KitchenService', () => {
       const orders = [
         { id: '1', status: OrderStatus.CREATED },
         { id: '2', status: OrderStatus.PROCESSING },
-        { id: '3', status: OrderStatus.COMPLETED },
-        { id: '4', status: OrderStatus.CANCELLED },
       ];
       mockOrderRepository.findByRestaurantId.mockResolvedValue(orders);
       const result = await service.getActiveOrders(makeRestaurant() as any);
       expect(result).toHaveLength(2);
       expect(result.map((o) => o.status)).toEqual([OrderStatus.CREATED, OrderStatus.PROCESSING]);
+      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith(
+        'r1',
+        undefined,
+        [OrderStatus.CREATED, OrderStatus.PROCESSING],
+      );
+    });
+  });
+
+  describe('advanceStatus', () => {
+    it('delegates to ordersService.kitchenAdvanceStatus', async () => {
+      const updated = { id: 'o1', status: OrderStatus.PROCESSING };
+      mockOrdersService.kitchenAdvanceStatus.mockResolvedValue(updated);
+      const result = await service.advanceStatus(makeRestaurant() as any, 'o1', OrderStatus.PROCESSING);
+      expect(mockOrdersService.kitchenAdvanceStatus).toHaveBeenCalledWith('o1', 'r1', OrderStatus.PROCESSING);
+      expect(result).toBe(updated);
+    });
+  });
+
+  describe('cancelOrder', () => {
+    it('delegates to ordersService.cancelOrder', async () => {
+      const cancelled = { id: 'o1', status: OrderStatus.CANCELLED };
+      mockOrdersService.cancelOrder.mockResolvedValue(cancelled);
+      const result = await service.cancelOrder(makeRestaurant() as any, 'o1', 'No hay ingredientes');
+      expect(mockOrdersService.cancelOrder).toHaveBeenCalledWith('o1', 'r1', 'No hay ingredientes');
+      expect(result).toBe(cancelled);
     });
   });
 

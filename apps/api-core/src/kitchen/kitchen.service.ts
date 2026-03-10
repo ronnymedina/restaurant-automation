@@ -18,9 +18,10 @@ export class KitchenService {
   ) {}
 
   async getActiveOrders(restaurant: Restaurant) {
-    const orders = await this.orderRepository.findByRestaurantId(restaurant.id);
-    return orders.filter(
-      (o) => o.status === OrderStatus.CREATED || o.status === OrderStatus.PROCESSING,
+    return this.orderRepository.findByRestaurantId(
+      restaurant.id,
+      undefined,
+      [OrderStatus.CREATED, OrderStatus.PROCESSING],
     );
   }
 
