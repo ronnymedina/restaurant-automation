@@ -8,7 +8,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller({ version: '1', path: 'print' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.MANAGER)
+@Roles(Role.ADMIN, Role.MANAGER)
 export class PrintController {
   constructor(private readonly printService: PrintService) {}
 
@@ -20,5 +20,15 @@ export class PrintController {
   @Post('receipt/:orderId/print')
   async printReceipt(@Param('orderId') orderId: string) {
     return this.printService.printReceipt(orderId);
+  }
+
+  @Get('kitchen-ticket/:orderId')
+  async getKitchenTicket(@Param('orderId') orderId: string) {
+    return this.printService.generateKitchenTicket(orderId);
+  }
+
+  @Post('kitchen-ticket/:orderId/print')
+  async printKitchenTicket(@Param('orderId') orderId: string) {
+    return this.printService.printKitchenTicket(orderId);
   }
 }
