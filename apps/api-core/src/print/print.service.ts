@@ -58,10 +58,37 @@ export class PrintService {
   }
 
   async generateBoth(orderId: string): Promise<{ receipt: Receipt; kitchenTicket: KitchenTicket }> {
-    const [receipt, kitchenTicket] = await Promise.all([
-      this.generateReceipt(orderId),
-      this.generateKitchenTicket(orderId),
-    ]);
+    const order = await this.orderRepository.findById(orderId);
+    if (!order) throw new EntityNotFoundException('Order', orderId);
+    const restaurant = await this.restaurantsService.findById(order.restaurantId);
+    if (!restaurant) throw new EntityNotFoundException('Restaurant', order.restaurantId);
+    const orderWithItems = order as typeof order & {
+      items: Prisma.OrderItemGetPayload<{ include: { product: true } }>[];
+    };
+    const receipt: Receipt = {
+      restaurantName: restaurant.name,
+      orderNumber: order.orderNumber,
+      date: order.createdAt.toISOString(),
+      items: orderWithItems.items.map((item) => ({
+        productName: item.product?.name || 'Unknown',
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice),
+        subtotal: Number(item.subtotal),
+        notes: item.notes || undefined,
+      })),
+      totalAmount: Number(order.totalAmount),
+      paymentMethod: order.paymentMethod || 'UNKNOWN',
+      customerEmail: order.customerEmail || undefined,
+    };
+    const kitchenTicket: KitchenTicket = {
+      orderNumber: order.orderNumber,
+      createdAt: order.createdAt.toISOString(),
+      items: orderWithItems.items.map((item) => ({
+        productName: item.product?.name || 'Unknown',
+        quantity: item.quantity,
+        notes: item.notes || undefined,
+      })),
+    };
     return { receipt, kitchenTicket };
   }
 
