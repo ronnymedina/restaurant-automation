@@ -54,7 +54,7 @@ export class RestaurantRepository {
 
   async update(
     id: string,
-    data: Partial<CreateRestaurantData>,
+    data: Prisma.RestaurantUpdateInput,
   ): Promise<Restaurant> {
     return this.prisma.restaurant.update({
       where: { id },

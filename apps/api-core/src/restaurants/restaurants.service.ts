@@ -1,9 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Restaurant } from '@prisma/client';
-import {
-  RestaurantRepository,
-  CreateRestaurantData,
-} from './restaurant.repository';
+import { RestaurantRepository } from './restaurant.repository';
 
 type TransactionClient = Prisma.TransactionClient;
 
@@ -34,7 +31,7 @@ export class RestaurantsService {
 
   async update(
     id: string,
-    data: Partial<CreateRestaurantData>,
+    data: Prisma.RestaurantUpdateInput,
   ): Promise<Restaurant> {
     return this.restaurantRepository.update(id, data);
   }

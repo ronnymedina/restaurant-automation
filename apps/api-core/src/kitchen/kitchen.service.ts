@@ -43,7 +43,7 @@ export class KitchenService {
     await this.restaurantsService.update(restaurantId, {
       kitchenToken: token,
       kitchenTokenExpiresAt: expiresAt,
-    } as any);
+    });
 
     return {
       token,
