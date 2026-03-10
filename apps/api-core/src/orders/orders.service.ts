@@ -58,9 +58,10 @@ export class OrdersService {
       this.validateExpectedTotal(totalAmount, dto.expectedTotal);
       await this.decrementAllStock(stockEntries, tx);
       const created = await this.persistOrder({ restaurantId, registerSessionId, totalAmount, dto, orderItems }, tx);
-      this.orderEventsService.emitOrderCreated(restaurantId, created);
       return created;
     });
+
+    this.orderEventsService.emitOrderCreated(restaurantId, order);
 
     // Fire-and-forget: physical print — never blocks the response
     void this.printService.printKitchenTicket(order.id).catch((err) =>
@@ -128,7 +129,7 @@ export class OrdersService {
 
     const currentIdx = STATUS_ORDER.indexOf(order.status);
     const targetIdx = STATUS_ORDER.indexOf(newStatus);
-    if (targetIdx !== currentIdx + 1 || targetIdx === -1) {
+    if (targetIdx === -1 || targetIdx !== currentIdx + 1) {
       throw new InvalidStatusTransitionException(order.status, newStatus);
     }
 
