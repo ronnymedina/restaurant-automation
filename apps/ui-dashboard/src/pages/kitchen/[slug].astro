@@ -1,0 +1,294 @@
+---
+export const prerender = true;
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cocina</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #111827; color: #f9fafb; font-family: system-ui, sans-serif; min-height: 100vh; }
+  </style>
+</head>
+<body>
+
+  <!-- Connection status banner -->
+  <div id="connBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:50;text-align:center;padding:8px;font-size:14px;font-weight:600;"></div>
+
+  <!-- Offline overlay -->
+  <div id="offlineOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px;">
+    <div style="font-size:64px;">📡</div>
+    <h2 style="font-size:28px;font-weight:700;color:white;">Sin conexión</h2>
+    <p style="color:#9ca3af;text-align:center;max-width:400px;">La pantalla de cocina está desconectada.<br/>El equipo del restaurante fue notificado.</p>
+    <p style="color:#4b5563;font-size:14px;">Reconectando automáticamente...</p>
+  </div>
+
+  <!-- Header -->
+  <header style="background:#1f2937;border-bottom:1px solid #374151;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
+    <h1 style="font-size:20px;font-weight:700;letter-spacing:0.05em;">🍳 COCINA</h1>
+    <div id="connDot" style="width:12px;height:12px;border-radius:50%;background:#4ade80;"></div>
+  </header>
+
+  <!-- Kanban: NUEVOS | EN PROCESO -->
+  <main style="display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 64px);">
+
+    <!-- NUEVOS (CREATED) -->
+    <div style="border-right:1px solid #374151;display:flex;flex-direction:column;">
+      <div style="background:rgba(234,179,8,0.15);border-bottom:1px solid rgba(234,179,8,0.3);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
+        <h2 style="font-size:18px;font-weight:700;color:#facc15;text-transform:uppercase;letter-spacing:0.1em;">Nuevos</h2>
+        <span id="countCreated" style="background:rgba(234,179,8,0.25);color:#fde047;font-size:14px;font-weight:700;padding:4px 12px;border-radius:9999px;">0</span>
+      </div>
+      <div id="colCreated" style="flex:1;padding:16px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;">
+        <p style="color:#4b5563;text-align:center;padding:32px 0;">Cargando...</p>
+      </div>
+    </div>
+
+    <!-- EN PROCESO (PROCESSING) -->
+    <div style="display:flex;flex-direction:column;">
+      <div style="background:rgba(59,130,246,0.15);border-bottom:1px solid rgba(59,130,246,0.3);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
+        <h2 style="font-size:18px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:0.1em;">En Proceso</h2>
+        <span id="countProcessing" style="background:rgba(59,130,246,0.25);color:#93c5fd;font-size:14px;font-weight:700;padding:4px 12px;border-radius:9999px;">0</span>
+      </div>
+      <div id="colProcessing" style="flex:1;padding:16px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;">
+        <p style="color:#4b5563;text-align:center;padding:32px 0;">Cargando...</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Cancel Modal -->
+  <div id="cancelModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:50;align-items:center;justify-content:center;padding:24px;">
+    <div style="background:#1f2937;border:1px solid #4b5563;border-radius:16px;width:100%;max-width:420px;padding:32px;display:flex;flex-direction:column;gap:24px;">
+      <h3 style="font-size:24px;font-weight:700;">Cancelar pedido</h3>
+      <div>
+        <label style="display:block;font-size:14px;font-weight:500;color:#9ca3af;margin-bottom:8px;">Motivo de cancelación *</label>
+        <input
+          id="cancelReasonInput"
+          type="text"
+          placeholder="Ej: Sin ingredientes, error del cliente..."
+          style="width:100%;padding:12px 16px;background:#374151;border:1px solid #4b5563;border-radius:12px;color:white;font-size:18px;outline:none;"
+        />
+        <p id="cancelReasonError" style="display:none;margin-top:8px;font-size:14px;color:#f87171;">El motivo es requerido</p>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <button id="cancelModalDismiss"
+          style="padding:16px;font-size:18px;font-weight:700;background:#374151;border:none;border-radius:12px;color:white;cursor:pointer;">
+          Volver
+        </button>
+        <button id="cancelModalConfirm"
+          style="padding:16px;font-size:18px;font-weight:700;background:#dc2626;border:none;border-radius:12px;color:white;cursor:pointer;">
+          Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
+
+<script>
+  import { createKitchenSocket } from '../../lib/socket';
+
+  const API_URL = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
+
+  // Read slug from URL path and token from query string
+  const slug = window.location.pathname.split('/').filter(Boolean).pop() ?? '';
+  const token = new URLSearchParams(window.location.search).get('token') ?? '';
+
+  if (!token) {
+    document.body.innerHTML = '<div style="padding:2rem;text-align:center;color:#ef4444;font-size:1.5rem">Token de cocina requerido</div>';
+    throw new Error('No kitchen token');
+  }
+
+  // Persist token so page refresh keeps working
+  sessionStorage.setItem(`kitchen_token_${slug}`, token);
+
+  const colCreated = document.getElementById('colCreated')!;
+  const colProcessing = document.getElementById('colProcessing')!;
+  const countCreated = document.getElementById('countCreated')!;
+  const countProcessing = document.getElementById('countProcessing')!;
+  const connBanner = document.getElementById('connBanner')!;
+  const connDot = document.getElementById('connDot')!;
+  const offlineOverlay = document.getElementById('offlineOverlay')!;
+  const cancelModal = document.getElementById('cancelModal')!;
+  const cancelReasonInput = document.getElementById('cancelReasonInput') as HTMLInputElement;
+  const cancelReasonError = document.getElementById('cancelReasonError')!;
+  const cancelModalDismiss = document.getElementById('cancelModalDismiss')!;
+  const cancelModalConfirm = document.getElementById('cancelModalConfirm')!;
+
+  let pendingCancelId: string | null = null;
+  let notifiedOffline = false;
+
+  // ── API helper ────────────────────────────────────────────────────
+
+  async function kitchenFetch(path: string, options: RequestInit = {}) {
+    const sep = path.includes('?') ? '&' : '?';
+    return fetch(`${API_URL}${path}${sep}token=${token}`, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...(options.headers ?? {}) },
+    });
+  }
+
+  // ── Connection UI ─────────────────────────────────────────────────
+
+  function showBanner(msg: string, bg: string, color: string) {
+    Object.assign(connBanner.style, { display: 'block', background: bg, color });
+    connBanner.textContent = msg;
+  }
+
+  function hideBanner() { connBanner.style.display = 'none'; }
+
+  function setConnected() {
+    connDot.style.background = '#4ade80';
+    hideBanner();
+    offlineOverlay.style.display = 'none';
+    notifiedOffline = false;
+  }
+
+  function setOffline() {
+    connDot.style.background = '#f87171';
+    offlineOverlay.style.display = 'flex';
+    if (!notifiedOffline) {
+      notifiedOffline = true;
+      kitchenFetch(`/v1/kitchen/${slug}/notify-offline`, { method: 'POST' }).catch(() => {});
+    }
+  }
+
+  // ── Cancel Modal ──────────────────────────────────────────────────
+
+  function openCancelModal(orderId: string) {
+    pendingCancelId = orderId;
+    cancelReasonInput.value = '';
+    cancelReasonError.style.display = 'none';
+    cancelModal.style.display = 'flex';
+    setTimeout(() => cancelReasonInput.focus(), 50);
+  }
+
+  function closeCancelModal() {
+    cancelModal.style.display = 'none';
+    pendingCancelId = null;
+  }
+
+  cancelModalDismiss.addEventListener('click', closeCancelModal);
+  cancelModal.addEventListener('click', (e) => { if (e.target === cancelModal) closeCancelModal(); });
+
+  cancelModalConfirm.addEventListener('click', async () => {
+    const reason = cancelReasonInput.value.trim();
+    if (!reason) { cancelReasonError.style.display = 'block'; cancelReasonInput.focus(); return; }
+    if (!pendingCancelId) return;
+
+    (cancelModalConfirm as HTMLButtonElement).disabled = true;
+    cancelModalConfirm.textContent = 'Cancelando...';
+
+    const res = await kitchenFetch(`/v1/kitchen/${slug}/orders/${pendingCancelId}/cancel`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reason }),
+    });
+
+    (cancelModalConfirm as HTMLButtonElement).disabled = false;
+    cancelModalConfirm.textContent = 'Confirmar';
+
+    if (res.ok) { closeCancelModal(); loadOrders(); }
+  });
+
+  // ── Render cards ──────────────────────────────────────────────────
+
+  function renderCard(order: any): string {
+    const time = new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const items = (order.items || []).map((i: any) => {
+      const note = i.notes ? `<p style="color:#fbbf24;font-size:16px;font-style:italic;margin-left:16px;margin-top:4px;">${i.notes}</p>` : '';
+      return `<p style="color:white;font-size:22px;font-weight:500;"><span style="font-size:26px;font-weight:900;">${i.quantity}×</span> ${i.product?.name || i.productName || '?'}</p>${note}`;
+    }).join('');
+
+    const actionBtn = order.status === 'CREATED'
+      ? `<button data-advance="${order.id}" data-next="PROCESSING"
+           style="width:100%;padding:20px;font-size:20px;font-weight:900;background:#2563eb;color:white;border:none;border-radius:12px;cursor:pointer;margin-top:8px;">
+           EN PROCESO →
+         </button>`
+      : `<button data-advance="${order.id}" data-next="COMPLETED"
+           style="width:100%;padding:20px;font-size:20px;font-weight:900;background:#16a34a;color:white;border:none;border-radius:12px;cursor:pointer;margin-top:8px;">
+           ✓ LISTO
+         </button>`;
+
+    const cancelBtn = `<button data-cancel="${order.id}"
+      style="width:100%;padding:12px;font-size:15px;font-weight:700;background:rgba(127,29,29,0.4);color:#fca5a5;border:1px solid rgba(220,38,38,0.4);border-radius:12px;cursor:pointer;margin-top:4px;">
+      Cancelar
+    </button>`;
+
+    return `
+      <div style="background:#1f2937;border:1px solid #374151;border-radius:16px;padding:20px;" data-order-id="${order.id}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:32px;font-weight:900;color:white;">#${order.orderNumber}</span>
+          <span style="color:#6b7280;font-size:16px;">${time}</span>
+        </div>
+        <div style="border-top:1px solid #374151;padding-top:12px;display:flex;flex-direction:column;gap:4px;">${items}</div>
+        ${actionBtn}
+        ${cancelBtn}
+      </div>
+    `;
+  }
+
+  function bindCardEvents(container: HTMLElement) {
+    container.querySelectorAll('[data-advance]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const el = btn as HTMLElement;
+        (btn as HTMLButtonElement).disabled = true;
+        const res = await kitchenFetch(`/v1/kitchen/${slug}/orders/${el.dataset.advance}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: el.dataset.next }),
+        });
+        (btn as HTMLButtonElement).disabled = false;
+        if (res.ok) loadOrders();
+      });
+    });
+
+    container.querySelectorAll('[data-cancel]').forEach((btn) => {
+      btn.addEventListener('click', () => openCancelModal((btn as HTMLElement).dataset.cancel!));
+    });
+  }
+
+  // ── Load orders ───────────────────────────────────────────────────
+
+  async function loadOrders() {
+    const res = await kitchenFetch(`/v1/kitchen/${slug}/orders`).catch(() => null);
+    if (!res || !res.ok) return;
+
+    const orders: any[] = await res.json();
+    const created = orders.filter((o) => o.status === 'CREATED');
+    const processing = orders.filter((o) => o.status === 'PROCESSING');
+
+    countCreated.textContent = String(created.length);
+    countProcessing.textContent = String(processing.length);
+
+    const empty = '<p style="color:#4b5563;text-align:center;padding:48px 0;font-size:18px;">Sin pedidos</p>';
+    colCreated.innerHTML = created.length ? created.map(renderCard).join('') : empty;
+    colProcessing.innerHTML = processing.length ? processing.map(renderCard).join('') : empty;
+
+    bindCardEvents(colCreated);
+    bindCardEvents(colProcessing);
+  }
+
+  // ── Socket.IO ─────────────────────────────────────────────────────
+
+  const socket = createKitchenSocket(token, slug);
+
+  socket.on('connect', () => { setConnected(); loadOrders(); });
+  socket.on('order:new', () => loadOrders());
+  socket.on('order:updated', () => loadOrders());
+  socket.on('disconnect', () => { connDot.style.background = '#fbbf24'; });
+
+  socket.on('reconnect_attempt', (attempt: number) => {
+    if (attempt <= 3) {
+      showBanner(`Reconectando... (intento ${attempt})`, '#ca8a04', 'black');
+    } else {
+      showBanner('Sin conexión', '#dc2626', 'white');
+      setOffline();
+    }
+  });
+
+  socket.on('reconnect', () => { setConnected(); loadOrders(); });
+
+  loadOrders();
+</script>
