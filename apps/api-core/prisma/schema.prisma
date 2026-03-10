@@ -70,6 +70,9 @@ model Restaurant {
   name String
   slug String @unique
 
+  kitchenToken          String?   @unique
+  kitchenTokenExpiresAt DateTime?
+
   users            User[]
   products         Product[]
   menus            Menu[]

@@ -77,3 +77,9 @@
 - **BCRYPT_SALT_ROUNDS**: Costo de hashing para contrasenas.
   - Default: `10`
   - Required: `false`
+
+### KITCHEN MODULE
+
+- **KITCHEN_TOKEN_EXPIRY_DAYS**: Días de validez del token de cocina.
+  - Default: `60`
+  - Required: `false`

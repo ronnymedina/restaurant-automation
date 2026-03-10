@@ -41,3 +41,6 @@ export const JWT_REFRESH_EXPIRATION =
 export const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 export const EMAIL_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev';
 export const BCRYPT_SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS) || 10;
+
+// kitchen
+export const KITCHEN_TOKEN_EXPIRY_DAYS = Number(process.env.KITCHEN_TOKEN_EXPIRY_DAYS) || 60;
