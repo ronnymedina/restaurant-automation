@@ -35,7 +35,11 @@ const mockOrderEvents = {
   emitOrderUpdated: jest.fn(),
 };
 const mockEmail = { sendReceiptEmail: jest.fn() };
-const mockPrint = { generateReceipt: jest.fn() };
+const mockPrint = {
+  generateReceipt: jest.fn(),
+  generateBoth: jest.fn().mockResolvedValue({ receipt: {}, kitchenTicket: {} }),
+  printKitchenTicket: jest.fn().mockResolvedValue({ success: true, message: '' }),
+};
 
 const makeOrder = (overrides = {}) => ({
   id: 'o1',
@@ -342,6 +346,35 @@ describe('OrdersService', () => {
       mockOrderRepository.findByRestaurantId.mockResolvedValue([]);
       await service.findByRestaurantId('r1', OrderStatus.CREATED);
       expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith('r1', OrderStatus.CREATED);
+    });
+  });
+
+  describe('kitchenAdvanceStatus', () => {
+    it('advances CREATED → PROCESSING without isPaid check', async () => {
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CREATED }));
+      mockOrderRepository.updateStatus.mockResolvedValue(makeOrder({ status: OrderStatus.PROCESSING }));
+      const result = await service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.PROCESSING);
+      expect(result.status).toBe(OrderStatus.PROCESSING);
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalled();
+    });
+
+    it('advances PROCESSING → COMPLETED without isPaid check', async () => {
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.PROCESSING, isPaid: false }));
+      mockOrderRepository.updateStatus.mockResolvedValue(makeOrder({ status: OrderStatus.COMPLETED }));
+      const result = await service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.COMPLETED);
+      expect(result.status).toBe(OrderStatus.COMPLETED);
+    });
+
+    it('throws on skip attempt (CREATED → COMPLETED)', async () => {
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CREATED }));
+      await expect(service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.COMPLETED))
+        .rejects.toThrow(InvalidStatusTransitionException);
+    });
+
+    it('throws if order is already cancelled', async () => {
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CANCELLED }));
+      await expect(service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.PROCESSING))
+        .rejects.toThrow(OrderAlreadyCancelledException);
     });
   });
 });

@@ -5,6 +5,7 @@ import { Order } from '@prisma/client';
 
 const mockGateway = {
   emitToRestaurant: jest.fn(),
+  emitToKitchen: jest.fn(),
 };
 
 describe('OrderEventsService', () => {
@@ -31,12 +32,26 @@ describe('OrderEventsService', () => {
         order: mockOrder,
       });
     });
+
+    it('emits order:new event to kitchen room', () => {
+      service.emitOrderCreated('r1', mockOrder);
+      expect(mockGateway.emitToKitchen).toHaveBeenCalledWith('r1', ORDER_EVENTS.NEW, {
+        order: mockOrder,
+      });
+    });
   });
 
   describe('emitOrderUpdated', () => {
     it('emits order:updated event to restaurant room', () => {
       service.emitOrderUpdated('r1', mockOrder);
       expect(mockGateway.emitToRestaurant).toHaveBeenCalledWith('r1', ORDER_EVENTS.UPDATED, {
+        order: mockOrder,
+      });
+    });
+
+    it('emits order:updated event to kitchen room', () => {
+      service.emitOrderUpdated('r1', mockOrder);
+      expect(mockGateway.emitToKitchen).toHaveBeenCalledWith('r1', ORDER_EVENTS.UPDATED, {
         order: mockOrder,
       });
     });

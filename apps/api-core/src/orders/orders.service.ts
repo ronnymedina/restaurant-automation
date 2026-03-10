@@ -53,14 +53,29 @@ export class OrdersService {
   ) {}
 
   async createOrder(restaurantId: string, registerSessionId: string, dto: CreateOrderDto) {
-    return this.prisma.$transaction(async (tx) => {
+    const order = await this.prisma.$transaction(async (tx) => {
       const { orderItems, stockEntries, totalAmount } = await this.validateAndBuildItems(restaurantId, dto, tx);
       this.validateExpectedTotal(totalAmount, dto.expectedTotal);
       await this.decrementAllStock(stockEntries, tx);
-      const order = await this.persistOrder({ restaurantId, registerSessionId, totalAmount, dto, orderItems }, tx);
-      this.orderEventsService.emitOrderCreated(restaurantId, order);
-      return order;
+      const created = await this.persistOrder({ restaurantId, registerSessionId, totalAmount, dto, orderItems }, tx);
+      return created;
     });
+
+    this.orderEventsService.emitOrderCreated(restaurantId, order);
+
+    // Fire-and-forget: physical print — never blocks the response
+    void this.printService.printKitchenTicket(order.id).catch((err) =>
+      this.logger.warn(`Kitchen print failed for order #${order.orderNumber}: ${err.message}`),
+    );
+
+    // Generate tickets for frontend — null-safe, never blocks
+    const tickets = await this.printService.generateBoth(order.id).catch(() => null);
+
+    return {
+      order,
+      receipt: tickets?.receipt ?? null,
+      kitchenTicket: tickets?.kitchenTicket ?? null,
+    };
   }
 
   async findByRestaurantId(restaurantId: string, status?: OrderStatus) {
@@ -105,6 +120,23 @@ export class OrdersService {
     const cancelled = await this.orderRepository.cancelOrder(id, reason);
     this.orderEventsService.emitOrderUpdated(restaurantId, cancelled);
     return cancelled;
+  }
+
+  async kitchenAdvanceStatus(id: string, restaurantId: string, newStatus: OrderStatus) {
+    const order = await this.findById(id, restaurantId);
+
+    if (order.status === OrderStatus.CANCELLED) throw new OrderAlreadyCancelledException(id);
+
+    const currentIdx = STATUS_ORDER.indexOf(order.status);
+    const targetIdx = STATUS_ORDER.indexOf(newStatus);
+    if (targetIdx === -1 || targetIdx !== currentIdx + 1) {
+      throw new InvalidStatusTransitionException(order.status, newStatus);
+    }
+
+    // Kitchen can complete without payment check — payment is handled by the cashier
+    const updated = await this.orderRepository.updateStatus(id, newStatus);
+    this.orderEventsService.emitOrderUpdated(restaurantId, updated);
+    return updated;
   }
 
   async markAsPaid(id: string, restaurantId: string) {

@@ -66,11 +66,11 @@ export class OrderRepository {
     });
   }
 
-  async findByRestaurantId(restaurantId: string, status?: OrderStatus) {
+  async findByRestaurantId(restaurantId: string, status?: OrderStatus, statuses?: OrderStatus[]) {
     return this.prisma.order.findMany({
       where: {
         restaurantId,
-        ...(status ? { status } : {}),
+        ...(statuses?.length ? { status: { in: statuses } } : status ? { status } : {}),
       },
       include: ORDER_WITH_ITEMS,
       orderBy: { createdAt: 'desc' },

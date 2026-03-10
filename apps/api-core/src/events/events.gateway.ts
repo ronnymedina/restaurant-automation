@@ -31,6 +31,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleConnection(client: Socket) {
     try {
       const token = client.handshake.auth?.token as string | undefined;
+      const kitchenToken = client.handshake.auth?.kitchenToken as string | undefined;
       const slug = client.handshake.query?.slug as string | undefined;
 
       if (token) {
@@ -38,6 +39,22 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         const restaurantId = payload.restaurantId;
         client.join(`restaurant:${restaurantId}`);
         this.logger.log(`Dashboard connected: ${client.id} → restaurant:${restaurantId}`);
+        return;
+      }
+
+      if (kitchenToken && slug) {
+        const restaurant = await this.restaurantsService.findBySlug(slug);
+        if (!restaurant || restaurant.kitchenToken !== kitchenToken) {
+          client.disconnect();
+          return;
+        }
+        if (restaurant.kitchenTokenExpiresAt && restaurant.kitchenTokenExpiresAt < new Date()) {
+          this.logger.warn(`Kitchen token expired for slug: ${slug}`);
+          client.disconnect();
+          return;
+        }
+        client.join(`kitchen:${restaurant.id}`);
+        this.logger.log(`Kitchen connected: ${client.id} → kitchen:${restaurant.id}`);
         return;
       }
 
@@ -68,5 +85,9 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   emitToKiosk(restaurantId: string, event: string, data: unknown) {
     this.server.to(`kiosk:${restaurantId}`).emit(event, data);
+  }
+
+  emitToKitchen(restaurantId: string, event: string, data: unknown) {
+    this.server.to(`kitchen:${restaurantId}`).emit(event, data);
   }
 }
