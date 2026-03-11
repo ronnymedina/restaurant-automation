@@ -165,6 +165,8 @@ import DataTable from '../../components/dash/DataTable.astro';
   const imageClearBtn = document.getElementById('imageClearBtn')!;
   const imageUrlFallback = document.getElementById('imageUrlFallback')!;
   let uploadedImageUrl: string | null = null;
+  let currentBlobUrl: string | null = null;
+  let isUploading = false;
 
   imageFile.addEventListener('change', () => {
     const file = imageFile.files?.[0];
@@ -191,7 +193,12 @@ import DataTable from '../../components/dash/DataTable.astro';
   });
 
   async function handleImageSelected(file: File) {
+    if (currentBlobUrl) {
+      URL.revokeObjectURL(currentBlobUrl);
+      currentBlobUrl = null;
+    }
     const localUrl = URL.createObjectURL(file);
+    currentBlobUrl = localUrl;
     imagePreviewThumb.src = localUrl;
     imagePreviewName.textContent = file.name;
     const sizeMB = (file.size / 1024 / 1024).toFixed(1);
@@ -206,6 +213,7 @@ import DataTable from '../../components/dash/DataTable.astro';
 
     const formData = new FormData();
     formData.append('file', file);
+    isUploading = true;
     try {
       const res = await apiFetch('/v1/uploads/image', { method: 'POST', body: formData });
       if (res.ok) {
@@ -220,12 +228,19 @@ import DataTable from '../../components/dash/DataTable.astro';
     } catch {
       imagePreviewStatus.textContent = '⚠ Error de conexión';
       imagePreviewStatus.classList.add('text-red-600');
+    } finally {
+      isUploading = false;
     }
   }
 
   function clearImageSelection() {
+    if (currentBlobUrl) {
+      URL.revokeObjectURL(currentBlobUrl);
+      currentBlobUrl = null;
+    }
     imageFile.value = '';
     uploadedImageUrl = null;
+    isUploading = false;
     imagePreview.classList.add('hidden');
     imagePreview.classList.remove('flex');
     imageUrlFallback.classList.remove('hidden');
@@ -299,7 +314,6 @@ import DataTable from '../../components/dash/DataTable.astro';
         (document.getElementById('productPrice') as HTMLInputElement).value = p.price || '';
         (document.getElementById('productStock') as HTMLInputElement).value = p.stock !== null && p.stock !== undefined ? String(p.stock) : '';
         (document.getElementById('productSku') as HTMLInputElement).value = p.sku || '';
-        (document.getElementById('productImageUrl') as HTMLInputElement).value = p.imageUrl || '';
         (document.getElementById('productDescription') as HTMLTextAreaElement).value = p.description || '';
         (document.getElementById('productActive') as HTMLInputElement).checked = p.active !== false;
         categorySelect.value = p.categoryId || '';
@@ -323,6 +337,7 @@ import DataTable from '../../components/dash/DataTable.astro';
     editingId = null;
     formTitle.textContent = 'Nuevo producto';
     formEl.reset();
+    clearImageSelection();
     productForm.classList.remove('hidden');
   });
 
@@ -337,6 +352,11 @@ import DataTable from '../../components/dash/DataTable.astro';
   formEl.addEventListener('submit', async (e) => {
     e.preventDefault();
     clearFormError();
+
+    if (isUploading) {
+      showFormError('La imagen aún se está subiendo, espera un momento');
+      return;
+    }
 
     const categoryId = categorySelect.value;
     if (!categoryId) {
