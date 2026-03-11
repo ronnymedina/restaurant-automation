@@ -7,24 +7,30 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UploadsService } from './uploads.service';
 
 @ApiTags('uploads')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('uploads')
+@Controller({ version: '1', path: 'uploads' })
 export class UploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
   @Post('image')
   @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: 50 * 1024 * 1024 }, // 50MB raw limit
       fileFilter: (_req, file, cb) => {
-        if (/image\/(jpeg|png|webp)/.test(file.mimetype)) {
+        if (/^image\/(jpeg|png|webp)$/.test(file.mimetype)) {
           cb(null, true);
         } else {
           cb(new BadRequestException('Solo se permiten imágenes JPG, PNG o WEBP'), false);
