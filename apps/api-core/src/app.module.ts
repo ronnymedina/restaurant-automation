@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EventsModule } from './events/events.module';
@@ -16,10 +18,15 @@ import { CashRegisterModule } from './cash-register/cash-register.module';
 import { KioskModule } from './kiosk/kiosk.module';
 import { PrintModule } from './print/print.module';
 import { KitchenModule } from './kitchen/kitchen.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot(),
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
+    }),
     EventsModule,
     PrismaModule,
     RestaurantsModule,
@@ -34,6 +41,7 @@ import { KitchenModule } from './kitchen/kitchen.module';
     KioskModule,
     PrintModule,
     KitchenModule,
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
