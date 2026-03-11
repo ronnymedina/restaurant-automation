@@ -73,9 +73,23 @@ describe('UploadsService', () => {
         size: TEN_MB,
       } as Express.Multer.File;
 
-      await service.saveProductImage(file);
+      const url = await service.saveProductImage(file);
 
       expect(sharp).not.toHaveBeenCalled();
+      expect(url).toMatch(/\.png$/);  // small PNG keeps .png extension
+    });
+
+    it('should give large PNG a .jpg extension after compression', async () => {
+      const file: Express.Multer.File = {
+        originalname: 'big-photo.png',
+        mimetype: 'image/png',
+        buffer: Buffer.alloc(TEN_MB + 1),
+        size: TEN_MB + 1,
+      } as Express.Multer.File;
+
+      const url = await service.saveProductImage(file);
+
+      expect(url).toMatch(/\.jpg$/);
     });
 
     it('should handle webp files', async () => {
