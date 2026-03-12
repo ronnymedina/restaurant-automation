@@ -15,7 +15,7 @@ export class KitchenTokenGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
-    const slug = req.params['slug'];
+    const slug = req.params['slug'] as string;
     const token = req.query['token'] as string | undefined;
 
     if (!slug || !token) throw new UnauthorizedException('Kitchen token required');
@@ -29,7 +29,7 @@ export class KitchenTokenGuard implements CanActivate {
       throw new UnauthorizedException('Kitchen token expired');
     }
 
-    req[KITCHEN_RESTAURANT_KEY] = restaurant;
+    (req as any)[KITCHEN_RESTAURANT_KEY] = restaurant;
     return true;
   }
 }

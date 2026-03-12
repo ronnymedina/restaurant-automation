@@ -6,9 +6,9 @@ import { PrismaService } from '../prisma/prisma.service';
 export interface CreateMenuData {
   name: string;
   active?: boolean;
-  startTime?: string;
-  endTime?: string;
-  daysOfWeek?: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  daysOfWeek?: string | null;
   restaurantId: string;
 }
 

@@ -1,0 +1,162 @@
+<h2>¿Cómo empaquetar la app como binario de escritorio?</h2>
+<p class="subtitle">Tres enfoques distintos — cada uno afecta tamaño del binario, experiencia del usuario y complejidad de desarrollo</p>
+
+<style>
+.arch-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+  align-items: center;
+}
+.arch-node {
+  background: #2a2a3a;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #ccc;
+  text-align: center;
+}
+.arch-node.primary {
+  background: #1a3a5c;
+  border-color: #4a8ac4;
+  color: #7eb8f7;
+  font-weight: bold;
+}
+.arch-node.accent {
+  background: #1a3a2a;
+  border-color: #4a9c6a;
+  color: #7ecf9a;
+}
+.arch-node.warn {
+  background: #3a2a1a;
+  border-color: #c48a4a;
+  color: #f7c87e;
+}
+.arch-arrow {
+  color: #666;
+  font-size: 16px;
+}
+.tag {
+  display: inline-block;
+  background: #0d3a1a;
+  color: #4caf50;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  margin-right: 6px;
+}
+.tag.warn { background: #3a1a0d; color: #ff9800; }
+.tag.blue { background: #0d1a3a; color: #64b5f6; }
+</style>
+
+<div class="options">
+  <div class="option" data-choice="electron" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Electron <span class="tag blue">Recomendado</span></h3>
+      <p>Electron envuelve tu app completa: arranca el servidor NestJS internamente y muestra el dashboard en una ventana nativa.</p>
+
+      <div class="arch-box">
+        <div class="arch-node primary">📦 .exe / .app<br><small>Electron Binary</small></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node accent">🟢 NestJS Server<br><small>localhost:3000</small></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node">🖥 Dashboard<br><small>ventana Electron</small></div>
+      </div>
+      <div class="arch-box">
+        <div class="arch-node warn">🖥 Kiosk (tablet)</div>
+        <div class="arch-arrow">→ LAN →</div>
+        <div class="arch-node accent">mismo servidor</div>
+        <div class="arch-arrow">·</div>
+        <div class="arch-node warn">🍳 Cocina (browser)</div>
+        <div class="arch-arrow">→ LAN →</div>
+        <div class="arch-node accent">mismo servidor</div>
+      </div>
+
+      <div class="pros-cons">
+        <div class="pros"><h4>Pro</h4><ul>
+          <li>Firma de código integrada (Win + Mac notarization)</li>
+          <li>Auto-updater con electron-updater</li>
+          <li>Tray icon, inicio automático con Windows</li>
+          <li>Una sola herramienta: Electron Builder</li>
+          <li>Comunidad enorme, bien documentado</li>
+        </ul></div>
+        <div class="cons"><h4>Contra</h4><ul>
+          <li>Binario grande (~150-200 MB, Chromium incluido)</li>
+          <li>better-sqlite3 requiere recompilación para Electron</li>
+          <li>Mayor uso de RAM</li>
+        </ul></div>
+      </div>
+      <p><span class="tag blue">Tamaño: ~150-200 MB</span> <span class="tag">Complejidad: Media</span></p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="pkg" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>pkg / Node SEA <small style="color:#888">(binario Node puro)</small></h3>
+      <p>Empaqueta NestJS + Astro en un único ejecutable. El usuario lo corre y abre su browser en localhost.</p>
+
+      <div class="arch-box">
+        <div class="arch-node primary">📦 .exe / app<br><small>pkg binary</small></div>
+        <div class="arch-arrow">→ arranca →</div>
+        <div class="arch-node accent">🟢 NestJS Server<br><small>localhost:3000</small></div>
+      </div>
+      <div class="arch-box">
+        <div class="arch-node warn">👤 Usuario</div>
+        <div class="arch-arrow">→ abre browser →</div>
+        <div class="arch-node">🌐 localhost:3000</div>
+      </div>
+
+      <div class="pros-cons">
+        <div class="pros"><h4>Pro</h4><ul>
+          <li>Binario mucho más pequeño (~40-70 MB)</li>
+          <li>Sin Chromium, menos RAM</li>
+          <li>Más fácil de auditar y debuggear</li>
+        </ul></div>
+        <div class="cons"><h4>Contra</h4><ul>
+          <li>El usuario debe abrir el browser manualmente</li>
+          <li>Menos "app-like" (no hay ventana nativa)</li>
+          <li>better-sqlite3 también necesita prebuilds</li>
+          <li>pkg está en modo mantenimiento (alternativa: @yao-pkg/pkg)</li>
+          <li>Firma de código más manual</li>
+        </ul></div>
+      </div>
+      <p><span class="tag blue">Tamaño: ~40-70 MB</span> <span class="tag warn">Complejidad: Alta</span></p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="tauri" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Tauri + Sidecar</h3>
+      <p>Wrapper en Rust que inicia el servidor NestJS como proceso "sidecar". Usa el webview nativo del OS (no Chromium).</p>
+
+      <div class="arch-box">
+        <div class="arch-node primary">📦 Tauri .exe/.app<br><small>Rust shell</small></div>
+        <div class="arch-arrow">→ spawn →</div>
+        <div class="arch-node warn">⚙️ NestJS sidecar<br><small>proceso separado</small></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node">🖥 WebView nativo</div>
+      </div>
+
+      <div class="pros-cons">
+        <div class="pros"><h4>Pro</h4><ul>
+          <li>Binario muy pequeño (~10-20 MB)</li>
+          <li>Menor consumo de RAM</li>
+          <li>Firma y notarización integrada</li>
+        </ul></div>
+        <div class="cons"><h4>Contra</h4><ul>
+          <li>Requiere aprender Rust + Tauri</li>
+          <li>WebView nativo puede variar entre OS</li>
+          <li>Gestión de dos procesos es compleja</li>
+          <li>Curva de aprendizaje alta</li>
+          <li>Socket.IO puede tener issues con webviews</li>
+        </ul></div>
+      </div>
+      <p><span class="tag blue">Tamaño: ~10-20 MB</span> <span class="tag warn">Complejidad: Muy Alta</span></p>
+    </div>
+  </div>
+</div>

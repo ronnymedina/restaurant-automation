@@ -478,7 +478,7 @@ const { slug } = Astro.params;
         return;
       }
 
-      const order = await res.json();
+      const { order } = await res.json();
       checkoutOverlay.classList.add('hidden');
 
       // Show confirmation

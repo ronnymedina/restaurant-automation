@@ -82,6 +82,26 @@ export class OrdersService {
     return this.orderRepository.findByRestaurantId(restaurantId, status);
   }
 
+  async findHistory(
+    restaurantId: string,
+    filters: { orderNumber?: number; status?: OrderStatus; dateFrom?: string; dateTo?: string; page: number; limit: number },
+  ) {
+    const dateFrom = filters.dateFrom ? new Date(filters.dateFrom) : undefined;
+    let dateTo: Date | undefined;
+    if (filters.dateTo) {
+      dateTo = new Date(filters.dateTo);
+      dateTo.setHours(23, 59, 59, 999);
+    }
+    return this.orderRepository.findHistory(restaurantId, {
+      orderNumber: filters.orderNumber,
+      status: filters.status,
+      dateFrom,
+      dateTo,
+      page: filters.page,
+      limit: filters.limit,
+    });
+  }
+
   async findById(id: string, restaurantId: string) {
     const order = await this.orderRepository.findById(id);
     if (!order) throw new OrderNotFoundException(id);

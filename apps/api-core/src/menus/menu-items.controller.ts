@@ -27,7 +27,7 @@ import { MenuItemDto, BulkCreateResultDto } from './dto/menu.dto';
 @ApiBearerAuth()
 @Controller({ version: '1', path: 'menus/:menuId/items' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.MANAGER)
+@Roles(Role.ADMIN, Role.MANAGER)
 export class MenuItemsController {
   constructor(
     private readonly menuItemsService: MenuItemsService,

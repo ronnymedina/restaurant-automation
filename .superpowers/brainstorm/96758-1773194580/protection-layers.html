@@ -1,0 +1,163 @@
+<h2>Capas de Protección contra Ingeniería Inversa</h2>
+<p class="subtitle">El problema real de Electron: app.asar es trivialmente extraíble. Estas son las defensas.</p>
+
+<style>
+.layers {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 16px 0;
+  position: relative;
+}
+.layer {
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 6px;
+  border: 1px solid;
+  position: relative;
+}
+.layer-badge {
+  position: absolute;
+  top: -10px;
+  left: 16px;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  padding: 2px 10px;
+  border-radius: 10px;
+  text-transform: uppercase;
+}
+.layer-title { font-size: 15px; font-weight: bold; margin: 4px 0; }
+.layer-desc { font-size: 12px; line-height: 1.6; margin-top: 4px; }
+.layer-cmd {
+  font-family: monospace;
+  font-size: 11px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin-top: 8px;
+  color: #86efac;
+  display: block;
+}
+.l1 { background: #0f2027; border-color: #ef4444; }
+.l1 .layer-badge { background: #ef4444; color: white; }
+.l2 { background: #1a1a0d; border-color: #f59e0b; }
+.l2 .layer-badge { background: #f59e0b; color: #1a1a0d; }
+.l3 { background: #0d1a0d; border-color: #22c55e; }
+.l3 .layer-badge { background: #22c55e; color: #0d1a0d; }
+.l4 { background: #0d1a2e; border-color: #3b82f6; }
+.l4 .layer-badge { background: #3b82f6; color: white; }
+.l5 { background: #1a0d2e; border-color: #a855f7; }
+.l5 .layer-badge { background: #a855f7; color: white; }
+
+.problem-box {
+  background: #1c0a0a;
+  border: 1px solid #7f1d1d;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+.problem-title { color: #fca5a5; font-weight: bold; margin-bottom: 6px; }
+.problem-cmd { font-family: monospace; font-size: 12px; color: #f87171; }
+
+.reality-box {
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-top: 20px;
+}
+.reality-title { color: #fbbf24; font-weight: bold; margin-bottom: 8px; }
+.reality-text { font-size: 13px; color: #9ca3af; line-height: 1.7; }
+
+.strength-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.bar-label { font-size: 10px; color: #6b7280; width: 80px; }
+.bar-track { flex: 1; height: 4px; background: #374151; border-radius: 2px; }
+.bar-fill { height: 100%; border-radius: 2px; }
+</style>
+
+<div class="problem-box">
+  <div class="problem-title">⚠️ El problema: app.asar es público por defecto</div>
+  <div class="problem-cmd">asar extract app.asar ./output  →  código fuente legible al instante</div>
+</div>
+
+<div class="layers">
+
+  <div class="layer l1">
+    <div class="layer-badge">Capa 1 — crítica</div>
+    <div class="layer-title">🔴 V8 Bytecode con <code>bytenode</code></div>
+    <div class="layer-desc">
+      Compila los archivos <code>.js</code> de NestJS a bytecode de V8 (<code>.jsc</code>). El resultado es binario ilegible — no hay decompilador público que lo revierta. Es la protección más fuerte disponible sin herramientas comerciales.
+    </div>
+    <code class="layer-cmd">bytenode --compile dist/main.js  →  dist/main.jsc (binario V8)</code>
+    <div class="strength-bar">
+      <span class="bar-label">Efectividad</span>
+      <div class="bar-track"><div class="bar-fill" style="width:90%;background:#ef4444"></div></div>
+    </div>
+  </div>
+
+  <div class="layer l2">
+    <div class="layer-badge">Capa 2 — alta</div>
+    <div class="layer-title">🟡 Ofuscación con <code>javascript-obfuscator</code></div>
+    <div class="layer-desc">
+      Para los archivos de entrada (<code>main.js</code>, preload, partes que bytenode no puede compilar). Activa: control flow flattening, string encryption, dead code injection, renombrado agresivo de variables.
+    </div>
+    <code class="layer-cmd">javascript-obfuscator main.js --compact true --control-flow-flattening true --string-array-encoding base64</code>
+    <div class="strength-bar">
+      <span class="bar-label">Efectividad</span>
+      <div class="bar-track"><div class="bar-fill" style="width:65%;background:#f59e0b"></div></div>
+    </div>
+  </div>
+
+  <div class="layer l3">
+    <div class="layer-badge">Capa 3 — media</div>
+    <div class="layer-title">🟢 Electron Fuses — deshabilitar herramientas de debug</div>
+    <div class="layer-desc">
+      Electron tiene "fuses" (switches de compilación) que se aplican al binario antes de distribuir. Deshabilitan DevTools, el protocolo de debugging remoto y las flags de Node.js en CLI — impide que alguien conecte un debugger al proceso.
+    </div>
+    <code class="layer-cmd">@electron/fuses: DevTools=off, NodeCliInspect=off, RunAsNode=off</code>
+    <div class="strength-bar">
+      <span class="bar-label">Efectividad</span>
+      <div class="bar-track"><div class="bar-fill" style="width:55%;background:#22c55e"></div></div>
+    </div>
+  </div>
+
+  <div class="layer l4">
+    <div class="layer-badge">Capa 4 — integridad</div>
+    <div class="layer-title">🔵 ASAR integrity + Code Signing</div>
+    <div class="layer-desc">
+      Electron 30+ tiene verificación de integridad del ASAR integrada. El binario firmado (Authenticode en Win, Apple Developer en Mac) verifica que el <code>app.asar</code> no fue modificado al arrancar. Si alguien parchea el código, la firma falla.
+    </div>
+    <code class="layer-cmd">electron-builder: asarUnpack mínimo, enableASARIntegrity: true, firmado con certificado</code>
+    <div class="strength-bar">
+      <span class="bar-label">Efectividad</span>
+      <div class="bar-track"><div class="bar-fill" style="width:70%;background:#3b82f6"></div></div>
+    </div>
+  </div>
+
+  <div class="layer l5">
+    <div class="layer-badge">Capa 5 — la protección real</div>
+    <div class="layer-title">🟣 Validación criptográfica del servidor (RSA)</div>
+    <div class="layer-desc">
+      Aunque alguien rompa todas las capas anteriores y parchee la validación local — no puede generar tokens RSA válidos sin tu clave privada. El servidor de licencias es la única barrera que no se puede evadir localmente. Esto es lo que protege tu negocio.
+    </div>
+    <code class="layer-cmd">Token firmado con RSA-256 private key (solo en tu servidor) → verificado con public key embebida</code>
+    <div class="strength-bar">
+      <span class="bar-label">Efectividad</span>
+      <div class="bar-track"><div class="bar-fill" style="width:95%;background:#a855f7"></div></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="reality-box">
+  <div class="reality-title">⚡ Realidad del mercado de restaurantes</div>
+  <div class="reality-text">
+    Con las capas 1 + 3 + 5, el esfuerzo para crackear tu software supera ampliamente el costo de comprar la licencia. Tu cliente objetivo (dueño de restaurante) no tiene ni el conocimiento ni el incentivo para hacer ingeniería inversa a un software de US$200–500. Las protecciones son suficientes para ese mercado — no necesitas el nivel de protección de Adobe o Microsoft.
+  </div>
+</div>

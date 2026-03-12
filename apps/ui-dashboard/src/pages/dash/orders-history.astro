@@ -1,0 +1,294 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import DataTable from '../../components/dash/DataTable.astro';
+---
+
+<DashboardLayout>
+  <div class="space-y-6">
+    <h2 class="text-2xl font-bold text-slate-800">Historial de Pedidos</h2>
+
+    <!-- Filtros -->
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="flex flex-wrap gap-3 items-end">
+        <div class="space-y-1">
+          <label for="filterOrderNumber" class="text-xs font-medium text-slate-600">N° de pedido</label>
+          <input id="filterOrderNumber" type="number" min="1" placeholder="Ej: 42"
+                 class="w-32 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div class="space-y-1">
+          <label for="filterStatus" class="text-xs font-medium text-slate-600">Estado</label>
+          <select id="filterStatus"
+                  class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+            <option value="">Todos</option>
+            <option value="CREATED">Creado</option>
+            <option value="PROCESSING">En proceso</option>
+            <option value="COMPLETED">Completado</option>
+            <option value="CANCELLED">Cancelado</option>
+          </select>
+        </div>
+        <div class="space-y-1">
+          <label for="filterDateFrom" class="text-xs font-medium text-slate-600">Desde</label>
+          <input id="filterDateFrom" type="date"
+                 class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div class="space-y-1">
+          <label for="filterDateTo" class="text-xs font-medium text-slate-600">Hasta</label>
+          <input id="filterDateTo" type="date"
+                 class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <button id="searchBtn"
+                class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 cursor-pointer border-none">
+          Buscar
+        </button>
+        <button id="clearBtn"
+                class="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 cursor-pointer bg-transparent">
+          Limpiar
+        </button>
+      </div>
+    </div>
+
+    <DataTable
+      tbodyId="ordersTableBody"
+      paginationId="pagination"
+      minWidth="700px"
+      columns={[
+        { label: '# Pedido', nowrap: true },
+        { label: 'Fecha', nowrap: true },
+        { label: 'Estado', nowrap: true },
+        { label: 'Método pago', nowrap: true },
+        { label: 'Items', nowrap: true },
+        { label: 'Total', align: 'right', nowrap: true },
+        { label: 'Pagado', nowrap: true },
+      ]}
+    />
+  </div>
+
+  <!-- Modal detalle -->
+  <div id="detailModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="p-6 space-y-5">
+        <div class="flex items-center justify-between">
+          <h3 id="detailTitle" class="text-xl font-bold text-slate-800">Detalle del Pedido</h3>
+          <button id="closeDetail" class="text-slate-400 hover:text-slate-600 cursor-pointer border-none bg-transparent text-2xl leading-none">&times;</button>
+        </div>
+        <div id="detailLoading" class="py-8 text-center text-slate-400">Cargando...</div>
+        <div id="detailContent" class="hidden space-y-5"></div>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  import { apiFetch } from '../../lib/api';
+  import { renderPagination, setTableLoading, setTableEmpty, setTableError } from '../../lib/pagination';
+
+  const COLSPAN = 7;
+  let currentPage = 1;
+
+  const tableBody   = document.getElementById('ordersTableBody')!;
+  const paginationEl = document.getElementById('pagination')!;
+  const detailModal  = document.getElementById('detailModal')!;
+  const detailLoading = document.getElementById('detailLoading')!;
+  const detailContent = document.getElementById('detailContent')!;
+  const detailTitle   = document.getElementById('detailTitle')!;
+
+  const filterOrderNumber = document.getElementById('filterOrderNumber') as HTMLInputElement;
+  const filterStatus      = document.getElementById('filterStatus') as HTMLSelectElement;
+  const filterDateFrom    = document.getElementById('filterDateFrom') as HTMLInputElement;
+  const filterDateTo      = document.getElementById('filterDateTo') as HTMLInputElement;
+
+  function formatDate(value: string): string {
+    return new Date(value).toLocaleString('es', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  }
+
+  function formatCurrency(value: number): string {
+    return `$${Number(value).toFixed(2)}`;
+  }
+
+  const STATUS_LABELS: Record<string, string> = {
+    CREATED: 'Creado',
+    PROCESSING: 'En proceso',
+    COMPLETED: 'Completado',
+    CANCELLED: 'Cancelado',
+  };
+
+  const STATUS_CLASSES: Record<string, string> = {
+    CREATED: 'bg-blue-100 text-blue-700',
+    PROCESSING: 'bg-yellow-100 text-yellow-700',
+    COMPLETED: 'bg-green-100 text-green-700',
+    CANCELLED: 'bg-red-100 text-red-700',
+  };
+
+  const PAYMENT_LABELS: Record<string, string> = {
+    CASH: 'Efectivo',
+    CARD: 'Tarjeta',
+    DIGITAL_WALLET: 'Billetera digital',
+  };
+
+  function buildParams(page: number): URLSearchParams {
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('limit', '20');
+    const num = filterOrderNumber.value.trim();
+    if (num) params.set('orderNumber', num);
+    const status = filterStatus.value;
+    if (status) params.set('status', status);
+    const from = filterDateFrom.value;
+    if (from) params.set('dateFrom', from);
+    const to = filterDateTo.value;
+    if (to) params.set('dateTo', to);
+    return params;
+  }
+
+  async function loadPage(page: number) {
+    currentPage = page;
+    setTableLoading(tableBody, COLSPAN);
+    paginationEl.innerHTML = '';
+
+    try {
+      const res = await apiFetch(`/v1/orders/history?${buildParams(page)}`);
+      if (!res.ok) { setTableError(tableBody, COLSPAN, 'Error al cargar el historial.'); return; }
+
+      const { data, meta } = await res.json();
+
+      if (!data.length) {
+        setTableEmpty(tableBody, COLSPAN, 'No se encontraron pedidos con esos filtros.');
+        return;
+      }
+
+      tableBody.innerHTML = data.map((order: any) => `
+        <tr class="border-t border-slate-100 hover:bg-slate-50 cursor-pointer"
+            data-id="${order.id}">
+          <td class="px-4 py-3 font-medium text-slate-800 whitespace-nowrap">#${order.orderNumber}</td>
+          <td class="px-4 py-3 text-slate-600 whitespace-nowrap">${formatDate(order.createdAt)}</td>
+          <td class="px-4 py-3 whitespace-nowrap">
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLASSES[order.status] ?? ''}">
+              ${STATUS_LABELS[order.status] ?? order.status}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-slate-600 whitespace-nowrap">
+            ${order.paymentMethod ? PAYMENT_LABELS[order.paymentMethod] ?? order.paymentMethod : '—'}
+          </td>
+          <td class="px-4 py-3 text-slate-600 whitespace-nowrap">${order.items?.length ?? 0} producto(s)</td>
+          <td class="px-4 py-3 font-medium text-slate-800 text-right whitespace-nowrap">${formatCurrency(order.totalAmount)}</td>
+          <td class="px-4 py-3 whitespace-nowrap">
+            ${order.isPaid
+              ? '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Sí</span>'
+              : '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">No</span>'}
+          </td>
+        </tr>
+      `).join('');
+
+      tableBody.querySelectorAll<HTMLElement>('tr[data-id]').forEach(row => {
+        row.addEventListener('click', () => openDetail(row.dataset.id!));
+      });
+
+      renderPagination(paginationEl, meta, currentPage, loadPage);
+    } catch {
+      setTableError(tableBody, COLSPAN, 'Error de conexión.');
+    }
+  }
+
+  async function openDetail(orderId: string) {
+    detailTitle.textContent = 'Detalle del Pedido';
+    detailLoading.classList.remove('hidden');
+    detailContent.classList.add('hidden');
+    detailModal.classList.remove('hidden');
+
+    try {
+      const res = await apiFetch(`/v1/orders/${orderId}`);
+      if (!res.ok) {
+        detailLoading.textContent = 'No se pudo cargar el detalle.';
+        return;
+      }
+      const order = await res.json();
+      detailTitle.textContent = `Pedido #${order.orderNumber}`;
+
+      const itemsHtml = order.items?.map((item: any) => `
+        <div class="flex justify-between items-start py-2 border-b border-slate-100 last:border-0">
+          <div>
+            <p class="text-sm font-medium text-slate-800">${item.product?.name ?? '—'}</p>
+            ${item.notes ? `<p class="text-xs text-slate-400 mt-0.5">${item.notes}</p>` : ''}
+          </div>
+          <div class="text-right shrink-0 ml-4">
+            <p class="text-sm text-slate-600">${item.quantity}x ${formatCurrency(item.unitPrice)}</p>
+            <p class="text-sm font-medium text-slate-800">${formatCurrency(item.subtotal)}</p>
+          </div>
+        </div>
+      `).join('') ?? '<p class="text-slate-400 text-sm">Sin items.</p>';
+
+      detailContent.innerHTML = `
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <p class="text-xs text-slate-400 uppercase font-medium">Estado</p>
+            <span class="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLASSES[order.status] ?? ''}">
+              ${STATUS_LABELS[order.status] ?? order.status}
+            </span>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400 uppercase font-medium">Fecha</p>
+            <p class="mt-1 text-slate-700">${formatDate(order.createdAt)}</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400 uppercase font-medium">Método de pago</p>
+            <p class="mt-1 text-slate-700">${order.paymentMethod ? PAYMENT_LABELS[order.paymentMethod] ?? order.paymentMethod : '—'}</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400 uppercase font-medium">Pagado</p>
+            <p class="mt-1 text-slate-700">${order.isPaid ? 'Sí' : 'No'}</p>
+          </div>
+          ${order.customerEmail ? `
+          <div class="col-span-2">
+            <p class="text-xs text-slate-400 uppercase font-medium">Email cliente</p>
+            <p class="mt-1 text-slate-700">${order.customerEmail}</p>
+          </div>` : ''}
+          ${order.cancellationReason ? `
+          <div class="col-span-2">
+            <p class="text-xs text-slate-400 uppercase font-medium">Motivo cancelación</p>
+            <p class="mt-1 text-red-600">${order.cancellationReason}</p>
+          </div>` : ''}
+        </div>
+
+        <div>
+          <p class="text-xs text-slate-400 uppercase font-medium mb-3">Productos</p>
+          <div>${itemsHtml}</div>
+        </div>
+
+        <div class="flex justify-between items-center pt-3 border-t border-slate-200">
+          <span class="font-semibold text-slate-700">Total</span>
+          <span class="font-bold text-lg text-slate-800">${formatCurrency(order.totalAmount)}</span>
+        </div>
+      `;
+
+      detailLoading.classList.add('hidden');
+      detailContent.classList.remove('hidden');
+    } catch {
+      detailLoading.textContent = 'Error de conexión.';
+    }
+  }
+
+  // Eventos
+  document.getElementById('searchBtn')!.addEventListener('click', () => loadPage(1));
+  document.getElementById('closeDetail')!.addEventListener('click', () => detailModal.classList.add('hidden'));
+  document.getElementById('clearBtn')!.addEventListener('click', () => {
+    filterOrderNumber.value = '';
+    filterStatus.value = '';
+    filterDateFrom.value = '';
+    filterDateTo.value = '';
+    loadPage(1);
+  });
+
+  [filterOrderNumber, filterDateFrom, filterDateTo].forEach(input => {
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadPage(1); });
+  });
+
+  detailModal.addEventListener('click', (e) => {
+    if (e.target === detailModal) detailModal.classList.add('hidden');
+  });
+
+  loadPage(1);
+</script>

@@ -1,0 +1,178 @@
+<h2>Flujo de Licencias</h2>
+<p class="subtitle">Cómo funciona el trial de 15 días, la activación y la validación offline</p>
+
+<style>
+.flow {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 16px 0;
+}
+.flow-step {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  position: relative;
+}
+.flow-step::before {
+  content: '';
+  position: absolute;
+  left: 19px;
+  top: 40px;
+  bottom: -16px;
+  width: 2px;
+  background: #374151;
+}
+.flow-step:last-child::before { display: none; }
+.step-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  z-index: 1;
+}
+.step-body {
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 12px 16px;
+  flex: 1;
+  margin-bottom: 16px;
+}
+.step-title { font-weight: bold; color: #f9fafb; margin-bottom: 4px; }
+.step-desc { font-size: 13px; color: #9ca3af; line-height: 1.6; }
+.step-code {
+  font-family: monospace;
+  font-size: 11px;
+  background: #111827;
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-top: 8px;
+  color: #86efac;
+}
+.branch {
+  display: flex;
+  gap: 12px;
+  margin: 8px 0 0;
+}
+.branch-box {
+  flex: 1;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.branch-ok { background: #14532d; border: 1px solid #22c55e; color: #86efac; }
+.branch-err { background: #450a0a; border: 1px solid #ef4444; color: #fca5a5; }
+.icon-gray   { background: #374151; }
+.icon-blue   { background: #1e3a5f; }
+.icon-green  { background: #14532d; }
+.icon-orange { background: #451a03; }
+.icon-red    { background: #450a0a; }
+.icon-purple { background: #2e1065; }
+
+.section-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #6b7280;
+  margin: 20px 0 12px;
+  padding-left: 56px;
+}
+</style>
+
+<div class="section-label">— Primer arranque —</div>
+<div class="flow">
+
+  <div class="flow-step">
+    <div class="step-icon icon-blue">🚀</div>
+    <div class="step-body">
+      <div class="step-title">1. Electron arranca</div>
+      <div class="step-desc">El binario se ejecuta. Electron lee el archivo de licencia local antes de arrancar NestJS.</div>
+      <div class="step-code">~/.config/restaurant-pos/license.enc</div>
+    </div>
+  </div>
+
+  <div class="flow-step">
+    <div class="step-icon icon-gray">🔍</div>
+    <div class="step-body">
+      <div class="step-title">2. ¿Existe archivo de licencia?</div>
+      <div class="step-desc">Si no existe → primera instalación. Se crea el archivo con <code>firstLaunchAt</code> y el <code>machineId</code> encriptados con AES-256 usando una clave embebida en el binario.</div>
+      <div class="branch">
+        <div class="branch-ok">✓ Existe → leer y validar</div>
+        <div class="branch-err">✗ No existe → crear trial, arrancar app</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-step">
+    <div class="step-icon icon-orange">⏱</div>
+    <div class="step-body">
+      <div class="step-title">3. ¿Está en período de trial?</div>
+      <div class="step-desc">Se calcula: <code>hoy - firstLaunchAt</code>. Si el cliente manipula la fecha del sistema, el servidor de licencias lo detectará al activar (las fechas no coincidirán). Para mayor seguridad, también se guarda un timestamp en el registry de Windows / macOS Keychain.</div>
+      <div class="branch">
+        <div class="branch-ok">✓ Menos de 15 días → arrancar app normalmente</div>
+        <div class="branch-err">✗ Más de 15 días → mostrar pantalla de activación</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section-label">— Activación con licencia —</div>
+<div class="flow">
+
+  <div class="flow-step">
+    <div class="step-icon icon-purple">🔑</div>
+    <div class="step-body">
+      <div class="step-title">4. Cliente ingresa la clave de licencia</div>
+      <div class="step-desc">Pantalla de activación muestra un campo para la clave (formato: <code>XXXX-XXXX-XXXX-XXXX</code>) y el Machine ID del equipo (para que puedas verificarlo manualmente si hay problemas).</div>
+    </div>
+  </div>
+
+  <div class="flow-step">
+    <div class="step-icon icon-blue">☁️</div>
+    <div class="step-body">
+      <div class="step-title">5. App contacta tu servidor de licencias (única vez)</div>
+      <div class="step-desc">Envía la clave + machineId a tu API. El servidor verifica que la clave exista, no esté revocada, y no esté registrada en otro machineId diferente.</div>
+      <div class="step-code">POST https://licenses.tu-app.com/activate
+{ licenseKey: "XXXX-...", machineId: "abc123...", platform: "win32" }</div>
+      <div class="branch">
+        <div class="branch-ok">✓ Válida → devuelve token firmado con tu clave privada</div>
+        <div class="branch-err">✗ Ya usada en otra PC → error "Licencia en uso"</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-step">
+    <div class="step-icon icon-green">💾</div>
+    <div class="step-body">
+      <div class="step-title">6. Token firmado se guarda localmente</div>
+      <div class="step-desc">El token JWT firmado con tu clave privada (RSA-256) se guarda encriptado en disco. Contiene: <code>licenseKey</code>, <code>machineId</code>, <code>activatedAt</code>. En arranques futuros, se verifica con tu clave pública embebida en el binario — <strong>sin internet</strong>.</div>
+      <div class="step-code">{ sub: "XXXX-XXXX", machineId: "abc123", iat: 1741000000 }
+→ firmado con tu RSA private key
+→ verificado con RSA public key (dentro del .exe)</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section-label">— Arranques subsiguientes (offline) —</div>
+<div class="flow">
+
+  <div class="flow-step">
+    <div class="step-icon icon-green">✅</div>
+    <div class="step-body">
+      <div class="step-title">7. Verificación offline en cada arranque</div>
+      <div class="step-desc">Electron lee el token del disco, verifica la firma RSA con la clave pública embebida, y compara el <code>machineId</code> del token con el machineId actual del equipo. Si coinciden → arranca NestJS normalmente. <strong>Sin internet requerido.</strong></div>
+      <div class="branch">
+        <div class="branch-ok">✓ Firma válida + machineId coincide → app funciona</div>
+        <div class="branch-err">✗ machineId diferente (copiaron el archivo) → bloqueado</div>
+      </div>
+    </div>
+  </div>
+
+</div>

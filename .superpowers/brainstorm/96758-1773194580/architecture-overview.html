@@ -1,0 +1,183 @@
+<h2>Arquitectura General del Sistema</h2>
+<p class="subtitle">Cómo Electron, NestJS, Astro y el sistema de licencias encajan juntos</p>
+
+<style>
+.diagram {
+  background: #111827;
+  border: 1px solid #374151;
+  border-radius: 12px;
+  padding: 24px;
+  margin: 16px 0;
+  font-family: monospace;
+}
+.diagram-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #6b7280;
+  margin-bottom: 16px;
+}
+.row {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.box {
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 12px 16px;
+  flex: 1;
+  min-width: 140px;
+}
+.box.blue   { border-color: #3b82f6; background: #1e3a5f; }
+.box.green  { border-color: #22c55e; background: #14532d; }
+.box.orange { border-color: #f59e0b; background: #451a03; }
+.box.purple { border-color: #a855f7; background: #2e1065; }
+.box.red    { border-color: #ef4444; background: #450a0a; }
+.box-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #9ca3af;
+  margin-bottom: 4px;
+}
+.box-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #f9fafb;
+}
+.box-sub {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+.arrow-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  color: #4b5563;
+  font-size: 20px;
+  margin: -4px 0;
+}
+.badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+  margin-right: 4px;
+}
+.badge.blue   { background: #1d4ed8; color: #bfdbfe; }
+.badge.green  { background: #15803d; color: #bbf7d0; }
+.badge.orange { background: #b45309; color: #fde68a; }
+.badge.red    { background: #b91c1c; color: #fecaca; }
+.divider {
+  border: none;
+  border-top: 1px dashed #374151;
+  margin: 16px 0;
+}
+.legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.legend-item {
+  font-size: 11px;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+</style>
+
+<div class="diagram">
+  <div class="diagram-title">PC del Restaurante — Servidor Central</div>
+
+  <!-- Electron shell -->
+  <div class="row">
+    <div class="box blue" style="flex: 3">
+      <div class="box-label">Electron Shell (apps/desktop)</div>
+      <div class="box-title">📦 restaurant-app.exe / .app</div>
+      <div class="box-sub">Gestiona ciclo de vida, ventana, tray icon, inicio automático con el OS</div>
+    </div>
+  </div>
+
+  <div class="arrow-row">↓ arranca ↓ &nbsp;&nbsp;&nbsp; ↓ arranca ↓</div>
+
+  <!-- NestJS + Astro -->
+  <div class="row">
+    <div class="box green" style="flex: 2">
+      <div class="box-label">api-core (en proceso hijo)</div>
+      <div class="box-title">🟢 NestJS Server</div>
+      <div class="box-sub">localhost:3000</div>
+      <div>
+        <span class="badge green">REST API</span>
+        <span class="badge green">Socket.IO</span>
+        <span class="badge green">SQLite</span>
+        <span class="badge orange">License Guard</span>
+      </div>
+    </div>
+    <div class="box purple" style="flex: 1">
+      <div class="box-label">ui-dashboard (build estático)</div>
+      <div class="box-title">🖥 Astro Dashboard</div>
+      <div class="box-sub">servido por NestJS como archivos estáticos</div>
+      <div><span class="badge blue">ServeStaticModule</span></div>
+    </div>
+  </div>
+
+  <div class="arrow-row">↓ muestra ↓ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ↓ LAN ↓ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ↓ LAN ↓</div>
+
+  <!-- Devices -->
+  <div class="row">
+    <div class="box" style="flex: 1">
+      <div class="box-label">Electron Window</div>
+      <div class="box-title">📊 Dashboard</div>
+      <div class="box-sub">localhost:3000</div>
+    </div>
+    <div class="box orange" style="flex: 1">
+      <div class="box-label">Tablet/PC en LAN</div>
+      <div class="box-title">🛒 Kiosk</div>
+      <div class="box-sub">192.168.1.x:3000/kiosk</div>
+    </div>
+    <div class="box orange" style="flex: 1">
+      <div class="box-label">Pantalla en LAN</div>
+      <div class="box-title">🍳 Cocina</div>
+      <div class="box-sub">192.168.1.x:3000/kitchen</div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- License -->
+  <div class="row">
+    <div class="box red" style="flex: 1">
+      <div class="box-label">Local (encriptado en disco)</div>
+      <div class="box-title">🔐 License Guard</div>
+      <div class="box-sub">Trial 15d · Token firmado · Machine ID</div>
+    </div>
+    <div class="box" style="flex: 1; border-style: dashed;">
+      <div class="box-label">Tu servidor cloud (Railway)</div>
+      <div class="box-title">☁️ License Server</div>
+      <div class="box-sub">Solo se contacta 1 vez al activar</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Decisiones clave de diseño</h3>
+  <ul style="color: #d1d5db; font-size: 14px; line-height: 1.8;">
+    <li><strong style="color:#86efac">Astro como build estático:</strong> El dashboard se compila a HTML/JS/CSS y NestJS lo sirve con <code>ServeStaticModule</code>. Elimina la necesidad de un segundo servidor.</li>
+    <li><strong style="color:#86efac">NestJS como proceso hijo:</strong> Electron arranca NestJS como <code>child_process.fork()</code>. Si NestJS falla, Electron puede reiniciarlo sin afectar la UI.</li>
+    <li><strong style="color:#86efac">License Guard en NestJS:</strong> Un interceptor global en NestJS bloquea todas las rutas si la licencia expiró o no fue activada. La UI de activación es la única ruta libre.</li>
+    <li><strong style="color:#86efac">Machine ID:</strong> Se calcula con <code>node-machine-id</code> — usa el UUID del hardware del OS, no la MAC address (que puede cambiar).</li>
+  </ul>
+</div>

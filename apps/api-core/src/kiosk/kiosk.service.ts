@@ -9,6 +9,7 @@ import { CreateOrderDto } from '../orders/dto/create-order.dto';
 import { EntityNotFoundException } from '../common/exceptions';
 import { RegisterNotOpenException } from '../orders/exceptions/orders.exceptions';
 import { STOCK_STATUS, StockStatus } from '../events/kiosk.events';
+import { TIMEZONE } from '../config';
 
 export interface MenuItemEntry {
   id: string;
@@ -63,16 +64,32 @@ export class KioskService {
     return this.ordersService.createOrder(restaurant.id, session.id, dto);
   }
 
-  private getCurrentDayAndTime(): { currentDay: string; currentTime: string } {
-    const now = new Date();
-    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  getCurrentDayAndTime(now = new Date()): { currentDay: string; currentTime: string } {
+    const DAY_MAP: Record<string, string> = {
+      Mon: 'MON', Tue: 'TUE', Wed: 'WED', Thu: 'THU', Fri: 'FRI', Sat: 'SAT', Sun: 'SUN',
+    };
+
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: TIMEZONE,
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(now);
+
+    const weekday = parts.find(p => p.type === 'weekday')?.value ?? '';
+    const hour = parts.find(p => p.type === 'hour')?.value ?? '00';
+    const minute = parts.find(p => p.type === 'minute')?.value ?? '00';
+    // Intl with hour12:false may return "24" for midnight; normalize
+    const normalizedHour = hour === '24' ? '00' : hour;
+
     return {
-      currentDay: days[now.getDay()],
-      currentTime: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+      currentDay: DAY_MAP[weekday] ?? weekday.toUpperCase().slice(0, 3),
+      currentTime: `${normalizedHour}:${minute}`,
     };
   }
 
-  private isMenuAvailable(
+  isMenuAvailable(
     menu: { active: boolean; daysOfWeek?: string | null; startTime?: string | null; endTime?: string | null },
     currentDay: string,
     currentTime: string,
