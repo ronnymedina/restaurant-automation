@@ -19,6 +19,7 @@ import { KioskModule } from './kiosk/kiosk.module';
 import { PrintModule } from './print/print.module';
 import { KitchenModule } from './kitchen/kitchen.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { TablesModule } from './tables/tables.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { UploadsModule } from './uploads/uploads.module';
     PrintModule,
     KitchenModule,
     UploadsModule,
+    TablesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
