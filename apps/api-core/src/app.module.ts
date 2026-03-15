@@ -20,6 +20,7 @@ import { PrintModule } from './print/print.module';
 import { KitchenModule } from './kitchen/kitchen.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { TablesModule } from './tables/tables.module';
+import { ReservationsModule } from './reservations/reservations.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { TablesModule } from './tables/tables.module';
     KitchenModule,
     UploadsModule,
     TablesModule,
+    ReservationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
