@@ -1,0 +1,95 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+---
+
+<DashboardLayout>
+  <div class="space-y-6">
+    <div class="flex justify-between items-center">
+      <h2 class="text-2xl font-bold text-slate-800">Configuración</h2>
+    </div>
+
+    <!-- Reservas -->
+    <div class="bg-white rounded-xl border border-slate-200 p-6">
+      <h3 class="text-lg font-semibold text-slate-800 mb-4">Reservas</h3>
+      <form id="settingsFormEl" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <div>
+          <label for="durationInput" class="block text-sm font-medium text-slate-700 mb-1">
+            Duración estimada por reserva (minutos)
+          </label>
+          <input
+            type="number"
+            id="durationInput"
+            min="15"
+            max="480"
+            required
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div class="flex gap-2 items-end">
+          <button id="saveBtn" type="submit"
+            class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed">
+            Guardar
+          </button>
+        </div>
+      </form>
+      <p id="successMsg" class="hidden mt-3 text-sm text-green-600">Configuración guardada</p>
+      <p id="errorMsg" class="hidden mt-3 text-sm text-red-600"></p>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  import { apiFetch } from '../../lib/api';
+
+  const formEl = document.getElementById('settingsFormEl') as HTMLFormElement;
+  const durationInput = document.getElementById('durationInput') as HTMLInputElement;
+  const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
+  const successMsg = document.getElementById('successMsg')!;
+  const errorMsg = document.getElementById('errorMsg')!;
+
+  async function loadSettings() {
+    const res = await apiFetch('/v1/restaurants/settings');
+    if (!res.ok) {
+      errorMsg.textContent = 'Error al cargar la configuración';
+      errorMsg.classList.remove('hidden');
+      return;
+    }
+    const data = await res.json();
+    durationInput.value = String(data.defaultReservationDuration);
+  }
+
+  formEl.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    successMsg.classList.add('hidden');
+    errorMsg.classList.add('hidden');
+
+    saveBtn.textContent = 'Guardando...';
+    saveBtn.disabled = true;
+
+    try {
+      const res = await apiFetch('/v1/restaurants/settings', {
+        method: 'PATCH',
+        body: JSON.stringify({ defaultReservationDuration: Number(durationInput.value) }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        errorMsg.textContent = data?.message || 'Error al guardar la configuración';
+        errorMsg.classList.remove('hidden');
+        return;
+      }
+
+      successMsg.classList.remove('hidden');
+      setTimeout(() => successMsg.classList.add('hidden'), 4000);
+    } catch {
+      errorMsg.textContent = 'Error de red al guardar la configuración';
+      errorMsg.classList.remove('hidden');
+    } finally {
+      saveBtn.textContent = 'Guardar';
+      saveBtn.disabled = false;
+    }
+  });
+
+  loadSettings();
+</script>
