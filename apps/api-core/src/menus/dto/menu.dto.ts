@@ -5,8 +5,6 @@ export class MenuItemDto {
   @ApiProperty() id: string;
   @ApiProperty() menuId: string;
   @ApiProperty() productId: string;
-  @ApiPropertyOptional({ nullable: true, description: 'Precio override; null usa el precio del producto' }) price: number | null;
-  @ApiPropertyOptional({ nullable: true, description: 'Stock específico; null usa el stock global del producto' }) stock: number | null;
   @ApiPropertyOptional({ nullable: true, example: 'Para Empezar' }) sectionName: string | null;
   @ApiProperty({ example: 0 }) order: number;
   @ApiProperty() createdAt: Date;

@@ -47,3 +47,6 @@ export const KITCHEN_TOKEN_EXPIRY_DAYS = Number(process.env.KITCHEN_TOKEN_EXPIRY
 
 // timezone — used for menu schedule comparisons (IANA name, e.g. 'America/Bogota')
 export const TIMEZONE = process.env.TIMEZONE || 'America/Bogota';
+
+// print — if true, prints customer receipt immediately on order creation (not just on payment)
+export const PRINT_CUSTOMER_ON_CREATE = process.env.PRINT_CUSTOMER_ON_CREATE === 'true';

@@ -2,7 +2,6 @@ import {
   IsString,
   IsNotEmpty,
   IsOptional,
-  IsNumber,
   IsInt,
   MaxLength,
   IsUUID,
@@ -14,16 +13,6 @@ export class CreateMenuItemDto {
   @IsUUID()
   @IsNotEmpty()
   productId: string;
-
-  @ApiPropertyOptional({ example: 9.99, description: 'Precio override (si no se indica, usa el precio del producto)' })
-  @IsOptional()
-  @IsNumber()
-  price?: number;
-
-  @ApiPropertyOptional({ example: 20, description: 'Stock específico en este menú (null = usa stock global)' })
-  @IsOptional()
-  @IsInt()
-  stock?: number;
 
   @ApiPropertyOptional({ example: 'Para Empezar', maxLength: 255, description: 'Sección visual en la carta' })
   @IsOptional()
