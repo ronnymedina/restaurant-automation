@@ -1,24 +1,29 @@
-# Desktop Packaging & License System — Design Spec
+# Desktop Packaging, Cloud Distribution & License System — Design Spec
 
 **Date:** 2026-03-18
 **Status:** Draft
 
 ## Overview
 
-Convert the existing NestJS + Astro restaurant management system into a distributable desktop application sold via one-time license purchase. The app runs fully on the local network (LAN), requires no ongoing internet connection after license activation, and is distributed as a native installer for macOS and Windows.
+Convert the existing NestJS + Astro restaurant management system into a distributable product with two independent delivery modes, both sold with source-code protection:
+
+1. **Desktop (Electron)** — one-time license, local LAN install at the restaurant
+2. **Cloud SaaS** — owner-managed Railway deployment per client, required for integrations that need a public HTTPS endpoint (payment webhooks, etc.)
+
+The obfuscation and binary compilation is a **shared build step** decoupled from both distribution modes, so the same protected artifact is consumed by the desktop packager and the cloud deployment pipeline.
 
 ---
 
 ## Goals
 
-- Package the software as a native desktop app installable on macOS and Windows
-- Sell via one-time license with hardware binding (one license = one machine)
-- 15-day free trial without requiring a license key
-- Protect source code from reverse engineering via obfuscation + binary compilation
-- macOS installer signed and notarized with existing Apple Developer certificate
-- Windows installer unsigned for now (SmartScreen warning acceptable at current stage)
-- Auto-start on system boot, no manual intervention required
-- Simple manual license management (no dashboard, tracked in a spreadsheet)
+- Two distribution modes: desktop (Electron) and cloud SaaS (Railway)
+- Protect source code in both modes via obfuscation + bytecode compilation
+- Desktop: one-time license with hardware binding and 15-day trial
+- Cloud: instance-level license key (no hardware binding)
+- macOS installer signed and notarized (existing Apple Developer certificate)
+- Windows installer unsigned for now (SmartScreen warning acceptable)
+- Auto-start on boot for desktop mode; no manual intervention required
+- Simple manual license management (spreadsheet, no dashboard)
 
 ---
 
@@ -31,127 +36,183 @@ apps/
 ├── ui-storefront/     # Astro kiosk (existing)
 ├── desktop/           # Electron wrapper (new)
 └── license-server/    # NestJS license API (new)
+
+packages/
+└── build-tools/       # Shared obfuscation + bytecode compilation scripts (new)
+    ├── scripts/
+    │   ├── obfuscate.ts        # javascript-obfuscator step
+    │   ├── compile-bytecode.ts # bytenode → .jsc (for cloud)
+    │   └── compile-binary.ts   # @yao-pkg/pkg → standalone binary (for desktop)
+    └── package.json
 ```
 
 ---
 
-## Architecture
+## Distribution Modes
 
-In production (desktop mode), all components run as a single installed application:
+### Mode 1 — Desktop (Electron)
 
 ```
-[Electron main process]
-        │
-        └── spawn → [NestJS binary (@yao-pkg/pkg compiled)]
-                         │
-                         ├── serves /public → Astro static files (dashboard + storefront)
-                         ├── SQLite database (in userData directory)
-                         ├── WebSocket (Socket.IO)
-                         └── Printer access (local network)
+PC del restaurante
+└── restaurant-pos.exe / .app   (Electron)
+    ├── Electron main process
+    │   ├── License Guard (lee license.enc, verifica RSA offline)
+    │   ├── Spawns NestJS standalone binary (localhost:{PORT})
+    │   └── Opens BrowserWindow → localhost:{PORT}
+    └── NestJS standalone binary (api-core compiled by @yao-pkg/pkg)
+        ├── REST API + Socket.IO
+        ├── SQLite (better-sqlite3) in userData/
+        └── ServeStaticModule → ui-dashboard/dist/ + ui-storefront/dist/
 
-[Electron BrowserWindow] → http://localhost:{PORT}
+Tablet kiosk (LAN)    → browser → 192.168.x.x:{PORT}/storefront
+Pantalla cocina (LAN) → browser → 192.168.x.x:{PORT}/kitchen
+Dashboard adicional   → browser → 192.168.x.x:{PORT}
 ```
 
-- Electron is the native shell: manages window, tray, auto-launch, and lifecycle
-- NestJS binary is the only child process
-- Astro frontends compile to **static output** (HTML/CSS/JS) served directly by NestJS
-- In development, all apps continue running separately via Turborepo as today
+### Mode 2 — Cloud SaaS
 
-### Required: Convert Astro apps to static output
+```
+Railway (por cliente o instancia compartida)
+└── Docker container
+    └── NestJS bytecode (bytenode .jsc, requires Node.js runtime)
+        ├── REST API + Socket.IO (HTTPS via Railway domain)
+        ├── PostgreSQL (Railway-managed)
+        └── ServeStaticModule → static Astro files
 
-Both `ui-dashboard` and `ui-storefront` currently use `output: 'server'` with the Node adapter. Before the build pipeline can work, both must be changed to `output: 'static'` with the Node adapter removed. This is valid because both UIs are client-side applications with no Astro server-side API routes or middleware dependencies. Any dynamic data fetching uses the NestJS API directly from the browser.
+Dispositivos del cliente → browser → https://cliente.railway.app
+Payment webhooks        → POST https://cliente.railway.app/webhooks/...
+```
 
-**Three pages currently use `prerender = false` and read `Astro.params` at the server level.** These require a small code change before the static conversion will work — the parameter reading must be moved to a client-side `window.location.pathname` split:
-
-- `apps/ui-dashboard/src/pages/dash/menus/[id].astro` — reads `Astro.params.id` to populate a `data-menu-id` attribute
-- `apps/ui-dashboard/src/pages/kitchen/[slug].astro` — dynamic route with `prerender = false`
-- `apps/ui-storefront/src/pages/kiosk/[slug].astro` — reads `Astro.params.slug` to populate a `data-slug` attribute
-
-In all three cases the parameter is already consumed by a client-side `<script>` block reading `dataset.*`, so the migration to `window.location.pathname.split('/')` is mechanical and low-risk.
+The owner deploys and manages cloud instances. The client never has access to source code or binary files.
 
 ---
 
-## Build Pipeline
+## Shared Build Step (`packages/build-tools`)
+
+This package runs before either distribution mode is packaged. It produces two protected artifacts from the same NestJS source:
 
 ```
-PHASE 1 — Build frontends (static)
-  astro build (ui-dashboard)   → dist/  [static HTML/CSS/JS]
-  astro build (ui-storefront)  → dist/  [static HTML/CSS/JS]
-  javascript-obfuscator dist/ (conservative settings, see note below)
-  copy to apps/api-core/public/
+STEP 1 — Compile NestJS TypeScript
+  nest build → apps/api-core/dist/
 
-PHASE 2 — Compile NestJS to binary
-  nest build                                    → dist/
-  javascript-obfuscator dist/ (conservative)   → dist-obfuscated/
-  @yao-pkg/pkg dist-obfuscated/main.js         → api-core-binary
-  (targets: node22-win-x64, node22-macos-x64, node22-macos-arm64)
+STEP 2 — Obfuscate (conservative settings)
+  javascript-obfuscator dist/ → dist-obfuscated/
+  Settings: renameGlobals:false, stringArray:true, rotateStringArray:true,
+            deadCodeInjection:false
+  (NestJS reflect-metadata and decorator metadata must survive transformation)
 
-  Extract alongside binary (must be in resources/):
-    - better-sqlite3.node     (native addon, platform-specific)
-    - prisma query engine      (platform-specific binary)
-    - uploads/                 (mutable directory, see userData section)
+STEP 3a — Bytecode for cloud (bytenode)
+  bytenode --compile dist-obfuscated/**/*.js → dist-bytecode/ (.jsc files)
+  Requires Node.js runtime on the target server.
+  Used by: cloud SaaS deployment
 
-PHASE 3 — Assemble Electron app
-  apps/desktop/resources/
-    ├── api-core-binary         (NestJS compiled binary)
-    ├── better-sqlite3.node     (native addon)
-    ├── prisma-query-engine     (Prisma engine binary)
-    └── public/                 (obfuscated Astro static files)
+STEP 3b — Standalone binary for desktop (@yao-pkg/pkg)
+  @yao-pkg/pkg dist-obfuscated/main.js → api-core-{platform}
+  Targets: node22-win-x64, node22-macos-x64, node22-macos-arm64
+  Embeds Node.js — no runtime required on the client machine.
+  Used by: Electron desktop app
 
-  Note: database.sqlite and uploads/ live in userData (not resources/),
-  so they persist across app updates.
-
-PHASE 4 — electron-builder packaging
-  macOS → .dmg  (signed + notarized via Apple Developer certificate)
-  Windows → .exe installer (no signing at this stage)
-  All assets packed into encrypted .asar
-
-  ⚠️ Auto-update artifacts (delta zips, new .dmg) must also pass
-  Apple notarization — this must be automated in the CI/CD pipeline,
-  not only for the initial release.
+Turborepo scripts:
+  turbo run build:protected:cloud    → runs steps 1 + 2 + 3a
+  turbo run build:protected:desktop  → runs steps 1 + 2 + 3b
 ```
 
-**Three layers of source protection:**
-1. `javascript-obfuscator` — renames variables, injects dead code, encrypts strings
-2. `@yao-pkg/pkg` — compiles JS to native binary; no `.js` files are recoverable
-3. Encrypted `.asar` — protects frontend assets inside the Electron package
-
-**Note on obfuscation settings:** NestJS uses `reflect-metadata` and TypeScript decorators that rely on preserved class/property names. `javascript-obfuscator` must be run with conservative settings (`renameGlobals: false`, `rotateStringArray: true`, `stringArray: true`, `deadCodeInjection: false`) to avoid breaking decorator metadata at runtime. Test the obfuscated build end-to-end before shipping.
-
-**Note on `@yao-pkg/pkg`:** The original `pkg` by Vercel was archived in 2023 and only supports up to Node 18. `@yao-pkg/pkg` is the community-maintained fork with Node 20/22 support and active maintenance.
-
-**Note on native addons:** `better-sqlite3` and the Prisma query engine are native Node addons (`.node` binaries). They cannot be bundled inside the `pkg` virtual filesystem. They must be placed in `resources/` alongside the compiled binary and their paths resolved at runtime via environment variables:
+**Note on native addons:** `better-sqlite3` and the Prisma query engine are native `.node` binaries that cannot be bundled inside `pkg`'s virtual filesystem. They must be extracted to `resources/` alongside the binary and resolved at runtime via:
 - `BETTER_SQLITE3_BINDING`: path to `better-sqlite3.node`
 - `PRISMA_QUERY_ENGINE_LIBRARY`: path to the Prisma engine binary
 
-**Note on Prisma schema migrations:** On app startup, before opening the BrowserWindow, the NestJS binary runs `prisma migrate deploy` against the `userData/database.sqlite`. The Prisma migration engine binary must also be included in `resources/`. This ensures schema upgrades are applied automatically when the user installs a new version, without losing existing data.
+**Note on `@yao-pkg/pkg`:** The original `pkg` by Vercel was archived in 2023 (Node 18 max). `@yao-pkg/pkg` is the community-maintained fork with Node 22 support.
 
-**Important pre-requisite:** The project currently uses `db push` for local development and has no `prisma/migrations/` directory. Before the first desktop build, `prisma migrate dev --name init` must be run once to generate the initial migration file. All subsequent schema changes must use `prisma migrate dev` (not `db push`) to keep migrations in sync.
+**Note on obfuscation + NestJS:** Test the obfuscated build end-to-end before shipping. Aggressive obfuscation settings break decorator metadata reflection.
 
-**Turborepo script:** `turbo run build:desktop` triggers all phases in order.
+---
+
+## Full Build Pipelines
+
+### Desktop build pipeline
+
+```
+1. build frontends (static)
+   astro build (ui-dashboard)  → dist/   [HTML/CSS/JS]
+   astro build (ui-storefront) → dist/   [HTML/CSS/JS]
+   copy both dists → apps/api-core/public/
+
+2. build:protected:desktop (packages/build-tools)
+   → api-core-{platform} standalone binary
+
+3. assemble Electron app
+   apps/desktop/resources/
+     ├── api-core-{platform}      (NestJS standalone binary)
+     ├── better-sqlite3.node      (native addon)
+     ├── prisma-query-engine      (Prisma engine binary)
+     ├── public/                  (Astro static files)
+     └── rsa-public.pem           (embedded RSA public key for license verification)
+
+4. electron-builder
+   macOS → .dmg  (signed + notarized via Apple Developer certificate)
+   Windows → .exe installer (no signing at this stage)
+   Encrypted .asar packaging
+   Electron Fuses: disable DevTools, disable remote debugging in production
+
+   ⚠️ Auto-update artifacts must also pass Apple notarization (automate in CI/CD)
+```
+
+### Cloud build pipeline
+
+```
+1. build frontends (static) — same as desktop step 1
+
+2. build:protected:cloud (packages/build-tools)
+   → dist-bytecode/ (.jsc files)
+
+3. Docker image
+   FROM node:22-alpine
+   COPY dist-bytecode/ ./
+   COPY public/ ./public/
+   COPY prisma/ ./prisma/
+   CMD ["node", "-r", "bytenode", "main.jsc"]
+
+4. Deploy to Railway
+   → per-client project or shared instance
+   → Railway-managed PostgreSQL
+   → HTTPS domain provided by Railway
+```
+
+---
+
+## Required: Convert Astro apps to static output
+
+Both `ui-dashboard` and `ui-storefront` currently use `output: 'server'` with the Node adapter. Both must be changed to `output: 'static'` with the Node adapter removed. Both UIs are client-side applications — all dynamic data fetching hits the NestJS API directly from the browser.
+
+**Three pages currently use `prerender = false` and read `Astro.params` server-side.** These require moving parameter reading to client-side `window.location.pathname` parsing before the static conversion works:
+
+- `apps/ui-dashboard/src/pages/dash/menus/[id].astro` — reads `Astro.params.id`
+- `apps/ui-dashboard/src/pages/kitchen/[slug].astro` — dynamic route with `prerender = false`
+- `apps/ui-storefront/src/pages/kiosk/[slug].astro` — reads `Astro.params.slug`
+
+In all three cases the parameter is already consumed by a client-side `<script>` block reading `dataset.*`, so the migration is mechanical.
 
 ---
 
 ## License System (`apps/license-server`)
 
-A minimal NestJS API deployed to Railway. No UI. Owner accesses it manually to generate keys and check status.
+A minimal NestJS API deployed to Railway. No UI. Owner accesses it manually via API calls to generate and manage keys.
 
 ### Database
 
 **Production (Railway):** PostgreSQL (Railway-managed). SQLite must not be used on Railway due to ephemeral filesystem.
-**Local development:** SQLite (via the existing project pattern).
+**Local development:** SQLite.
 
 ### Schema
 
 ```sql
 licenses (
-  id           TEXT PRIMARY KEY,
-  key          TEXT UNIQUE NOT NULL,
-  fingerprint  TEXT,              -- null until activated
-  activatedAt  DATETIME,
-  platform     TEXT,              -- 'win32' | 'darwin'
-  revoked      BOOLEAN DEFAULT 0,
-  createdAt    DATETIME DEFAULT CURRENT_TIMESTAMP
+  key          TEXT PRIMARY KEY,   -- XXXX-XXXX-XXXX-XXXX
+  machine_id   TEXT,               -- null until activated (desktop only)
+  platform     TEXT,               -- 'win32' | 'darwin' | 'cloud'
+  mode         TEXT,               -- 'desktop' | 'cloud'
+  activated_at DATETIME,
+  status       TEXT                -- 'available' | 'active' | 'revoked'
 )
 ```
 
@@ -159,44 +220,54 @@ licenses (
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/licenses/generate` | API key (owner only) | Generate a new license key |
-| POST | `/licenses/activate` | None | Validate key + bind to hardware |
-| GET | `/licenses/:key/status` | API key (owner only) | Check license status |
-| POST | `/licenses/:key/reset-fingerprint` | API key (owner only) | Clear hardware binding for re-activation (customer hardware replacement) |
+| POST | `/licenses/generate` | API key (owner) | Generate a new license key |
+| POST | `/licenses/activate` | None | Validate key + bind to hardware (desktop) or instance (cloud) |
+| POST | `/licenses/deactivate` | API key (owner) | Revoke or free a machine slot (support use) |
+| GET | `/licenses/:key/status` | API key (owner) | Check license status |
 
-### Hardware Fingerprint
+### Hardware Fingerprint (desktop mode only)
 
-Computed on the client at activation time using a **2-of-3 tolerance model**:
+Uses `node-machine-id` to obtain a stable OS-level UUID (based on hardware identifiers, more stable than MAC+CPU+hostname). Single value, no tolerance model needed — if the machine changes, the owner deactivates the old machine via `/deactivate` and the customer reactivates on the new one.
+
+Cloud mode uses the license key itself as the instance identifier — no hardware binding.
+
+### Activation Flow (desktop)
+
 ```
-components = [MAC address, CPU model, machine hostname]
-fingerprint = SHA-256(sorted(components).join('|'))
+App                          License Server (Railway)
+ │                                    │
+ │  POST /activate                    │
+ │  { licenseKey, machineId,          │
+ │    platform: 'win32'|'darwin' } ──►│  verify key exists + not revoked
+ │                                    │  verify machineId not bound elsewhere
+ │◄── { token: JWT signed RSA-256 } ──│  register machineId + activatedAt
+ │                                    │
+ │  stores token in userData/license.enc (AES-256 encrypted)
 ```
 
-On validation, at least 2 of the 3 components must match the stored fingerprint. This tolerates NIC replacement, hostname changes, or OS reinstalls without invalidating the license, while still preventing sharing across machines.
+### Offline Verification (every subsequent launch)
 
-If all 3 components change (e.g., complete hardware replacement), the owner uses the `/reset-fingerprint` endpoint to clear the binding, then the customer re-activates on the new machine.
+```typescript
+// No internet required
+const token = readAndDecrypt('userData/license.enc')
+const payload = jwt.verify(token, RSA_PUBLIC_KEY)  // public key embedded in binary
+assert(payload.machineId === getMachineId())        // prevents license.enc copying
+// Pass → start NestJS
+```
 
-### Activation Flow
-
-1. Client submits `{ key, fingerprint, platform }` to `/licenses/activate`
-2. Server validates: key exists, not revoked, fingerprint matches (2-of-3) or is unbound
-3. On success: returns a signed JWT `{ activatedAt, hwHash, version: "permanent" }` signed with a symmetric secret embedded in both the license-server and the desktop binary
-4. Client stores JWT encrypted in `userData/activation.enc`
-5. Every subsequent launch validates the JWT locally (no network call required)
-
-**Security note on the JWT secret:** The symmetric JWT signing secret is embedded in the compiled binary. A determined attacker with sufficient resources could extract it from the binary and forge activation tokens. This is an accepted tradeoff for a B2B restaurant management tool sold directly to non-technical buyers. If this risk becomes unacceptable at scale, migrate to asymmetric signing (private key on server, public key in binary).
+**RSA asymmetric signing:** The private key lives only on the license server. The public key is embedded in the Electron binary (in `resources/rsa-public.pem`). Extracting the public key from the binary does not allow forging tokens — only the server can sign new ones. This is significantly stronger than symmetric JWT.
 
 ---
 
-## Trial Period
+## Trial Period (desktop only)
 
-- On first launch without an activation token, the app records `firstLaunchAt` in:
+- On first launch without a license token, records `firstLaunchAt` in:
   1. `userData/trial.enc` (AES-256 encrypted)
-  2. OS-level secondary store: Windows Registry key / macOS `UserDefaults`
-- Every launch checks elapsed time from both stores; uses the earliest recorded date
-- `< 15 days` → app runs normally, shows banner: "X days remaining in trial"
-- `≥ 15 days` → app shows activation screen, all features blocked until a valid license key is entered
-- Deleting `trial.enc` alone does not reset the trial if the OS-level record exists
+  2. OS-level backup: Windows Registry key / macOS Keychain
+- Every launch uses the earliest date found across both stores
+- `≤ 15 days` → app runs normally, banner: "X days remaining in trial"
+- `> 15 days` → activation screen shown; NestJS does not start
+- Deleting `trial.enc` alone does not reset the trial (OS store persists)
 
 ---
 
@@ -204,52 +275,55 @@ If all 3 components change (e.g., complete hardware replacement), the owner uses
 
 ### Required code change in `api-core`
 
-A `/health` endpoint must be added to `api-core` (e.g., `GET /health` returning `{ status: 'ok' }`). Electron polls this endpoint at startup to know when NestJS is ready before opening the BrowserWindow.
+- Add `GET /health` endpoint returning `{ status: 'ok' }` — Electron polls this to detect when NestJS is ready
+- Respect `UPLOADS_PATH` env var for file upload directory (defaults to `process.cwd()/uploads` today; must write to `userData/uploads/` in desktop mode)
 
 ### Lifecycle
 
 ```
 System boot
   └── Electron auto-launches (registered at install time)
-        └── Validates license/trial locally
-        └── Spawns NestJS binary on a random available port
-            with env vars: PRISMA_QUERY_ENGINE_LIBRARY, BETTER_SQLITE3_BINDING,
-                           DATABASE_URL=file://userData/database.sqlite,
-                           FRONTEND_URL=http://localhost:{PORT},
-                           UPLOADS_PATH (userData/uploads/)
+        └── Validates license/trial locally (RSA offline check)
+        └── Spawns NestJS standalone binary on random available port
+            env vars: PRISMA_QUERY_ENGINE_LIBRARY, BETTER_SQLITE3_BINDING,
+                      DATABASE_URL=file:///userData/database.sqlite,
+                      FRONTEND_URL=http://localhost:{PORT},
+                      UPLOADS_PATH=userData/uploads/
         └── Polls http://localhost:{PORT}/health every 500ms
-        └── Runs prisma migrate deploy on first launch of new version
+        └── Runs prisma migrate deploy (on first launch of each new version)
         └── Opens BrowserWindow once health check passes
 ```
 
 ### System Tray
 
-Always visible while app is running:
+Always visible:
 - "Open dashboard"
 - "Server status: running ✓"
 - "Quit" — terminates the NestJS process and exits Electron completely
 
-Closing the BrowserWindow (X button) hides the window but keeps the NestJS server running. The server continues accepting orders from kiosk devices on the LAN even when no window is visible. Only the tray "Quit" item fully shuts down the service.
+Closing the BrowserWindow (X button) hides the window but keeps NestJS running. The server continues accepting LAN orders while no window is visible. Only the tray "Quit" fully shuts down the service.
 
 ### User Data Directory
 
 ```
-userData/  (OS-managed, persists across updates)
-  ├── activation.enc     ← encrypted license JWT
-  ├── trial.enc          ← encrypted first launch date
-  ├── database.sqlite    ← restaurant data
-  └── uploads/           ← product images and file uploads
+userData/  (OS-managed, persists across app updates)
+  ├── license.enc       ← RSA-verified activation token (AES encrypted)
+  ├── trial.enc         ← first launch timestamp (AES encrypted)
+  ├── database.sqlite   ← restaurant data
+  └── uploads/          ← product images and file uploads
 ```
 
-`api-core` must respect `UPLOADS_PATH` env var (set by Electron at spawn) to write uploads to `userData/uploads/` rather than `process.cwd()/uploads`. This ensures images survive app updates.
+### Protection Layers
 
-### Auto-updates
+| Layer | Tool | What it protects | Effectiveness |
+|-------|------|-----------------|---------------|
+| 1 | javascript-obfuscator | Renames vars, encrypts strings, injects dead code | Medium |
+| 2 | bytenode / @yao-pkg/pkg | Compiles JS → V8 bytecode or standalone binary | High |
+| 3 | Encrypted .asar | Protects Electron assets from extraction | Medium |
+| 4 | Electron Fuses | Disables DevTools and remote debugger in production | Medium |
+| 5 | RSA server signing | Token valid only if generated by your server; real business barrier | Very High |
 
-- `electron-updater` checks for updates from GitHub Releases
-- Update is downloaded in the background
-- User sees: "Update available — will install on next restart"
-- No forced restarts during service hours
-- Both the initial release and all update artifacts must be notarized (macOS) — automate via CI/CD (e.g., GitHub Actions with `notarize` step)
+The goal is not perfect protection but raising the cost of cracking above the cost of a license.
 
 ---
 
@@ -257,8 +331,31 @@ userData/  (OS-managed, persists across updates)
 
 | Platform | Status | Notes |
 |----------|--------|-------|
-| macOS | Signed + notarized | Uses existing Apple Developer certificate via `electron-builder`. All update artifacts must also be notarized. |
-| Windows | Unsigned (for now) | SmartScreen warning shown; user clicks "More info → Run anyway". Acceptable for direct sales. |
+| macOS | Signed + notarized | Apple Developer certificate via `electron-builder`. All auto-update artifacts must also be notarized — automate in CI/CD. |
+| Windows | Unsigned (for now) | SmartScreen warning; user clicks "More info → Run anyway". Acceptable for direct sales. |
+
+---
+
+## Prisma Migration Strategy
+
+The project currently uses `db push` for local development and has no `prisma/migrations/` directory.
+
+**One-time setup before first desktop build:** run `prisma migrate dev --name init` to generate the initial migration file. All subsequent schema changes must use `prisma migrate dev` (not `db push`) to maintain the migration history.
+
+At desktop startup, `prisma migrate deploy` runs automatically before NestJS starts — ensuring the schema is up to date after any app update without losing existing data.
+
+---
+
+## Verification Checklist
+
+1. **Trial:** Install binary, verify it starts without a key. Delete `trial.enc` → verify OS keychain backup keeps the original date.
+2. **Trial expiry:** Set `firstLaunchAt` to 16 days ago → verify activation screen appears and NestJS does not start.
+3. **Activation:** Run license server locally, activate with a test key → verify token is saved. Disconnect internet → verify app starts normally.
+4. **Anti-copy:** Copy `license.enc` to another machine → verify `machineId` mismatch blocks startup.
+5. **Double activation:** Attempt to activate the same key on two machines → verify 409 error.
+6. **Obfuscation:** Extract `app.asar` → verify `.jsc` files are unreadable and entry files are obfuscated.
+7. **Cloud:** Deploy Docker image to Railway → verify app starts, serves static files, and HTTPS webhooks reach the instance.
+8. **Migrations:** Install old version, add data, install new version with schema change → verify data survives and schema is updated.
 
 ---
 
@@ -266,5 +363,5 @@ userData/  (OS-managed, persists across updates)
 
 - License management dashboard (manual tracking in spreadsheet)
 - Windows code signing certificate (deferred until revenue justifies cost)
-- Multi-seat licenses (one license = one machine only)
-- Online-only features beyond initial activation
+- Multi-seat licenses (one license = one machine only, for desktop)
+- Self-hosted binary distribution for cloud (future mode)
