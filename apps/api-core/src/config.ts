@@ -1,3 +1,5 @@
+import { join } from 'path';
+
 // app
 export const PORT = process.env.PORT || 3000;
 export const DATABASE_URL = process.env.DATABASE_URL || 'file:./dev.db';
@@ -50,3 +52,12 @@ export const TIMEZONE = process.env.TIMEZONE || 'America/Bogota';
 
 // print — if true, prints customer receipt immediately on order creation (not just on payment)
 export const PRINT_CUSTOMER_ON_CREATE = process.env.PRINT_CUSTOMER_ON_CREATE === 'true';
+
+// file paths — overridden by Electron in desktop mode
+export const UPLOADS_PATH = process.env.UPLOADS_PATH
+  ? process.env.UPLOADS_PATH
+  : join(process.cwd(), 'uploads');
+
+export const API_PUBLIC_PATH = process.env.API_PUBLIC_PATH
+  ? process.env.API_PUBLIC_PATH
+  : join(process.cwd(), 'public');

@@ -3,9 +3,10 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import sharp from 'sharp';
+import { UPLOADS_PATH } from '../config';
 
 const TEN_MB = 10 * 1024 * 1024;
-const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'products');
+const UPLOADS_DIR = path.join(UPLOADS_PATH, 'products');
 
 @Injectable()
 export class UploadsService {

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
-import { join } from 'path';
 import { AppController } from './app.controller';
+import { UPLOADS_PATH, API_PUBLIC_PATH } from './config';
 import { AppService } from './app.service';
 import { EventsModule } from './events/events.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -25,10 +25,17 @@ import { ReservationsModule } from './reservations/reservations.module';
 @Module({
   imports: [
     ConfigModule.forRoot(),
-    ServeStaticModule.forRoot({
-      rootPath: join(process.cwd(), 'uploads'),
-      serveRoot: '/uploads',
-    }),
+    ServeStaticModule.forRoot(
+      {
+        rootPath: UPLOADS_PATH,
+        serveRoot: '/uploads',
+      },
+      {
+        rootPath: API_PUBLIC_PATH,
+        serveRoot: '/',
+        serveStaticOptions: { fallthrough: true },
+      },
+    ),
     EventsModule,
     PrismaModule,
     RestaurantsModule,
