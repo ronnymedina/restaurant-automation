@@ -1,11 +1,9 @@
 ---
-export const prerender = false;
 import DashboardLayout from '../../../layouts/DashboardLayout.astro';
-const { id } = Astro.params;
 ---
 
 <DashboardLayout>
-  <div class="space-y-6" data-menu-id={id}>
+  <div class="space-y-6" id="menuContainer">
     <!-- Header -->
     <div class="flex justify-between items-center">
       <div>
@@ -102,7 +100,7 @@ const { id } = Astro.params;
     MON: 'Lun', TUE: 'Mar', WED: 'Mié', THU: 'Jue', FRI: 'Vie', SAT: 'Sáb', SUN: 'Dom',
   };
 
-  const menuId = document.querySelector('[data-menu-id]')!.getAttribute('data-menu-id')!;
+  const menuId = window.location.pathname.split('/').filter(Boolean).pop()!;
   let allProducts: any[] = [];
   let pickerSection = '';
 
