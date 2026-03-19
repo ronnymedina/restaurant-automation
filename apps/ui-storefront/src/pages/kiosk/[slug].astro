@@ -1,12 +1,10 @@
 ---
-export const prerender = false;
+export const getStaticPaths = () => [{ params: { slug: '_' } }];
 import KioskLayout from '../../layouts/KioskLayout.astro';
-
-const { slug } = Astro.params;
 ---
 
 <KioskLayout>
-  <div id="kioskApp" class="h-screen flex flex-col bg-amber-50 text-slate-800" data-slug={slug}>
+  <div id="kioskApp" class="h-screen flex flex-col bg-amber-50 text-slate-800">
     <!-- Header -->
     <header class="bg-emerald-700 text-white px-4 py-3 flex items-center justify-between shadow-md">
       <h1 id="restaurantName" class="text-lg font-bold truncate">Cargando...</h1>
@@ -129,7 +127,7 @@ const { slug } = Astro.params;
   import { kioskFetch } from '../../lib/kiosk-api';
   import { createKioskSocket } from '../../lib/socket';
 
-  const slug = document.getElementById('kioskApp')!.dataset.slug!;
+  const slug = window.location.pathname.split('/').filter(Boolean).pop()!;
 
   // State
   let menus: any[] = [];
