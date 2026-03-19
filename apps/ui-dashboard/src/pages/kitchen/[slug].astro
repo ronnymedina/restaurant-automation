@@ -1,4 +1,7 @@
 ---
+// Required by Astro static mode — generates a placeholder static file at /kitchen/_/
+// The actual slug is read at runtime from window.location.pathname in the <script> block.
+export const getStaticPaths = () => [{ params: { slug: '_' } }];
 ---
 
 <!DOCTYPE html>
