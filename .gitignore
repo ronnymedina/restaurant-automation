@@ -11,3 +11,6 @@ apps/api-core/public/*
 apps/api-core/dist-bytecode/
 apps/api-core/dist-binary/
 
+# RSA private key — never commit
+apps/license-server/keys/
+
