@@ -1,0 +1,6 @@
+[build]
+dockerfilePath = "apps/license-server/Dockerfile"
+
+[deploy]
+startCommand = "npx prisma migrate deploy && node dist/main"
+restartPolicyType = "ON_FAILURE"
