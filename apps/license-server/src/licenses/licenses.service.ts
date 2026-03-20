@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
+import { PrismaClient } from '@prisma/client';
 import { GenerateLicenseDto } from './dto/generate-license.dto';
 import { ActivateLicenseDto } from './dto/activate-license.dto';
 import { DeactivateLicenseDto } from './dto/deactivate-license.dto';
@@ -14,7 +15,7 @@ import { RSA_PRIVATE_KEY } from '../config';
 @Injectable()
 export class LicensesService {
   constructor(
-    private readonly prisma: any,
+    private readonly prisma: PrismaClient,
     private readonly jwt: JwtService,
   ) {}
 
