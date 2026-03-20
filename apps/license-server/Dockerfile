@@ -4,7 +4,7 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.24.0 --activate
 
 # Copy workspace manifests for install
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -19,7 +19,8 @@ COPY apps/license-server ./apps/license-server
 WORKDIR /app/apps/license-server
 
 # Patch schema to postgresql for production build
-RUN sed -i 's|provider = "sqlite"|provider = "postgresql"|' prisma/schema.prisma
+RUN sed -i 's|provider = "sqlite"|provider = "postgresql"|' prisma/schema.prisma && \
+    grep -q 'provider = "postgresql"' prisma/schema.prisma
 
 # Generate Prisma client
 RUN npx prisma generate
@@ -31,10 +32,14 @@ RUN npx nest build
 FROM node:22-alpine
 WORKDIR /app
 
-COPY --from=builder /app/apps/license-server/dist ./dist
-COPY --from=builder /app/apps/license-server/node_modules ./node_modules
-COPY --from=builder /app/apps/license-server/prisma ./prisma
+COPY --chown=node:node --from=builder /app/apps/license-server/dist ./dist
+COPY --chown=node:node --from=builder /app/apps/license-server/node_modules ./node_modules
+COPY --chown=node:node --from=builder /app/apps/license-server/prisma ./prisma
+
+ENV NODE_ENV=production
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+USER node
+
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node dist/main"]
