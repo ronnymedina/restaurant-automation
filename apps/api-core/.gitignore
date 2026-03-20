@@ -56,7 +56,7 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
-apps/api-core/dev.db
+dev.db
 
 # Uploaded files
 uploads/**

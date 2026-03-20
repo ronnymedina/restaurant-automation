@@ -3,3 +3,11 @@ dist
 .turbo
 *.log
 
+# api-core public dir — populated by build-tools copy-static at build time
+apps/api-core/public/*
+!apps/api-core/public/.gitkeep
+
+# api-core dist artifacts
+apps/api-core/dist-bytecode/
+apps/api-core/dist-binary/
+
