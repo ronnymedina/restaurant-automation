@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '../../..');
+const bytenode = resolve(__dirname, '../node_modules/.bin/bytenode');
 const distDir = resolve(root, 'apps/api-core/dist');
 const bytecodeDir = resolve(root, 'apps/api-core/dist-bytecode');
 
@@ -17,7 +18,7 @@ function compileDir(dir) {
     if (statSync(full).isDirectory()) {
       compileDir(full);
     } else if (entry.endsWith('.js')) {
-      execSync(`npx bytenode --compile "${full}"`);
+      execSync(`"${bytenode}" --compile "${full}"`, { stdio: 'inherit' });
       unlinkSync(full); // remove original .js after compiling to .jsc
     }
   }
