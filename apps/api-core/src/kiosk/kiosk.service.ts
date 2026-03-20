@@ -112,20 +112,7 @@ export class KioskService {
   }
 
   private buildSections(
-    items: Array<{
-      id: string;
-      sectionName?: string | null;
-      stock: number | null;
-      price: unknown;
-      product: {
-        id: string;
-        name: string;
-        description: string | null;
-        price: unknown;
-        imageUrl: string | null;
-        stock: number | null;
-      };
-    }>,
+    items: any[],
   ): Record<string, MenuItemEntry[]> {
     const sections: Record<string, MenuItemEntry[]> = {};
 
