@@ -69,7 +69,7 @@ describe('LicensesService', () => {
       machineId: null,
       key: 'KEY',
     });
-    mockPrisma.license.update.mockResolvedValue({});
+    mockPrisma.license.update.mockResolvedValue({ activatedAt: new Date('2026-01-01T00:00:00.000Z') });
     const result = await service.activate({
       licenseKey: 'KEY',
       machineId: 'my-machine',

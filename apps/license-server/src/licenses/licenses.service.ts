@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
-import { PrismaClient } from '@prisma/client';
+import { PrismaService } from '../prisma.service';
 import { GenerateLicenseDto } from './dto/generate-license.dto';
 import { ActivateLicenseDto } from './dto/activate-license.dto';
 import { DeactivateLicenseDto } from './dto/deactivate-license.dto';
@@ -15,7 +15,7 @@ import { RSA_PRIVATE_KEY } from '../config';
 @Injectable()
 export class LicensesService {
   constructor(
-    private readonly prisma: PrismaClient,
+    private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
   ) {}
 
@@ -42,7 +42,7 @@ export class LicensesService {
       throw new ConflictException('License already in use on another machine');
     }
 
-    await this.prisma.license.update({
+    const updatedLicense = await this.prisma.license.update({
       where: { key: dto.licenseKey },
       data: {
         machineId: dto.machineId,
@@ -57,7 +57,7 @@ export class LicensesService {
         licenseKey: dto.licenseKey,
         machineId: dto.machineId,
         platform: dto.platform,
-        activatedAt: new Date().toISOString(),
+        activatedAt: updatedLicense.activatedAt!.toISOString(),
       },
       {
         algorithm: 'RS256',
