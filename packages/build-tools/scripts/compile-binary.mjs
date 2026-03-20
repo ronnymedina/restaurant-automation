@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '../../..');
+const pkgBin = resolve(__dirname, '../node_modules/.bin/pkg');
 const entry = resolve(root, 'apps/api-core/dist/main.js');
 const outDir = resolve(root, 'apps/api-core/dist-binary');
 
@@ -19,7 +20,7 @@ const targets = [
 for (const target of targets) {
   const outFile = resolve(outDir, `api-core-${target}`);
   execSync(
-    `npx @yao-pkg/pkg "${entry}" --target ${target} --output "${outFile}"`,
+    `"${pkgBin}" "${entry}" --target ${target} --output "${outFile}"`,
     { stdio: 'inherit' }
   );
   console.log(`✓ Binary built: api-core-${target}`);
