@@ -23,10 +23,10 @@ RUN sed -i 's|provider = "sqlite"|provider = "postgresql"|' prisma/schema.prisma
     grep -q 'provider = "postgresql"' prisma/schema.prisma
 
 # Generate Prisma client
-RUN npx prisma generate
+RUN node_modules/.bin/prisma generate
 
 # Build TypeScript
-RUN npx nest build
+RUN node_modules/.bin/nest build
 
 # --- Runtime image ---
 FROM node:22-alpine
