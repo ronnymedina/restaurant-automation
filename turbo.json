@@ -12,15 +12,15 @@
     "lint": {},
     "copy-static": {
       "dependsOn": ["@restaurants/ui-dashboard#build", "@restaurants/ui-storefront#build"],
-      "outputs": ["apps/api-core/public/**"]
+      "cache": false
     },
     "build:cloud": {
       "dependsOn": ["api-core#build", "@restaurants/build-tools#copy-static"],
-      "outputs": ["apps/api-core/dist-bytecode/**"]
+      "cache": false
     },
     "build:desktop": {
       "dependsOn": ["api-core#build", "@restaurants/build-tools#copy-static"],
-      "outputs": ["apps/api-core/dist-binary/**"]
+      "cache": false
     }
   }
 }
