@@ -87,6 +87,55 @@ Por lo tanto, si agregas un nuevo paquete y quieres que participe en `pnpm build
 
 ---
 
+## Run in producction
+
+```bash
+
+# backend
+pnpm --filter @restaurants/api-core start:prod
+```
+
+---
+
+## Protección de código (ofuscación)
+
+> **Solo aplica para distribución a clientes. No usar en desarrollo local.**
+
+Cuando el software se entrega a un cliente — ya sea como una aplicación de escritorio (Electron) o como un servicio desplegado en su propio servidor — el código fuente del backend debe ser protegido antes de entregarlo. La ofuscación transforma el JS compilado en código ilegible, dificultando la ingeniería inversa.
+
+**La ofuscación no aplica al frontend** (dashboard y kiosco): ese código siempre llega al navegador del usuario y los bundlers ya aplican minificación estándar.
+
+### Cuándo ofuscar
+
+| Escenario | ¿Ofuscar? |
+|-----------|-----------|
+| Desarrollo local (`start:dev`) | ❌ Nunca |
+| Deploy propio en Railway (SaaS) | ✅ Antes del build de producción |
+| Empaquetado como app Electron | ✅ Antes de compilar el binario |
+
+### Comandos
+
+```bash
+# 1. Compilar el backend
+pnpm --filter @restaurants/api-core build
+
+# 2. Ofuscar el dist/ (modifica los archivos in-place)
+pnpm obfuscate
+
+# 3a. Para cloud: compilar a bytecode .jsc (Railway)
+pnpm build:cloud
+
+# 3b. Para desktop: compilar a binario standalone (Electron)
+pnpm build:desktop
+```
+
+> ⚠️ `pnpm obfuscate` sobreescribe `apps/api-core/dist/` directamente.
+> Para restaurar el código original: volver a correr `pnpm --filter @restaurants/api-core build`.
+
+Ver [`docs/build-and-test-guide.md`](docs/build-and-test-guide.md) para el pipeline completo con todos los pasos.
+
+---
+
 ## Estructura
 
 ```
