@@ -132,6 +132,29 @@ pnpm build:desktop
 > ⚠️ `pnpm obfuscate` sobreescribe `apps/api-core/dist/` directamente.
 > Para restaurar el código original: volver a correr `pnpm --filter @restaurants/api-core build`.
 
+### `pnpm build:cloud` — qué hace y por qué
+
+Este comando prepara el backend para ser entregado a un cliente que lo desplegará en su propio servidor (Railway u otro). Ejecuta dos pasos:
+
+1. **Ofusca** el código JS compilado — transforma nombres de variables, encripta strings, hace el código ilegible
+2. **Compila a bytecode** con `bytenode` — convierte cada `.js` a `.jsc` (formato binario interno de V8), que no puede ser leído ni decompilado con herramientas disponibles públicamente
+
+El resultado en `apps/api-core/dist-bytecode/` se empaqueta en un Docker y se entrega al cliente. El cliente recibe la aplicación funcionando pero **sin acceso al código fuente**.
+
+#### Por qué bytecode y no el binario standalone
+
+Un build normal (`pnpm build`) produce JS legible en `dist/`. Un binario (`build:desktop`) empaqueta Node.js dentro del ejecutable — útil para desktop donde el cliente no tiene Node instalado. El bytecode es la opción para cloud porque:
+
+- El servidor ya tiene Node.js (Railway lo provee)
+- Los `.jsc` son mucho más livianos que un binario con Node embebido
+- No hay redundancia de empaquetar Node.js dentro de un contenedor que ya lo tiene
+
+#### Por qué esto importa al entregar a un cliente
+
+Cuando se entrega el software a un cliente para que lo corra en su propio servidor, **se pierde el acceso**. El cliente administra su máquina, puede inspeccionar los archivos, contratar a alguien para que analice el código. El bytecode hace que eso sea prácticamente inviable sin herramientas especializadas.
+
+La capa de seguridad real sigue siendo la **verificación RSA de licencia**: aunque alguien lograra modificar el código, no puede generar un token JWT válido sin la llave privada que solo vive en el servidor de licencias. La app no arranca sin un token válido.
+
 Ver [`docs/build-and-test-guide.md`](docs/build-and-test-guide.md) para el pipeline completo con todos los pasos.
 
 ---
