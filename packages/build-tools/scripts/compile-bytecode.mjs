@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '../../..');
-const bytenode = resolve(__dirname, '../node_modules/.bin/bytenode');
+const bytenode = resolve(__dirname, '../../../node_modules/.bin/bytenode');
 const distDir = resolve(root, 'apps/api-core/dist');
 const bytecodeDir = resolve(root, 'apps/api-core/dist-bytecode');
 

@@ -10,16 +10,16 @@
       "persistent": true
     },
     "lint": {},
-    "copy-static": {
+    "//#copy-static": {
       "dependsOn": ["@restaurants/ui-dashboard#build", "@restaurants/ui-storefront#build"],
       "cache": false
     },
-    "build:cloud": {
-      "dependsOn": ["api-core#build", "@restaurants/build-tools#copy-static"],
+    "//#build:cloud": {
+      "dependsOn": ["api-core#build", "//#copy-static"],
       "cache": false
     },
-    "build:desktop": {
-      "dependsOn": ["api-core#build", "@restaurants/build-tools#copy-static"],
+    "//#build:desktop": {
+      "dependsOn": ["api-core#build", "//#copy-static"],
       "cache": false
     }
   }
