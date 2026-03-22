@@ -43,3 +43,13 @@ export class UserAlreadyActiveException extends BaseException {
     );
   }
 }
+
+export class LastAdminException extends BaseException {
+  constructor() {
+    super(
+      'Cannot remove or demote the last administrator of the restaurant',
+      HttpStatus.BAD_REQUEST,
+      'LAST_ADMIN',
+    );
+  }
+}
