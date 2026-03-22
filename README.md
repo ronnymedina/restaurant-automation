@@ -155,6 +155,47 @@ Cuando se entrega el software a un cliente para que lo corra en su propio servid
 
 La capa de seguridad real sigue siendo la **verificación RSA de licencia**: aunque alguien lograra modificar el código, no puede generar un token JWT válido sin la llave privada que solo vive en el servidor de licencias. La app no arranca sin un token válido.
 
+### `pnpm build:desktop` — qué hace y por qué
+
+Este comando prepara el backend para ser distribuido como una **aplicación de escritorio** (Electron) que el cliente instala en su propio equipo. Ejecuta dos pasos:
+
+1. **Ofusca** el código JS compilado (igual que `build:cloud`)
+2. **Compila a binario standalone** con `@yao-pkg/pkg` — empaqueta el código junto con Node.js dentro de un único ejecutable por plataforma
+
+El resultado queda en `apps/api-core/dist-binary/`:
+
+```
+dist-binary/
+├── api-core-node22-win-x64          → Windows (64-bit)
+├── api-core-node22-macos-x64        → macOS Intel
+└── api-core-node22-macos-arm64      → macOS Apple Silicon
+```
+
+Cada archivo es un ejecutable independiente que **no requiere tener Node.js instalado** en la máquina del cliente — Node.js va embebido adentro.
+
+#### Para qué sirve
+
+El binario es el servidor NestJS (API + base de datos SQLite) que Electron va a ejecutar en segundo plano cuando el cliente abra la aplicación en su restaurante. El flujo en la app de escritorio es:
+
+```
+Cliente enciende el equipo
+  → Electron arranca automáticamente
+  → Electron ejecuta el binario (api-core-node22-macos-arm64)
+  → El binario levanta NestJS en un puerto local
+  → Electron abre una ventana apuntando a localhost:{puerto}
+  → El restaurante opera normalmente sin internet
+```
+
+#### Cuándo usarlo
+
+Solo cuando se va a empaquetar una nueva versión del instalador de escritorio (`.dmg` para macOS, `.exe` para Windows). No se usa en desarrollo ni en deploys cloud.
+
+> ⚠️ La primera vez descarga Node.js para cada plataforma (~150 MB × 3 targets). Puede tardar varios minutos.
+> Siempre correr un build limpio antes para evitar ofuscar código ya ofuscado:
+> ```bash
+> pnpm --filter @restaurants/api-core build && pnpm build:desktop
+> ```
+
 Ver [`docs/build-and-test-guide.md`](docs/build-and-test-guide.md) para el pipeline completo con todos los pasos.
 
 ---
