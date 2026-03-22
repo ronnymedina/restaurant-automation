@@ -1,5 +1,5 @@
 {
-  "name": "api-core",
+  "name": "@restaurants/api-core",
   "version": "0.0.1",
   "description": "",
   "author": "",
@@ -11,7 +11,7 @@
     "start": "nest start",
     "dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/src/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -30,6 +30,7 @@
     "@nestjs/passport": "11.0.5",
     "@nestjs/platform-express": "11.0.1",
     "@nestjs/platform-socket.io": "11.1.13",
+    "@nestjs/serve-static": "5.0.4",
     "@nestjs/swagger": "11.2.6",
     "@nestjs/websockets": "11.1.13",
     "@prisma/adapter-better-sqlite3": "7.3.0",
@@ -38,6 +39,7 @@
     "better-sqlite3": "12.6.2",
     "class-transformer": "0.5.1",
     "class-validator": "0.14.3",
+    "dotenv": "^16.6.1",
     "helmet": "8.1.0",
     "nest-commander": "3.20.1",
     "node-thermal-printer": "4.6.0",
@@ -46,6 +48,7 @@
     "reflect-metadata": "0.2.2",
     "resend": "6.9.2",
     "rxjs": "7.8.1",
+    "sharp": "0.34.5",
     "socket.io": "4.8.3"
   },
   "devDependencies": {
@@ -60,6 +63,7 @@
     "@types/multer": "2.0.0",
     "@types/node": "22.10.7",
     "@types/passport-jwt": "4.0.1",
+    "@types/sharp": "0.32.0",
     "@types/socket.io": "3.0.2",
     "@types/supertest": "6.0.2",
     "eslint": "9.18.0",
@@ -94,6 +98,8 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
-    "setupFiles": ["dotenv/config"]
+    "setupFiles": [
+      "dotenv/config"
+    ]
   }
 }

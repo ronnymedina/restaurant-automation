@@ -101,6 +101,57 @@ export class OrderRepository {
     });
   }
 
+  async findHistory(
+    restaurantId: string,
+    filters: {
+      orderNumber?: number;
+      status?: OrderStatus;
+      dateFrom?: Date;
+      dateTo?: Date;
+      page: number;
+      limit: number;
+    },
+  ) {
+    const where: Prisma.OrderWhereInput = { restaurantId };
+
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    if (filters.orderNumber) {
+      where.orderNumber = filters.orderNumber;
+    }
+
+    if (filters.dateFrom || filters.dateTo) {
+      where.createdAt = {
+        ...(filters.dateFrom ? { gte: filters.dateFrom } : {}),
+        ...(filters.dateTo ? { lte: filters.dateTo } : {}),
+      };
+    }
+
+    const skip = (filters.page - 1) * filters.limit;
+    const [total, data] = await this.prisma.$transaction([
+      this.prisma.order.count({ where }),
+      this.prisma.order.findMany({
+        where,
+        include: ORDER_WITH_ITEMS,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: filters.limit,
+      }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page: filters.page,
+        limit: filters.limit,
+        totalPages: Math.ceil(total / filters.limit),
+      },
+    };
+  }
+
   async findBySessionId(sessionId: string, restaurantId: string) {
     return this.prisma.order.findMany({
       where: { registerSessionId: sessionId, restaurantId },

@@ -2,19 +2,25 @@
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
     "build": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        "dist/**",
-        ".next/**",
-        "out/**"
-      ]
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "out/**"]
     },
     "dev": {
       "cache": false,
       "persistent": true
     },
-    "lint": {}
+    "lint": {},
+    "//#copy-static": {
+      "dependsOn": ["@restaurants/ui-dashboard#build", "@restaurants/ui-storefront#build"],
+      "cache": false
+    },
+    "//#build:cloud": {
+      "dependsOn": ["api-core#build", "//#copy-static"],
+      "cache": false
+    },
+    "//#build:desktop": {
+      "dependsOn": ["api-core#build", "//#copy-static"],
+      "cache": false
+    }
   }
 }

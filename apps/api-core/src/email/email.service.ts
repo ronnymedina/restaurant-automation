@@ -153,6 +153,65 @@ export class EmailService {
     `;
   }
 
+  async sendOperationConfirmationEmail(
+    adminEmail: string,
+    op: { type: string; description: string; confirmUrl: string },
+  ): Promise<boolean> {
+    if (!this.resend) {
+      this.logger.warn(`[DEV] Confirm operation email for ${adminEmail}: ${op.confirmUrl}`);
+      return true;
+    }
+
+    try {
+      const { error } = await this.resend.emails.send({
+        from: this.configService.emailFrom,
+        to: adminEmail,
+        subject: `Confirma la operación: ${op.description}`,
+        html: this.buildConfirmationHtml(op),
+      });
+
+      if (error) {
+        this.logger.error(`Resend API error for confirmation email ${adminEmail}: ${error.message}`);
+        return false;
+      }
+
+      this.logger.log(`Operation confirmation email sent to ${adminEmail}`);
+      return true;
+    } catch (error) {
+      this.logger.error(`Failed to send confirmation email to ${adminEmail}`, error);
+      return false;
+    }
+  }
+
+  private buildConfirmationHtml(op: { type: string; description: string; confirmUrl: string }): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 40px 20px; background-color: #f5f5f5;">
+        <div style="max-width: 480px; margin: 0 auto; background: white; border-radius: 8px; padding: 40px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <h1 style="margin: 0 0 16px; font-size: 24px; color: #111;">Confirmación requerida</h1>
+          <p style="color: #555; line-height: 1.6; margin: 0 0 8px;">
+            Se ha solicitado la siguiente operación en tu cuenta:
+          </p>
+          <div style="background: #f8f9fa; border-left: 4px solid #e53e3e; padding: 12px 16px; border-radius: 4px; margin: 0 0 24px;">
+            <p style="margin: 0; font-weight: 600; color: #111;">${op.description}</p>
+          </div>
+          <p style="color: #555; line-height: 1.6; margin: 0 0 24px;">
+            Haz clic en el botón para confirmar. El enlace expira en <strong>15 minutos</strong>.
+          </p>
+          <a href="${op.confirmUrl}" style="display: inline-block; background-color: #e53e3e; color: white; text-decoration: none; padding: 12px 32px; border-radius: 6px; font-weight: 500;">
+            Confirmar operación
+          </a>
+          <p style="color: #999; font-size: 13px; margin: 24px 0 0; line-height: 1.5;">
+            Si no solicitaste esta acción, ignora este correo. La operación se cancelará automáticamente.
+          </p>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
   private buildActivationHtml(activationUrl: string): string {
     return `
       <!DOCTYPE html>

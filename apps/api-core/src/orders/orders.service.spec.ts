@@ -39,6 +39,7 @@ const mockPrint = {
   generateReceipt: jest.fn(),
   generateBoth: jest.fn().mockResolvedValue({ receipt: {}, kitchenTicket: {} }),
   printKitchenTicket: jest.fn().mockResolvedValue({ success: true, message: '' }),
+  printReceipt: jest.fn().mockResolvedValue({ success: true, message: '' }),
 };
 
 const makeOrder = (overrides = {}) => ({

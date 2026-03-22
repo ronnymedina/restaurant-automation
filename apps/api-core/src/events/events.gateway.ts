@@ -32,7 +32,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const token = client.handshake.auth?.token as string | undefined;
       const kitchenToken = client.handshake.auth?.kitchenToken as string | undefined;
-      const slug = client.handshake.query?.slug as string | undefined;
+      const slug = (client.handshake.auth?.slug ?? client.handshake.query?.slug) as string | undefined;
 
       if (token) {
         const payload = this.jwtService.verify<{ restaurantId: string }>(token);

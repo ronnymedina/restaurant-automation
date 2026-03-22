@@ -11,7 +11,15 @@ const navItems = [
   { href: '/dash/categories', label: 'Categorías' },
   { href: '/dash/menus', label: 'Menús' },
   { href: '/dash/users', label: 'Usuarios' },
+  { href: '/dash/tables', label: 'Mesas' },
+  { href: '/dash/reservations', label: 'Reservas' },
+  { href: '/dash/settings', label: 'Configuración' },
+  { href: '/dash/kitchen', label: 'Cocina' },
+  { href: '/dash/orders-history', label: 'Historial Pedidos' },
 ];
+
+const supportEmail = import.meta.env.PUBLIC_SUPPORT_EMAIL || '';
+const googleFormUrl = import.meta.env.PUBLIC_SUPPORT_GOOGLE_FORM_URL || '';
 ---
 
 <ProtectedLayout>
@@ -65,6 +73,124 @@ const navItems = [
       </main>
     </div>
   </div>
+
+  <!-- ── Botón flotante de ayuda ── -->
+  <button
+    id="helpBtn"
+    title="Ayuda y soporte"
+    class="fixed bottom-6 right-6 z-40 w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors cursor-pointer border-none"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+  </button>
+
+  <!-- ── Modal de ayuda y soporte ── -->
+  <div id="helpModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl w-full max-w-lg shadow-xl">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
+        <div>
+          <h2 class="text-lg font-bold text-slate-800">Ayuda y Soporte</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Cuéntanos qué necesitas y te responderemos pronto</p>
+        </div>
+        <button id="closeHelpModal"
+                class="text-slate-400 hover:text-slate-600 cursor-pointer border-none bg-transparent text-2xl leading-none">&times;</button>
+      </div>
+
+      <!-- Form -->
+      <div class="px-6 py-5 space-y-4">
+        <!-- Tipo de solicitud -->
+        <div class="space-y-2">
+          <label class="text-sm font-medium text-slate-700">Tipo de solicitud</label>
+          <div class="grid grid-cols-2 gap-2" id="requestTypeGroup">
+            <label class="request-type-opt cursor-pointer">
+              <input type="radio" name="requestType" value="APP_ERROR" class="sr-only" />
+              <div class="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 hover:border-red-300 transition-colors text-sm">
+                <span class="w-2 h-2 rounded-full bg-red-500 shrink-0"></span>
+                <span class="text-slate-700 font-medium">Error en la app</span>
+              </div>
+            </label>
+            <label class="request-type-opt cursor-pointer">
+              <input type="radio" name="requestType" value="IMPROVE" class="sr-only" />
+              <div class="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 hover:border-amber-300 transition-colors text-sm">
+                <span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
+                <span class="text-slate-700 font-medium">Mejora</span>
+              </div>
+            </label>
+            <label class="request-type-opt cursor-pointer">
+              <input type="radio" name="requestType" value="NEW_FEATURES" class="sr-only" />
+              <div class="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 hover:border-indigo-300 transition-colors text-sm">
+                <span class="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
+                <span class="text-slate-700 font-medium">Nueva funcionalidad</span>
+              </div>
+            </label>
+            <label class="request-type-opt cursor-pointer">
+              <input type="radio" name="requestType" value="QUESTION" class="sr-only" />
+              <div class="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 hover:border-slate-400 transition-colors text-sm">
+                <span class="w-2 h-2 rounded-full bg-slate-400 shrink-0"></span>
+                <span class="text-slate-700 font-medium">Consulta general</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Email -->
+        <div class="space-y-1">
+          <label for="supportEmail" class="text-sm font-medium text-slate-700">Tu correo</label>
+          <input id="supportEmail" type="email" placeholder="correo@ejemplo.com"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+
+        <!-- Descripción -->
+        <div class="space-y-1">
+          <label for="supportDescription" class="text-sm font-medium text-slate-700">Descripción</label>
+          <textarea id="supportDescription" rows="4" placeholder="Describe con detalle lo que necesitas..."
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"></textarea>
+        </div>
+
+        <!-- Nota archivos -->
+        <p class="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
+          Para adjuntar capturas o archivos, usa el <strong>formulario de Google</strong> — soporta subida de imágenes y archivos directamente.
+        </p>
+      </div>
+
+      <!-- Actions -->
+      <div class="px-6 pb-6 flex gap-3">
+        {supportEmail && (
+          <button id="sendEmailBtn"
+                  class="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-white bg-slate-700 hover:bg-slate-800 rounded-lg cursor-pointer border-none transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+            Enviar por correo
+          </button>
+        )}
+        {googleFormUrl && (
+          <a id="openFormBtn" href={googleFormUrl} target="_blank" rel="noopener"
+             class="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg cursor-pointer no-underline transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            Formulario de Google
+          </a>
+        )}
+        {!supportEmail && !googleFormUrl && (
+          <p class="text-sm text-slate-400 text-center w-full py-2">
+            Configura <code>PUBLIC_SUPPORT_EMAIL</code> o <code>PUBLIC_SUPPORT_GOOGLE_FORM_URL</code> en el .env
+          </p>
+        )}
+      </div>
+    </div>
+  </div>
 </ProtectedLayout>
 
 <script>
@@ -77,6 +203,7 @@ const navItems = [
     window.location.href = '/login';
   });
 
+  // ── Kiosk link ──────────────────────────────────────────────────
   async function loadKioskLink() {
     try {
       const res = await apiFetch('/v1/auth/me');
@@ -90,7 +217,8 @@ const navItems = [
       const copyBtn = document.getElementById('copyKioskUrl')!;
 
       const kioskPath = `/kiosk/${slug}`;
-      const kioskUrl = `${window.location.origin}${kioskPath}`;
+      const storefrontBase = import.meta.env.PUBLIC_STOREFRONT_URL || window.location.origin;
+      const kioskUrl = `${storefrontBase}${kioskPath}`;
 
       link.href = kioskPath;
       link.textContent = kioskPath;
@@ -101,10 +229,68 @@ const navItems = [
         copyBtn.title = '¡Copiado!';
         setTimeout(() => { copyBtn.title = 'Copiar URL'; }, 2000);
       });
+
+      // Pre-fill support email from user data
+      const emailInput = document.getElementById('supportEmail') as HTMLInputElement;
+      if (emailInput && data?.email) emailInput.value = data.email;
     } catch {
       // silently ignore — kiosk link is non-critical
     }
   }
 
   loadKioskLink();
+
+  // ── Help modal ──────────────────────────────────────────────────
+  const helpBtn       = document.getElementById('helpBtn')!;
+  const helpModal     = document.getElementById('helpModal')!;
+  const closeHelpBtn  = document.getElementById('closeHelpModal')!;
+  const sendEmailBtn  = document.getElementById('sendEmailBtn');
+  const supportEmail  = import.meta.env.PUBLIC_SUPPORT_EMAIL || '';
+
+  const TYPE_LABELS: Record<string, string> = {
+    APP_ERROR:    'Error en la app',
+    IMPROVE:      'Mejora',
+    NEW_FEATURES: 'Nueva funcionalidad',
+    QUESTION:     'Consulta general',
+  };
+
+  helpBtn.addEventListener('click', () => helpModal.classList.remove('hidden'));
+  closeHelpBtn.addEventListener('click', () => helpModal.classList.add('hidden'));
+  helpModal.addEventListener('click', (e) => {
+    if (e.target === helpModal) helpModal.classList.add('hidden');
+  });
+
+  // Highlight selected request type
+  document.querySelectorAll<HTMLInputElement>('input[name="requestType"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.querySelectorAll('.request-type-opt > div').forEach(div => {
+        div.classList.remove('border-indigo-500', 'bg-indigo-50');
+        div.classList.add('border-slate-200');
+      });
+      const selectedDiv = radio.closest('.request-type-opt')?.querySelector('div');
+      if (selectedDiv) {
+        selectedDiv.classList.remove('border-slate-200');
+        selectedDiv.classList.add('border-indigo-500', 'bg-indigo-50');
+      }
+    });
+  });
+
+  // Send by email (mailto)
+  sendEmailBtn?.addEventListener('click', () => {
+    const type        = (document.querySelector('input[name="requestType"]:checked') as HTMLInputElement)?.value || '';
+    const email       = (document.getElementById('supportEmail') as HTMLInputElement).value.trim();
+    const description = (document.getElementById('supportDescription') as HTMLTextAreaElement).value.trim();
+
+    if (!type) { alert('Selecciona el tipo de solicitud.'); return; }
+    if (!email) { alert('Ingresa tu correo.'); return; }
+    if (!description) { alert('Escribe una descripción.'); return; }
+
+    const typeLabel = TYPE_LABELS[type] ?? type;
+    const subject   = encodeURIComponent(`[${type}] ${typeLabel}`);
+    const body      = encodeURIComponent(
+      `Tipo: ${typeLabel}\nCorreo: ${email}\n\nDescripción:\n${description}\n\n---\nPara adjuntar archivos responde este correo con los archivos adjuntos.`
+    );
+
+    window.location.href = `mailto:${supportEmail}?subject=${subject}&body=${body}`;
+  });
 </script>

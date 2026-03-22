@@ -1,7 +1,7 @@
 import {
   BadRequestException, Injectable, Logger, Inject, forwardRef,
 } from '@nestjs/common';
-import { OrderStatus, Product, MenuItem, Prisma } from '@prisma/client';
+import { OrderStatus, Product, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderRepository } from './order.repository';
@@ -17,6 +17,7 @@ import { ForbiddenAccessException } from '../common/exceptions';
 import { EmailService } from '../email/email.service';
 import { PrintService } from '../print/print.service';
 import { OrderEventsService } from '../events/orders.events';
+import { PRINT_CUSTOMER_ON_CREATE } from '../config';
 
 const STATUS_ORDER: OrderStatus[] = [
   OrderStatus.CREATED,
@@ -35,7 +36,6 @@ type OrderItemEntry = {
 
 type StockEntry = {
   product: Product;
-  menuItem: MenuItem | null;
   item: CreateOrderDto['items'][number];
 };
 
@@ -63,10 +63,17 @@ export class OrdersService {
 
     this.orderEventsService.emitOrderCreated(restaurantId, order);
 
-    // Fire-and-forget: physical print — never blocks the response
+    // Fire-and-forget: kitchen ticket — never blocks the response
     void this.printService.printKitchenTicket(order.id).catch((err) =>
       this.logger.warn(`Kitchen print failed for order #${order.orderNumber}: ${err.message}`),
     );
+
+    // Fire-and-forget: customer receipt on creation (opt-in via PRINT_CUSTOMER_ON_CREATE)
+    if (PRINT_CUSTOMER_ON_CREATE) {
+      void this.printService.printReceipt(order.id).catch((err) =>
+        this.logger.warn(`Customer receipt print failed for order #${order.orderNumber}: ${err.message}`),
+      );
+    }
 
     // Generate tickets for frontend — null-safe, never blocks
     const tickets = await this.printService.generateBoth(order.id).catch(() => null);
@@ -80,6 +87,26 @@ export class OrdersService {
 
   async findByRestaurantId(restaurantId: string, status?: OrderStatus) {
     return this.orderRepository.findByRestaurantId(restaurantId, status);
+  }
+
+  async findHistory(
+    restaurantId: string,
+    filters: { orderNumber?: number; status?: OrderStatus; dateFrom?: string; dateTo?: string; page: number; limit: number },
+  ) {
+    const dateFrom = filters.dateFrom ? new Date(filters.dateFrom) : undefined;
+    let dateTo: Date | undefined;
+    if (filters.dateTo) {
+      dateTo = new Date(filters.dateTo);
+      dateTo.setHours(23, 59, 59, 999);
+    }
+    return this.orderRepository.findHistory(restaurantId, {
+      orderNumber: filters.orderNumber,
+      status: filters.status,
+      dateFrom,
+      dateTo,
+      page: filters.page,
+      limit: filters.limit,
+    });
   }
 
   async findById(id: string, restaurantId: string) {
@@ -144,7 +171,12 @@ export class OrdersService {
     const updatedOrder = await this.orderRepository.markAsPaid(id);
     this.orderEventsService.emitOrderUpdated(restaurantId, updatedOrder);
 
-    if (updatedOrder.customerEmail && this.printService && this.emailService) {
+    // Fire-and-forget: physical receipt print on payment
+    void this.printService.printReceipt(id).catch((err) =>
+      this.logger.warn(`Receipt print failed for order ${id}: ${err.message}`),
+    );
+
+    if (updatedOrder.customerEmail && this.emailService) {
       try {
         const receipt = await this.printService.generateReceipt(id);
         await this.emailService.sendReceiptEmail(updatedOrder.customerEmail, receipt);
@@ -170,16 +202,9 @@ export class OrdersService {
         throw new StockInsufficientException(item.productId, 0, item.quantity);
       }
 
-      const menuItem = item.menuItemId
-        ? await tx.menuItem.findUnique({ where: { id: item.menuItemId } })
-        : null;
+      const unitPrice = Number(product.price);
 
-      const unitPrice =
-        menuItem?.price !== null && menuItem?.price !== undefined
-          ? Number(menuItem.price)
-          : Number(product.price);
-
-      this.validateStock(product, menuItem, item);
+      this.validateStock(product, item);
 
       orderItems.push({
         productId: item.productId,
@@ -189,7 +214,7 @@ export class OrdersService {
         subtotal: unitPrice * item.quantity,
         notes: item.notes,
       });
-      stockEntries.push({ product, menuItem, item });
+      stockEntries.push({ product, item });
     }
 
     const totalAmount = orderItems.reduce((sum, i) => sum + i.subtotal, 0);
@@ -198,14 +223,10 @@ export class OrdersService {
 
   private validateStock(
     product: Product,
-    menuItem: MenuItem | null,
     item: CreateOrderDto['items'][number],
   ): void {
     if (product.stock !== null && product.stock < item.quantity) {
       throw new StockInsufficientException(product.name, product.stock, item.quantity);
-    }
-    if (menuItem && menuItem.stock !== null && menuItem.stock < item.quantity) {
-      throw new StockInsufficientException(`${product.name} (menu)`, menuItem.stock, item.quantity);
     }
   }
 
@@ -218,16 +239,10 @@ export class OrdersService {
   }
 
   private async decrementAllStock(stockEntries: StockEntry[], tx: Prisma.TransactionClient): Promise<void> {
-    for (const { product, menuItem, item } of stockEntries) {
+    for (const { product, item } of stockEntries) {
       if (product.stock !== null) {
         await tx.product.update({
           where: { id: item.productId },
-          data: { stock: { decrement: item.quantity } },
-        });
-      }
-      if (menuItem && menuItem.stock !== null) {
-        await tx.menuItem.update({
-          where: { id: item.menuItemId },
           data: { stock: { decrement: item.quantity } },
         });
       }

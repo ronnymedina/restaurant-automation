@@ -86,6 +86,12 @@ import DataTable from '../../components/dash/DataTable.astro';
       </form>
     </div>
 
+    <!-- Pending confirmation banner -->
+    <div id="pendingBanner" class="hidden bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500 mt-0.5 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <p id="pendingBannerMsg" class="text-sm text-amber-800"></p>
+    </div>
+
     <DataTable
       tbodyId="usersTableBody"
       paginationId="pagination"
@@ -114,6 +120,14 @@ import DataTable from '../../components/dash/DataTable.astro';
   const createForm = document.getElementById('createForm')!;
   const createFormEl = document.getElementById('createFormEl') as HTMLFormElement;
   const createError = document.getElementById('createError')!;
+  const pendingBanner = document.getElementById('pendingBanner')!;
+  const pendingBannerMsg = document.getElementById('pendingBannerMsg')!;
+
+  function showPendingBanner(msg: string) {
+    pendingBannerMsg.textContent = msg;
+    pendingBanner.classList.remove('hidden');
+    setTimeout(() => pendingBanner.classList.add('hidden'), 10000);
+  }
 
   async function loadUsers(page = 1) {
     currentPage = page;
@@ -165,9 +179,14 @@ import DataTable from '../../components/dash/DataTable.astro';
     tableBody.querySelectorAll('.delete-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = (btn as HTMLElement).dataset.delete!;
-        if (!confirm('¿Eliminar este usuario?')) return;
-        await apiFetch(`/v1/users/${id}`, { method: 'DELETE' });
-        loadUsers(currentPage);
+        if (!confirm('¿Eliminar este usuario? Recibirás un email para confirmar la operación.')) return;
+        const res = await apiFetch(`/v1/users/${id}`, { method: 'DELETE' });
+        const data = await res.json().catch(() => null);
+        if (data?.pending) {
+          showPendingBanner(data.message);
+        } else {
+          loadUsers(currentPage);
+        }
       });
     });
   }
@@ -186,10 +205,15 @@ import DataTable from '../../components/dash/DataTable.astro';
       isActive: (document.getElementById('userIsActive') as HTMLInputElement).checked,
     };
 
-    await apiFetch(`/v1/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+    const res = await apiFetch(`/v1/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+    const data = await res.json().catch(() => null);
     userForm.classList.add('hidden');
     formEl.reset();
-    loadUsers(currentPage);
+    if (data?.pending) {
+      showPendingBanner(data.message);
+    } else {
+      loadUsers(currentPage);
+    }
   });
 
   document.getElementById('newUserBtn')!.addEventListener('click', () => {
@@ -216,8 +240,9 @@ import DataTable from '../../components/dash/DataTable.astro';
 
     const res = await apiFetch('/v1/users', { method: 'POST', body: JSON.stringify(body) });
 
+    const data = await res.json().catch(() => null);
+
     if (!res.ok) {
-      const data = await res.json().catch(() => null);
       createError.textContent = data?.message || 'Error al crear usuario';
       createError.classList.remove('hidden');
       return;
@@ -225,7 +250,12 @@ import DataTable from '../../components/dash/DataTable.astro';
 
     createForm.classList.add('hidden');
     createFormEl.reset();
-    loadUsers(currentPage);
+
+    if (data?.pending) {
+      showPendingBanner(data.message);
+    } else {
+      loadUsers(currentPage);
+    }
   });
 
   loadUsers();

@@ -1,0 +1,5 @@
+[build]
+dockerfilePath = "apps/license-server/Dockerfile"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"

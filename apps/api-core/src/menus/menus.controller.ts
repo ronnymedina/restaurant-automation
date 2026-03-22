@@ -23,7 +23,7 @@ import { MenuDto, MenuWithItemsDto } from './dto/menu.dto';
 @ApiBearerAuth()
 @Controller({ version: '1', path: 'menus' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.MANAGER)
+@Roles(Role.ADMIN, Role.MANAGER)
 export class MenusController {
   constructor(private readonly menusService: MenusService) {}
 

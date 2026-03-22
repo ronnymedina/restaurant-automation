@@ -1,0 +1,184 @@
+<h2>Estructura del Proyecto y Pipeline de Build</h2>
+<p class="subtitle">Qué cambia en el monorepo y cómo se produce el binario final</p>
+
+<style>
+.two-col { display: flex; gap: 20px; flex-wrap: wrap; }
+.col { flex: 1; min-width: 280px; }
+.tree {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 16px;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #c9d1d9;
+}
+.tree .dir  { color: #79c0ff; }
+.tree .file { color: #c9d1d9; }
+.tree .new  { color: #56d364; font-weight: bold; }
+.tree .new::after { content: " ← nuevo"; color: #3fb950; font-size: 10px; }
+.tree .mod  { color: #e3b341; }
+.tree .mod::after { content: " ← modifica"; color: #d29922; font-size: 10px; }
+.tree .dim  { color: #484f58; }
+.pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+.pipe-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.pipe-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #1e3a5f;
+  border: 1px solid #3b82f6;
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.pipe-body { flex: 1; }
+.pipe-title { color: #f9fafb; font-size: 13px; font-weight: bold; }
+.pipe-cmd {
+  font-family: monospace;
+  font-size: 11px;
+  color: #86efac;
+  background: #111827;
+  border-radius: 4px;
+  padding: 4px 8px;
+  margin-top: 4px;
+  display: inline-block;
+}
+.pipe-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
+.badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; margin: 2px; }
+.badge.win { background: #1d4ed8; color: #bfdbfe; }
+.badge.mac { background: #374151; color: #d1d5db; }
+.badge.both { background: #14532d; color: #86efac; }
+</style>
+
+<div class="two-col">
+  <div class="col">
+    <h3>Monorepo — qué cambia</h3>
+    <div class="tree">
+<span class="dir">apps/</span>
+  <span class="dir">api-core/</span>         <span class="dim">(sin cambios)</span>
+  <span class="dir">ui-dashboard/</span>
+    <span class="mod">astro.config.mjs</span>   <span class="dim">output: 'static'</span>
+    <span class="dim">src/ ...</span>
+  <span class="dir">ui-storefront/</span>      <span class="dim">(sin cambios)</span>
+  <span class="new">desktop/</span>
+    <span class="new">src/</span>
+      <span class="new">main.ts</span>        <span class="dim">main process</span>
+      <span class="new">preload.ts</span>
+      <span class="new">license/</span>
+        <span class="new">trial.ts</span>
+        <span class="new">activation.ts</span>
+        <span class="new">machine-id.ts</span>
+    <span class="new">resources/</span>        <span class="dim">iconos, certs</span>
+    <span class="new">electron-builder.yml</span>
+    <span class="new">package.json</span>
+<span class="dir">packages/</span>
+  <span class="new">license-server/</span>    <span class="dim">API Railway</span>
+    <span class="new">src/</span>
+      <span class="new">main.ts</span>
+      <span class="new">license.controller.ts</span>
+      <span class="new">license.service.ts</span>
+    <span class="new">package.json</span>
+<span class="file">turbo.json</span>           <span class="mod">agregar desktop</span>
+    </div>
+  </div>
+
+  <div class="col">
+    <h3>Pipeline de Build</h3>
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="pipe-num">1</div>
+        <div class="pipe-body">
+          <div class="pipe-title">Build NestJS</div>
+          <div class="pipe-cmd">pnpm --filter api-core build</div>
+          <div class="pipe-sub">Compila TypeScript → dist/</div>
+        </div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">2</div>
+        <div class="pipe-body">
+          <div class="pipe-title">Build Astro (estático)</div>
+          <div class="pipe-cmd">pnpm --filter ui-dashboard build</div>
+          <div class="pipe-sub">Genera HTML/JS/CSS en dist/</div>
+        </div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">3</div>
+        <div class="pipe-body">
+          <div class="pipe-title">Obfuscación del JS</div>
+          <div class="pipe-cmd">javascript-obfuscator dist/</div>
+          <div class="pipe-sub">Ofusca el output compilado de NestJS antes de empaquetar</div>
+        </div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">4</div>
+        <div class="pipe-body">
+          <div class="pipe-title">Electron Builder</div>
+          <div class="pipe-cmd">electron-builder --win --mac</div>
+          <div class="pipe-sub">Empaqueta todo + firma el binario</div>
+          <div>
+            <span class="badge win">Windows: NSIS installer (.exe)</span>
+            <span class="badge mac">macOS: .dmg + notarización Apple</span>
+          </div>
+        </div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">5</div>
+        <div class="pipe-body">
+          <div class="pipe-title">Publicar release</div>
+          <div class="pipe-cmd">GitHub Releases / S3</div>
+          <div class="pipe-sub">electron-updater descarga actualizaciones desde aquí automáticamente</div>
+          <span class="badge both">Auto-update incluido</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 16px;">
+  <h3>Dependencias nuevas clave</h3>
+  <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+    <div style="background:#1f2937;border:1px solid #374151;border-radius:6px;padding:8px 14px;font-size:12px;">
+      <div style="color:#93c5fd;font-family:monospace">electron</div>
+      <div style="color:#6b7280;font-size:11px">Shell del desktop</div>
+    </div>
+    <div style="background:#1f2937;border:1px solid #374151;border-radius:6px;padding:8px 14px;font-size:12px;">
+      <div style="color:#93c5fd;font-family:monospace">electron-builder</div>
+      <div style="color:#6b7280;font-size:11px">Empaquetado + firma</div>
+    </div>
+    <div style="background:#1f2937;border:1px solid #374151;border-radius:6px;padding:8px 14px;font-size:12px;">
+      <div style="color:#93c5fd;font-family:monospace">electron-updater</div>
+      <div style="color:#6b7280;font-size:11px">Auto-actualizaciones</div>
+    </div>
+    <div style="background:#1f2937;border:1px solid #374151;border-radius:6px;padding:8px 14px;font-size:12px;">
+      <div style="color:#93c5fd;font-family:monospace">node-machine-id</div>
+      <div style="color:#6b7280;font-size:11px">Hardware fingerprint</div>
+    </div>
+    <div style="background:#1f2937;border:1px solid #374151;border-radius:6px;padding:8px 14px;font-size:12px;">
+      <div style="color:#93c5fd;font-family:monospace">javascript-obfuscator</div>
+      <div style="color:#6b7280;font-size:11px">Ofuscación del código</div>
+    </div>
+    <div style="background:#1f2937;border:1px solid #374151;border-radius:6px;padding:8px 14px;font-size:12px;">
+      <div style="color:#93c5fd;font-family:monospace">@nestjs/serve-static</div>
+      <div style="color:#6b7280;font-size:11px">Sirve Astro desde NestJS</div>
+    </div>
+  </div>
+</div>

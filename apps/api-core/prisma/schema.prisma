@@ -65,6 +65,15 @@ enum RegisterSessionStatus {
   CLOSED
 }
 
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  SEATED
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+}
+
 model Restaurant {
   id   String @id @default(uuid())
   name String
@@ -77,8 +86,12 @@ model Restaurant {
   products         Product[]
   menus            Menu[]
   categories       Category[]
-  orders           Order[]
-  registerSessions RegisterSession[]
+  orders             Order[]
+  registerSessions   RegisterSession[]
+  pendingOperations  PendingOperation[]
+  defaultReservationDuration Int    @default(90)
+  tables       Table[]
+  reservations Reservation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -148,8 +161,6 @@ model MenuItem {
   product   Product @relation(fields: [productId], references: [id])
 
   // Configuración Específica del Menú
-  price       Decimal? // Precio Override (Si es null, usa Product.price)
-  stock       Int?     // Stock Allocation (Si es null, usa Product.stock global sin límite específico)
   sectionName String?  // Sección Visual en la Carta (Ej: "Para Empezar", "el ñandu")
   order       Int      @default(0) // Orden dentro de la sección
 
@@ -218,4 +229,73 @@ model RegisterSession {
   closedAt DateTime?
 
   @@index([restaurantId, status])
+}
+
+enum PendingOperationType {
+  CREATE_USER
+  DELETE_USER
+  UPDATE_USER_ROLE
+}
+
+model PendingOperation {
+  id           String               @id @default(uuid())
+  type         PendingOperationType
+  payload      String               // JSON: operation arguments
+  adminEmail   String
+  token        String               @unique @default(uuid())
+  expiresAt    DateTime
+  confirmedAt  DateTime?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([restaurantId])
+}
+
+model Table {
+  id           String        @id @default(uuid())
+  name         String
+  capacity     Int
+  active       Boolean       @default(true)
+
+  restaurantId String
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id])
+  reservations Reservation[]
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([restaurantId])
+}
+
+model Reservation {
+  id           String            @id @default(uuid())
+  guestName    String
+  guestPhone   String
+  guestEmail   String?
+  partySize    Int
+  date         DateTime
+  duration     Int
+  status       ReservationStatus @default(PENDING)
+  notes        String?
+
+  isPaid           Boolean  @default(false)
+  paymentReference String?
+  paymentPlatform  String?
+
+  cancellationReason String?
+
+  tableId      String
+  table        Table             @relation(fields: [tableId], references: [id])
+  restaurantId String
+  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id])
+
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([restaurantId, date])
+  @@index([tableId, date])
 }

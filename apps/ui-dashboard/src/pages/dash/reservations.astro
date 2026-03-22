@@ -1,0 +1,426 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import DataTable from '../../components/dash/DataTable.astro';
+---
+
+<DashboardLayout>
+  <div class="space-y-6">
+    <div class="flex justify-between items-center">
+      <h2 class="text-2xl font-bold text-slate-800">Reservas</h2>
+      <button id="newReservationBtn"
+        class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none">
+        Nueva reserva
+      </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-xl border border-slate-200 p-4 flex flex-wrap gap-4 items-end">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Fecha</label>
+        <input type="date" id="filterDate"
+          class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Estado</label>
+        <select id="filterStatus"
+          class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="">Todos</option>
+          <option value="PENDING">Pendiente</option>
+          <option value="CONFIRMED">Confirmada</option>
+          <option value="SEATED">En mesa</option>
+          <option value="COMPLETED">Completada</option>
+          <option value="NO_SHOW">No se presentó</option>
+          <option value="CANCELLED">Cancelada</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Mesa</label>
+        <select id="filterTable"
+          class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="">Todas</option>
+        </select>
+      </div>
+      <button id="applyFiltersBtn"
+        class="px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors cursor-pointer border-none">
+        Filtrar
+      </button>
+    </div>
+
+    <!-- Create / Edit Form -->
+    <div id="reservationForm" class="hidden bg-white rounded-xl border border-slate-200 p-6">
+      <h3 id="reservationFormTitle" class="text-lg font-semibold text-slate-800 mb-4">Nueva reserva</h3>
+      <form id="reservationFormEl" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <input type="hidden" id="reservationId" />
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Mesa</label>
+          <select id="resTable" required
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Fecha y hora</label>
+          <input type="datetime-local" id="resDate" required
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Personas</label>
+          <input type="number" id="resPartySize" required min="1"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Nombre del cliente</label>
+          <input type="text" id="resGuestName" required maxlength="200"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Teléfono</label>
+          <input type="text" id="resGuestPhone" required maxlength="50"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Email (opcional)</label>
+          <input type="email" id="resGuestEmail"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div class="md:col-span-3">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Notas (opcional)</label>
+          <input type="text" id="resNotes" maxlength="500"
+            placeholder="Ej: cumpleaños, traer torta"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+
+        <!-- Payment section -->
+        <div class="md:col-span-3 border-t border-slate-100 pt-4">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="resPaid" class="rounded" />
+            <span class="text-sm font-medium text-slate-700">Ya pagó</span>
+          </label>
+        </div>
+        <div id="paymentFields" class="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 hidden">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Referencia de pago</label>
+            <input type="text" id="resPaymentRef"
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Plataforma</label>
+            <input type="text" id="resPaymentPlatform" placeholder="MercadoPago, Efectivo…"
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+
+        <div class="md:col-span-3 flex gap-2 pt-2">
+          <button type="submit"
+            class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none">
+            Guardar
+          </button>
+          <button type="button" id="cancelResFormBtn"
+            class="px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors cursor-pointer border-none">
+            Cancelar
+          </button>
+        </div>
+      </form>
+      <p id="resFormError" class="hidden mt-3 text-sm text-red-600"></p>
+    </div>
+
+    <DataTable
+      tbodyId="reservationsTableBody"
+      minWidth="700px"
+      columns={[
+        { label: 'Hora', nowrap: true },
+        { label: 'Mesa', nowrap: true },
+        { label: 'Cliente' },
+        { label: 'Personas', nowrap: true },
+        { label: 'Estado', nowrap: true },
+        { label: 'Pagó', nowrap: true },
+        { label: 'Acciones', align: 'right', nowrap: true },
+      ]}
+    />
+  </div>
+</DashboardLayout>
+
+<script>
+  import { apiFetch } from '../../lib/api';
+  import { setTableLoading, setTableEmpty, setTableError } from '../../lib/pagination';
+
+  const COLSPAN = 7;
+  const tableBody = document.getElementById('reservationsTableBody')!;
+  const resForm = document.getElementById('reservationForm')!;
+  const resFormEl = document.getElementById('reservationFormEl') as HTMLFormElement;
+  const resFormError = document.getElementById('resFormError')!;
+  const resFormTitle = document.getElementById('reservationFormTitle')!;
+  const paymentFields = document.getElementById('paymentFields')!;
+  const resPaid = document.getElementById('resPaid') as HTMLInputElement;
+
+  const STATUS_LABELS: Record<string, string> = {
+    PENDING: 'Pendiente',
+    CONFIRMED: 'Confirmada',
+    SEATED: 'En mesa',
+    COMPLETED: 'Completada',
+    NO_SHOW: 'No se presentó',
+    CANCELLED: 'Cancelada',
+  };
+
+  const STATUS_COLORS: Record<string, string> = {
+    PENDING: 'bg-yellow-100 text-yellow-700',
+    CONFIRMED: 'bg-blue-100 text-blue-700',
+    SEATED: 'bg-indigo-100 text-indigo-700',
+    COMPLETED: 'bg-green-100 text-green-700',
+    NO_SHOW: 'bg-red-100 text-red-700',
+    CANCELLED: 'bg-slate-100 text-slate-500',
+  };
+
+  const NEXT_STATUS: Record<string, string | null> = {
+    PENDING: 'CONFIRMED',
+    CONFIRMED: 'SEATED',
+    SEATED: 'COMPLETED',
+    COMPLETED: null,
+    NO_SHOW: null,
+    CANCELLED: null,
+  };
+
+  const NEXT_STATUS_LABEL: Record<string, string> = {
+    CONFIRMED: 'Confirmar',
+    SEATED: 'Sentar',
+    COMPLETED: 'Completar',
+  };
+
+  let allTables: any[] = [];
+
+  // Set default filter date to today
+  const filterDate = document.getElementById('filterDate') as HTMLInputElement;
+  filterDate.value = new Date().toISOString().split('T')[0];
+
+  async function loadTables() {
+    const res = await apiFetch('/v1/tables');
+    if (!res.ok) return;
+    allTables = await res.json();
+
+    const filterTableEl = document.getElementById('filterTable') as HTMLSelectElement;
+    const firstOpt = filterTableEl.querySelector('option')!;
+    filterTableEl.innerHTML = '';
+    filterTableEl.appendChild(firstOpt);
+    allTables.forEach((t: any) => {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = `${t.name} (${t.capacity} pers.)`;
+      filterTableEl.appendChild(opt);
+    });
+
+    const resTableEl = document.getElementById('resTable') as HTMLSelectElement;
+    resTableEl.innerHTML = '<option value="">Seleccionar mesa…</option>';
+    allTables.filter((t: any) => t.active).forEach((t: any) => {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = `${t.name} (${t.capacity} pers.)`;
+      resTableEl.appendChild(opt);
+    });
+  }
+
+  async function loadReservations() {
+    setTableLoading(tableBody, COLSPAN);
+
+    const date = (document.getElementById('filterDate') as HTMLInputElement).value;
+    const status = (document.getElementById('filterStatus') as HTMLSelectElement).value;
+    const tableId = (document.getElementById('filterTable') as HTMLSelectElement).value;
+
+    const params = new URLSearchParams();
+    if (date) params.set('date', date);
+    if (status) params.set('status', status);
+    if (tableId) params.set('tableId', tableId);
+
+    const res = await apiFetch(`/v1/reservations?${params}`);
+    if (!res.ok) {
+      setTableError(tableBody, COLSPAN, 'Error al cargar las reservas');
+      return;
+    }
+    const reservations = await res.json();
+
+    if (reservations.length === 0) {
+      setTableEmpty(tableBody, COLSPAN, 'No hay reservas para los filtros seleccionados');
+      return;
+    }
+
+    tableBody.innerHTML = reservations.map((r: any) => {
+      const time = new Date(r.date).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+      const nextStatus = NEXT_STATUS[r.status];
+      const nextLabel = nextStatus ? NEXT_STATUS_LABEL[nextStatus] ?? nextStatus : null;
+      const isActive = !['COMPLETED', 'NO_SHOW', 'CANCELLED'].includes(r.status);
+
+      return `
+        <tr class="border-b border-slate-100 hover:bg-slate-50">
+          <td class="px-4 py-3 font-medium text-slate-800 whitespace-nowrap">${time}</td>
+          <td class="px-4 py-3 text-slate-600 whitespace-nowrap">${r.table?.name ?? '-'}</td>
+          <td class="px-4 py-3 text-slate-800">
+            <div class="font-medium">${r.guestName}</div>
+            <div class="text-xs text-slate-500">${r.guestPhone}</div>
+          </td>
+          <td class="px-4 py-3 text-slate-600 whitespace-nowrap">${r.partySize} pers.</td>
+          <td class="px-4 py-3 whitespace-nowrap">
+            <span class="px-2 py-0.5 text-xs rounded-full ${STATUS_COLORS[r.status] ?? 'bg-slate-100 text-slate-500'}">
+              ${STATUS_LABELS[r.status] ?? r.status}
+            </span>
+          </td>
+          <td class="px-4 py-3 whitespace-nowrap">
+            <span class="px-2 py-0.5 text-xs rounded-full ${r.isPaid ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}">
+              ${r.isPaid ? 'Sí' : 'No'}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-right whitespace-nowrap space-x-2">
+            ${nextLabel ? `<button data-advance="${r.id}" data-next="${nextStatus}" class="advance-btn text-indigo-600 hover:text-indigo-800 cursor-pointer bg-transparent border-none text-sm">${nextLabel}</button>` : ''}
+            ${isActive && r.status === 'SEATED' ? `<button data-noshow="${r.id}" class="noshow-btn text-orange-600 hover:text-orange-800 cursor-pointer bg-transparent border-none text-sm">No show</button>` : ''}
+            ${isActive ? `<button data-edit='${JSON.stringify(r).replace(/'/g, "&#39;")}' class="edit-res-btn text-slate-600 hover:text-slate-800 cursor-pointer bg-transparent border-none text-sm">Editar</button>` : ''}
+            ${isActive ? `<button data-cancel="${r.id}" class="cancel-res-btn text-red-600 hover:text-red-800 cursor-pointer bg-transparent border-none text-sm">Cancelar</button>` : ''}
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    bindReservationEvents();
+  }
+
+  function bindReservationEvents() {
+    tableBody.querySelectorAll('.advance-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const el = btn as HTMLElement;
+        const res = await apiFetch(`/v1/reservations/${el.dataset.advance}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: el.dataset.next }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          alert(data?.message || 'Error al cambiar estado');
+          return;
+        }
+        loadReservations();
+      });
+    });
+
+    tableBody.querySelectorAll('.noshow-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = (btn as HTMLElement).dataset.noshow!;
+        const res = await apiFetch(`/v1/reservations/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'NO_SHOW' }),
+        });
+        if (res.ok) loadReservations();
+      });
+    });
+
+    tableBody.querySelectorAll('.edit-res-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const data = JSON.parse((btn as HTMLElement).dataset.edit!);
+        showResForm('edit', data);
+      });
+    });
+
+    tableBody.querySelectorAll('.cancel-res-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = (btn as HTMLElement).dataset.cancel!;
+        const reason = prompt('Motivo de cancelación (opcional):') ?? undefined;
+        const params = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+        const res = await apiFetch(`/v1/reservations/${id}${params}`, { method: 'DELETE' });
+        if (res.ok) {
+          loadReservations();
+        } else {
+          const data = await res.json().catch(() => null);
+          alert(data?.message || 'Error al cancelar');
+        }
+      });
+    });
+  }
+
+  function showResForm(mode: 'create' | 'edit', data?: any) {
+    resFormTitle.textContent = mode === 'create' ? 'Nueva reserva' : 'Editar reserva';
+    resFormError.classList.add('hidden');
+    resFormEl.reset();
+
+    if (data) {
+      (document.getElementById('reservationId') as HTMLInputElement).value = data.id;
+      (document.getElementById('resTable') as HTMLSelectElement).value = data.tableId;
+      const localDate = new Date(data.date);
+      const offset = localDate.getTimezoneOffset();
+      const adjusted = new Date(localDate.getTime() - offset * 60_000);
+      (document.getElementById('resDate') as HTMLInputElement).value = adjusted.toISOString().slice(0, 16);
+      (document.getElementById('resPartySize') as HTMLInputElement).value = String(data.partySize);
+      (document.getElementById('resGuestName') as HTMLInputElement).value = data.guestName;
+      (document.getElementById('resGuestPhone') as HTMLInputElement).value = data.guestPhone;
+      (document.getElementById('resGuestEmail') as HTMLInputElement).value = data.guestEmail ?? '';
+      (document.getElementById('resNotes') as HTMLInputElement).value = data.notes ?? '';
+      resPaid.checked = data.isPaid;
+      (document.getElementById('resPaymentRef') as HTMLInputElement).value = data.paymentReference ?? '';
+      (document.getElementById('resPaymentPlatform') as HTMLInputElement).value = data.paymentPlatform ?? '';
+      paymentFields.classList.toggle('hidden', !data.isPaid);
+    } else {
+      (document.getElementById('reservationId') as HTMLInputElement).value = '';
+      paymentFields.classList.add('hidden');
+    }
+
+    resForm.classList.remove('hidden');
+  }
+
+  function hideResForm() {
+    resForm.classList.add('hidden');
+    resFormEl.reset();
+    paymentFields.classList.add('hidden');
+  }
+
+  resPaid.addEventListener('change', () => {
+    paymentFields.classList.toggle('hidden', !resPaid.checked);
+  });
+
+  document.getElementById('newReservationBtn')!.addEventListener('click', () => showResForm('create'));
+  document.getElementById('cancelResFormBtn')!.addEventListener('click', hideResForm);
+  document.getElementById('applyFiltersBtn')!.addEventListener('click', loadReservations);
+
+  resFormEl.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    resFormError.classList.add('hidden');
+
+    const id = (document.getElementById('reservationId') as HTMLInputElement).value;
+    const isEdit = !!id;
+    const isPaid = resPaid.checked;
+
+    const body: Record<string, any> = {
+      tableId: (document.getElementById('resTable') as HTMLSelectElement).value,
+      date: new Date((document.getElementById('resDate') as HTMLInputElement).value).toISOString(),
+      partySize: Number((document.getElementById('resPartySize') as HTMLInputElement).value),
+      guestName: (document.getElementById('resGuestName') as HTMLInputElement).value,
+      guestPhone: (document.getElementById('resGuestPhone') as HTMLInputElement).value,
+      isPaid,
+    };
+
+    const email = (document.getElementById('resGuestEmail') as HTMLInputElement).value;
+    if (email) body.guestEmail = email;
+
+    const notes = (document.getElementById('resNotes') as HTMLInputElement).value;
+    if (notes) body.notes = notes;
+
+    if (isPaid) {
+      const ref = (document.getElementById('resPaymentRef') as HTMLInputElement).value;
+      const platform = (document.getElementById('resPaymentPlatform') as HTMLInputElement).value;
+      if (ref) body.paymentReference = ref;
+      if (platform) body.paymentPlatform = platform;
+    }
+
+    const res = await apiFetch(
+      isEdit ? `/v1/reservations/${id}` : '/v1/reservations',
+      { method: isEdit ? 'PATCH' : 'POST', body: JSON.stringify(body) },
+    );
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      resFormError.textContent = data?.message || 'Error al guardar la reserva';
+      resFormError.classList.remove('hidden');
+      return;
+    }
+
+    hideResForm();
+    loadReservations();
+  });
+
+  await loadTables();
+  loadReservations();
+</script>

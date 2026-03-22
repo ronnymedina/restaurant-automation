@@ -65,7 +65,7 @@ import DataTable from '../../components/dash/DataTable.astro';
     currentPage = page;
     setTableLoading(tableBody, COLSPAN);
 
-    const res = await apiFetch(`/v1/register/history?page=${page}&limit=10`);
+    const res = await apiFetch(`/v1/cash-register/history?page=${page}&limit=10`);
     if (!res.ok) {
       const msg = res.status === 403 ? 'No tienes permisos para acceder a esta sección' : 'Error al cargar';
       setTableError(tableBody, COLSPAN, msg);
@@ -116,7 +116,7 @@ import DataTable from '../../components/dash/DataTable.astro';
     detailContent.classList.add('hidden');
     detailContent.innerHTML = '';
 
-    const res = await apiFetch(`/v1/register/summary/${sessionId}`);
+    const res = await apiFetch(`/v1/cash-register/summary/${sessionId}`);
     detailLoading.classList.add('hidden');
 
     if (!res.ok) {

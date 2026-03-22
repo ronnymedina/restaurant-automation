@@ -4,10 +4,17 @@
 	"scripts": {
 		"dev": "turbo dev",
 		"build": "turbo build",
-		"lint": "turbo lint"
+		"lint": "turbo lint",
+		"copy-static": "node packages/build-tools/scripts/copy-static.mjs",
+		"obfuscate": "node packages/build-tools/scripts/obfuscate.mjs",
+		"build:cloud": "node packages/build-tools/scripts/obfuscate.mjs && node packages/build-tools/scripts/compile-bytecode.mjs",
+		"build:desktop": "node packages/build-tools/scripts/obfuscate.mjs && node packages/build-tools/scripts/compile-binary.mjs"
 	},
 	"devDependencies": {
-		"turbo": "^2.8.3"
+		"turbo": "^2.8.3",
+		"javascript-obfuscator": "^4.1.1",
+		"bytenode": "^1.5.7",
+		"@yao-pkg/pkg": "^5.15.0"
 	},
 	"packageManager": "pnpm@10.24.0",
 	"pnpm": {

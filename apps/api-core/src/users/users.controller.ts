@@ -22,6 +22,7 @@ import {
 import { Role } from '@prisma/client';
 
 import { UsersService } from './users.service';
+import { PendingOperationsService } from '../pending-operations/pending-operations.service';
 import {
   ActivateUserDto,
   ActivateUserResponseDto,
@@ -39,7 +40,10 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 @ApiTags('Users')
 @Controller({ version: '1', path: 'users' })
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly pendingOperationsService: PendingOperationsService,
+  ) { }
 
   @Put('activate')
   @ApiOperation({
@@ -65,30 +69,34 @@ export class UsersController {
     };
   }
 
+  @Get('confirm/:token')
+  @ApiOperation({ summary: 'Confirmar operación pendiente por token de email' })
+  @ApiParam({ name: 'token', description: 'Token de confirmación recibido por email' })
+  @ApiResponse({ status: 200, description: 'Operación confirmada exitosamente' })
+  @ApiResponse({ status: 400, description: 'Token inválido, expirado o ya confirmado' })
+  async confirmOperation(@Param('token') token: string) {
+    return this.pendingOperationsService.confirmOperation(token);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Crear usuario (solo ADMIN)' })
+  @ApiOperation({ summary: 'Crear usuario (solo ADMIN) — requiere confirmación por email' })
   @ApiBody({ type: CreateUserDto })
-  @ApiResponse({
-    status: 201,
-    description: 'Usuario creado exitosamente',
-    type: UserResponseDto,
-  })
+  @ApiResponse({ status: 201, description: 'Solicitud enviada. Revisa tu correo para confirmar.' })
   @ApiResponse({ status: 400, description: 'Datos de entrada no válidos o rol no permitido' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Solo ADMIN puede crear usuarios' })
   @ApiResponse({ status: 409, description: 'El email ya existe' })
   async create(
     @Body() dto: CreateUserDto,
-    @CurrentUser() user: { restaurantId: string },
-  ): Promise<Omit<UserResponseDto, 'passwordHash'>> {
-    return this.usersService.createUser(
-      dto.email,
-      dto.password,
-      dto.role,
+    @CurrentUser() user: { restaurantId: string; email: string },
+  ) {
+    return this.pendingOperationsService.requestCreateUser(
+      user.email,
       user.restaurantId,
+      { email: dto.email, password: dto.password, role: dto.role },
     );
   }
 
@@ -121,23 +129,27 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Editar usuario (solo ADMIN)' })
+  @ApiOperation({ summary: 'Editar usuario (solo ADMIN) — cambio de rol requiere confirmación por email' })
   @ApiParam({ name: 'id', description: 'ID del usuario a editar', example: '550e8400-e29b-41d4-a716-446655440000' })
   @ApiBody({ type: UpdateUserDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Usuario actualizado exitosamente',
-    type: UserResponseDto,
-  })
+  @ApiResponse({ status: 200, description: 'Usuario actualizado, o solicitud enviada por email si incluye cambio de rol' })
   @ApiResponse({ status: 400, description: 'Datos de entrada no válidos o rol no permitido' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Solo ADMIN puede editar usuarios, o el usuario pertenece a otro restaurante' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
   async update(
     @Param('id') id: string,
-    @CurrentUser() user: { restaurantId: string },
+    @CurrentUser() user: { restaurantId: string; email: string },
     @Body() dto: UpdateUserDto,
-  ): Promise<UserResponseDto> {
+  ) {
+    if (dto.role !== undefined) {
+      return this.pendingOperationsService.requestUpdateUserRole(
+        user.email,
+        user.restaurantId,
+        id,
+        dto.role,
+      );
+    }
     return this.usersService.updateUser(id, user.restaurantId, dto);
   }
 
@@ -145,20 +157,20 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Eliminar usuario (solo ADMIN)' })
+  @ApiOperation({ summary: 'Eliminar usuario (solo ADMIN) — requiere confirmación por email' })
   @ApiParam({ name: 'id', description: 'ID del usuario a eliminar', example: '550e8400-e29b-41d4-a716-446655440000' })
-  @ApiResponse({
-    status: 200,
-    description: 'Usuario eliminado exitosamente',
-    type: UserResponseDto,
-  })
+  @ApiResponse({ status: 200, description: 'Solicitud enviada. Revisa tu correo para confirmar.' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Solo ADMIN puede eliminar usuarios, o el usuario pertenece a otro restaurante' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
   async remove(
     @Param('id') id: string,
-    @CurrentUser() user: { restaurantId: string },
-  ): Promise<UserResponseDto> {
-    return this.usersService.deleteUser(id, user.restaurantId);
+    @CurrentUser() user: { restaurantId: string; email: string },
+  ) {
+    return this.pendingOperationsService.requestDeleteUser(
+      user.email,
+      user.restaurantId,
+      id,
+    );
   }
 }

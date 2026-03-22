@@ -1,0 +1,40 @@
+<h2>¿En qué sistema operativo correrá el software?</h2>
+<p class="subtitle">Esta decisión afecta el empaquetado, firma de código y distribución del binario</p>
+
+<div class="options">
+  <div class="option" data-choice="windows" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Solo Windows</h3>
+      <p>La mayoría de restaurantes usa Windows. Simplifica el desarrollo y el proceso de firma/distribución.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pro</h4><ul><li>Un solo target</li><li>Firma .exe estándar</li><li>Más simple</li></ul></div>
+        <div class="cons"><h4>Contra</h4><ul><li>Limita mercado Mac/Linux</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="windows-mac" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Windows + macOS</h3>
+      <p>Cubre el mercado más amplio. Algunos restaurantes premium usan Mac (ej. iPad-like experience con Mac mini).</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pro</h4><ul><li>Más mercado</li><li>Mac = clientes premium</li></ul></div>
+        <div class="cons"><h4>Contra</h4><ul><li>Doble proceso de firma</li><li>Apple notarization</li><li>Más testing</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="cross-platform" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Cross-platform (Win + Mac + Linux)</h3>
+      <p>Máxima flexibilidad. Linux útil si el cliente quiere una Raspberry Pi o servidor barato.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pro</h4><ul><li>Máxima flexibilidad</li><li>Raspberry Pi / NUC</li></ul></div>
+        <div class="cons"><h4>Contra</h4><ul><li>Más complejidad</li><li>3 builds + testing</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

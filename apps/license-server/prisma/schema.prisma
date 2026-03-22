@@ -1,0 +1,20 @@
+// apps/license-server/prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model License {
+  key         String    @id
+  machineId   String?
+  platform    String?
+  mode        String    @default("desktop")
+  activatedAt DateTime?
+  status      String    @default("available")
+  createdAt   DateTime  @default(now())
+}

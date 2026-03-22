@@ -6,8 +6,6 @@ import { PrismaService } from '../prisma/prisma.service';
 export interface CreateMenuItemData {
   menuId: string;
   productId: string;
-  price?: number;
-  stock?: number;
   sectionName?: string;
   order?: number;
 }
@@ -21,8 +19,6 @@ export class MenuItemRepository {
       data: {
         menuId: data.menuId,
         productId: data.productId,
-        price: data.price,
-        stock: data.stock,
         sectionName: data.sectionName,
         order: data.order ?? 0,
       },
@@ -41,8 +37,6 @@ export class MenuItemRepository {
       data: items.map((item) => ({
         menuId: item.menuId,
         productId: item.productId,
-        price: item.price,
-        stock: item.stock,
         sectionName: item.sectionName,
         order: item.order ?? 0,
       })),

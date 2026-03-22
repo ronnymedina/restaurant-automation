@@ -1,0 +1,188 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import DataTable from '../../components/dash/DataTable.astro';
+---
+
+<DashboardLayout>
+  <div class="space-y-6">
+    <div class="flex justify-between items-center">
+      <h2 class="text-2xl font-bold text-slate-800">Mesas</h2>
+      <button id="newTableBtn"
+        class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none">
+        Nueva mesa
+      </button>
+    </div>
+
+    <!-- Create / Edit Form -->
+    <div id="tableForm" class="hidden bg-white rounded-xl border border-slate-200 p-6">
+      <h3 id="formTitle" class="text-lg font-semibold text-slate-800 mb-4">Nueva mesa</h3>
+      <form id="tableFormEl" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <input type="hidden" id="tableId" />
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+          <input type="text" id="tableName" required maxlength="100"
+            placeholder="Mesa 1"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Capacidad</label>
+          <input type="number" id="tableCapacity" required min="1"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div id="activeField" class="hidden">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Activa</label>
+          <select id="tableActive"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="true">Sí</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+        <div class="flex gap-2">
+          <button type="submit"
+            class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none">
+            Guardar
+          </button>
+          <button type="button" id="cancelFormBtn"
+            class="px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors cursor-pointer border-none">
+            Cancelar
+          </button>
+        </div>
+      </form>
+      <p id="formError" class="hidden mt-3 text-sm text-red-600"></p>
+    </div>
+
+    <DataTable
+      tbodyId="tablesTableBody"
+      minWidth="400px"
+      columns={[
+        { label: 'Nombre' },
+        { label: 'Capacidad', nowrap: true },
+        { label: 'Estado', nowrap: true },
+        { label: 'Acciones', align: 'right', nowrap: true },
+      ]}
+    />
+  </div>
+</DashboardLayout>
+
+<script>
+  import { apiFetch } from '../../lib/api';
+  import { setTableLoading, setTableEmpty, setTableError } from '../../lib/pagination';
+
+  const COLSPAN = 4;
+  const tableBody = document.getElementById('tablesTableBody')!;
+  const tableForm = document.getElementById('tableForm')!;
+  const formEl = document.getElementById('tableFormEl') as HTMLFormElement;
+  const formTitle = document.getElementById('formTitle')!;
+  const formError = document.getElementById('formError')!;
+  const activeField = document.getElementById('activeField')!;
+
+  function showForm(mode: 'create' | 'edit', data?: any) {
+    formTitle.textContent = mode === 'create' ? 'Nueva mesa' : 'Editar mesa';
+    activeField.classList.toggle('hidden', mode === 'create');
+    formError.classList.add('hidden');
+    if (data) {
+      (document.getElementById('tableId') as HTMLInputElement).value = data.id;
+      (document.getElementById('tableName') as HTMLInputElement).value = data.name;
+      (document.getElementById('tableCapacity') as HTMLInputElement).value = String(data.capacity);
+      (document.getElementById('tableActive') as HTMLSelectElement).value = String(data.active);
+    } else {
+      formEl.reset();
+      (document.getElementById('tableId') as HTMLInputElement).value = '';
+    }
+    tableForm.classList.remove('hidden');
+  }
+
+  function hideForm() {
+    tableForm.classList.add('hidden');
+    formEl.reset();
+    formError.classList.add('hidden');
+  }
+
+  async function loadTables() {
+    setTableLoading(tableBody, COLSPAN);
+    const res = await apiFetch('/v1/tables');
+    if (!res.ok) {
+      setTableError(tableBody, COLSPAN, 'Error al cargar las mesas');
+      return;
+    }
+    const tables = await res.json();
+    if (tables.length === 0) {
+      setTableEmpty(tableBody, COLSPAN, 'No hay mesas registradas');
+      return;
+    }
+    tableBody.innerHTML = tables.map((t: any) => `
+      <tr class="border-b border-slate-100 hover:bg-slate-50">
+        <td class="px-4 py-3 font-medium text-slate-800">${t.name}</td>
+        <td class="px-4 py-3 text-slate-600 whitespace-nowrap">${t.capacity} personas</td>
+        <td class="px-4 py-3 whitespace-nowrap">
+          <span class="px-2 py-0.5 text-xs rounded-full ${t.active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}">
+            ${t.active ? 'Activa' : 'Inactiva'}
+          </span>
+        </td>
+        <td class="px-4 py-3 text-right whitespace-nowrap space-x-2">
+          <button data-edit='${JSON.stringify(t)}' class="edit-btn text-indigo-600 hover:text-indigo-800 cursor-pointer bg-transparent border-none text-sm">Editar</button>
+          <button data-delete="${t.id}" class="delete-btn text-red-600 hover:text-red-800 cursor-pointer bg-transparent border-none text-sm">Eliminar</button>
+        </td>
+      </tr>
+    `).join('');
+    bindTableEvents();
+  }
+
+  function bindTableEvents() {
+    tableBody.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const data = JSON.parse((btn as HTMLElement).dataset.edit!);
+        showForm('edit', data);
+      });
+    });
+    tableBody.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = (btn as HTMLElement).dataset.delete!;
+        if (!confirm('¿Eliminar esta mesa?')) return;
+        const res = await apiFetch(`/v1/tables/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          alert(data?.message || 'No se pudo eliminar la mesa');
+          return;
+        }
+        loadTables();
+      });
+    });
+  }
+
+  document.getElementById('newTableBtn')!.addEventListener('click', () => showForm('create'));
+  document.getElementById('cancelFormBtn')!.addEventListener('click', hideForm);
+
+  formEl.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    formError.classList.add('hidden');
+
+    const id = (document.getElementById('tableId') as HTMLInputElement).value;
+    const isEdit = !!id;
+    const body: Record<string, any> = {
+      name: (document.getElementById('tableName') as HTMLInputElement).value,
+      capacity: Number((document.getElementById('tableCapacity') as HTMLInputElement).value),
+    };
+    if (isEdit) {
+      body.active = (document.getElementById('tableActive') as HTMLSelectElement).value === 'true';
+    }
+
+    const res = await apiFetch(
+      isEdit ? `/v1/tables/${id}` : '/v1/tables',
+      { method: isEdit ? 'PATCH' : 'POST', body: JSON.stringify(body) },
+    );
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      formError.textContent = data?.message || 'Error al guardar';
+      formError.classList.remove('hidden');
+      return;
+    }
+
+    hideForm();
+    loadTables();
+  });
+
+  loadTables();
+</script>

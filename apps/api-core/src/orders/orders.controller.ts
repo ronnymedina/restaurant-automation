@@ -35,6 +35,34 @@ export class OrdersController {
     return this.ordersService.findByRestaurantId(user.restaurantId, status);
   }
 
+  @Get('history')
+  @Roles(Role.ADMIN, Role.MANAGER, Role.BASIC)
+  @ApiOperation({ summary: 'Historial de pedidos con filtros y paginación' })
+  @ApiQuery({ name: 'orderNumber', required: false, type: Number })
+  @ApiQuery({ name: 'status', required: false, enum: OrderStatus })
+  @ApiQuery({ name: 'dateFrom', required: false, type: String, description: 'Fecha inicio YYYY-MM-DD' })
+  @ApiQuery({ name: 'dateTo', required: false, type: String, description: 'Fecha fin YYYY-MM-DD' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async findHistory(
+    @CurrentUser() user: { restaurantId: string },
+    @Query('orderNumber') orderNumber?: string,
+    @Query('status') status?: OrderStatus,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    return this.ordersService.findHistory(user.restaurantId, {
+      orderNumber: orderNumber ? parseInt(orderNumber, 10) : undefined,
+      status,
+      dateFrom,
+      dateTo,
+      page: Math.max(1, parseInt(page, 10) || 1),
+      limit: Math.min(100, Math.max(1, parseInt(limit, 10) || 20)),
+    });
+  }
+
   @Get(':id')
   @Roles(Role.ADMIN, Role.MANAGER, Role.BASIC)
   @ApiOperation({ summary: 'Obtener orden por ID' })
