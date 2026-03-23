@@ -1,6 +1,5 @@
-import { PartialType, OmitType } from '@nestjs/swagger';
+import { PartialType, OmitType, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, Matches, ValidateIf } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
 import { CreateProductDto } from './create-product.dto';
 
 export class UpdateProductDto extends PartialType(OmitType(CreateProductDto, ['imageUrl'] as const)) {

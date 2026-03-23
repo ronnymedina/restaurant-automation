@@ -16,7 +16,7 @@ export interface ProductInput {
   description?: string;
   price: number;
   stock?: number | null;
-  imageUrl?: string;
+  imageUrl?: string | null;
 }
 
 @Injectable()

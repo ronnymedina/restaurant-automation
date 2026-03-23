@@ -213,6 +213,7 @@ import DataTable from '../../components/dash/DataTable.astro';
     currentImagePreview.classList.add('hidden');
     currentImagePreview.classList.remove('flex');
     imageDropZone.classList.remove('hidden');
+    imageUrlFallback.classList.remove('hidden');
   }
 
   currentImageClearBtn.addEventListener('click', () => {
@@ -249,6 +250,7 @@ import DataTable from '../../components/dash/DataTable.astro';
   });
 
   async function handleImageSelected(file: File) {
+    imageRemoved = false;
     if (currentBlobUrl) {
       URL.revokeObjectURL(currentBlobUrl);
       currentBlobUrl = null;
@@ -432,9 +434,11 @@ import DataTable from '../../components/dash/DataTable.astro';
 
     const stockRaw = (document.getElementById('productStock') as HTMLInputElement).value;
     const imageUrl = (document.getElementById('productImageUrl') as HTMLInputElement).value;
-    const resolvedImageUrl: string | null | undefined = imageRemoved
-      ? null
-      : (uploadedImageUrl || imageUrl || undefined);
+    const resolvedImageUrl: string | null | undefined = uploadedImageUrl
+      ? uploadedImageUrl
+      : imageRemoved
+        ? null
+        : (imageUrl || undefined);
 
     const raw = {
       name: (document.getElementById('productName') as HTMLInputElement).value,
