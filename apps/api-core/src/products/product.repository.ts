@@ -11,7 +11,7 @@ export interface CreateProductData {
   stock?: number | null;
   active?: boolean;
   sku?: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
   restaurantId: string;
   categoryId: string;
 }

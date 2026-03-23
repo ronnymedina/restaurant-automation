@@ -84,6 +84,19 @@ import DataTable from '../../components/dash/DataTable.astro';
             </button>
           </div>
 
+          <!-- Current image preview (shown in edit mode when product has an existing image) -->
+          <div id="currentImagePreview" class="hidden items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg p-3 mb-2">
+            <img id="currentImageThumb" src="" alt="imagen actual" class="w-16 h-16 object-cover rounded" />
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-slate-800">Imagen actual</p>
+              <p id="currentImageUrl" class="text-xs text-slate-500 mt-0.5 truncate"></p>
+            </div>
+            <button type="button" id="currentImageClearBtn"
+              class="text-red-500 hover:text-red-700 text-xs font-medium bg-transparent border-none cursor-pointer shrink-0">
+              ✕ Quitar
+            </button>
+          </div>
+
           <!-- URL fallback (shown when no file selected) -->
           <div id="imageUrlFallback">
             <input type="text" id="productImageUrl" placeholder="O pega una URL externa de imagen"
@@ -139,7 +152,7 @@ import DataTable from '../../components/dash/DataTable.astro';
     price: z.number({ invalid_type_error: 'El precio debe ser un número' }).positive('El precio debe ser mayor a 0'),
     stock: z.number().int().nonnegative('El stock no puede ser negativo').nullable().optional(),
     sku: z.string().max(100, 'Máximo 100 caracteres').optional(),
-    imageUrl: z.string().regex(/^(https?:\/\/.+|\/.+)/, 'La URL de imagen no es válida').optional(),
+    imageUrl: z.string().regex(/^(https?:\/\/.+|\/.+)/, 'La URL de imagen no es válida').nullable().optional(),
     description: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
     active: z.boolean().optional(),
   });
@@ -179,6 +192,37 @@ import DataTable from '../../components/dash/DataTable.astro';
   let uploadedImageUrl: string | null = null;
   let currentBlobUrl: string | null = null;
   let isUploading = false;
+  let imageRemoved = false;
+  const currentImagePreview = document.getElementById('currentImagePreview')!;
+  const currentImageThumb = document.getElementById('currentImageThumb') as HTMLImageElement;
+  const currentImageUrlEl = document.getElementById('currentImageUrl')!;
+  const currentImageClearBtn = document.getElementById('currentImageClearBtn')!;
+
+  function showCurrentImage(url: string) {
+    imageRemoved = false;
+    currentImageThumb.src = url;
+    currentImageUrlEl.textContent = url;
+    currentImagePreview.classList.remove('hidden');
+    currentImagePreview.classList.add('flex');
+    imageDropZone.classList.add('hidden');
+    imageUrlFallback.classList.add('hidden');
+  }
+
+  function clearCurrentImage() {
+    imageRemoved = false;
+    currentImagePreview.classList.add('hidden');
+    currentImagePreview.classList.remove('flex');
+    imageDropZone.classList.remove('hidden');
+  }
+
+  currentImageClearBtn.addEventListener('click', () => {
+    imageRemoved = true;
+    currentImagePreview.classList.add('hidden');
+    currentImagePreview.classList.remove('flex');
+    imageDropZone.classList.remove('hidden');
+    imageUrlFallback.classList.remove('hidden');
+    (document.getElementById('productImageUrl') as HTMLInputElement).value = '';
+  });
 
   imageFile.addEventListener('change', () => {
     const file = imageFile.files?.[0];
@@ -335,7 +379,12 @@ import DataTable from '../../components/dash/DataTable.astro';
         categorySelect.value = p.categoryId || '';
         productForm.classList.remove('hidden');
         clearImageSelection();
-        (document.getElementById('productImageUrl') as HTMLInputElement).value = p.imageUrl || '';
+        clearCurrentImage();
+        if (p.imageUrl) {
+          showCurrentImage(p.imageUrl);
+        } else {
+          (document.getElementById('productImageUrl') as HTMLInputElement).value = '';
+        }
       });
     });
 
@@ -354,6 +403,8 @@ import DataTable from '../../components/dash/DataTable.astro';
     formTitle.textContent = 'Nuevo producto';
     formEl.reset();
     clearImageSelection();
+    imageRemoved = false;
+    clearCurrentImage();
     productForm.classList.remove('hidden');
     // Re-apply default category selection after form.reset() clears it
     const firstOption = categorySelect.querySelector('option:not([disabled])') as HTMLOptionElement | null;
@@ -364,6 +415,8 @@ import DataTable from '../../components/dash/DataTable.astro';
     productForm.classList.add('hidden');
     formEl.reset();
     clearImageSelection();
+    imageRemoved = false;
+    clearCurrentImage();
     clearFormError();
     editingId = null;
   });
@@ -379,7 +432,9 @@ import DataTable from '../../components/dash/DataTable.astro';
 
     const stockRaw = (document.getElementById('productStock') as HTMLInputElement).value;
     const imageUrl = (document.getElementById('productImageUrl') as HTMLInputElement).value;
-    const resolvedImageUrl = uploadedImageUrl || imageUrl || undefined;
+    const resolvedImageUrl: string | null | undefined = imageRemoved
+      ? null
+      : (uploadedImageUrl || imageUrl || undefined);
 
     const raw = {
       name: (document.getElementById('productName') as HTMLInputElement).value,
@@ -416,6 +471,8 @@ import DataTable from '../../components/dash/DataTable.astro';
     productForm.classList.add('hidden');
     formEl.reset();
     clearImageSelection();
+    imageRemoved = false;
+    clearCurrentImage();
     clearFormError();
     editingId = null;
     loadProducts(currentPage);
