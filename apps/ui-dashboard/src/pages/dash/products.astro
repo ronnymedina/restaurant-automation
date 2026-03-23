@@ -129,8 +129,20 @@ import DataTable from '../../components/dash/DataTable.astro';
 </DashboardLayout>
 
 <script>
+  import { z } from 'zod';
   import { apiFetch } from '../../lib/api';
   import { renderPagination, setTableLoading, setTableEmpty, setTableError } from '../../lib/pagination';
+
+  const ProductSchema = z.object({
+    name: z.string().min(1, 'El nombre es requerido').max(255, 'Máximo 255 caracteres'),
+    categoryId: z.string().uuid('Debes seleccionar una categoría'),
+    price: z.number({ invalid_type_error: 'El precio debe ser un número' }).positive('El precio debe ser mayor a 0'),
+    stock: z.number().int().nonnegative('El stock no puede ser negativo').nullable().optional(),
+    sku: z.string().max(100, 'Máximo 100 caracteres').optional(),
+    imageUrl: z.string().regex(/^(https?:\/\/.+|\/.+)/, 'La URL de imagen no es válida').optional(),
+    description: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
+    active: z.boolean().optional(),
+  });
 
   const COLSPAN = 6;
   let currentPage = 1;
@@ -256,13 +268,17 @@ import DataTable from '../../components/dash/DataTable.astro';
     const res = await apiFetch('/v1/categories?limit=100');
     if (res.ok) {
       const { data } = await res.json();
-      categorySelect.innerHTML = '<option value="" disabled selected>Selecciona una categoría</option>';
+      categorySelect.innerHTML = '<option value="" disabled>Selecciona una categoría</option>';
       data.forEach((cat: any) => {
         const opt = document.createElement('option');
         opt.value = cat.id;
         opt.textContent = cat.name;
         categorySelect.appendChild(opt);
       });
+      // Pre-select first category when not in edit mode
+      if (data.length > 0 && !editingId) {
+        categorySelect.value = data[0].id;
+      }
     }
   }
 
@@ -339,6 +355,9 @@ import DataTable from '../../components/dash/DataTable.astro';
     formEl.reset();
     clearImageSelection();
     productForm.classList.remove('hidden');
+    // Re-apply default category selection after form.reset() clears it
+    const firstOption = categorySelect.querySelector('option:not([disabled])') as HTMLOptionElement | null;
+    if (firstOption) categorySelect.value = firstOption.value;
   });
 
   document.getElementById('cancelBtn')!.addEventListener('click', () => {
@@ -358,40 +377,31 @@ import DataTable from '../../components/dash/DataTable.astro';
       return;
     }
 
-    const categoryId = categorySelect.value;
-    if (!categoryId) {
-      showFormError('Debes seleccionar una categoría');
-      categorySelect.focus();
-      return;
-    }
-
-    const price = (document.getElementById('productPrice') as HTMLInputElement).value;
-    if (!price || Number(price) <= 0) {
-      showFormError('El precio es requerido y debe ser mayor a 0');
-      (document.getElementById('productPrice') as HTMLInputElement).focus();
-      return;
-    }
-
-    const body: any = {
-      name: (document.getElementById('productName') as HTMLInputElement).value,
-      categoryId,
-      price: Number(price),
-    };
-    const stock = (document.getElementById('productStock') as HTMLInputElement).value;
-    const sku = (document.getElementById('productSku') as HTMLInputElement).value;
+    const stockRaw = (document.getElementById('productStock') as HTMLInputElement).value;
     const imageUrl = (document.getElementById('productImageUrl') as HTMLInputElement).value;
-    const description = (document.getElementById('productDescription') as HTMLTextAreaElement).value;
-    const active = (document.getElementById('productActive') as HTMLInputElement).checked;
-    if (editingId) {
-      body.stock = stock === '' ? null : Number(stock);
-    } else if (stock) {
-      body.stock = Number(stock);
+    const resolvedImageUrl = uploadedImageUrl || imageUrl || undefined;
+
+    const raw = {
+      name: (document.getElementById('productName') as HTMLInputElement).value,
+      categoryId: categorySelect.value,
+      price: Number((document.getElementById('productPrice') as HTMLInputElement).value),
+      stock: editingId
+        ? (stockRaw === '' ? null : Number(stockRaw))
+        : (stockRaw ? Number(stockRaw) : undefined),
+      sku: (document.getElementById('productSku') as HTMLInputElement).value || undefined,
+      imageUrl: resolvedImageUrl,
+      description: (document.getElementById('productDescription') as HTMLTextAreaElement).value || undefined,
+      active: (document.getElementById('productActive') as HTMLInputElement).checked,
+    };
+
+    const result = ProductSchema.safeParse(raw);
+    if (!result.success) {
+      const messages = result.error.issues.map((e) => e.message);
+      showFormError(messages);
+      return;
     }
-    if (sku) body.sku = sku;
-    const resolvedImageUrl = uploadedImageUrl || imageUrl;
-    if (resolvedImageUrl) body.imageUrl = resolvedImageUrl;
-    if (description) body.description = description;
-    body.active = active;
+
+    const body = result.data;
 
     const res = editingId
       ? await apiFetch(`/v1/products/${editingId}`, { method: 'PATCH', body: JSON.stringify(body) })

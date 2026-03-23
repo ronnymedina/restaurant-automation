@@ -8,7 +8,8 @@ import {
   IsBoolean,
   IsUUID,
   MaxLength,
-  IsUrl,
+  Matches,
+  Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -30,9 +31,10 @@ export class CreateProductDto {
   @IsPositive()
   price: number;
 
-  @ApiPropertyOptional({ example: 50, description: 'Stock global (null = ilimitado, 0 = agotado)' })
+  @ApiPropertyOptional({ example: 50, description: 'Stock global. null = ilimitado, 0 = agotado' })
   @IsOptional()
   @IsInt()
+  @Min(0, { message: 'El stock no puede ser negativo' })
   stock?: number;
 
   @ApiPropertyOptional({ example: 'HAM-001', maxLength: 100 })
@@ -43,7 +45,8 @@ export class CreateProductDto {
 
   @ApiPropertyOptional({ example: 'https://example.com/imagen.jpg' })
   @IsOptional()
-  @IsUrl({ protocols: ['https', 'http'], require_protocol: true })
+  @IsString()
+  @Matches(/^(https?:\/\/.+|\/.+)/, { message: 'imageUrl must be a URL address' })
   imageUrl?: string;
 
   @ApiPropertyOptional({ example: true, default: true })
