@@ -7,6 +7,10 @@
 - NestJS binaries built: `pnpm --filter @restaurants/api-core build && pnpm build:desktop`
   (only required if using binary spawn mode)
 
+> **Seguridad:** el monorepo bloquea todos los `postinstall` scripts por defecto.
+> El binario de Electron **no se descarga automáticamente**. Ver
+> `docs/pending-electron-binary-setup.md` para el detalle.
+
 ## Setup
 
 ```bash
@@ -14,6 +18,9 @@ cd apps/desktop
 cp .env.example .env
 # Edit .env — see Variables section below
 pnpm install
+
+# Instalar el binario de Electron (solo necesario la primera vez o tras limpiar node_modules)
+pnpm pending
 ```
 
 ## Running

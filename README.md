@@ -217,6 +217,7 @@ packages/
 docs/
 ├── build-and-test-guide.md   Guía de build y Electron
 ├── pending-to-deploy-the-stack.md   Checklist de deploy (firma, Railway, iconos)
+├── pending-electron-binary-setup.md   Por qué el binario de Electron no se instala solo (seguridad)
 └── superpowers/              Specs y planes de implementación
     ├── specs/pending-2026-03-18-desktop-packaging-design.md   Diseño completo de distribución (licencia en binario pendiente)
     └── specs/pending-2026-03-25-electron-app-dev-mode-design.md   Diseño dev mode Electron app (pendiente implementar)
