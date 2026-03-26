@@ -4,7 +4,7 @@ import { config } from 'dotenv';
 config({ path: resolve(__dirname, '..', '.env') });
 
 import { app, shell } from 'electron';
-import { startServer } from './server/spawn';
+import { startServer, stopServer } from './server/spawn';
 import { createTray, setTrayStatus } from './tray/tray';
 
 // Prevent multiple instances
@@ -34,6 +34,7 @@ app.whenReady().then(async () => {
     await shell.openExternal(url);
   } catch (err) {
     console.error('[main] Failed to start server:', err);
+    stopServer();
     app.quit();
   }
 });
