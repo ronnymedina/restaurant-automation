@@ -42,7 +42,7 @@ export class KitchenService {
       return { kitchenUrl: null, expiresAt: null };
     }
     return {
-      kitchenUrl: `/kitchen/${restaurant.slug}?token=${restaurant.kitchenToken}`,
+      kitchenUrl: `/kitchen?slug=${restaurant.slug}&token=${restaurant.kitchenToken}`,
       expiresAt: restaurant.kitchenTokenExpiresAt,
     };
   }
@@ -78,7 +78,7 @@ export class KitchenService {
     return {
       token,
       expiresAt,
-      kitchenUrl: `/kitchen/${restaurant.slug}?token=${token}`,
+      kitchenUrl: `/kitchen?slug=${restaurant.slug}&token=${token}`,
     };
   }
 

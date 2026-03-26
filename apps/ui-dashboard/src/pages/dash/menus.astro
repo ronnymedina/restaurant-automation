@@ -175,7 +175,7 @@ import DataTable from '../../components/dash/DataTable.astro';
         <td class="px-4 py-3 text-slate-600 whitespace-nowrap">${m._count?.items ?? 0}</td>
         <td class="px-4 py-3 text-right whitespace-nowrap space-x-2">
           <button data-edit='${JSON.stringify(m).replace(/'/g, '&#39;')}' class="edit-btn text-indigo-600 hover:text-indigo-800 cursor-pointer bg-transparent border-none text-sm">Editar</button>
-          <a href="/dash/menus/${m.id}" class="text-emerald-600 hover:text-emerald-800 text-sm">Items</a>
+          <a href="/dash/menus/detail?id=${m.id}" class="text-emerald-600 hover:text-emerald-800 text-sm">Items</a>
           <button data-delete="${m.id}" class="delete-btn text-red-600 hover:text-red-800 cursor-pointer bg-transparent border-none text-sm">Eliminar</button>
         </td>
       </tr>

@@ -47,8 +47,8 @@ export const BCRYPT_SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS) || 10;
 // kitchen
 export const KITCHEN_TOKEN_EXPIRY_DAYS = Number(process.env.KITCHEN_TOKEN_EXPIRY_DAYS) || 60;
 
-// timezone — used for menu schedule comparisons (IANA name, e.g. 'America/Bogota')
-export const TIMEZONE = process.env.TIMEZONE || 'America/Bogota';
+// timezone — Node reads TZ at startup via dotenv; also used explicitly in Intl.DateTimeFormat
+export const TIMEZONE = requireEnv('TZ');
 
 // print — if true, prints customer receipt immediately on order creation (not just on payment)
 export const PRINT_CUSTOMER_ON_CREATE = process.env.PRINT_CUSTOMER_ON_CREATE === 'true';
