@@ -242,5 +242,4 @@ Variables de entorno útiles para dev:
 
 | Variable | Descripción |
 |----------|-------------|
-| `ELECTRON_SKIP_LICENSE=true` | Salta validación de trial/licencia |
 | `ELECTRON_DEV_BACKEND=http://localhost:3000` | Usa NestJS ya corriendo en lugar de spawnear el binario |
