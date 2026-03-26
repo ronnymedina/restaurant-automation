@@ -218,15 +218,15 @@ docs/
 ├── build-and-test-guide.md   Guía de build y Electron
 ├── pending-to-deploy-the-stack.md   Checklist de deploy (firma, Railway, iconos)
 └── superpowers/              Specs y planes de implementación
-    ├── specs/2026-03-18-desktop-packaging-design.md   Diseño completo de distribución
-    └── specs/2026-03-25-electron-app-dev-mode-design.md   Diseño dev mode Electron app
+    ├── specs/pending-2026-03-18-desktop-packaging-design.md   Diseño completo de distribución (licencia en binario pendiente)
+    └── specs/pending-2026-03-25-electron-app-dev-mode-design.md   Diseño dev mode Electron app (pendiente implementar)
 ```
 
 ---
 
 ## Electron App (`apps/desktop`)
 
-> Ver [`docs/superpowers/specs/2026-03-25-electron-app-dev-mode-design.md`](docs/superpowers/specs/2026-03-25-electron-app-dev-mode-design.md) para el diseño completo.
+> Ver [`docs/superpowers/specs/pending-2026-03-25-electron-app-dev-mode-design.md`](docs/superpowers/specs/pending-2026-03-25-electron-app-dev-mode-design.md) para el diseño completo.
 > Ver [`docs/pending-to-deploy-the-stack.md`](docs/pending-to-deploy-the-stack.md) para el checklist de publicación (firma, Railway, iconos).
 
 Una vez implementado, correr en modo desarrollo:
