@@ -5,13 +5,17 @@ import { stopServer, getServerUrl } from '../server/spawn';
 let tray: Tray | null = null;
 
 function loadIcon(): Electron.NativeImage {
-  const iconPath = app.isPackaged
-    ? join(process.resourcesPath, 'resources', 'icon.png')
-    : join(app.getAppPath(), 'resources', 'icon.png');
+  const base = app.isPackaged ? join(process.resourcesPath, 'resources') : join(app.getAppPath(), 'resources');
+  const icon1x = join(base, 'icon.png');
+  const icon2x = join(base, 'icon@2x.png');
 
-  const img = nativeImage.createFromPath(iconPath);
-  // Return empty image gracefully if file is missing in dev
-  return img.isEmpty() ? nativeImage.createEmpty() : img.resize({ width: 16, height: 16 });
+  const img = nativeImage.createFromPath(icon1x);
+  if (!img.isEmpty()) {
+    const img2x = nativeImage.createFromPath(icon2x);
+    if (!img2x.isEmpty()) img.addRepresentation({ scaleFactor: 2, buffer: img2x.toPNG() });
+    img.setTemplateImage(true); // macOS: auto-adapts to light/dark mode
+  }
+  return img;
 }
 
 export function createTray(): void {
