@@ -216,5 +216,31 @@ packages/
 
 docs/
 ├── build-and-test-guide.md   Guía de build y Electron
+├── pending-to-deploy-the-stack.md   Checklist de deploy (firma, Railway, iconos)
 └── superpowers/              Specs y planes de implementación
+    ├── specs/2026-03-18-desktop-packaging-design.md   Diseño completo de distribución
+    └── specs/2026-03-25-electron-app-dev-mode-design.md   Diseño dev mode Electron app
 ```
+
+---
+
+## Electron App (`apps/desktop`)
+
+> Ver [`docs/superpowers/specs/2026-03-25-electron-app-dev-mode-design.md`](docs/superpowers/specs/2026-03-25-electron-app-dev-mode-design.md) para el diseño completo.
+> Ver [`docs/pending-to-deploy-the-stack.md`](docs/pending-to-deploy-the-stack.md) para el checklist de publicación (firma, Railway, iconos).
+
+Una vez implementado, correr en modo desarrollo:
+
+```bash
+cd apps/desktop
+cp .env.example .env   # ajustar valores
+pnpm install
+pnpm dev               # tsc + electron .
+```
+
+Variables de entorno útiles para dev:
+
+| Variable | Descripción |
+|----------|-------------|
+| `ELECTRON_SKIP_LICENSE=true` | Salta validación de trial/licencia |
+| `ELECTRON_DEV_BACKEND=http://localhost:3000` | Usa NestJS ya corriendo en lugar de spawnear el binario |
