@@ -32,13 +32,16 @@ async function findFreePort(): Promise<number> {
   });
 }
 
-async function pollHealth(url: string, timeoutMs = 30_000): Promise<void> {
+async function pollHealth(url: string, timeoutMs = 30_000, signal?: { aborted: boolean }): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    if (signal?.aborted) throw new Error('Health poll aborted — backend process exited');
     await new Promise(r => setTimeout(r, 500));
+    if (signal?.aborted) throw new Error('Health poll aborted — backend process exited');
     try {
       await new Promise<void>((resolve, reject) => {
         const req = http.get(`${url}/health`, res => {
+          res.resume(); // consume and discard body to free the socket
           if (res.statusCode === 200) resolve();
           else reject(new Error(`HTTP ${res.statusCode}`));
         });
@@ -48,7 +51,7 @@ async function pollHealth(url: string, timeoutMs = 30_000): Promise<void> {
           reject(new Error('timeout'));
         });
       });
-      return; // health check passed
+      return;
     } catch {
       // retry after 500 ms
     }
@@ -71,13 +74,17 @@ export async function startServer(): Promise<string> {
 
   console.log(`[spawn] Starting binary: ${binaryPath} on port ${port}`);
 
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is required in .env when spawning the binary');
+  }
+
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     PORT: String(port),
     NODE_ENV: 'production',
     DATABASE_URL: `file://${join(userData, 'database.sqlite')}`,
     UPLOADS_PATH: join(userData, 'uploads'),
-    JWT_SECRET: process.env.JWT_SECRET ?? '',
+    JWT_SECRET: process.env.JWT_SECRET,
     TZ: process.env.TZ ?? 'UTC',
     FRONTEND_URL: `http://localhost:${port}`,
   };
@@ -101,8 +108,11 @@ export async function startServer(): Promise<string> {
   childProcess.stderr?.on('data', (d: Buffer) =>
     console.error('[api-core]', d.toString().trimEnd()),
   );
+  const pollSignal = { aborted: false };
+
   childProcess.on('exit', code => {
     if (code !== 0 && code !== null) {
+      pollSignal.aborted = true;
       dialog.showErrorBox(
         'Error del servidor',
         `El proceso del servidor se detuvo inesperadamente (código ${code}).\nReinicia la aplicación.`,
@@ -112,7 +122,7 @@ export async function startServer(): Promise<string> {
   });
 
   resolvedUrl = `http://localhost:${port}`;
-  await pollHealth(resolvedUrl);
+  await pollHealth(resolvedUrl, 30_000, pollSignal);
   console.log(`[spawn] Backend ready at ${resolvedUrl}`);
   return resolvedUrl;
 }
