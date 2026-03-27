@@ -80,14 +80,14 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   emitToRestaurant(restaurantId: string, event: string, data: unknown) {
-    this.server.to(`restaurant:${restaurantId}`).emit(event, data);
+    this.server?.to(`restaurant:${restaurantId}`).emit(event, data);
   }
 
   emitToKiosk(restaurantId: string, event: string, data: unknown) {
-    this.server.to(`kiosk:${restaurantId}`).emit(event, data);
+    this.server?.to(`kiosk:${restaurantId}`).emit(event, data);
   }
 
   emitToKitchen(restaurantId: string, event: string, data: unknown) {
-    this.server.to(`kitchen:${restaurantId}`).emit(event, data);
+    this.server?.to(`kitchen:${restaurantId}`).emit(event, data);
   }
 }

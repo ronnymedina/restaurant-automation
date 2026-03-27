@@ -11,9 +11,9 @@ const navItems = [
   { href: '/dash/categories', label: 'Categorías' },
   { href: '/dash/menus', label: 'Menús' },
   { href: '/dash/users', label: 'Usuarios' },
-  { href: '/dash/tables', label: 'Mesas' },
-  { href: '/dash/reservations', label: 'Reservas' },
-  { href: '/dash/settings', label: 'Configuración' },
+  // { href: '/dash/tables', label: 'Mesas' }, // TODO: oculto hasta reactivar módulo de reservas
+  // { href: '/dash/reservations', label: 'Reservas' }, // TODO: pendiente rediseño de flujo
+  // { href: '/dash/settings', label: 'Configuración' }, // TODO: solo tiene config de reservas, ocultar hasta que tenga más contenido
   { href: '/dash/kitchen', label: 'Cocina' },
   { href: '/dash/orders-history', label: 'Historial Pedidos' },
 ];
@@ -216,7 +216,7 @@ const googleFormUrl = import.meta.env.PUBLIC_SUPPORT_GOOGLE_FORM_URL || '';
       const link = document.getElementById('kioskLink') as HTMLAnchorElement;
       const copyBtn = document.getElementById('copyKioskUrl')!;
 
-      const kioskPath = `/kiosk/${slug}`;
+      const kioskPath = `/kiosk?slug=${slug}`;
       const storefrontBase = import.meta.env.PUBLIC_STOREFRONT_URL || window.location.origin;
       const kioskUrl = `${storefrontBase}${kioskPath}`;
 

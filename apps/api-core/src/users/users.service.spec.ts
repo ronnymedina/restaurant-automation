@@ -9,6 +9,7 @@ import {
   EmailAlreadyExistsException,
   InvalidActivationTokenException,
   InvalidRoleException,
+  LastAdminException,
   UserAlreadyActiveException,
 } from './exceptions/users.exceptions';
 import {
@@ -39,6 +40,7 @@ const mockUserRepository = {
   update: jest.fn(),
   delete: jest.fn(),
   findByRestaurantIdPaginated: jest.fn(),
+  countAdmins: jest.fn(),
 };
 
 describe('UsersService', () => {
@@ -330,6 +332,29 @@ describe('UsersService', () => {
 
       expect(mockUserRepository.update).not.toHaveBeenCalled();
     });
+
+    it('throws LastAdminException when demoting the last admin', async () => {
+      const adminUser = mockUser({ role: Role.ADMIN });
+      mockUserRepository.findById.mockResolvedValue(adminUser);
+      mockUserRepository.countAdmins.mockResolvedValue(1);
+
+      await expect(
+        service.updateUser(adminUser.id, adminUser.restaurantId, { role: Role.MANAGER }),
+      ).rejects.toThrow(LastAdminException);
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('allows demoting an admin when another admin exists', async () => {
+      const adminUser = mockUser({ role: Role.ADMIN });
+      const updatedUser = mockUser({ role: Role.MANAGER });
+      mockUserRepository.findById.mockResolvedValue(adminUser);
+      mockUserRepository.countAdmins.mockResolvedValue(2);
+      mockUserRepository.update.mockResolvedValue(updatedUser);
+
+      await expect(
+        service.updateUser(adminUser.id, adminUser.restaurantId, { role: Role.MANAGER }),
+      ).resolves.toEqual(updatedUser);
+    });
   });
 
   describe('deleteUser', () => {
@@ -364,6 +389,27 @@ describe('UsersService', () => {
 
       expect(mockUserRepository.delete).toHaveBeenCalledWith('user-uuid-1');
       expect(result.id).toBe('user-uuid-1');
+    });
+
+    it('throws LastAdminException when deleting the last admin', async () => {
+      const adminUser = mockUser({ role: Role.ADMIN });
+      mockUserRepository.findById.mockResolvedValue(adminUser);
+      mockUserRepository.countAdmins.mockResolvedValue(1);
+
+      await expect(service.deleteUser(adminUser.id, adminUser.restaurantId))
+        .rejects.toThrow(LastAdminException);
+      expect(mockUserRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('deletes an admin when another admin exists', async () => {
+      const adminUser = mockUser({ role: Role.ADMIN });
+      mockUserRepository.findById.mockResolvedValue(adminUser);
+      mockUserRepository.countAdmins.mockResolvedValue(2);
+      mockUserRepository.delete.mockResolvedValue(adminUser);
+
+      await expect(service.deleteUser(adminUser.id, adminUser.restaurantId))
+        .resolves.toEqual(adminUser);
+      expect(mockUserRepository.delete).toHaveBeenCalledWith(adminUser.id);
     });
   });
 

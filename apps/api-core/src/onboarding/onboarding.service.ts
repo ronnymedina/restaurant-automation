@@ -30,11 +30,11 @@ export interface OnboardingInput {
 }
 
 const DEMO_PRODUCTS = [
-  { name: 'Hamburguesa Clásica', description: 'Hamburguesa con queso y vegetales frescos', price: 8.99 },
-  { name: 'Pizza Margherita', description: 'Pizza con salsa de tomate y mozzarella', price: 10.50 },
-  { name: 'Pasta Carbonara', description: 'Pasta con salsa cremosa y tocino', price: 9.75 },
-  { name: 'Limonada Natural', description: 'Limonada fresca con menta', price: 3.50 },
-  { name: 'Agua Mineral', description: 'Agua mineral 500ml', price: 1.50 },
+  { name: 'Hamburguesa Clásica', description: 'Hamburguesa con queso y vegetales frescos', price: 899 },
+  { name: 'Pizza Margherita', description: 'Pizza con salsa de tomate y mozzarella', price: 1050 },
+  { name: 'Pasta Carbonara', description: 'Pasta con salsa cremosa y tocino', price: 975 },
+  { name: 'Limonada Natural', description: 'Limonada fresca con menta', price: 350 },
+  { name: 'Agua Mineral', description: 'Agua mineral 500ml', price: 150 },
 ] as const;
 
 const DEMO_SECTIONS = {
@@ -170,7 +170,7 @@ export class OnboardingService {
   private async handleDemoProducts(restaurantId: string, categoryId: string): Promise<number> {
     const products = await Promise.all(
       DEMO_PRODUCTS.map((p) =>
-        this.productsService.createProduct(restaurantId, p, categoryId),
+        this.productsService.createProduct(restaurantId, { ...p, price: BigInt(p.price), categoryId }),
       ),
     );
 
@@ -205,7 +205,7 @@ export class OnboardingService {
       .map((p) => ({
         name: p.name,
         description: p.description,
-        price: p.price as number,
+        price: BigInt(p.price as number),
       }));
 
     if (validProducts.length === 0) {

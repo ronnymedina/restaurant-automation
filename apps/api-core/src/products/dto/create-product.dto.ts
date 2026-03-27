@@ -2,15 +2,19 @@ import {
   IsString,
   IsNotEmpty,
   IsOptional,
-  IsNumber,
   IsInt,
   IsPositive,
   IsBoolean,
   IsUUID,
   MaxLength,
-  IsUrl,
+  Matches,
+  Min,
+  Max,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { toCents } from '../../common/helpers/money';
+import { IsBigInt, MinBigInt } from '../../common/decorators/is-bigint.decorator';
 
 export class CreateProductDto {
   @ApiProperty({ example: 'Hamburguesa Clásica', maxLength: 255 })
@@ -19,31 +23,44 @@ export class CreateProductDto {
   @MaxLength(255)
   name: string;
 
-  @ApiPropertyOptional({ example: 'Con lechuga, tomate y cheddar', maxLength: 1000 })
+  @ApiPropertyOptional({ example: 'Con lechuga, tomate y cheddar', maxLength: 500 })
   @IsOptional()
   @IsString()
-  @MaxLength(1000)
+  @MaxLength(500)
   description?: string;
 
-  @ApiProperty({ example: 12.5, description: 'Precio del producto' })
-  @IsNumber()
-  @IsPositive()
-  price: number;
+  @ApiProperty({ example: 1250, description: 'Precio del producto en pesos (entero). Ej: 1250 = $12.50' })
+  @Transform(({ value }) => {
+    if (typeof value === 'number') {
+      try {
+        return toCents(value);
+      } catch (e) {
+        return value; // If it fails (e.g., float number), return the original so IsBigInt catches it
+      }
+    }
+    return value;
+  })
+  @IsBigInt()
+  @MinBigInt(0n, { message: 'El precio no puede ser negativo' })
+  price: bigint;
 
-  @ApiPropertyOptional({ example: 50, description: 'Stock global (null = ilimitado, 0 = agotado)' })
+  @ApiPropertyOptional({ example: 50, description: 'Stock global. null = ilimitado, 0 = agotado' })
   @IsOptional()
   @IsInt()
+  @Min(0, { message: 'El stock no puede ser negativo' })
+  @Max(9999, { message: 'El stock no puede superar 9999 unidades' })
   stock?: number;
 
-  @ApiPropertyOptional({ example: 'HAM-001', maxLength: 100 })
+  @ApiPropertyOptional({ example: 'HAM-001', maxLength: 50 })
   @IsOptional()
   @IsString()
-  @MaxLength(100)
+  @MaxLength(50)
   sku?: string;
 
   @ApiPropertyOptional({ example: 'https://example.com/imagen.jpg' })
   @IsOptional()
-  @IsUrl({ protocols: ['https', 'http'], require_protocol: true })
+  @IsString()
+  @Matches(/^(https?:\/\/.+|\/.+)/, { message: 'imageUrl must be a URL address' })
   imageUrl?: string;
 
   @ApiPropertyOptional({ example: true, default: true })

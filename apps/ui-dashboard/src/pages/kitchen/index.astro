@@ -1,7 +1,4 @@
 ---
-// Required by Astro static mode — generates a placeholder static file at /kitchen/_/
-// The actual slug is read at runtime from window.location.pathname in the <script> block.
-export const getStaticPaths = () => [{ params: { slug: '_' } }];
 ---
 
 <!DOCTYPE html>
@@ -95,9 +92,10 @@ export const getStaticPaths = () => [{ params: { slug: '_' } }];
 
   const API_URL = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
 
-  // Read slug from URL path and token from query string (with sessionStorage fallback)
-  const slug = window.location.pathname.split('/').filter(Boolean).pop() ?? '';
-  const urlToken = new URLSearchParams(window.location.search).get('token') ?? '';
+  // Read slug and token from query string (with sessionStorage fallback)
+  const params = new URLSearchParams(window.location.search);
+  const slug = params.get('slug') ?? '';
+  const urlToken = params.get('token') ?? '';
   const token = urlToken || sessionStorage.getItem(`kitchen_token_${slug}`) || '';
 
   if (!token) {

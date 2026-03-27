@@ -127,10 +127,16 @@ import DataTable from '../../components/dash/DataTable.astro';
 
     const { session, summary } = await res.json();
 
+    const PAYMENT_LABELS: Record<string, string> = {
+      CASH: 'Efectivo',
+      CARD: 'Tarjeta',
+      DIGITAL_WALLET: 'Billetera digital',
+    };
+
     const paymentRows = Object.entries(summary.paymentBreakdown as Record<string, { count: number; total: number }>)
       .map(([method, info]) => `
         <div class="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
-          <span class="text-slate-600">${method}</span>
+          <span class="text-slate-600">${PAYMENT_LABELS[method] ?? method}</span>
           <span class="text-slate-800 font-medium">${info.count} pedidos &mdash; ${formatCurrency(info.total)}</span>
         </div>
       `).join('') || '<p class="text-slate-400 text-sm">Sin pedidos</p>';

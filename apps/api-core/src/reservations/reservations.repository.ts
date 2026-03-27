@@ -1,6 +1,50 @@
 import { Injectable } from '@nestjs/common';
 import { Reservation, ReservationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { TIMEZONE } from '../config';
+
+/**
+ * Returns the UTC [start, end] range for a full calendar day in the given IANA timezone.
+ * Does NOT rely on the process TZ env var — uses Intl.DateTimeFormat for explicit conversion.
+ */
+function localDayUtcRange(
+  dateStr: string,
+  timezone: string,
+): { start: Date; end: Date } {
+  const [year, month, day] = dateStr.split('-').map(Number);
+
+  // Probe at noon UTC — guaranteed to land on the same calendar day for UTC-11..+11
+  const probeUtc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hour12: false,
+  }).formatToParts(probeUtc);
+
+  const get = (type: string) =>
+    parseInt(parts.find((p) => p.type === type)?.value ?? '0');
+
+  const localHour = get('hour') % 24; // hour12:false can emit 24 at midnight
+  const localMin = get('minute');
+  const localSec = get('second');
+
+  // probeUtc is 12:00:00 UTC = localHour:localMin:localSec local
+  // local midnight UTC = probeUtc − that local time offset
+  const midnightUtcMs =
+    probeUtc.getTime() -
+    (localHour * 3_600_000 + localMin * 60_000 + localSec * 1_000);
+
+  return {
+    start: new Date(midnightUtcMs),
+    end: new Date(midnightUtcMs + 86_400_000 - 1), // +24 h − 1 ms
+  };
+}
 
 const ACTIVE_STATUSES: ReservationStatus[] = [
   ReservationStatus.PENDING,
@@ -21,10 +65,7 @@ export class ReservationsRepository {
     if (filters.status) where.status = filters.status;
     if (filters.tableId) where.tableId = filters.tableId;
     if (filters.date) {
-      const start = new Date(filters.date);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(filters.date);
-      end.setHours(23, 59, 59, 999);
+      const { start, end } = localDayUtcRange(filters.date, TIMEZONE);
       where.date = { gte: start, lte: end };
     }
 

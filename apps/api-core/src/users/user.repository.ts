@@ -76,4 +76,10 @@ export class UserRepository {
       data: { deletedAt: new Date() },
     });
   }
+
+  async countAdmins(restaurantId: string): Promise<number> {
+    return this.prisma.user.count({
+      where: { restaurantId, role: Role.ADMIN, deletedAt: null },
+    });
+  }
 }

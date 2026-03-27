@@ -1,5 +1,4 @@
 ---
-export const getStaticPaths = () => [{ params: { slug: '_' } }];
 import KioskLayout from '../../layouts/KioskLayout.astro';
 ---
 
@@ -127,7 +126,11 @@ import KioskLayout from '../../layouts/KioskLayout.astro';
   import { kioskFetch } from '../../lib/kiosk-api';
   import { createKioskSocket } from '../../lib/socket';
 
-  const slug = window.location.pathname.split('/').filter(Boolean).pop()!;
+  const slug = new URLSearchParams(window.location.search).get('slug') ?? '';
+  if (!slug) {
+    document.body.innerHTML = '<div style="padding:2rem;text-align:center;color:#ef4444;font-size:1.5rem">Restaurante no especificado</div>';
+    throw new Error('No slug');
+  }
 
   // State
   let menus: any[] = [];

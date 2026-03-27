@@ -16,7 +16,8 @@ export const MAX_FILES = Number(process.env.MAX_FILES) || 3;
 
 // products
 export const BATCH_SIZE = Number(process.env.BATCH_SIZE) || 10;
-export const DEFAULT_CATEGORY_NAME = 'default';
+export const PRODUCTS_DEFAULT_CATEGORY_NAME = process.env.PRODUCTS_DEFAULT_CATEGORY_NAME || 'default';
+export const PRODUCTS_MAX_PAGE_SIZE = Number(process.env.PRODUCTS_MAX_PAGE_SIZE) || 50;
 
 // frontend
 export const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4321';
@@ -47,8 +48,8 @@ export const BCRYPT_SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS) || 10;
 // kitchen
 export const KITCHEN_TOKEN_EXPIRY_DAYS = Number(process.env.KITCHEN_TOKEN_EXPIRY_DAYS) || 60;
 
-// timezone — used for menu schedule comparisons (IANA name, e.g. 'America/Bogota')
-export const TIMEZONE = process.env.TIMEZONE || 'America/Bogota';
+// timezone — Node reads TZ at startup via dotenv; also used explicitly in Intl.DateTimeFormat
+export const TIMEZONE = requireEnv('TZ');
 
 // print — if true, prints customer receipt immediately on order creation (not just on payment)
 export const PRINT_CUSTOMER_ON_CREATE = process.env.PRINT_CUSTOMER_ON_CREATE === 'true';

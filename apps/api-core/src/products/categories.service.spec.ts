@@ -28,7 +28,7 @@ describe('CategoriesService', () => {
       providers: [
         CategoriesService,
         { provide: CategoryRepository, useValue: mockCategoryRepo },
-        { provide: productConfig.KEY, useValue: { defaultPageSize: 10 } },
+        { provide: productConfig.KEY, useValue: { maxPageSize: 10 } },
         { provide: ProductEventsService, useValue: mockEvents },
       ],
     }).compile();

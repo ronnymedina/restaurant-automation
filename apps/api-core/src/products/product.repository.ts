@@ -7,18 +7,18 @@ import { EntityNotFoundException } from '../common/exceptions';
 export interface CreateProductData {
   name: string;
   description?: string;
-  price: number;
+  price: bigint;
   stock?: number | null;
   active?: boolean;
   sku?: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
   restaurantId: string;
   categoryId: string;
 }
 
 @Injectable()
 export class ProductRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(data: CreateProductData): Promise<Product> {
     return this.prisma.product.create({
@@ -56,13 +56,13 @@ export class ProductRepository {
 
   async findById(id: string, restaurantId: string): Promise<Product | null> {
     return this.prisma.product.findFirst({
-      where: { id, restaurantId },
+      where: { id, restaurantId, deletedAt: null },
     });
   }
 
   async findByRestaurantId(restaurantId: string): Promise<Product[]> {
     return this.prisma.product.findMany({
-      where: { restaurantId },
+      where: { restaurantId, deletedAt: null },
     });
   }
 
@@ -73,16 +73,18 @@ export class ProductRepository {
   ): Promise<{ data: Product[]; total: number }> {
     const [data, total] = await Promise.all([
       this.prisma.product.findMany({
-        where: { restaurantId },
+        where: { restaurantId, deletedAt: null },
         skip,
         take,
         orderBy: { createdAt: 'desc' },
-        include: { category: true },
+        include: { category: { select: { name: true } } },
       }),
+
       this.prisma.product.count({
-        where: { restaurantId },
+        where: { restaurantId, deletedAt: null },
       }),
     ]);
+
     return { data, total };
   }
 
@@ -93,7 +95,7 @@ export class ProductRepository {
   async update(
     id: string,
     restaurantId: string,
-    data: Partial<CreateProductData>,
+    data: Partial<Omit<CreateProductData, 'restaurantId' | 'categoryId'>> & { categoryId?: string },
   ): Promise<Product> {
     await this.findProductAndThrowIfNotFound(id, restaurantId);
 
@@ -106,8 +108,9 @@ export class ProductRepository {
   async delete(id: string, restaurantId: string): Promise<Product> {
     await this.findProductAndThrowIfNotFound(id, restaurantId);
 
-    return this.prisma.product.delete({
+    return this.prisma.product.update({
       where: { id },
+      data: { deletedAt: new Date() },
     });
   }
 

@@ -27,7 +27,7 @@ export class CategoriesService {
     limit?: number,
   ): Promise<PaginatedResult<Category>> {
     const currentPage = page || 1;
-    const currentLimit = limit || this.configService.defaultPageSize;
+    const currentLimit = limit ? Math.min(limit, this.configService.maxPageSize) : this.configService.maxPageSize;
     const skip = (currentPage - 1) * currentLimit;
 
     const { data, total } =

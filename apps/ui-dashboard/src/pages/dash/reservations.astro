@@ -189,9 +189,8 @@ import DataTable from '../../components/dash/DataTable.astro';
 
   let allTables: any[] = [];
 
-  // Set default filter date to today
-  const filterDate = document.getElementById('filterDate') as HTMLInputElement;
-  filterDate.value = new Date().toISOString().split('T')[0];
+  // Default filter: pending reservations (no date filter)
+  (document.getElementById('filterStatus') as HTMLSelectElement).value = 'PENDING';
 
   async function loadTables() {
     const res = await apiFetch('/v1/tables');

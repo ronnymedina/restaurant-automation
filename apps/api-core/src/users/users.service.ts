@@ -8,6 +8,7 @@ import {
   EmailAlreadyExistsException,
   InvalidActivationTokenException,
   InvalidRoleException,
+  LastAdminException,
   UserAlreadyActiveException,
 } from './exceptions/users.exceptions';
 import {
@@ -184,17 +185,33 @@ export class UsersService {
     restaurantId: string,
     data: { email?: string; role?: Role; isActive?: boolean },
   ): Promise<User> {
-    await this.findByIdAndVerifyOwnership(id, restaurantId);
+    const user = await this.findByIdAndVerifyOwnership(id, restaurantId);
 
     if (data.role === Role.ADMIN) {
       throw new InvalidRoleException(data.role);
+    }
+
+    // Demoting an admin — ensure at least one other admin remains
+    if (data.role !== undefined && user.role === Role.ADMIN) {
+      const adminCount = await this.userRepository.countAdmins(restaurantId);
+      if (adminCount <= 1) {
+        throw new LastAdminException();
+      }
     }
 
     return this.userRepository.update(id, data);
   }
 
   async deleteUser(id: string, restaurantId: string): Promise<User> {
-    await this.findByIdAndVerifyOwnership(id, restaurantId);
+    const user = await this.findByIdAndVerifyOwnership(id, restaurantId);
+
+    if (user.role === Role.ADMIN) {
+      const adminCount = await this.userRepository.countAdmins(restaurantId);
+      if (adminCount <= 1) {
+        throw new LastAdminException();
+      }
+    }
+
     return this.userRepository.delete(id);
   }
 }
