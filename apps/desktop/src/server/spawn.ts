@@ -74,10 +74,6 @@ export async function startServer(): Promise<string> {
 
   console.log(`[spawn] Starting binary: ${binaryPath} on port ${port}`);
 
-  if (!process.env.JWT_SECRET) {
-    throw new Error('JWT_SECRET is required in .env when spawning the binary');
-  }
-
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     PORT: String(port),

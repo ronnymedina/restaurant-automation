@@ -25,12 +25,19 @@ app.whenReady().then(async () => {
     openAsHidden: true,
   });
 
+  // Load or generate persistent app config
+  const { getOrCreateAppConfig } = await import('./config/app-config');
+  const appConfig = getOrCreateAppConfig();
+  // Only set if not already provided via .env (dev mode override)
+  if (!process.env.JWT_SECRET) {
+    process.env.JWT_SECRET = appConfig.jwtSecret;
+  }
+
   createTray();
 
   try {
     const url = await startServer();
     setTrayStatus('running');
-    // Open the system browser once the backend is ready
     await shell.openExternal(url);
   } catch (err) {
     console.error('[main] Failed to start server:', err);
