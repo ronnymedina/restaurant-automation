@@ -74,13 +74,18 @@ export async function startServer(): Promise<string> {
 
   console.log(`[spawn] Starting binary: ${binaryPath} on port ${port}`);
 
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    throw new Error('[spawn] JWT_SECRET was not set before startServer() was called');
+  }
+
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     PORT: String(port),
     NODE_ENV: 'production',
     DATABASE_URL: `file://${join(userData, 'database.sqlite')}`,
     UPLOADS_PATH: join(userData, 'uploads'),
-    JWT_SECRET: process.env.JWT_SECRET,
+    JWT_SECRET: jwtSecret,
     TZ: process.env.TZ ?? 'UTC',
     FRONTEND_URL: `http://localhost:${port}`,
   };
