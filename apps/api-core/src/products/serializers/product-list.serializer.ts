@@ -1,10 +1,21 @@
 import { Product } from '@prisma/client';
-import { Exclude, Expose, Transform } from 'class-transformer';
-import { fromCents } from '../../common/helpers/money';
+import { Exclude, Expose, Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { fromCents } from '../../common/helpers/money';
 
 @Exclude()
-export class ProductSerializer implements Omit<Product, 'price' | 'updatedAt' | 'deletedAt'> {
+class CategoryNameSerializer {
+  @ApiProperty()
+  @Expose()
+  name: string;
+
+  constructor(partial: Partial<CategoryNameSerializer>) {
+    Object.assign(this, partial);
+  }
+}
+
+@Exclude()
+export class ProductListSerializer implements Omit<Product, 'price' | 'updatedAt' | 'deletedAt'> {
   @ApiProperty()
   @Expose()
   id: string;
@@ -17,9 +28,9 @@ export class ProductSerializer implements Omit<Product, 'price' | 'updatedAt' | 
   @Expose()
   description: string | null;
 
-  @Transform(({ value }) => fromCents(value as bigint | number))
   @ApiProperty()
   @Expose()
+  @Transform(({ value }) => fromCents(value as bigint | number))
   price: number;
 
   @ApiPropertyOptional({ type: Number, nullable: true })
@@ -50,7 +61,15 @@ export class ProductSerializer implements Omit<Product, 'price' | 'updatedAt' | 
   @Expose()
   createdAt: Date;
 
-  constructor(partial: Partial<Product>) {
+  @ApiProperty({ type: CategoryNameSerializer })
+  @Expose()
+  @Type(() => CategoryNameSerializer)
+  category: CategoryNameSerializer;
+
+  constructor(partial: Partial<Product & { category?: { name: string } }>) {
     Object.assign(this, partial);
+    if (partial.category) {
+      this.category = new CategoryNameSerializer(partial.category);
+    }
   }
 }

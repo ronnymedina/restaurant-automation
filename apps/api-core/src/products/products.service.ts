@@ -76,13 +76,15 @@ export class ProductsService {
     return products;
   }
 
-  async findByRestaurantIdPaginated(
+  async listProductsWithPagination(
     restaurantId: string,
     page?: number,
     limit?: number,
   ): Promise<PaginatedResult<Product>> {
     const currentPage = page || 1;
-    const currentLimit = limit || this.configService.defaultPageSize;
+    const currentLimit = limit
+      ? Math.min(limit, this.configService.maxPageSize)
+      : this.configService.maxPageSize;
     const skip = (currentPage - 1) * currentLimit;
 
     const { data, total } =

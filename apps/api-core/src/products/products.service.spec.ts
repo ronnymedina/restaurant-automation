@@ -42,7 +42,7 @@ describe('ProductsService', () => {
         { provide: ProductRepository, useValue: mockProductRepo },
         { provide: CategoryRepository, useValue: mockCategoryRepo },
         { provide: CategoriesService, useValue: mockCategoryService },
-        { provide: productConfig.KEY, useValue: { batchSize: 10, defaultPageSize: 10, defaultCategoryName: PRODUCTS_DEFAULT_CATEGORY_NAME } },
+        { provide: productConfig.KEY, useValue: { batchSize: 10, maxPageSize: 10, defaultCategoryName: PRODUCTS_DEFAULT_CATEGORY_NAME } },
         { provide: ProductEventsService, useValue: mockEvents },
       ],
     }).compile();
@@ -175,7 +175,7 @@ describe('ProductsService', () => {
           { provide: ProductRepository, useValue: mockProductRepo },
           { provide: CategoryRepository, useValue: mockCategoryRepo },
           { provide: CategoriesService, useValue: mockCategoryService },
-          { provide: productConfig.KEY, useValue: { batchSize: 2, defaultPageSize: 10, defaultCategoryName: PRODUCTS_DEFAULT_CATEGORY_NAME } },
+          { provide: productConfig.KEY, useValue: { batchSize: 2, maxPageSize: 10, defaultCategoryName: PRODUCTS_DEFAULT_CATEGORY_NAME } },
           { provide: ProductEventsService, useValue: mockEvents },
         ],
       }).compile();
@@ -200,9 +200,9 @@ describe('ProductsService', () => {
 
     it('uses default page and limit when not provided', async () => {
       mockProductRepo.findByRestaurantIdPaginated.mockResolvedValue({ data: [], total: 0 });
-      const result = await service.findByRestaurantIdPaginated('r1');
+      const result = await service.listProductsWithPagination('r1');
       expect(result.meta.page).toBe(1);
-      expect(result.meta.limit).toBe(10); // defaultPageSize from mock config
+      expect(result.meta.limit).toBe(10); // maxPageSize from mock config
     });
   });
 

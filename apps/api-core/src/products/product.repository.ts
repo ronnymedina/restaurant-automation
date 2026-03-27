@@ -77,7 +77,7 @@ export class ProductRepository {
         skip,
         take,
         orderBy: { createdAt: 'desc' },
-        include: { category: true },
+        include: { category: { select: { name: true } } },
       }),
 
       this.prisma.product.count({

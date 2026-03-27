@@ -12,9 +12,10 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
-import { PaginatedProductsResponseDto } from './dto/paginated-products-response.dto';
 import { ProductDto } from './dto/product.dto';
 import { ProductSerializer } from './serializers/product.serializer';
+import { ProductListSerializer } from './serializers/product-list.serializer';
+import { PaginatedProductsSerializer } from './serializers/paginated-products.serializer';
 
 @ApiTags('products')
 @ApiBearerAuth()
@@ -27,23 +28,23 @@ export class ProductsController {
   @Get()
   @Roles(Role.ADMIN, Role.MANAGER, Role.BASIC)
   @ApiOperation({ summary: 'Listar productos (paginado)' })
-  @ApiResponse({ status: 200, description: 'Lista paginada de productos', type: PaginatedProductsResponseDto })
+  @ApiResponse({ status: 200, description: 'Lista paginada de productos', type: PaginatedProductsSerializer })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos' })
-  async findAll(
+  async listProducts(
     @CurrentUser() user: { restaurantId: string },
     @Query() query: PaginationDto,
   ) {
-    const result = await this.productsService.findByRestaurantIdPaginated(
+    const result = await this.productsService.listProductsWithPagination(
       user.restaurantId,
-      query.page || 1,
-      query.limit || 10,
+      query.page,
+      query.limit,
     );
 
-    return {
-      ...result,
-      data: result.data.map(p => new ProductSerializer(p))
-    };
+    return new PaginatedProductsSerializer({
+      meta: result.meta,
+      data: result.data.map(p => new ProductListSerializer(p))
+    });
   }
 
   @Get(':id')
@@ -64,7 +65,7 @@ export class ProductsController {
   @Post()
   @Roles(Role.ADMIN, Role.MANAGER)
   @ApiOperation({ summary: 'Crear un producto' })
-  @ApiResponse({ status: 201, description: 'Producto creado', type: ProductDto })
+  @ApiResponse({ status: 201, description: 'Producto creado', type: ProductSerializer })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async create(
