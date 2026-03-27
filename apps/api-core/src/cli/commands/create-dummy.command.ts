@@ -6,6 +6,7 @@ import { UsersService } from '../../users/users.service';
 import { ProductsService } from '../../products/products.service';
 import { MenusService } from '../../menus/menus.service';
 import { MenuItemsService } from '../../menus/menu-items.service';
+import { toCents } from '../../common/helpers/money';
 
 const DEFAULT_EMAIL = 'admin@demo.com';
 const DUMMY_PASSWORD = '12345678';
@@ -89,8 +90,7 @@ export class CreateDummyCommand extends CommandRunner {
         for (const p of demoProducts) {
           const product = await this.productsService.createProduct(
             restaurantId,
-            { name: p.name, description: p.description, price: p.price },
-            category.id,
+            { name: p.name, description: p.description, price: toCents(p.price), categoryId: category.id }
           );
           productIds.push(product.id);
         }

@@ -114,7 +114,7 @@ model Product {
   id          String  @id @default(uuid())
   name        String
   description String?
-  price       Decimal @default(0.00)
+  price       BigInt  @default(0) // Stored in cents (centavos)
   stock       Int?               // Stock Global (null = infinito; 0 = agotado)
   active      Boolean @default(true)
   sku         String?
@@ -129,8 +129,12 @@ model Product {
   menuItems  MenuItem[]
   orderItems OrderItem[]
 
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([deletedAt])
 }
 
 model Menu {
@@ -176,7 +180,7 @@ model Order {
   status             OrderStatus   @default(CREATED)
   paymentMethod      PaymentMethod?
   customerEmail      String?
-  totalAmount        Decimal
+  totalAmount        BigInt  // Stored in cents (centavos)
   isPaid             Boolean       @default(false)
   cancellationReason String?
 
@@ -197,8 +201,8 @@ model Order {
 model OrderItem {
   id        String  @id @default(uuid())
   quantity  Int
-  unitPrice Decimal
-  subtotal  Decimal
+  unitPrice BigInt  // Unit price at purchase time in cents
+  subtotal  BigInt  // quantity * unitPrice in cents
   notes     String?
 
   orderId    String
@@ -216,7 +220,7 @@ model RegisterSession {
   status          RegisterSessionStatus @default(OPEN)
   lastOrderNumber Int                   @default(0)
 
-  totalSales  Decimal?
+  totalSales  BigInt?  // Stored in cents (centavos)
   totalOrders Int?
   closedBy    String?
 

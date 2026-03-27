@@ -8,6 +8,7 @@ import { MenuItemsService } from '../../menus/menu-items.service';
 import { UsersService } from '../../users/users.service';
 import { ProductRepository } from '../../products/product.repository';
 import { Role } from '@prisma/client';
+import { toCents } from '../../common/helpers/money';
 
 // ── Fake data pools ──────────────────────────────────────────────────────────
 
@@ -171,10 +172,10 @@ export class SeedCommand extends CommandRunner {
               {
                 name,
                 description: pick(PRODUCT_DESCRIPTIONS),
-                price: randomPrice(),
+                price: toCents(randomPrice()),
                 stock: randomStock(),
-              },
-              pick(categoryIds),
+                categoryId: pick(categoryIds),
+              }
             ),
           ),
         );

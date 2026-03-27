@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
+import { ProductRepository } from './product.repository';
 import { ProductsService } from './products.service';
+
+import { CategoryRepository } from './category.repository';
 import { CategoriesService } from './categories.service';
+
 import { ProductsController } from './products.controller';
 import { CategoriesController } from './categories.controller';
-import { ProductRepository } from './product.repository';
-import { CategoryRepository } from './category.repository';
+
 import { EventsModule } from '../events/events.module';
 
 import { productConfig } from './product.config';
@@ -15,10 +18,10 @@ import { productConfig } from './product.config';
   imports: [ConfigModule.forFeature(productConfig), EventsModule],
   controllers: [ProductsController, CategoriesController],
   providers: [
-    ProductsService,
-    CategoriesService,
     ProductRepository,
     CategoryRepository,
+    ProductsService,
+    CategoriesService,
   ],
   exports: [
     ProductsService,
@@ -27,4 +30,4 @@ import { productConfig } from './product.config';
     CategoryRepository,
   ],
 })
-export class ProductsModule {}
+export class ProductsModule { }

@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Body, Param, Query, UseGuards,
+  Body, Param, Query, UseGuards, UseInterceptors, ClassSerializerInterceptor
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
@@ -14,13 +14,15 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginatedProductsResponseDto } from './dto/paginated-products-response.dto';
 import { ProductDto } from './dto/product.dto';
+import { ProductSerializer } from './serializers/product.serializer';
 
 @ApiTags('products')
 @ApiBearerAuth()
 @Controller({ version: '1', path: 'products' })
+@UseInterceptors(ClassSerializerInterceptor)
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(private readonly productsService: ProductsService) { }
 
   @Get()
   @Roles(Role.ADMIN, Role.MANAGER, Role.BASIC)
@@ -32,11 +34,16 @@ export class ProductsController {
     @CurrentUser() user: { restaurantId: string },
     @Query() query: PaginationDto,
   ) {
-    return this.productsService.findByRestaurantIdPaginated(
+    const result = await this.productsService.findByRestaurantIdPaginated(
       user.restaurantId,
       query.page || 1,
       query.limit || 10,
     );
+
+    return {
+      ...result,
+      data: result.data.map(p => new ProductSerializer(p))
+    };
   }
 
   @Get(':id')
@@ -50,7 +57,8 @@ export class ProductsController {
     @Param('id') id: string,
     @CurrentUser() user: { restaurantId: string },
   ) {
-    return this.productsService.findById(id, user.restaurantId);
+    const product = await this.productsService.findById(id, user.restaurantId);
+    return new ProductSerializer(product);
   }
 
   @Post()
@@ -63,8 +71,8 @@ export class ProductsController {
     @Body() createProductDto: CreateProductDto,
     @CurrentUser() user: { restaurantId: string },
   ) {
-    const { categoryId, ...productData } = createProductDto;
-    return this.productsService.createProduct(user.restaurantId, productData, categoryId);
+    const product = await this.productsService.createProduct(user.restaurantId, createProductDto);
+    return new ProductSerializer(product);
   }
 
   @Patch(':id')
@@ -79,20 +87,22 @@ export class ProductsController {
     @Body() updateProductDto: UpdateProductDto,
     @CurrentUser() user: { restaurantId: string },
   ) {
-    return this.productsService.updateProduct(id, user.restaurantId, updateProductDto);
+    const product = await this.productsService.updateProduct(id, user.restaurantId, updateProductDto);
+    return new ProductSerializer(product);
   }
 
   @Delete(':id')
   @Roles(Role.ADMIN, Role.MANAGER)
-  @ApiOperation({ summary: 'Eliminar un producto' })
+  @ApiOperation({ summary: 'Desactivar producto (soft delete)' })
   @ApiParam({ name: 'id', description: 'ID del producto', type: String })
-  @ApiResponse({ status: 200, description: 'Producto eliminado', type: ProductDto })
+  @ApiResponse({ status: 200, description: 'Producto desactivado (deletedAt seteado)', type: ProductDto })
   @ApiResponse({ status: 404, description: 'Producto no encontrado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async remove(
     @Param('id') id: string,
     @CurrentUser() user: { restaurantId: string },
   ) {
-    return this.productsService.deleteProduct(id, user.restaurantId);
+    const product = await this.productsService.deleteProduct(id, user.restaurantId);
+    return new ProductSerializer(product);
   }
 }
