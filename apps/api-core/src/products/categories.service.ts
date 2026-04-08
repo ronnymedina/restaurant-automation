@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
-import { ProductCategory } from '@prisma/client';
+import { Prisma, ProductCategory } from '@prisma/client';
 
 import { ProductCategoryRepository, CreateProductCategoryData } from './product-category.repository';
 import { productConfig } from './product.config';
@@ -10,6 +10,7 @@ import {
   DefaultCategoryProtectedException,
   CategoryHasProductsException,
   ValidationException,
+  DuplicateEntityException,
 } from '../common/exceptions';
 import { ProductEventsService } from '../events/products.events';
 import { PrismaService } from '../prisma/prisma.service';
@@ -67,9 +68,16 @@ export class CategoriesService {
   }
 
   async createCategory(restaurantId: string, name: string): Promise<ProductCategory> {
-    const category = await this.categoryRepository.create({ name, restaurantId });
-    this.productEventsService.emitCategoryCreated(restaurantId);
-    return category;
+    try {
+      const category = await this.categoryRepository.create({ name, restaurantId });
+      this.productEventsService.emitCategoryCreated(restaurantId);
+      return category;
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new DuplicateEntityException('ProductCategory', 'name', name);
+      }
+      throw err;
+    }
   }
 
   async updateCategory(
