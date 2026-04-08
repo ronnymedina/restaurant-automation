@@ -42,8 +42,8 @@ async function seedRestaurant(prisma: PrismaService, suffix: string) {
     data: { name: `Restaurant ${suffix}`, slug: `rest-${suffix}-${Date.now()}` },
   });
 
-  const category = await prisma.category.create({
-    data: { name: 'General', restaurantId: restaurant.id },
+  const category = await prisma.productCategory.create({
+    data: { name: 'General', restaurantId: restaurant.id, isDefault: false },
   });
 
   const passwordHash = await bcrypt.hash('Admin1234!', 10);
