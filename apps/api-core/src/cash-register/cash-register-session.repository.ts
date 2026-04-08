@@ -1,29 +1,29 @@
 import { Injectable } from '@nestjs/common';
-import { RegisterSession, RegisterSessionStatus } from '@prisma/client';
+import { CashShift, CashShiftStatus } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
-export class CashRegisterSessionRepository {
+export class CashCashShiftRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(restaurantId: string): Promise<RegisterSession> {
-    return this.prisma.registerSession.create({
+  async create(restaurantId: string): Promise<CashShift> {
+    return this.prisma.cashShift.create({
       data: { restaurantId },
     });
   }
 
-  async findOpen(restaurantId: string): Promise<RegisterSession | null> {
-    return this.prisma.registerSession.findFirst({
+  async findOpen(restaurantId: string): Promise<CashShift | null> {
+    return this.prisma.cashShift.findFirst({
       where: {
         restaurantId,
-        status: RegisterSessionStatus.OPEN,
+        status: CashShiftStatus.OPEN,
       },
     });
   }
 
-  async findById(id: string): Promise<RegisterSession | null> {
-    return this.prisma.registerSession.findUnique({
+  async findById(id: string): Promise<CashShift | null> {
+    return this.prisma.cashShift.findUnique({
       where: { id },
     });
   }
@@ -35,11 +35,11 @@ export class CashRegisterSessionRepository {
       totalOrders: number;
       closedBy?: string;
     },
-  ): Promise<RegisterSession> {
-    return this.prisma.registerSession.update({
+  ): Promise<CashShift> {
+    return this.prisma.cashShift.update({
       where: { id },
       data: {
-        status: RegisterSessionStatus.CLOSED,
+        status: CashShiftStatus.CLOSED,
         closedAt: new Date(),
         totalSales: data.totalSales,
         totalOrders: data.totalOrders,
@@ -52,9 +52,9 @@ export class CashRegisterSessionRepository {
     restaurantId: string,
     skip: number,
     take: number,
-  ): Promise<{ data: RegisterSession[]; total: number }> {
+  ): Promise<{ data: CashShift[]; total: number }> {
     const [data, total] = await Promise.all([
-      this.prisma.registerSession.findMany({
+      this.prisma.cashShift.findMany({
         where: { restaurantId },
         skip,
         take,
@@ -65,7 +65,7 @@ export class CashRegisterSessionRepository {
           },
         },
       }),
-      this.prisma.registerSession.count({
+      this.prisma.cashShift.count({
         where: { restaurantId },
       }),
     ]);
@@ -73,10 +73,10 @@ export class CashRegisterSessionRepository {
   }
 
   async findOpenWithOrderCount(restaurantId: string) {
-    return this.prisma.registerSession.findFirst({
+    return this.prisma.cashShift.findFirst({
       where: {
         restaurantId,
-        status: RegisterSessionStatus.OPEN,
+        status: CashShiftStatus.OPEN,
       },
       include: {
         _count: {
