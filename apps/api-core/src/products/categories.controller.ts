@@ -3,10 +3,14 @@ import {
   Body, Param, Query, UseGuards,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam, ApiBody,
+} from '@nestjs/swagger';
 
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto';
+import { DeleteCategoryDto } from './dto/delete-category.dto';
+import { CheckDeleteCategoryResponseDto } from './dto/check-delete-category-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -45,11 +49,26 @@ export class CategoriesController {
   @ApiResponse({ status: 201, description: 'Categoría creada', type: CategoryDto })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
+  @ApiResponse({ status: 409, description: 'Nombre duplicado en el restaurante' })
   async create(
     @CurrentUser() user: { restaurantId: string },
     @Body() dto: CreateCategoryDto,
   ) {
     return this.categoriesService.createCategory(user.restaurantId, dto.name);
+  }
+
+  @Get(':id/check-delete')
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: 'Verificar impacto de eliminar una categoría' })
+  @ApiParam({ name: 'id', description: 'ID de la categoría', type: String })
+  @ApiResponse({ status: 200, description: 'Resultado del chequeo', type: CheckDeleteCategoryResponseDto })
+  @ApiResponse({ status: 404, description: 'Categoría no encontrada' })
+  @ApiResponse({ status: 403, description: 'Sin permisos' })
+  async checkDelete(
+    @Param('id') id: string,
+    @CurrentUser() user: { restaurantId: string },
+  ) {
+    return this.categoriesService.checkDelete(id, user.restaurantId);
   }
 
   @Patch(':id')
@@ -58,7 +77,7 @@ export class CategoriesController {
   @ApiParam({ name: 'id', description: 'ID de la categoría', type: String })
   @ApiResponse({ status: 200, description: 'Categoría actualizada', type: CategoryDto })
   @ApiResponse({ status: 404, description: 'Categoría no encontrada' })
-  @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
+  @ApiResponse({ status: 403, description: 'Sin permisos o categoría default protegida' })
   async update(
     @Param('id') id: string,
     @CurrentUser() user: { restaurantId: string },
@@ -69,15 +88,20 @@ export class CategoriesController {
 
   @Delete(':id')
   @Roles(Role.ADMIN, Role.MANAGER)
-  @ApiOperation({ summary: 'Eliminar una categoría' })
+  @ApiOperation({ summary: 'Eliminar una categoría (con reasignación opcional)' })
   @ApiParam({ name: 'id', description: 'ID de la categoría', type: String })
+  @ApiBody({ type: DeleteCategoryDto, required: false })
   @ApiResponse({ status: 200, description: 'Categoría eliminada', type: CategoryDto })
   @ApiResponse({ status: 404, description: 'Categoría no encontrada' })
-  @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
+  @ApiResponse({ status: 403, description: 'Categoría default protegida' })
+  @ApiResponse({ status: 409, description: 'Tiene productos asignados — requiere reassignTo' })
   async remove(
     @Param('id') id: string,
     @CurrentUser() user: { restaurantId: string },
+    @Body() dto: DeleteCategoryDto,
   ) {
-    return this.categoriesService.deleteCategory(id, user.restaurantId);
+    return this.categoriesService.deleteCategory(id, user.restaurantId, {
+      reassignTo: dto?.reassignTo,
+    });
   }
 }
