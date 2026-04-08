@@ -25,7 +25,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import {
-  RegisterSessionDto,
+  CashShiftDto,
   CloseSessionResponseDto,
   SessionSummaryResponseDto,
 } from './dto/cash-register-response.dto';
@@ -41,7 +41,7 @@ export class CashRegisterController {
   @Post('open')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Abrir sesión de caja' })
-  @ApiResponse({ status: 201, description: 'Sesión creada exitosamente', type: RegisterSessionDto })
+  @ApiResponse({ status: 201, description: 'Sesión creada exitosamente', type: CashShiftDto })
   @ApiResponse({ status: 409, description: 'Ya existe una sesión de caja abierta (CASH_REGISTER_ALREADY_OPEN)' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
@@ -65,7 +65,7 @@ export class CashRegisterController {
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Elementos por página (default: 10)' })
   @ApiResponse({ status: 200, description: 'Lista paginada de sesiones', schema: {
     properties: {
-      data: { type: 'array', items: { $ref: '#/components/schemas/RegisterSessionDto' } },
+      data: { type: 'array', items: { $ref: '#/components/schemas/CashShiftDto' } },
       meta: {
         type: 'object',
         properties: {
@@ -92,7 +92,7 @@ export class CashRegisterController {
 
   @Get('current')
   @ApiOperation({ summary: 'Sesión de caja actualmente abierta' })
-  @ApiResponse({ status: 200, description: 'Sesión activa con conteo de órdenes, o {} si no hay sesión abierta', type: RegisterSessionDto })
+  @ApiResponse({ status: 200, description: 'Sesión activa con conteo de órdenes, o {} si no hay sesión abierta', type: CashShiftDto })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async current(@CurrentUser() user: { restaurantId: string }) {

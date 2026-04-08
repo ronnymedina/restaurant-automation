@@ -23,7 +23,7 @@ export class OrderDto {
   @ApiProperty() isPaid: boolean;
   @ApiPropertyOptional({ nullable: true }) cancellationReason: string | null;
   @ApiProperty() restaurantId: string;
-  @ApiProperty() registerSessionId: string;
+  @ApiProperty() cashShiftId: string;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }

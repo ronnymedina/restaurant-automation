@@ -2,7 +2,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { CashRegisterService } from './cash-register.service';
-import { CashRegisterSessionRepository } from './cash-register-session.repository';
+import { CashShiftRepository } from './cash-register-session.repository';
 import { OrderRepository } from '../orders/order.repository';
 import {
   CashRegisterAlreadyOpenException,
@@ -53,7 +53,7 @@ describe('CashRegisterService', () => {
       providers: [
         CashRegisterService,
         {
-          provide: CashRegisterSessionRepository,
+          provide: CashShiftRepository,
           useValue: mockRegisterSessionRepository,
         },
         { provide: OrderRepository, useValue: mockOrderRepository },

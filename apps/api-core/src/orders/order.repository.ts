@@ -13,7 +13,7 @@ export interface CreateOrderData {
   orderNumber: number;
   totalAmount: number;
   restaurantId: string;
-  registerSessionId: string;
+  cashShiftId: string;
   paymentMethod?: string;
   customerEmail?: string;
   items: {
@@ -37,7 +37,7 @@ export class OrderRepository {
         orderNumber: data.orderNumber,
         totalAmount: data.totalAmount,
         restaurantId: data.restaurantId,
-        registerSessionId: data.registerSessionId,
+        cashShiftId: data.cashShiftId,
         paymentMethod: data.paymentMethod as PaymentMethod,
         customerEmail: data.customerEmail,
         items: {
@@ -154,7 +154,7 @@ export class OrderRepository {
 
   async findBySessionId(sessionId: string, restaurantId: string) {
     return this.prisma.order.findMany({
-      where: { registerSessionId: sessionId, restaurantId },
+      where: { cashShiftId: sessionId, restaurantId },
       include: ORDER_WITH_ITEMS,
     });
   }

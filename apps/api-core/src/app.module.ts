@@ -19,8 +19,6 @@ import { KioskModule } from './kiosk/kiosk.module';
 import { PrintModule } from './print/print.module';
 import { KitchenModule } from './kitchen/kitchen.module';
 import { UploadsModule } from './uploads/uploads.module';
-import { TablesModule } from './tables/tables.module';
-import { ReservationsModule } from './reservations/reservations.module';
 
 @Module({
   imports: [
@@ -51,8 +49,6 @@ import { ReservationsModule } from './reservations/reservations.module';
     PrintModule,
     KitchenModule,
     UploadsModule,
-    TablesModule,
-    ReservationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -188,11 +188,11 @@ describe('ProductsService', () => {
     });
   });
 
-  describe('findByRestaurantIdPaginated', () => {
+  describe('listProductsWithPagination', () => {
     it('returns paginated results with meta', async () => {
       const data = [{ id: 'p1', price: 500n }, { id: 'p2', price: 1000n }];
       mockProductRepo.findByRestaurantIdPaginated.mockResolvedValue({ data, total: 2 });
-      const result = await service.findByRestaurantIdPaginated('r1', 1, 10);
+      const result = await service.listProductsWithPagination('r1', 1, 10);
       expect(result.data[0]).toEqual(expect.objectContaining({ id: 'p1', price: 500n }));
       expect(result.data[1]).toEqual(expect.objectContaining({ id: 'p2', price: 1000n }));
       expect(result.meta).toEqual({ total: 2, page: 1, limit: 10, totalPages: 1 });
