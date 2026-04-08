@@ -23,7 +23,7 @@ import { CategoryDto } from './dto/category.dto';
 @ApiBearerAuth()
 @Controller({ version: '1', path: 'categories' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-export class CategoriesController {
+export class ProductCategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Get()
