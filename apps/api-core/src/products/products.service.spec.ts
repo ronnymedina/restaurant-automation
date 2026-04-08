@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProductsService } from './products.service';
 import { ProductRepository } from './product.repository';
-import { CategoryRepository } from './category.repository';
+import { ProductCategoryRepository } from './product-category.repository';
 import { ProductEventsService } from '../events/products.events';
 import { EntityNotFoundException } from '../common/exceptions';
 import { InsufficientStockException } from './exceptions/products.exceptions';
@@ -40,7 +40,7 @@ describe('ProductsService', () => {
       providers: [
         ProductsService,
         { provide: ProductRepository, useValue: mockProductRepo },
-        { provide: CategoryRepository, useValue: mockCategoryRepo },
+        { provide: ProductCategoryRepository, useValue: mockCategoryRepo },
         { provide: CategoriesService, useValue: mockCategoryService },
         { provide: productConfig.KEY, useValue: { batchSize: 10, maxPageSize: 10, defaultCategoryName: PRODUCTS_DEFAULT_CATEGORY_NAME } },
         { provide: ProductEventsService, useValue: mockEvents },
@@ -173,7 +173,7 @@ describe('ProductsService', () => {
         providers: [
           ProductsService,
           { provide: ProductRepository, useValue: mockProductRepo },
-          { provide: CategoryRepository, useValue: mockCategoryRepo },
+          { provide: ProductCategoryRepository, useValue: mockCategoryRepo },
           { provide: CategoriesService, useValue: mockCategoryService },
           { provide: productConfig.KEY, useValue: { batchSize: 2, maxPageSize: 10, defaultCategoryName: PRODUCTS_DEFAULT_CATEGORY_NAME } },
           { provide: ProductEventsService, useValue: mockEvents },
