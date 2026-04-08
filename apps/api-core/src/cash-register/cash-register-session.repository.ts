@@ -4,7 +4,7 @@ import { CashShift, CashShiftStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
-export class CashCashShiftRepository {
+export class CashShiftRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(restaurantId: string): Promise<CashShift> {

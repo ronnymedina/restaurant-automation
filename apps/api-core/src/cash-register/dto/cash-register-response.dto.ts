@@ -17,7 +17,7 @@ export class SessionSummaryDto {
   paymentBreakdown: Record<string, PaymentBreakdownDto>;
 }
 
-export class RegisterSessionDto {
+export class CashShiftDto {
   @ApiProperty() id: string;
   @ApiProperty() restaurantId: string;
   @ApiProperty() status: string;
@@ -29,7 +29,7 @@ export class RegisterSessionDto {
 }
 
 export class CloseSessionResponseDto {
-  @ApiProperty({ type: RegisterSessionDto }) session: RegisterSessionDto;
+  @ApiProperty({ type: CashShiftDto }) session: CashShiftDto;
   @ApiProperty({ type: SessionSummaryDto }) summary: SessionSummaryDto;
 }
 
@@ -45,7 +45,7 @@ export class SessionSummaryFullDto extends SessionSummaryDto {
 }
 
 export class SessionSummaryResponseDto {
-  @ApiProperty({ type: RegisterSessionDto }) session: RegisterSessionDto;
+  @ApiProperty({ type: CashShiftDto }) session: CashShiftDto;
   @ApiProperty({ type: SessionSummaryFullDto }) summary: SessionSummaryFullDto;
   @ApiProperty({ type: [Object] }) orders: any[];
 }

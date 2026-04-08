@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { OrderStatus, Restaurant } from '@prisma/client';
+
 import { randomBytes } from 'crypto';
 
 import { RestaurantsService } from '../restaurants/restaurants.service';
@@ -34,16 +35,17 @@ export class KitchenService {
   }
 
   async getTokenInfo(restaurantId: string): Promise<{ kitchenUrl: string | null; expiresAt: Date | null }> {
-    const restaurant = await this.restaurantsService.findById(restaurantId);
-    if (!restaurant?.kitchenToken || !restaurant.kitchenTokenExpiresAt) {
+    const restaurant = await this.restaurantsService.findByIdWithSettings(restaurantId);
+    const settings = restaurant?.settings;
+    if (!settings?.kitchenToken || !settings.kitchenTokenExpiresAt) {
       return { kitchenUrl: null, expiresAt: null };
     }
-    if (new Date() > restaurant.kitchenTokenExpiresAt) {
+    if (new Date() > settings.kitchenTokenExpiresAt) {
       return { kitchenUrl: null, expiresAt: null };
     }
     return {
-      kitchenUrl: `/kitchen?slug=${restaurant.slug}&token=${restaurant.kitchenToken}`,
-      expiresAt: restaurant.kitchenTokenExpiresAt,
+      kitchenUrl: `/kitchen?slug=${restaurant!.slug}&token=${settings.kitchenToken}`,
+      expiresAt: settings.kitchenTokenExpiresAt,
     };
   }
 
@@ -70,7 +72,7 @@ export class KitchenService {
       expiresAt.setDate(expiresAt.getDate() + KITCHEN_TOKEN_EXPIRY_DAYS);
     }
 
-    await this.restaurantsService.update(restaurantId, {
+    await this.restaurantsService.upsertSettings(restaurantId, {
       kitchenToken: token,
       kitchenTokenExpiresAt: expiresAt,
     });

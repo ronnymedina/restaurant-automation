@@ -60,38 +60,44 @@ enum PaymentMethod {
   DIGITAL_WALLET
 }
 
-enum RegisterSessionStatus {
+enum CashShiftStatus {
   OPEN
   CLOSED
 }
 
-enum ReservationStatus {
-  PENDING
-  CONFIRMED
-  SEATED
-  COMPLETED
-  NO_SHOW
-  CANCELLED
+enum RestaurantStatus {
+  CREATED
+  ACTIVE
+  SUSPENDED
+  DELETED
 }
 
 model Restaurant {
-  id   String @id @default(uuid())
-  name String
-  slug String @unique
+  id     String           @id @default(uuid())
+  name   String           @unique
+  slug   String           @unique
+  status RestaurantStatus @default(CREATED)
+
+  users             User[]
+  products          Product[]
+  menus             Menu[]
+  categories        Category[]
+  orders            Order[]
+  cashShifts        CashShift[]
+  pendingOperations PendingOperation[]
+  settings          RestaurantSettings?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RestaurantSettings {
+  id           String     @id @default(uuid())
+  restaurantId String     @unique
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
   kitchenToken          String?   @unique
   kitchenTokenExpiresAt DateTime?
-
-  users            User[]
-  products         Product[]
-  menus            Menu[]
-  categories       Category[]
-  orders             Order[]
-  registerSessions   RegisterSession[]
-  pendingOperations  PendingOperation[]
-  defaultReservationDuration Int    @default(90)
-  tables       Table[]
-  reservations Reservation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -184,10 +190,10 @@ model Order {
   isPaid             Boolean       @default(false)
   cancellationReason String?
 
-  restaurantId      String
-  restaurant        Restaurant      @relation(fields: [restaurantId], references: [id])
-  registerSessionId String
-  registerSession   RegisterSession @relation(fields: [registerSessionId], references: [id])
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  cashShiftId  String
+  cashShift    CashShift  @relation(fields: [cashShiftId], references: [id])
 
   items OrderItem[]
 
@@ -195,7 +201,7 @@ model Order {
   updatedAt DateTime @updatedAt
 
   @@index([restaurantId, createdAt])
-  @@index([registerSessionId])
+  @@index([cashShiftId])
 }
 
 model OrderItem {
@@ -215,12 +221,12 @@ model OrderItem {
   createdAt DateTime @default(now())
 }
 
-model RegisterSession {
-  id              String                @id @default(uuid())
-  status          RegisterSessionStatus @default(OPEN)
-  lastOrderNumber Int                   @default(0)
+model CashShift {
+  id              String          @id @default(uuid())
+  status          CashShiftStatus @default(OPEN)
+  lastOrderNumber Int             @default(0)
 
-  totalSales  BigInt?  // Stored in cents (centavos)
+  totalSales  BigInt?
   totalOrders Int?
   closedBy    String?
 
@@ -229,7 +235,7 @@ model RegisterSession {
 
   orders Order[]
 
-  openedAt DateTime @default(now())
+  openedAt DateTime  @default(now())
   closedAt DateTime?
 
   @@index([restaurantId, status])
@@ -259,47 +265,3 @@ model PendingOperation {
   @@index([restaurantId])
 }
 
-model Table {
-  id           String        @id @default(uuid())
-  name         String
-  capacity     Int
-  active       Boolean       @default(true)
-
-  restaurantId String
-  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id])
-  reservations Reservation[]
-
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
-  @@index([restaurantId])
-}
-
-model Reservation {
-  id           String            @id @default(uuid())
-  guestName    String
-  guestPhone   String
-  guestEmail   String?
-  partySize    Int
-  date         DateTime
-  duration     Int
-  status       ReservationStatus @default(PENDING)
-  notes        String?
-
-  isPaid           Boolean  @default(false)
-  paymentReference String?
-  paymentPlatform  String?
-
-  cancellationReason String?
-
-  tableId      String
-  table        Table             @relation(fields: [tableId], references: [id])
-  restaurantId String
-  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id])
-
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-
-  @@index([restaurantId, date])
-  @@index([tableId, date])
-}

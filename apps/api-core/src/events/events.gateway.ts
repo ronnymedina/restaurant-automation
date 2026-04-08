@@ -43,12 +43,12 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       if (kitchenToken && slug) {
-        const restaurant = await this.restaurantsService.findBySlug(slug);
-        if (!restaurant || restaurant.kitchenToken !== kitchenToken) {
+        const restaurant = await this.restaurantsService.findBySlugWithSettings(slug);
+        if (!restaurant || restaurant.settings?.kitchenToken !== kitchenToken) {
           client.disconnect();
           return;
         }
-        if (restaurant.kitchenTokenExpiresAt && restaurant.kitchenTokenExpiresAt < new Date()) {
+        if (restaurant.settings?.kitchenTokenExpiresAt && restaurant.settings.kitchenTokenExpiresAt < new Date()) {
           this.logger.warn(`Kitchen token expired for slug: ${slug}`);
           client.disconnect();
           return;
