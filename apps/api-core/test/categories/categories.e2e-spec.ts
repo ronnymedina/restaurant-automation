@@ -230,8 +230,11 @@ describe('Categories (e2e)', () => {
 
       expect(res.body.id).toBeDefined();
       expect(res.body.name).toBe('Bebidas');
-      expect(res.body.restaurantId).toBe(restaurantAId);
       expect(res.body.isDefault).toBe(false);
+      // serializer must NOT expose restaurantId, createdAt, updatedAt
+      expect(res.body.restaurantId).toBeUndefined();
+      expect(res.body.createdAt).toBeUndefined();
+      expect(res.body.updatedAt).toBeUndefined();
     });
 
     it('201 — MANAGER can create a category', async () => {
@@ -563,12 +566,12 @@ describe('Categories (e2e)', () => {
         .expect(400);
     });
 
-    it('200 — delete with reassignTo moves products and deletes category', async () => {
+    it('204 — delete with reassignTo moves products and deletes category', async () => {
       await request(app.getHttpServer())
         .delete(`/v1/categories/${catWithProductsId}`)
         .set('Authorization', `Bearer ${adminTokenA}`)
         .send({ reassignTo: reassignTargetId })
-        .expect(200);
+        .expect(204);
 
       const gone = await prisma.productCategory.findUnique({ where: { id: catWithProductsId } });
       expect(gone).toBeNull();
@@ -584,14 +587,12 @@ describe('Categories (e2e)', () => {
       expect(reassigned.length).toBeGreaterThan(0);
     });
 
-    it('200 — ADMIN can delete a category with no products directly', async () => {
-      const res = await request(app.getHttpServer())
+    it('204 — ADMIN can delete a category with no products directly', async () => {
+      await request(app.getHttpServer())
         .delete(`/v1/categories/${deleteCatId}`)
         .set('Authorization', `Bearer ${adminTokenA}`)
         .send({})
-        .expect(200);
-
-      expect(res.body.id).toBe(deleteCatId);
+        .expect(204);
 
       const gone = await prisma.productCategory.findUnique({ where: { id: deleteCatId } });
       expect(gone).toBeNull();

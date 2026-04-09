@@ -3,6 +3,7 @@ import { type ConfigType } from '@nestjs/config';
 import { Prisma, ProductCategory } from '@prisma/client';
 
 import { ProductCategoryRepository, CreateProductCategoryData } from './product-category.repository';
+import { ProductRepository } from './product.repository';
 import { productConfig } from './product.config';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import {
@@ -29,6 +30,7 @@ export interface CheckDeleteResult {
 export class CategoriesService {
   constructor(
     private readonly categoryRepository: ProductCategoryRepository,
+    private readonly productRepository: ProductRepository,
     @Inject(productConfig.KEY)
     private readonly configService: ConfigType<typeof productConfig>,
     private readonly productEventsService: ProductEventsService,
@@ -94,7 +96,7 @@ export class CategoriesService {
 
   async checkDelete(id: string, restaurantId: string): Promise<CheckDeleteResult> {
     const category = await this.findCategoryAndThrowIfNotFound(id, restaurantId);
-    const productsCount = await this.categoryRepository.countProducts(id);
+    const productsCount = await this.productRepository.countByCategoryId(id, restaurantId);
     return {
       productsCount,
       isDefault: category.isDefault,
@@ -107,34 +109,34 @@ export class CategoriesService {
     restaurantId: string,
     options: DeleteCategoryOptions,
   ): Promise<ProductCategory> {
+    // Guard: default categories are protected
     const category = await this.findCategoryAndThrowIfNotFound(id, restaurantId);
-
     if (category.isDefault) throw new DefaultCategoryProtectedException();
 
-    const productsCount = await this.categoryRepository.countProducts(id);
+    // Guard: reassignTo cannot point to itself
+    if (options.reassignTo && options.reassignTo === id) {
+      throw new ValidationException('reassignTo cannot be the same as the category being deleted');
+    }
 
+    // Guard: if reassignTo is provided, validate target exists and belongs to this restaurant
+    if (options.reassignTo) {
+      const targetCategory = await this.categoryRepository.findById(options.reassignTo, restaurantId);
+      if (!targetCategory) {
+        throw new EntityNotFoundException('ProductCategory', options.reassignTo);
+      }
+    }
+
+    // Guard: if products exist, reassignTo is required
+    const productsCount = await this.productRepository.countByCategoryId(id, restaurantId);
     if (productsCount > 0 && !options.reassignTo) {
       throw new CategoryHasProductsException(productsCount);
     }
 
+    // Execute: reassign then delete atomically
     return this.prisma.$transaction(async (tx) => {
       if (productsCount > 0 && options.reassignTo) {
-        if (options.reassignTo === id) {
-          throw new ValidationException(
-            'reassignTo cannot be the same as the category being deleted',
-          );
-        }
-        const targetCategory = await this.categoryRepository.findById(
-          options.reassignTo,
-          restaurantId,
-          tx,
-        );
-        if (!targetCategory) {
-          throw new EntityNotFoundException('ProductCategory', options.reassignTo);
-        }
-        await this.categoryRepository.reassignProducts(id, options.reassignTo, restaurantId, tx);
+        await this.productRepository.reassignCategory(id, options.reassignTo, restaurantId, tx);
       }
-
       const deleted = await this.categoryRepository.delete(id, restaurantId, tx);
       this.productEventsService.emitCategoryDeleted(restaurantId);
       return deleted;

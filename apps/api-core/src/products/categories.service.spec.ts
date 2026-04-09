@@ -2,6 +2,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CategoriesService } from './categories.service';
 import { ProductCategoryRepository } from './product-category.repository';
+import { ProductRepository } from './product.repository';
 import { productConfig } from './product.config';
 import { ProductEventsService } from '../events/products.events';
 import {
@@ -19,8 +20,11 @@ const mockRepo = {
   findById: jest.fn(),
   update: jest.fn(),
   delete: jest.fn(),
-  countProducts: jest.fn(),
-  reassignProducts: jest.fn(),
+};
+
+const mockProductRepo = {
+  countByCategoryId: jest.fn(),
+  reassignCategory: jest.fn(),
 };
 
 const mockEvents = {
@@ -52,6 +56,7 @@ describe('CategoriesService', () => {
       providers: [
         CategoriesService,
         { provide: ProductCategoryRepository, useValue: mockRepo },
+        { provide: ProductRepository, useValue: mockProductRepo },
         { provide: productConfig.KEY, useValue: { maxPageSize: 10 } },
         { provide: ProductEventsService, useValue: mockEvents },
         { provide: PrismaService, useValue: mockPrisma },
@@ -60,7 +65,6 @@ describe('CategoriesService', () => {
 
     service = module.get<CategoriesService>(CategoriesService);
     jest.clearAllMocks();
-    // Default: transaction just runs the callback
     mockPrisma.$transaction.mockImplementation((cb: (tx: typeof mockPrisma) => unknown) => cb(mockPrisma));
   });
 
@@ -124,7 +128,7 @@ describe('CategoriesService', () => {
 
     it('throws CategoryHasProductsException when products exist and no reassignTo', async () => {
       mockRepo.findById.mockResolvedValue(makeCat());
-      mockRepo.countProducts.mockResolvedValue(3);
+      mockProductRepo.countByCategoryId.mockResolvedValue(3);
       await expect(service.deleteCategory('c1', 'r1', {})).rejects.toThrow(
         CategoryHasProductsException,
       );
@@ -133,28 +137,28 @@ describe('CategoriesService', () => {
     it('deletes directly when no products and not default', async () => {
       const cat = makeCat();
       mockRepo.findById.mockResolvedValue(cat);
-      mockRepo.countProducts.mockResolvedValue(0);
+      mockProductRepo.countByCategoryId.mockResolvedValue(0);
       mockRepo.delete.mockResolvedValue(cat);
       const result = await service.deleteCategory('c1', 'r1', {});
-      expect(mockRepo.reassignProducts).not.toHaveBeenCalled();
+      expect(mockProductRepo.reassignCategory).not.toHaveBeenCalled();
       expect(mockRepo.delete).toHaveBeenCalledWith('c1', 'r1', expect.anything());
       expect(mockEvents.emitCategoryDeleted).toHaveBeenCalledWith('r1');
       expect(result).toEqual(cat);
     });
 
     it('throws EntityNotFoundException for reassignTo category not found', async () => {
+      // Target check fires before countProducts
       mockRepo.findById
         .mockResolvedValueOnce(makeCat())   // source found
         .mockResolvedValueOnce(null);        // target not found
-      mockRepo.countProducts.mockResolvedValue(2);
       await expect(
         service.deleteCategory('c1', 'r1', { reassignTo: 'c-target' }),
       ).rejects.toThrow(EntityNotFoundException);
     });
 
     it('throws ValidationException when reassignTo equals the category being deleted', async () => {
+      // Validation fires before countProducts — no need to mock countByCategoryId
       mockRepo.findById.mockResolvedValue(makeCat());
-      mockRepo.countProducts.mockResolvedValue(2);
       await expect(
         service.deleteCategory('c1', 'r1', { reassignTo: 'c1' }),
       ).rejects.toThrow(ValidationException);
@@ -166,13 +170,13 @@ describe('CategoriesService', () => {
       mockRepo.findById
         .mockResolvedValueOnce(source)
         .mockResolvedValueOnce(target);
-      mockRepo.countProducts.mockResolvedValue(5);
-      mockRepo.reassignProducts.mockResolvedValue(5);
+      mockProductRepo.countByCategoryId.mockResolvedValue(5);
+      mockProductRepo.reassignCategory.mockResolvedValue(5);
       mockRepo.delete.mockResolvedValue(source);
 
       const result = await service.deleteCategory('c1', 'r1', { reassignTo: 'c2' });
 
-      expect(mockRepo.reassignProducts).toHaveBeenCalledWith('c1', 'c2', 'r1', expect.anything());
+      expect(mockProductRepo.reassignCategory).toHaveBeenCalledWith('c1', 'c2', 'r1', expect.anything());
       expect(mockRepo.delete).toHaveBeenCalledWith('c1', 'r1', expect.anything());
       expect(mockEvents.emitCategoryDeleted).toHaveBeenCalledWith('r1');
       expect(result).toEqual(source);
@@ -189,21 +193,21 @@ describe('CategoriesService', () => {
 
     it('returns canDeleteDirectly=true when 0 products and not default', async () => {
       mockRepo.findById.mockResolvedValue(makeCat({ isDefault: false }));
-      mockRepo.countProducts.mockResolvedValue(0);
+      mockProductRepo.countByCategoryId.mockResolvedValue(0);
       const result = await service.checkDelete('c1', 'r1');
       expect(result).toEqual({ productsCount: 0, isDefault: false, canDeleteDirectly: true });
     });
 
     it('returns canDeleteDirectly=false when category has products', async () => {
       mockRepo.findById.mockResolvedValue(makeCat({ isDefault: false }));
-      mockRepo.countProducts.mockResolvedValue(4);
+      mockProductRepo.countByCategoryId.mockResolvedValue(4);
       const result = await service.checkDelete('c1', 'r1');
       expect(result).toEqual({ productsCount: 4, isDefault: false, canDeleteDirectly: false });
     });
 
     it('returns canDeleteDirectly=false when category isDefault', async () => {
       mockRepo.findById.mockResolvedValue(makeCat({ isDefault: true }));
-      mockRepo.countProducts.mockResolvedValue(0);
+      mockProductRepo.countByCategoryId.mockResolvedValue(0);
       const result = await service.checkDelete('c1', 'r1');
       expect(result).toEqual({ productsCount: 0, isDefault: true, canDeleteDirectly: false });
     });

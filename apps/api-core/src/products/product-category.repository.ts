@@ -111,23 +111,4 @@ export class ProductCategoryRepository {
     return client.productCategory.delete({ where: { id, restaurantId } });
   }
 
-  async countProducts(categoryId: string): Promise<number> {
-    return this.prisma.product.count({
-      where: { categoryId },
-    });
-  }
-
-  async reassignProducts(
-    fromCategoryId: string,
-    toCategoryId: string,
-    restaurantId: string,
-    tx?: TransactionClient,
-  ): Promise<number> {
-    const client = tx ?? this.prisma;
-    const result = await client.product.updateMany({
-      where: { categoryId: fromCategoryId, restaurantId },
-      data: { categoryId: toCategoryId },
-    });
-    return result.count;
-  }
 }
