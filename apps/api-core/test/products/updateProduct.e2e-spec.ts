@@ -19,14 +19,17 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
   let adminTokenB: string;
   let categoryIdA: string;
   let categoryIdB: string;
+  let restaurantIdA: string;
 
-  let productId: string;
+  // Shared read-only product for guard/isolation tests (never mutated)
+  let readOnlyProductId: string;
 
   beforeAll(async () => {
     ({ app, prisma } = await bootstrapApp(TEST_DB));
 
     const restA = await seedRestaurant(prisma, 'A');
     categoryIdA = restA.category.id;
+    restaurantIdA = restA.restaurant.id;
     adminTokenA = await login(app, restA.admin.email);
     managerTokenA = await login(app, restA.manager.email);
     basicTokenA = await login(app, restA.basic.email);
@@ -37,13 +40,13 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
 
     const product = await prisma.product.create({
       data: {
-        name: 'Producto Original',
+        name: 'Producto Read-Only',
         price: 1000n,
         categoryId: categoryIdA,
-        restaurantId: restA.restaurant.id,
+        restaurantId: restaurantIdA,
       },
     });
-    productId = product.id;
+    readOnlyProductId = product.id;
   });
 
   afterAll(async () => {
@@ -51,24 +54,32 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
     if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
   });
 
+  async function createProduct(name: string): Promise<string> {
+    const product = await prisma.product.create({
+      data: { name, price: 1000n, categoryId: categoryIdA, restaurantId: restaurantIdA },
+    });
+    return product.id;
+  }
+
   it('Sin token recibe 401', async () => {
     await request(app.getHttpServer())
-      .patch(`/v1/products/${productId}`)
+      .patch(`/v1/products/${readOnlyProductId}`)
       .send({ name: 'Nuevo Nombre' })
       .expect(401);
   });
 
   it('BASIC recibe 403', async () => {
     await request(app.getHttpServer())
-      .patch(`/v1/products/${productId}`)
+      .patch(`/v1/products/${readOnlyProductId}`)
       .set('Authorization', `Bearer ${basicTokenA}`)
       .send({ name: 'Intento BASIC' })
       .expect(403);
   });
 
   it('ADMIN puede actualizar nombre', async () => {
+    const id = await createProduct('Producto Para Admin Update');
     const res = await request(app.getHttpServer())
-      .patch(`/v1/products/${productId}`)
+      .patch(`/v1/products/${id}`)
       .set('Authorization', `Bearer ${adminTokenA}`)
       .send({ name: 'Nombre Actualizado Admin' })
       .expect(200);
@@ -77,8 +88,9 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
   });
 
   it('MANAGER puede actualizar precio', async () => {
+    const id = await createProduct('Producto Para Manager Update');
     const res = await request(app.getHttpServer())
-      .patch(`/v1/products/${productId}`)
+      .patch(`/v1/products/${id}`)
       .set('Authorization', `Bearer ${managerTokenA}`)
       .send({ price: 2000 })
       .expect(200);
@@ -88,8 +100,9 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
   });
 
   it('Transformación centavos al actualizar precio: 500 → 5', async () => {
+    const id = await createProduct('Producto Para Centavos Update');
     const res = await request(app.getHttpServer())
-      .patch(`/v1/products/${productId}`)
+      .patch(`/v1/products/${id}`)
       .set('Authorization', `Bearer ${adminTokenA}`)
       .send({ price: 500 })
       .expect(200);
@@ -99,8 +112,9 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
   });
 
   it('Respuesta es ProductSerializer (campos exactos, sin updatedAt/deletedAt)', async () => {
+    const id = await createProduct('Producto Para Serializer Check');
     const res = await request(app.getHttpServer())
-      .patch(`/v1/products/${productId}`)
+      .patch(`/v1/products/${id}`)
       .set('Authorization', `Bearer ${adminTokenA}`)
       .send({ name: 'Test Serializer Update' })
       .expect(200);
@@ -126,7 +140,7 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
 
   it('Producto de otro restaurante → 404 (aislamiento)', async () => {
     await request(app.getHttpServer())
-      .patch(`/v1/products/${productId}`)
+      .patch(`/v1/products/${readOnlyProductId}`)
       .set('Authorization', `Bearer ${adminTokenB}`)
       .send({ name: 'Hack intento' })
       .expect(404);
@@ -134,7 +148,7 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
 
   it('categoryId de otro restaurante → 404 (aislamiento)', async () => {
     const res = await request(app.getHttpServer())
-      .patch(`/v1/products/${productId}`)
+      .patch(`/v1/products/${readOnlyProductId}`)
       .set('Authorization', `Bearer ${adminTokenA}`)
       .send({ categoryId: categoryIdB })
       .expect(404);
