@@ -1,9 +1,9 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
-import { Prisma, Product, Category } from '@prisma/client';
+import { Prisma, Product, ProductCategory } from '@prisma/client';
 
 import { ProductRepository, CreateProductData } from './product.repository';
-import { CategoryRepository } from './category.repository';
+import { ProductCategoryRepository } from './product-category.repository';
 
 import { ProductEventsService } from '../events/products.events';
 import { CategoriesService } from './categories.service';
@@ -35,7 +35,7 @@ export class ProductsService {
     private readonly configService: ConfigType<typeof productConfig>,
     private readonly categoryService: CategoriesService,
     private readonly productRepository: ProductRepository,
-    private readonly categoryRepository: CategoryRepository,
+    private readonly categoryRepository: ProductCategoryRepository,
     private readonly productEventsService: ProductEventsService,
   ) {
     this.batchSize = this.configService.batchSize;
@@ -49,7 +49,7 @@ export class ProductsService {
   async getOrCreateDefaultCategory(
     restaurantId: string,
     tx?: Prisma.TransactionClient,
-  ): Promise<Category> {
+  ): Promise<ProductCategory> {
     return this.categoryRepository.findOrCreate({
       name: this.configService.defaultCategoryName,
       restaurantId

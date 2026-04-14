@@ -46,7 +46,7 @@ export class RestaurantRepository {
       where: { id },
       include: {
         products: true,
-        categories: true,
+        productCategories: true,
         menus: true,
       },
     });

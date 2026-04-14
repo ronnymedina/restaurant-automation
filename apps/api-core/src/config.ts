@@ -62,3 +62,13 @@ export const UPLOADS_PATH = process.env.UPLOADS_PATH
 export const API_PUBLIC_PATH = process.env.API_PUBLIC_PATH
   ? process.env.API_PUBLIC_PATH
   : join(process.cwd(), 'public');
+
+// uploads storage
+export const UPLOAD_STORAGE = process.env.UPLOAD_STORAGE || 'local'; // 'local' | 'r2'
+
+// Cloudflare R2 — required only when UPLOAD_STORAGE=r2
+export const UPLOAD_CF_R2_ACCOUNT_ID        = process.env.UPLOAD_CF_R2_ACCOUNT_ID        || '';
+export const UPLOAD_CF_R2_ACCESS_KEY_ID     = process.env.UPLOAD_CF_R2_ACCESS_KEY_ID     || '';
+export const UPLOAD_CF_R2_SECRET_ACCESS_KEY = process.env.UPLOAD_CF_R2_SECRET_ACCESS_KEY || '';
+export const UPLOAD_CF_R2_BUCKET_NAME       = process.env.UPLOAD_CF_R2_BUCKET_NAME       || '';
+export const UPLOAD_CF_R2_PUBLIC_URL        = process.env.UPLOAD_CF_R2_PUBLIC_URL        || '';

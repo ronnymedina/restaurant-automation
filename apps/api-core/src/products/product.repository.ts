@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { Product } from '@prisma/client';
+import { Prisma, Product } from '@prisma/client';
+
+type TransactionClient = Prisma.TransactionClient;
 
 import { PrismaService } from '../prisma/prisma.service';
 import { EntityNotFoundException } from '../common/exceptions';
@@ -124,5 +126,25 @@ export class ProductRepository {
     }
 
     return product;
+  }
+
+  async countByCategoryId(categoryId: string, restaurantId: string): Promise<number> {
+    return this.prisma.product.count({
+      where: { categoryId, restaurantId },
+    });
+  }
+
+  async reassignCategory(
+    fromCategoryId: string,
+    toCategoryId: string,
+    restaurantId: string,
+    tx?: TransactionClient,
+  ): Promise<number> {
+    const client = tx ?? this.prisma;
+    const result = await client.product.updateMany({
+      where: { categoryId: fromCategoryId, restaurantId },
+      data: { categoryId: toCategoryId },
+    });
+    return result.count;
   }
 }

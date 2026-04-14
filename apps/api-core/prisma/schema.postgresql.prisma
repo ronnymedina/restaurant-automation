@@ -1,5 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Schema para producción (PostgreSQL)
+// Incluye anotaciones de tipos nativos (@db.VarChar) que SQLite no soporta.
 
 generator client {
   provider        = "prisma-client-js"
@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 enum Role {
@@ -74,8 +74,8 @@ enum RestaurantStatus {
 
 model Restaurant {
   id     String           @id @default(uuid())
-  name   String           @unique
-  slug   String           @unique
+  name   String           @unique @db.VarChar(255)
+  slug   String           @unique @db.VarChar(255)
   status RestaurantStatus @default(CREATED)
 
   users             User[]
@@ -104,7 +104,7 @@ model RestaurantSettings {
 
 model ProductCategory {
   id        String  @id @default(uuid())
-  name      String // Ej: "Cocina Caliente", "Bebidas", "Postres"
+  name      String  @db.VarChar(255)
   isDefault Boolean @default(false)
 
   restaurantId String
@@ -123,8 +123,8 @@ model Product {
   id          String  @id @default(uuid())
   name        String
   description String?
-  price       BigInt  @default(0) // Stored in cents (centavos)
-  stock       Int?               // Stock Global (null = infinito; 0 = agotado)
+  price       BigInt  @default(0)
+  stock       Int?
   active      Boolean @default(true)
   sku         String?
   imageUrl    String?
@@ -148,12 +148,12 @@ model Product {
 
 model Menu {
   id     String  @id @default(uuid())
-  name   String // Ej: "Almuerzo Ejecutivo", "Carta Noche"
+  name   String
   active Boolean @default(true)
 
-  startTime  String? // "12:00"
-  endTime    String? // "15:00"
-  daysOfWeek String? // "MON,TUE,WED,THU,FRI" (comma-separated)
+  startTime  String?
+  endTime    String?
+  daysOfWeek String?
 
   restaurantId String
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
@@ -173,9 +173,8 @@ model MenuItem {
   productId String
   product   Product @relation(fields: [productId], references: [id])
 
-  // Configuración Específica del Menú
-  sectionName String?  // Sección Visual en la Carta (Ej: "Para Empezar", "el ñandu")
-  order       Int      @default(0) // Orden dentro de la sección
+  sectionName String?
+  order       Int     @default(0)
 
   orderItems OrderItem[]
 
@@ -184,12 +183,12 @@ model MenuItem {
 }
 
 model Order {
-  id            String        @id @default(uuid())
-  orderNumber   Int
+  id                 String        @id @default(uuid())
+  orderNumber        Int
   status             OrderStatus   @default(CREATED)
   paymentMethod      PaymentMethod?
   customerEmail      String?
-  totalAmount        BigInt  // Stored in cents (centavos)
+  totalAmount        BigInt
   isPaid             Boolean       @default(false)
   cancellationReason String?
 
@@ -210,8 +209,8 @@ model Order {
 model OrderItem {
   id        String  @id @default(uuid())
   quantity  Int
-  unitPrice BigInt  // Unit price at purchase time in cents
-  subtotal  BigInt  // quantity * unitPrice in cents
+  unitPrice BigInt
+  subtotal  BigInt
   notes     String?
 
   orderId    String
@@ -243,5 +242,3 @@ model CashShift {
 
   @@index([restaurantId, status])
 }
-
-
