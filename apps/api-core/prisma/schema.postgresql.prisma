@@ -148,7 +148,7 @@ model Product {
 
 model Menu {
   id     String  @id @default(uuid())
-  name   String
+  name   String  @db.VarChar(100)
   active Boolean @default(true)
 
   startTime  String?
@@ -160,8 +160,12 @@ model Menu {
 
   items MenuItem[]
 
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([deletedAt])
 }
 
 model MenuItem {

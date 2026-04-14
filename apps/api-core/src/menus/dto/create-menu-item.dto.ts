@@ -17,6 +17,7 @@ export class CreateMenuItemDto {
   @ApiPropertyOptional({ example: 'Para Empezar', maxLength: 255, description: 'Sección visual en la carta' })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   @MaxLength(255)
   sectionName?: string;
 
