@@ -87,6 +87,7 @@ describe('POST /v1/uploads/image (e2e)', () => {
     const res = await request(app.getHttpServer())
       .post('/v1/uploads/image')
       .set('Authorization', `Bearer ${adminToken}`)
+      // Buffer is JPEG bytes with image/webp MIME — validates header-based MIME filter (known limitation: no magic bytes check)
       .attach('file', SMALL_JPEG, { filename: 'photo.webp', contentType: 'image/webp' })
       .expect(201);
 

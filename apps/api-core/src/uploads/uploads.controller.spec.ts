@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UploadsController } from './uploads.controller';
 import { UploadsService } from './uploads.service';
