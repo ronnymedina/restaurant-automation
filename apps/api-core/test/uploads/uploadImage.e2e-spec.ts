@@ -1,7 +1,6 @@
 // apps/api-core/test/uploads/uploadImage.e2e-spec.ts
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
@@ -28,12 +27,8 @@ describe('POST /v1/uploads/image (e2e)', () => {
   let adminToken: string;
   let managerToken: string;
   let basicToken: string;
-  let tmpUploadsDir: string;
 
   beforeAll(async () => {
-    tmpUploadsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'uploads-e2e-'));
-    process.env.UPLOADS_PATH = tmpUploadsDir;
-
     ({ app, prisma } = await bootstrapApp(TEST_DB));
 
     const rest = await seedRestaurant(prisma, 'U');
@@ -45,7 +40,6 @@ describe('POST /v1/uploads/image (e2e)', () => {
   afterAll(async () => {
     await app.close();
     if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
-    fs.rmSync(tmpUploadsDir, { recursive: true, force: true });
   });
 
   it('Sin token recibe 401', async () => {

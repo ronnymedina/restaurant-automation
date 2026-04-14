@@ -1,33 +1,27 @@
-// apps/api-core/src/uploads/uploads.module.ts
 import { Module } from '@nestjs/common';
+import { ConfigModule, type ConfigType } from '@nestjs/config';
 import { UploadsController } from './uploads.controller';
 import { UploadsService } from './uploads.service';
 import { STORAGE_PROVIDER } from './providers/storage-provider.interface';
 import { LocalStorageProvider } from './providers/local-storage.provider';
 import { R2StorageProvider } from './providers/r2-storage.provider';
-import {
-  UPLOAD_STORAGE,
-  CF_R2_ACCOUNT_ID,
-  CF_R2_ACCESS_KEY_ID,
-  CF_R2_SECRET_ACCESS_KEY,
-  CF_R2_BUCKET_NAME,
-  CF_R2_PUBLIC_URL,
-} from '../config';
+import { uploadsConfig } from './uploads.config';
 
 @Module({
+  imports: [ConfigModule.forFeature(uploadsConfig)],
   controllers: [UploadsController],
   providers: [
     UploadsService,
     {
       provide: STORAGE_PROVIDER,
-      useFactory: () => {
-        if (UPLOAD_STORAGE === 'r2') {
+      useFactory: (config: ConfigType<typeof uploadsConfig>) => {
+        if (config.uploadStorage === 'r2') {
           const missing = [
-            ['CF_R2_ACCOUNT_ID', CF_R2_ACCOUNT_ID],
-            ['CF_R2_ACCESS_KEY_ID', CF_R2_ACCESS_KEY_ID],
-            ['CF_R2_SECRET_ACCESS_KEY', CF_R2_SECRET_ACCESS_KEY],
-            ['CF_R2_BUCKET_NAME', CF_R2_BUCKET_NAME],
-            ['CF_R2_PUBLIC_URL', CF_R2_PUBLIC_URL],
+            ['CF_R2_ACCOUNT_ID', config.cfR2AccountId],
+            ['CF_R2_ACCESS_KEY_ID', config.cfR2AccessKeyId],
+            ['CF_R2_SECRET_ACCESS_KEY', config.cfR2SecretAccessKey],
+            ['CF_R2_BUCKET_NAME', config.cfR2BucketName],
+            ['CF_R2_PUBLIC_URL', config.cfR2PublicUrl],
           ]
             .filter(([, v]) => !v)
             .map(([k]) => k);
@@ -37,10 +31,18 @@ import {
               `Missing required R2 environment variables: ${missing.join(', ')}`,
             );
           }
-          return new R2StorageProvider();
+
+          return new R2StorageProvider({
+            accountId: config.cfR2AccountId,
+            accessKeyId: config.cfR2AccessKeyId,
+            secretAccessKey: config.cfR2SecretAccessKey,
+            bucketName: config.cfR2BucketName,
+            publicUrl: config.cfR2PublicUrl,
+          });
         }
-        return new LocalStorageProvider();
+        return new LocalStorageProvider(config.uploadsPath);
       },
+      inject: [uploadsConfig.KEY],
     },
   ],
 })

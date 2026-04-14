@@ -9,7 +9,7 @@
 ```
 
 En modo `local`: `url` es un path relativo (`/uploads/products/{uuid}.{ext}`), servido como estático.
-En modo `r2`: `url` es una URL pública de Cloudflare R2 (`{CF_R2_PUBLIC_URL}/products/{uuid}.{ext}`).
+En modo `r2`: `url` es una URL pública de Cloudflare R2 (`{UPLOAD_CF_R2_PUBLIC_URL}/products/{uuid}.{ext}`).
 
 ### Endpoints
 
@@ -42,11 +42,11 @@ E2E: ✅ `test/uploads/uploadImage.e2e-spec.ts`
 |---|---|---|
 | `UPLOAD_STORAGE` | `local` o `r2` | `local` |
 | `UPLOADS_PATH` | Carpeta local para imágenes | `{cwd}/uploads` |
-| `CF_R2_ACCOUNT_ID` | Account ID de Cloudflare R2 | — (requerido si `r2`) |
-| `CF_R2_ACCESS_KEY_ID` | Access Key ID de R2 | — (requerido si `r2`) |
-| `CF_R2_SECRET_ACCESS_KEY` | Secret Access Key de R2 | — (requerido si `r2`) |
-| `CF_R2_BUCKET_NAME` | Nombre del bucket R2 | — (requerido si `r2`) |
-| `CF_R2_PUBLIC_URL` | URL pública del bucket (CDN) | — (requerido si `r2`) |
+| `UPLOAD_CF_R2_ACCOUNT_ID` | Account ID de Cloudflare R2 | — (requerido si `r2`) |
+| `UPLOAD_CF_R2_ACCESS_KEY_ID` | Access Key ID de R2 | — (requerido si `r2`) |
+| `UPLOAD_CF_R2_SECRET_ACCESS_KEY` | Secret Access Key de R2 | — (requerido si `r2`) |
+| `UPLOAD_CF_R2_BUCKET_NAME` | Nombre del bucket R2 | — (requerido si `r2`) |
+| `UPLOAD_CF_R2_PUBLIC_URL` | URL pública del bucket (CDN) | — (requerido si `r2`) |
 
 Si `UPLOAD_STORAGE=r2` y alguna variable de R2 está ausente, la app falla en startup con error descriptivo.
 
@@ -70,7 +70,7 @@ Si `UPLOAD_STORAGE=r2` y alguna variable de R2 está ausente, la app falla en st
 | Clase | Condición de uso | URL retornada |
 |---|---|---|
 | `LocalStorageProvider` | `UPLOAD_STORAGE=local` (default) | `/uploads/products/{uuid}.{ext}` |
-| `R2StorageProvider` | `UPLOAD_STORAGE=r2` | `{CF_R2_PUBLIC_URL}/products/{uuid}.{ext}` |
+| `R2StorageProvider` | `UPLOAD_STORAGE=r2` | `{UPLOAD_CF_R2_PUBLIC_URL}/products/{uuid}.{ext}` |
 
 ### Tests existentes
 
