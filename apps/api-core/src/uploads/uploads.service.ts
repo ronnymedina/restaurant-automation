@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
-import { STORAGE_PROVIDER, StorageProvider } from './providers/storage-provider.interface';
+import { STORAGE_PROVIDER, type StorageProvider } from './providers/storage-provider.interface';
 
 @Injectable()
 export class UploadsService {
