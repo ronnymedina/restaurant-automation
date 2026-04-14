@@ -9,10 +9,10 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateMenuDto {
-  @ApiProperty({ example: 'Almuerzo Ejecutivo', maxLength: 255 })
+  @ApiProperty({ example: 'Almuerzo Ejecutivo', maxLength: 100 })
   @IsString()
   @IsNotEmpty()
-  @MaxLength(255)
+  @MaxLength(100)
   name: string;
 
   @ApiPropertyOptional({ example: true, default: true })

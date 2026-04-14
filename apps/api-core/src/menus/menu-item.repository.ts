@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { MenuItem } from '@prisma/client';
+import { MenuItem, Product } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
+
+export type MenuItemWithProduct = MenuItem & {
+  product: Pick<Product, 'id' | 'name' | 'price' | 'imageUrl' | 'active'>;
+};
 
 export interface CreateMenuItemData {
   menuId: string;
@@ -10,11 +14,19 @@ export interface CreateMenuItemData {
   order?: number;
 }
 
+const productSelect = {
+  id: true,
+  name: true,
+  price: true,
+  imageUrl: true,
+  active: true,
+} as const;
+
 @Injectable()
 export class MenuItemRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: CreateMenuItemData): Promise<MenuItem> {
+  async create(data: CreateMenuItemData): Promise<MenuItemWithProduct> {
     return this.prisma.menuItem.create({
       data: {
         menuId: data.menuId,
@@ -23,11 +35,7 @@ export class MenuItemRepository {
         order: data.order ?? 0,
       },
       include: {
-        product: {
-          include: {
-            category: true,
-          },
-        },
+        product: { select: productSelect },
       },
     });
   }
@@ -44,15 +52,11 @@ export class MenuItemRepository {
     return result.count;
   }
 
-  async findById(id: string): Promise<MenuItem | null> {
+  async findById(id: string): Promise<MenuItemWithProduct | null> {
     return this.prisma.menuItem.findUnique({
       where: { id },
       include: {
-        product: {
-          include: {
-            category: true,
-          },
-        },
+        product: { select: productSelect },
       },
     });
   }
@@ -68,16 +72,12 @@ export class MenuItemRepository {
   async update(
     id: string,
     data: Partial<Omit<CreateMenuItemData, 'menuId' | 'productId'>>,
-  ): Promise<MenuItem> {
+  ): Promise<MenuItemWithProduct> {
     return this.prisma.menuItem.update({
       where: { id },
       data,
       include: {
-        product: {
-          include: {
-            category: true,
-          },
-        },
+        product: { select: productSelect },
       },
     });
   }

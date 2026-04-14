@@ -160,8 +160,12 @@ model Menu {
 
   items MenuItem[]
 
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([deletedAt])
 }
 
 model MenuItem {
