@@ -27,6 +27,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { BulkCreateResultDto } from './dto/menu.dto';
 import { MenuItemSerializer } from './serializers/menu-item.serializer';
+import { CreateMenuItemSerializer } from './serializers/create-menu-item.serializer';
 
 @ApiTags('menu-items')
 @ApiBearerAuth()
@@ -43,7 +44,7 @@ export class MenuItemsController {
   @Post()
   @ApiOperation({ summary: 'Agregar un item al menú' })
   @ApiParam({ name: 'menuId', description: 'ID del menú', type: String })
-  @ApiResponse({ status: 201, description: 'Item creado', type: MenuItemSerializer })
+  @ApiResponse({ status: 201, description: 'Item creado', type: CreateMenuItemSerializer })
   @ApiResponse({ status: 404, description: 'Menú o producto no encontrado' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos — requiere ADMIN o MANAGER' })
@@ -54,7 +55,7 @@ export class MenuItemsController {
   ) {
     await this.menusService.verifyOwnership(menuId, user.restaurantId);
     const item = await this.menuItemsService.createItem(menuId, user.restaurantId, dto);
-    return new MenuItemSerializer(item);
+    return new CreateMenuItemSerializer(item);
   }
 
   @Post('bulk')
