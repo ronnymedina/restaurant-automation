@@ -1,0 +1,126 @@
+<h2>Desglose de planes de implementación</h2>
+<p class="subtitle">Cada plan es independiente y ejecutable — ordenados por dependencia</p>
+
+<div style="margin-top:20px">
+
+  <!-- PLAN 1 -->
+  <div style="border:2px solid #3b82f6;border-radius:10px;padding:16px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="background:#3b82f6;color:white;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700">Plan 1</span>
+      <strong>plan-unify-frontend-base</strong>
+      <span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 6px;font-size:11px">Sin dependencias</span>
+    </div>
+    <p style="font-size:13px;color:#475569;margin:0 0 8px">Migrar <code>restaurant-ui</code> de SSR a static. Sólo infraestructura — sin tocar lógica de negocio.</p>
+    <div style="font-size:12px;color:#64748b">
+      • Cambiar <code>output: 'server'</code> → <code>output: 'static'</code> y quitar node adapter<br>
+      • Agregar <code>@astrojs/react</code> (instalado pero sin usarlo aún)<br>
+      • Verificar que <code>astro build</code> compila sin errores<br>
+      • Agregar <code>ServeStaticModule</code> en NestJS para servir <code>public/</code><br>
+      • Verificar que <code>copy-static.mjs</code> + NestJS sirven el frontend correctamente
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:#94a3b8">🎯 Resultado: <code>pnpm build</code> funciona, NestJS sirve el frontend estático</div>
+  </div>
+
+  <!-- PLAN 2 -->
+  <div style="border:2px solid #8b5cf6;border-radius:10px;padding:16px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="background:#8b5cf6;color:white;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700">Plan 2</span>
+      <strong>plan-spa-routing</strong>
+      <span style="background:#ede9fe;color:#5b21b6;border-radius:4px;padding:2px 6px;font-size:11px">Depende: Plan 1</span>
+    </div>
+    <p style="font-size:13px;color:#475569;margin:0 0 8px">Configurar NestJS para manejar rutas SPA y renombrar la página del kiosk.</p>
+    <div style="font-size:12px;color:#64748b">
+      • Wildcard handler en NestJS: <code>/kiosk/*</code> → sirve <code>kiosk/index.html</code><br>
+      • Wildcard para <code>/dash/*</code> → sirve <code>dash/index.html</code><br>
+      • Renombrar <code>/kiosk/[slug].astro</code> → <code>/kiosk/index.astro</code><br>
+      • Leer slug desde <code>window.location.pathname</code> en el script del kiosk existente
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:#94a3b8">🎯 Resultado: todas las URLs del app funcionan en producción sin 404</div>
+  </div>
+
+  <!-- PLAN 3 -->
+  <div style="border:2px solid #f59e0b;border-radius:10px;padding:16px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="background:#f59e0b;color:white;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700">Plan 3</span>
+      <strong>plan-websocket-to-sse</strong>
+      <span style="background:#ede9fe;color:#5b21b6;border-radius:4px;padding:2px 6px;font-size:11px">Depende: Plan 1</span>
+    </div>
+    <p style="font-size:13px;color:#475569;margin:0 0 8px">Reemplazar el WebSocket gateway con Server-Sent Events. Backend y frontend.</p>
+    <div style="font-size:12px;color:#64748b">
+      • Remover <code>@nestjs/websockets</code> + socket.io del backend<br>
+      • Crear endpoint <code>@Sse('/v1/events/:restaurantId')</code><br>
+      • Emitir evento cuando se crea una orden nueva<br>
+      • Remover socket.io-client del frontend<br>
+      • Conectar con <code>EventSource</code> nativo en la página de órdenes
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:#94a3b8">🎯 Resultado: dashboard recibe nuevas órdenes en tiempo real sin WebSocket</div>
+  </div>
+
+  <!-- PLAN 4 -->
+  <div style="border:2px solid #10b981;border-radius:10px;padding:16px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="background:#10b981;color:white;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700">Plan 4</span>
+      <strong>plan-react-island-kiosk</strong>
+      <span style="background:#ede9fe;color:#5b21b6;border-radius:4px;padding:2px 6px;font-size:11px">Depende: Plan 2</span>
+    </div>
+    <p style="font-size:13px;color:#475569;margin:0 0 8px">Convertir el kiosk (actualmente ~380 líneas de vanilla JS) a componente React.</p>
+    <div style="font-size:12px;color:#64748b">
+      • Crear <code>src/components/kiosk/KioskApp.tsx</code><br>
+      • Migrar toda la lógica del <code>&lt;script&gt;</code> actual a estado React<br>
+      • Reemplazar manipulación directa del DOM por JSX<br>
+      • Montar en <code>/kiosk/index.astro</code> con <code>client:load</code>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:#94a3b8">🎯 Resultado: KioskApp es un componente React con estado reutilizable</div>
+  </div>
+
+  <!-- PLAN 5 -->
+  <div style="border:2px solid #06b6d4;border-radius:10px;padding:16px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="background:#06b6d4;color:white;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700">Plan 5</span>
+      <strong>plan-react-islands-dashboard</strong>
+      <span style="background:#ede9fe;color:#5b21b6;border-radius:4px;padding:2px 6px;font-size:11px">Depende: Plan 3</span>
+    </div>
+    <p style="font-size:13px;color:#475569;margin:0 0 8px">Convertir las páginas del dashboard a React islands. Una por una.</p>
+    <div style="font-size:12px;color:#64748b">
+      • <code>OrdersLive.tsx</code> — tabla en tiempo real con SSE (usa Plan 3)<br>
+      • <code>ProductsTable.tsx</code> — CRUD de productos con estado React<br>
+      • <code>MenusTable.tsx</code> — gestión de menús<br>
+      • <code>CategoriesTable.tsx</code> — gestión de categorías<br>
+      • Reemplazar los <code>&lt;script&gt;</code> inline de Astro por <code>client:load</code>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:#94a3b8">🎯 Resultado: dashboard usa componentes React reutilizables con estado</div>
+  </div>
+
+  <!-- PLAN 6 -->
+  <div style="border:2px solid #ec4899;border-radius:10px;padding:16px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="background:#ec4899;color:white;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700">Plan 6</span>
+      <strong>plan-marketing-homepage</strong>
+      <span style="background:#ede9fe;color:#5b21b6;border-radius:4px;padding:2px 6px;font-size:11px">Depende: Plan 1</span>
+    </div>
+    <p style="font-size:13px;color:#475569;margin:0 0 8px">Construir la landing page de marketing en <code>/</code>.</p>
+    <div style="font-size:12px;color:#64748b">
+      • Diseñar y construir <code>src/pages/index.astro</code><br>
+      • Hero, features, CTA hacia <code>/onboarding</code><br>
+      • SEO básico (title, meta description, og:tags)<br>
+      • Responsive — mobile first
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:#94a3b8">🎯 Resultado: landing funcional y SEO-ready servida desde NestJS</div>
+  </div>
+
+</div>
+
+<!-- DEPENDENCY GRAPH -->
+<div style="background:#1e293b;color:#e2e8f0;border-radius:10px;padding:16px;font-size:12px;margin-top:8px">
+  <div style="color:#94a3b8;margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:.05em">Orden de ejecución</div>
+  <div style="font-family:monospace">
+    Plan 1 (base)<br>
+    &nbsp;&nbsp;├─► Plan 2 (routing) ──► Plan 4 (kiosk island)<br>
+    &nbsp;&nbsp;├─► Plan 3 (SSE) ──────► Plan 5 (dashboard islands)<br>
+    &nbsp;&nbsp;└─► Plan 6 (homepage) &nbsp;&nbsp;← independiente de 2, 3, 4, 5
+  </div>
+</div>
+
+<div style="margin-top:16px;padding:12px;background:#eff6ff;border-radius:8px;font-size:13px">
+  ¿Tiene sentido este desglose? ¿Querés agregar, quitar o renombrar algún plan?
+</div>
