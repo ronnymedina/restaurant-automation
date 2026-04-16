@@ -53,13 +53,16 @@ describe('PATCH /v1/menus/:menuId/items/:itemId (e2e)', () => {
 
     menuId = menuRes.body.id;
 
-    const itemRes = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items`)
       .set('Authorization', `Bearer ${adminTokenA}`)
       .send({ productId: seedA.product.id, sectionName: 'Original', order: 1 })
       .expect(201);
 
-    itemId = itemRes.body.id;
+    const item = await prisma.menuItem.findFirst({
+      where: { menuId, productId: seedA.product.id, sectionName: 'Original' },
+    });
+    itemId = item!.id;
   });
 
   afterAll(async () => {
