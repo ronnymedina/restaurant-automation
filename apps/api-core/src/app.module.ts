@@ -1,9 +1,8 @@
+import { join } from 'path';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { AppController } from './app.controller';
-import { UPLOADS_PATH, API_PUBLIC_PATH } from './config';
-import { AppService } from './app.service';
 import { EventsModule } from './events/events.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
@@ -17,23 +16,14 @@ import { OrdersModule } from './orders/orders.module';
 import { CashRegisterModule } from './cash-register/cash-register.module';
 import { KioskModule } from './kiosk/kiosk.module';
 import { PrintModule } from './print/print.module';
-import { KitchenModule } from './kitchen/kitchen.module';
-import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot(),
-    ServeStaticModule.forRoot(
-      {
-        rootPath: UPLOADS_PATH,
-        serveRoot: '/uploads',
-      },
-      {
-        rootPath: API_PUBLIC_PATH,
-        serveRoot: '/',
-        serveStaticOptions: { fallthrough: true },
-      },
-    ),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'public'),
+      exclude: ['/v1/*', '/health', '/docs'],
+    }),
     EventsModule,
     PrismaModule,
     RestaurantsModule,
@@ -47,10 +37,7 @@ import { UploadsModule } from './uploads/uploads.module';
     CashRegisterModule,
     KioskModule,
     PrintModule,
-    KitchenModule,
-    UploadsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}

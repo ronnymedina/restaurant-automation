@@ -1,17 +1,23 @@
 {
-  "name": "@restaurants/ui-storefront",
+  "name": "@restaurants/ui",
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev": "astro dev --port 4322",
+    "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/react": "4.2.1",
     "@astrojs/tailwind": "6.0.2",
     "astro": "5.17.1",
-    "socket.io-client": "^4.8.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
     "tailwindcss": "^3.4.19"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.2",
+    "@types/react-dom": "19.1.2"
   }
 }
