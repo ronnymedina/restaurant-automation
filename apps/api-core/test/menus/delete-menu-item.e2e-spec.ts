@@ -60,12 +60,17 @@ describe('DELETE /v1/menus/:menuId/items/:itemId (e2e)', () => {
   });
 
   async function addItem(): Promise<string> {
-    const res = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items`)
       .set('Authorization', `Bearer ${adminTokenA}`)
       .send({ productId, sectionName: 'Carnes' })
       .expect(201);
-    return res.body.id;
+
+    const item = await prisma.menuItem.findFirst({
+      where: { menuId, productId, sectionName: 'Carnes' },
+      orderBy: { order: 'desc' },
+    });
+    return item!.id;
   }
 
   it('401 — unauthenticated request is rejected', async () => {

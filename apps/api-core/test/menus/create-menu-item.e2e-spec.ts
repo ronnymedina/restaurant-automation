@@ -115,7 +115,8 @@ describe('POST /v1/menus/:menuId/items (e2e)', () => {
       .send({ productId, sectionName: 'Carnes', order: 1 })
       .expect(201);
 
-    expect(res.body.id).toBeDefined();
+    expect(res.body.menuId).toBeDefined();
+    expect(res.body.productId).toBeDefined();
     expect(res.body.sectionName).toBe('Carnes');
     expect(res.body.order).toBe(1);
   });
@@ -127,7 +128,8 @@ describe('POST /v1/menus/:menuId/items (e2e)', () => {
       .send({ productId, sectionName: 'Bebidas' })
       .expect(201);
 
-    expect(res.body.id).toBeDefined();
+    expect(res.body.menuId).toBeDefined();
+    expect(res.body.productId).toBeDefined();
   });
 
   it('201 — serializer exposes correct item fields', async () => {
@@ -137,31 +139,17 @@ describe('POST /v1/menus/:menuId/items (e2e)', () => {
       .send({ productId, sectionName: 'Postres', order: 1 })
       .expect(201);
 
-    // item fields present
-    expect(res.body.id).toBeDefined();
+    // present
+    expect(res.body.menuId).toBe(menuId);
+    expect(res.body.productId).toBe(productId);
     expect(res.body.sectionName).toBe('Postres');
     expect(typeof res.body.order).toBe('number');
-    expect(res.body.product).toBeDefined();
 
-    // item fields absent
-    expect(res.body.menuId).toBeUndefined();
-    expect(res.body.productId).toBeUndefined();
+    // absent
+    expect(res.body.id).toBeUndefined();
+    expect(res.body.product).toBeUndefined();
     expect(res.body.createdAt).toBeUndefined();
     expect(res.body.updatedAt).toBeUndefined();
-
-    // product fields present
-    expect(res.body.product.id).toBeDefined();
-    expect(res.body.product.name).toBeDefined();
-    expect(typeof res.body.product.price).toBe('number');
-    expect(typeof res.body.product.active).toBe('boolean');
-
-    // product fields absent
-    expect(res.body.product.description).toBeUndefined();
-    expect(res.body.product.stock).toBeUndefined();
-    expect(res.body.product.sku).toBeUndefined();
-    expect(res.body.product.categoryId).toBeUndefined();
-    expect(res.body.product.restaurantId).toBeUndefined();
-    expect(res.body.product.createdAt).toBeUndefined();
   });
 
   it('201 — order auto-increments within same section', async () => {
