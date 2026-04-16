@@ -1,0 +1,29 @@
+---
+interface Props {
+  restaurantName?: string;
+}
+const { restaurantName = 'Restaurante' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{restaurantName} - Pedidos</title>
+    <style>
+      html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
