@@ -9,14 +9,7 @@ const publicDir = resolve(root, 'apps/api-core/public');
 rmSync(publicDir, { recursive: true, force: true });
 mkdirSync(publicDir, { recursive: true });
 
-// Copy dashboard to root of public (dashboard is the main UI at /)
-cpSync(resolve(root, 'apps/ui-dashboard/dist'), publicDir, { recursive: true });
-
-// Copy storefront to /storefront
-cpSync(
-  resolve(root, 'apps/ui-storefront/dist'),
-  resolve(publicDir, 'storefront'),
-  { recursive: true },
-);
+// Copy unified UI to root of public
+cpSync(resolve(root, 'apps/ui/dist'), publicDir, { recursive: true });
 
 console.log('✓ Static files copied to api-core/public/');
