@@ -73,3 +73,31 @@ export class ExternalServiceException extends BaseException {
     );
   }
 }
+
+/**
+ * Thrown when attempting to modify or delete a protected default category.
+ */
+export class DefaultCategoryProtectedException extends BaseException {
+  constructor() {
+    super(
+      'The default category cannot be modified or deleted',
+      HttpStatus.FORBIDDEN,
+      'DEFAULT_CATEGORY_PROTECTED',
+    );
+  }
+}
+
+/**
+ * Thrown when attempting to delete a category that still has products assigned.
+ * The client must provide a reassignTo category ID.
+ */
+export class CategoryHasProductsException extends BaseException {
+  constructor(productsCount: number) {
+    super(
+      `This category has ${productsCount} product(s) assigned. Provide a 'reassignTo' category ID to reassign them before deleting.`,
+      HttpStatus.CONFLICT,
+      'CATEGORY_HAS_PRODUCTS',
+      { productsCount },
+    );
+  }
+}

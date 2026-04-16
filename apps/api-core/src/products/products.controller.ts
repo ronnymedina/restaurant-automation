@@ -1,6 +1,7 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Body, Param, Query, UseGuards, UseInterceptors, ClassSerializerInterceptor
+  Body, Param, Query, UseGuards, UseInterceptors, ClassSerializerInterceptor,
+  HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
@@ -94,16 +95,16 @@ export class ProductsController {
 
   @Delete(':id')
   @Roles(Role.ADMIN, Role.MANAGER)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Desactivar producto (soft delete)' })
   @ApiParam({ name: 'id', description: 'ID del producto', type: String })
-  @ApiResponse({ status: 200, description: 'Producto desactivado (deletedAt seteado)', type: ProductDto })
+  @ApiResponse({ status: 204, description: 'Producto desactivado' })
   @ApiResponse({ status: 404, description: 'Producto no encontrado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async remove(
     @Param('id') id: string,
     @CurrentUser() user: { restaurantId: string },
-  ) {
-    const product = await this.productsService.deleteProduct(id, user.restaurantId);
-    return new ProductSerializer(product);
+  ): Promise<void> {
+    await this.productsService.deleteProduct(id, user.restaurantId);
   }
 }

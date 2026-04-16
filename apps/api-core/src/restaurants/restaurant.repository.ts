@@ -3,6 +3,10 @@ import { Prisma, Restaurant } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
+export type RestaurantWithSettings = Prisma.RestaurantGetPayload<{
+  include: { settings: true };
+}>;
+
 export interface CreateRestaurantData {
   name: string;
   slug: string;
@@ -42,7 +46,7 @@ export class RestaurantRepository {
       where: { id },
       include: {
         products: true,
-        categories: true,
+        productCategories: true,
         menus: true,
       },
     });
@@ -65,6 +69,32 @@ export class RestaurantRepository {
   async delete(id: string): Promise<Restaurant> {
     return this.prisma.restaurant.delete({
       where: { id },
+    });
+  }
+
+  async findBySlugWithSettings(slug: string, tx?: TransactionClient): Promise<RestaurantWithSettings | null> {
+    const client = tx ?? this.prisma;
+    return client.restaurant.findUnique({
+      where: { slug },
+      include: { settings: true },
+    });
+  }
+
+  async findByIdWithSettings(id: string): Promise<RestaurantWithSettings | null> {
+    return this.prisma.restaurant.findUnique({
+      where: { id },
+      include: { settings: true },
+    });
+  }
+
+  async upsertSettings(
+    restaurantId: string,
+    data: { kitchenToken?: string; kitchenTokenExpiresAt?: Date },
+  ) {
+    return this.prisma.restaurantSettings.upsert({
+      where: { restaurantId },
+      create: { restaurantId, ...data },
+      update: data,
     });
   }
 }

@@ -52,12 +52,12 @@ export class OrdersService {
     private readonly printService: PrintService,
   ) {}
 
-  async createOrder(restaurantId: string, registerSessionId: string, dto: CreateOrderDto) {
+  async createOrder(restaurantId: string, cashShiftId: string, dto: CreateOrderDto) {
     const order = await this.prisma.$transaction(async (tx) => {
       const { orderItems, stockEntries, totalAmount } = await this.validateAndBuildItems(restaurantId, dto, tx);
       this.validateExpectedTotal(totalAmount, dto.expectedTotal);
       await this.decrementAllStock(stockEntries, tx);
-      const created = await this.persistOrder({ restaurantId, registerSessionId, totalAmount, dto, orderItems }, tx);
+      const created = await this.persistOrder({ restaurantId, cashShiftId, totalAmount, dto, orderItems }, tx);
       return created;
     });
 
@@ -252,15 +252,15 @@ export class OrdersService {
   private async persistOrder(
     params: {
       restaurantId: string;
-      registerSessionId: string;
+      cashShiftId: string;
       totalAmount: number;
       dto: CreateOrderDto;
       orderItems: OrderItemEntry[];
     },
     tx: Prisma.TransactionClient,
   ) {
-    const session = await tx.registerSession.update({
-      where: { id: params.registerSessionId },
+    const session = await tx.cashShift.update({
+      where: { id: params.cashShiftId },
       data: { lastOrderNumber: { increment: 1 } },
     });
 
@@ -269,7 +269,7 @@ export class OrdersService {
         orderNumber: session.lastOrderNumber,
         totalAmount: params.totalAmount,
         restaurantId: params.restaurantId,
-        registerSessionId: params.registerSessionId,
+        cashShiftId: params.cashShiftId,
         paymentMethod: params.dto.paymentMethod,
         customerEmail: params.dto.customerEmail,
         items: params.orderItems,

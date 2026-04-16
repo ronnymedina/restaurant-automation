@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Restaurant } from '@prisma/client';
-import { RestaurantRepository } from './restaurant.repository';
+import { RestaurantRepository, RestaurantWithSettings } from './restaurant.repository';
+import { DuplicateRestaurantException } from './exceptions/restaurants.exceptions';
 
 type TransactionClient = Prisma.TransactionClient;
 
@@ -38,6 +39,32 @@ export class RestaurantsService {
 
   async delete(id: string): Promise<Restaurant> {
     return this.restaurantRepository.delete(id);
+  }
+
+  async rename(id: string, name: string): Promise<Restaurant> {
+    try {
+      return await this.restaurantRepository.update(id, { name });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new DuplicateRestaurantException(name);
+      }
+      throw err;
+    }
+  }
+
+  async findBySlugWithSettings(slug: string): Promise<RestaurantWithSettings | null> {
+    return this.restaurantRepository.findBySlugWithSettings(slug);
+  }
+
+  async findByIdWithSettings(id: string): Promise<RestaurantWithSettings | null> {
+    return this.restaurantRepository.findByIdWithSettings(id);
+  }
+
+  async upsertSettings(
+    restaurantId: string,
+    data: { kitchenToken?: string; kitchenTokenExpiresAt?: Date },
+  ) {
+    return this.restaurantRepository.upsertSettings(restaurantId, data);
   }
 
   private async generateSlug(name: string, tx?: TransactionClient): Promise<string> {

@@ -9,8 +9,8 @@ import { EventsGateway } from '../events/events.gateway';
 
 const mockRestaurantsService = {
   findById: jest.fn(),
-  findBySlug: jest.fn(),
-  update: jest.fn(),
+  findByIdWithSettings: jest.fn(),
+  upsertSettings: jest.fn(),
 };
 const mockOrdersService = {
   kitchenAdvanceStatus: jest.fn(),
@@ -27,8 +27,10 @@ const makeRestaurant = (overrides = {}) => ({
   id: 'r1',
   slug: 'test-restaurant',
   name: 'Test Restaurant',
-  kitchenToken: 'token123',
-  kitchenTokenExpiresAt: new Date(Date.now() + 86400000),
+  settings: {
+    kitchenToken: 'token123',
+    kitchenTokenExpiresAt: new Date(Date.now() + 86400000),
+  },
   ...overrides,
 });
 
@@ -90,7 +92,7 @@ describe('KitchenService', () => {
   describe('generateToken', () => {
     it('generates a token and returns kitchenUrl', async () => {
       mockRestaurantsService.findById.mockResolvedValue(makeRestaurant());
-      mockRestaurantsService.update.mockResolvedValue({});
+      mockRestaurantsService.upsertSettings.mockResolvedValue({});
       const result = await service.generateToken('r1');
       expect(result.token).toHaveLength(64); // 32 bytes hex = 64 chars
       expect(result.kitchenUrl).toContain('/kitchen?slug=test-restaurant&token=');

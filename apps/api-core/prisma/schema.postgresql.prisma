@@ -1,0 +1,248 @@
+// Schema para producción (PostgreSQL)
+// Incluye anotaciones de tipos nativos (@db.VarChar) que SQLite no soporta.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  BASIC
+}
+
+model User {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  passwordHash String?
+  role         Role    @default(BASIC)
+  isActive     Boolean @default(false)
+
+  activationToken String? @unique
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  refreshTokens RefreshToken[]
+
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deletedAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+enum OrderStatus {
+  CREATED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CARD
+  CASH
+  DIGITAL_WALLET
+}
+
+enum CashShiftStatus {
+  OPEN
+  CLOSED
+}
+
+enum RestaurantStatus {
+  CREATED
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+model Restaurant {
+  id     String           @id @default(uuid())
+  name   String           @unique @db.VarChar(255)
+  slug   String           @unique @db.VarChar(255)
+  status RestaurantStatus @default(CREATED)
+
+  users             User[]
+  products          Product[]
+  menus             Menu[]
+  productCategories ProductCategory[]
+  orders            Order[]
+  cashShifts        CashShift[]
+  settings          RestaurantSettings?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RestaurantSettings {
+  id           String     @id @default(uuid())
+  restaurantId String     @unique
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  kitchenToken          String?   @unique
+  kitchenTokenExpiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProductCategory {
+  id        String  @id @default(uuid())
+  name      String  @db.VarChar(255)
+  isDefault Boolean @default(false)
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([restaurantId, name])
+  @@map("product_categories")
+}
+
+model Product {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  price       BigInt  @default(0)
+  stock       Int?
+  active      Boolean @default(true)
+  sku         String?
+  imageUrl    String?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  categoryId String
+  category   ProductCategory @relation(fields: [categoryId], references: [id])
+
+  menuItems  MenuItem[]
+  orderItems OrderItem[]
+
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deletedAt])
+}
+
+model Menu {
+  id     String  @id @default(uuid())
+  name   String  @db.VarChar(100)
+  active Boolean @default(true)
+
+  startTime  String?
+  endTime    String?
+  daysOfWeek String?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  items MenuItem[]
+
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deletedAt])
+}
+
+model MenuItem {
+  id String @id @default(uuid())
+
+  menuId String
+  menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  sectionName String?
+  order       Int     @default(0)
+
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Order {
+  id                 String        @id @default(uuid())
+  orderNumber        Int
+  status             OrderStatus   @default(CREATED)
+  paymentMethod      PaymentMethod?
+  customerEmail      String?
+  totalAmount        BigInt
+  isPaid             Boolean       @default(false)
+  cancellationReason String?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  cashShiftId  String
+  cashShift    CashShift  @relation(fields: [cashShiftId], references: [id])
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId, createdAt])
+  @@index([cashShiftId])
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  quantity  Int
+  unitPrice BigInt
+  subtotal  BigInt
+  notes     String?
+
+  orderId    String
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product   @relation(fields: [productId], references: [id])
+  menuItemId String?
+  menuItem   MenuItem? @relation(fields: [menuItemId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model CashShift {
+  id              String          @id @default(uuid())
+  status          CashShiftStatus @default(OPEN)
+  lastOrderNumber Int             @default(0)
+
+  totalSales  BigInt?
+  totalOrders Int?
+  closedBy    String?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  orders Order[]
+
+  openedAt DateTime  @default(now())
+  closedAt DateTime?
+
+  @@index([restaurantId, status])
+}

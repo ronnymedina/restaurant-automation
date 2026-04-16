@@ -1,7 +1,6 @@
 import { Injectable, Optional } from '@nestjs/common';
-import { MenuItem } from '@prisma/client';
 
-import { MenuItemRepository, CreateMenuItemData } from './menu-item.repository';
+import { MenuItemRepository, CreateMenuItemData, MenuItemWithProduct } from './menu-item.repository';
 import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
@@ -15,7 +14,7 @@ export class MenuItemsService {
     menuId: string,
     restaurantId: string,
     data: Omit<CreateMenuItemData, 'menuId'>,
-  ): Promise<MenuItem> {
+  ): Promise<MenuItemWithProduct> {
     if (data.order === undefined) {
       const maxOrder = await this.menuItemRepository.getMaxOrder(
         menuId,
@@ -50,15 +49,14 @@ export class MenuItemsService {
     itemId: string,
     restaurantId: string,
     data: Partial<Omit<CreateMenuItemData, 'menuId' | 'productId'>>,
-  ): Promise<MenuItem> {
+  ): Promise<MenuItemWithProduct> {
     const item = await this.menuItemRepository.update(itemId, data);
     this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'menuItem', action: 'updated' });
     return item;
   }
 
-  async deleteItem(itemId: string, restaurantId: string): Promise<MenuItem> {
-    const item = await this.menuItemRepository.delete(itemId);
+  async deleteItem(itemId: string, restaurantId: string): Promise<void> {
+    await this.menuItemRepository.delete(itemId);
     this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'menuItem', action: 'deleted' });
-    return item;
   }
 }

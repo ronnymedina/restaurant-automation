@@ -20,12 +20,12 @@ export class KitchenTokenGuard implements CanActivate {
 
     if (!slug || !token) throw new UnauthorizedException('Kitchen token required');
 
-    const restaurant = await this.restaurantsService.findBySlug(slug);
-    if (!restaurant || restaurant.kitchenToken !== token) {
+    const restaurant = await this.restaurantsService.findBySlugWithSettings(slug);
+    if (!restaurant || restaurant.settings?.kitchenToken !== token) {
       throw new UnauthorizedException('Invalid kitchen token');
     }
 
-    if (restaurant.kitchenTokenExpiresAt && restaurant.kitchenTokenExpiresAt < new Date()) {
+    if (restaurant.settings?.kitchenTokenExpiresAt && restaurant.settings.kitchenTokenExpiresAt < new Date()) {
       throw new UnauthorizedException('Kitchen token expired');
     }
 

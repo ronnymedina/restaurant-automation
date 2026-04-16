@@ -42,11 +42,10 @@ export class MenusService {
     return menu;
   }
 
-  async deleteMenu(id: string, restaurantId: string): Promise<Menu> {
+  async deleteMenu(id: string, restaurantId: string): Promise<void> {
     await this.findMenuAndThrowIfNotFound(id, restaurantId);
-    const menu = await this.menuRepository.delete(id);
+    await this.menuRepository.softDelete(id);
     this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'menu', action: 'deleted' });
-    return menu;
   }
   async verifyOwnership(id: string, restaurantId: string): Promise<Menu> {
     return this.findMenuAndThrowIfNotFound(id, restaurantId);

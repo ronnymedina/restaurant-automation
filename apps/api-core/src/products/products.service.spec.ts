@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProductsService } from './products.service';
 import { ProductRepository } from './product.repository';
-import { CategoryRepository } from './category.repository';
+import { ProductCategoryRepository } from './product-category.repository';
 import { ProductEventsService } from '../events/products.events';
 import { EntityNotFoundException } from '../common/exceptions';
 import { InsufficientStockException } from './exceptions/products.exceptions';
@@ -40,7 +40,7 @@ describe('ProductsService', () => {
       providers: [
         ProductsService,
         { provide: ProductRepository, useValue: mockProductRepo },
-        { provide: CategoryRepository, useValue: mockCategoryRepo },
+        { provide: ProductCategoryRepository, useValue: mockCategoryRepo },
         { provide: CategoriesService, useValue: mockCategoryService },
         { provide: productConfig.KEY, useValue: { batchSize: 10, maxPageSize: 10, defaultCategoryName: PRODUCTS_DEFAULT_CATEGORY_NAME } },
         { provide: ProductEventsService, useValue: mockEvents },
@@ -173,7 +173,7 @@ describe('ProductsService', () => {
         providers: [
           ProductsService,
           { provide: ProductRepository, useValue: mockProductRepo },
-          { provide: CategoryRepository, useValue: mockCategoryRepo },
+          { provide: ProductCategoryRepository, useValue: mockCategoryRepo },
           { provide: CategoriesService, useValue: mockCategoryService },
           { provide: productConfig.KEY, useValue: { batchSize: 2, maxPageSize: 10, defaultCategoryName: PRODUCTS_DEFAULT_CATEGORY_NAME } },
           { provide: ProductEventsService, useValue: mockEvents },
@@ -188,11 +188,11 @@ describe('ProductsService', () => {
     });
   });
 
-  describe('findByRestaurantIdPaginated', () => {
+  describe('listProductsWithPagination', () => {
     it('returns paginated results with meta', async () => {
       const data = [{ id: 'p1', price: 500n }, { id: 'p2', price: 1000n }];
       mockProductRepo.findByRestaurantIdPaginated.mockResolvedValue({ data, total: 2 });
-      const result = await service.findByRestaurantIdPaginated('r1', 1, 10);
+      const result = await service.listProductsWithPagination('r1', 1, 10);
       expect(result.data[0]).toEqual(expect.objectContaining({ id: 'p1', price: 500n }));
       expect(result.data[1]).toEqual(expect.objectContaining({ id: 'p2', price: 1000n }));
       expect(result.meta).toEqual({ total: 2, page: 1, limit: 10, totalPages: 1 });

@@ -1,0 +1,652 @@
+# WebSocket to SSE — Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Reemplazar el WebSocket gateway (socket.io) con Server-Sent Events. El backend emite un evento cada vez que se crea una orden nueva. El frontend de órdenes se suscribe con `EventSource` nativo del browser, eliminando el polling cada 15 segundos.
+
+**Architecture:** `EventsService` mantiene un `Subject<MessageEvent>` por restaurantId (RxJS). `KioskService` llama a `EventsService.emit()` después de crear una orden. El controller expone `GET /v1/events/:restaurantId/stream` como endpoint SSE. El token JWT viaja como query param `?token=` porque `EventSource` no soporta headers custom. La página `dash/orders.astro` reemplaza el `setInterval` con `EventSource`.
+
+**Tech Stack:** NestJS `@Sse()`, RxJS `Subject`/`Observable`, `EventSource` (browser nativo), `@nestjs/jwt` para validar token en el endpoint SSE.
+
+**Prerequisito:** Plan 1 completado.
+
+**Spec:** `docs/superpowers/specs/2026-04-16-unify-platform-design.md` — sección "Server-Sent Events"
+
+---
+
+## File Map
+
+**Creados:**
+- `apps/api-core/src/events/events.service.ts` — mantiene streams por restaurantId
+- `apps/api-core/src/events/events.controller.ts` — endpoint `@Sse`
+
+**Modificados:**
+- `apps/api-core/src/events/events.module.ts` — exportar `EventsService`, agregar controller
+- `apps/api-core/src/kiosk/kiosk.module.ts` — importar `EventsModule`
+- `apps/api-core/src/kiosk/kiosk.service.ts` — inyectar `EventsService`, emitir tras crear orden
+- `apps/api-core/src/app.module.ts` — sin cambios (ya importa `EventsModule`)
+- `apps/ui/src/pages/dash/orders.astro` — reemplazar `setInterval` con `EventSource`
+
+**Eliminados:**
+- `apps/api-core/src/events/events.gateway.ts`
+
+**Dependencias a remover de `apps/api-core/package.json`:**
+- `socket.io`
+- `@nestjs/platform-socket.io`
+- `@nestjs/websockets`
+
+---
+
+## Task 1: Crear EventsService
+
+**Archivo:** `apps/api-core/src/events/events.service.ts` (nuevo)
+
+- [ ] **Step 1.1 — Crear el archivo**
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { Observable, Subject } from 'rxjs';
+
+export interface OrderEvent {
+  type: 'new_order';
+  restaurantId: string;
+  orderId: string;
+  orderNumber: number;
+}
+
+@Injectable()
+export class EventsService {
+  private streams = new Map<string, Subject<OrderEvent>>();
+
+  getStream(restaurantId: string): Observable<OrderEvent> {
+    if (!this.streams.has(restaurantId)) {
+      this.streams.set(restaurantId, new Subject<OrderEvent>());
+    }
+    return this.streams.get(restaurantId)!.asObservable();
+  }
+
+  emit(restaurantId: string, event: OrderEvent): void {
+    this.streams.get(restaurantId)?.next(event);
+  }
+}
+```
+
+- [ ] **Step 1.2 — Verificar que TypeScript compila**
+
+```bash
+pnpm --filter api-core build
+```
+
+Esperado: sin errores.
+
+- [ ] **Step 1.3 — Commit**
+
+```bash
+git add apps/api-core/src/events/events.service.ts
+git commit -m "feat(events): add EventsService with per-restaurant SSE streams"
+```
+
+---
+
+## Task 2: Crear EventsController con endpoint SSE
+
+**Archivo:** `apps/api-core/src/events/events.controller.ts` (nuevo)
+
+El `EventSource` del browser no puede enviar headers custom, así que el JWT viaja en el query param `?token=`. NestJS valida el token con `JwtService` antes de devolver el stream.
+
+- [ ] **Step 2.1 — Crear el archivo**
+
+```typescript
+import {
+  Controller,
+  Get,
+  Param,
+  Query,
+  Sse,
+  UnauthorizedException,
+  MessageEvent,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { map } from 'rxjs/operators';
+import { Observable } from 'rxjs';
+import { EventsService } from './events.service';
+
+@Controller({ version: '1', path: 'events' })
+export class EventsController {
+  constructor(
+    private readonly eventsService: EventsService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  @Sse(':restaurantId/stream')
+  stream(
+    @Param('restaurantId') restaurantId: string,
+    @Query('token') token: string,
+  ): Observable<MessageEvent> {
+    if (!token) throw new UnauthorizedException();
+
+    try {
+      this.jwtService.verify(token);
+    } catch {
+      throw new UnauthorizedException();
+    }
+
+    return this.eventsService.getStream(restaurantId).pipe(
+      map((event) => ({ data: JSON.stringify(event) }) as MessageEvent),
+    );
+  }
+}
+```
+
+- [ ] **Step 2.2 — Verificar compilación**
+
+```bash
+pnpm --filter api-core build
+```
+
+Esperado: sin errores.
+
+- [ ] **Step 2.3 — Commit**
+
+```bash
+git add apps/api-core/src/events/events.controller.ts
+git commit -m "feat(events): add SSE controller endpoint at /v1/events/:restaurantId/stream"
+```
+
+---
+
+## Task 3: Actualizar EventsModule
+
+**Archivo:** `apps/api-core/src/events/events.module.ts`
+
+Reemplazar el módulo actual (que solo tenía `EventsGateway`) por uno que exponga `EventsService` y registre `EventsController`. Importar `JwtModule` para que `JwtService` esté disponible en el controller.
+
+- [ ] **Step 3.1 — Reemplazar el contenido**
+
+```typescript
+import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { EventsService } from './events.service';
+import { EventsController } from './events.controller';
+
+@Module({
+  imports: [
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('JWT_SECRET'),
+      }),
+    }),
+  ],
+  controllers: [EventsController],
+  providers: [EventsService],
+  exports: [EventsService],
+})
+export class EventsModule {}
+```
+
+- [ ] **Step 3.2 — Verificar compilación**
+
+```bash
+pnpm --filter api-core build
+```
+
+Esperado: sin errores TypeScript.
+
+- [ ] **Step 3.3 — Commit**
+
+```bash
+git add apps/api-core/src/events/events.module.ts
+git commit -m "feat(events): update EventsModule — add controller, export service, wire JwtModule"
+```
+
+---
+
+## Task 4: Eliminar EventsGateway
+
+**Archivo a eliminar:** `apps/api-core/src/events/events.gateway.ts`
+
+- [ ] **Step 4.1 — Eliminar el archivo**
+
+```bash
+git rm apps/api-core/src/events/events.gateway.ts
+```
+
+- [ ] **Step 4.2 — Remover dependencias de socket.io**
+
+```bash
+pnpm --filter api-core remove socket.io @nestjs/platform-socket.io @nestjs/websockets
+```
+
+- [ ] **Step 4.3 — Verificar que el build sigue compilando**
+
+```bash
+pnpm --filter api-core build
+```
+
+Esperado: sin errores. Si hay imports rotos de `@nestjs/websockets` en otros archivos, eliminarlos también.
+
+- [ ] **Step 4.4 — Commit**
+
+```bash
+git add -A
+git commit -m "refactor(events): remove WebSocket gateway and socket.io dependencies"
+```
+
+---
+
+## Task 5: Conectar KioskService con EventsService
+
+**Archivos:**
+- Modify: `apps/api-core/src/kiosk/kiosk.module.ts`
+- Modify: `apps/api-core/src/kiosk/kiosk.service.ts`
+
+Cuando se crea una orden desde el kiosk, `KioskService` emite un evento SSE a los clientes suscritos al restaurante.
+
+- [ ] **Step 5.1 — Actualizar kiosk.module.ts para importar EventsModule**
+
+Leer el archivo actual:
+
+```bash
+cat apps/api-core/src/kiosk/kiosk.module.ts
+```
+
+Agregar `EventsModule` al array `imports` del módulo. El archivo debería quedar así:
+
+```typescript
+import { Module } from '@nestjs/common';
+import { KioskController } from './kiosk.controller';
+import { KioskService } from './kiosk.service';
+import { RestaurantsModule } from '../restaurants/restaurants.module';
+import { MenusModule } from '../menus/menus.module';
+import { OrdersModule } from '../orders/orders.module';
+import { RegisterModule } from '../register/register.module';
+import { EventsModule } from '../events/events.module';
+
+@Module({
+  imports: [RestaurantsModule, MenusModule, OrdersModule, RegisterModule, EventsModule],
+  controllers: [KioskController],
+  providers: [KioskService],
+})
+export class KioskModule {}
+```
+
+> Si el archivo actual tiene imports distintos, mantenerlos y solo agregar `EventsModule` al array.
+
+- [ ] **Step 5.2 — Actualizar kiosk.service.ts para inyectar EventsService y emitir tras crear orden**
+
+Encontrar el método `createKioskOrder` en `apps/api-core/src/kiosk/kiosk.service.ts`. Hacer dos cambios:
+
+**1. Agregar `EventsService` al constructor:**
+
+```typescript
+import { EventsService } from '../events/events.service';
+
+// En el constructor, agregar:
+constructor(
+  private readonly restaurantsService: RestaurantsService,
+  private readonly menuRepository: MenuRepository,
+  private readonly ordersService: OrdersService,
+  private readonly registerSessionRepository: RegisterSessionRepository,
+  private readonly eventsService: EventsService,   // ← agregar
+) {}
+```
+
+**2. Emitir evento al final de `createKioskOrder`:**
+
+```typescript
+async createKioskOrder(slug: string, dto: CreateOrderDto) {
+  const restaurant = await this.resolveRestaurant(slug);
+
+  const session = await this.registerSessionRepository.findOpen(restaurant.id);
+  if (!session) throw new RegisterNotOpenException();
+
+  const order = await this.ordersService.createOrder(restaurant.id, session.id, dto);
+
+  // Notificar al dashboard via SSE
+  this.eventsService.emit(restaurant.id, {
+    type: 'new_order',
+    restaurantId: restaurant.id,
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+  });
+
+  return order;
+}
+```
+
+- [ ] **Step 5.3 — Verificar compilación**
+
+```bash
+pnpm --filter api-core build
+```
+
+Esperado: sin errores TypeScript.
+
+- [ ] **Step 5.4 — Commit**
+
+```bash
+git add apps/api-core/src/kiosk/
+git commit -m "feat(kiosk): emit SSE event after order creation"
+```
+
+---
+
+## Task 6: Crear OrdersDashboard React island
+
+**Decisión de arquitectura:** En lugar de agregar vanilla JS con `EventSource` al `<script>` de `orders.astro`, migramos la página completa a un React island. Esto elimina la manipulación manual del DOM, permite reutilizar patrones del dashboard, y encapsula el estado SSE + órdenes en hooks React.
+
+**Archivos:**
+- CREAR `apps/ui/src/components/dash/OrdersDashboard.tsx`
+- MODIFICAR `apps/ui/src/pages/dash/orders.astro`
+
+**Nota sobre restaurantId:** `auth.ts` solo almacena `accessToken` y `refreshToken` en localStorage — no hay un objeto `user`. El `restaurantId` se extrae decodificando el payload del JWT (base64 del segmento del medio) sin librería externa.
+
+- [ ] **Step 6.1 — Crear `apps/ui/src/components/dash/OrdersDashboard.tsx`**
+
+```tsx
+import React, { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '../../lib/api';
+import { getAccessToken } from '../../lib/auth';
+
+interface OrderItem {
+  quantity: number;
+  product?: { name: string };
+}
+
+interface Order {
+  id: string;
+  orderNumber: number;
+  createdAt: string;
+  status: string;
+  totalAmount: string;
+  paymentMethod: string;
+  items?: OrderItem[];
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  CREATED: 'bg-yellow-100 text-yellow-700',
+  PROCESSING: 'bg-blue-100 text-blue-700',
+  PAID: 'bg-emerald-100 text-emerald-700',
+  COMPLETED: 'bg-slate-100 text-slate-600',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  CREATED: 'Creado',
+  PROCESSING: 'En Proceso',
+  PAID: 'Pagado',
+  COMPLETED: 'Completado',
+};
+
+const NEXT_STATUS: Record<string, string> = {
+  CREATED: 'PROCESSING',
+  PROCESSING: 'PAID',
+  PAID: 'COMPLETED',
+};
+
+const NEXT_STATUS_LABEL: Record<string, string> = {
+  CREATED: 'Procesar',
+  PROCESSING: 'Marcar Pagado',
+  PAID: 'Completar',
+};
+
+const FILTERS = [
+  { label: 'Todos', value: '' },
+  { label: 'Creado', value: 'CREATED' },
+  { label: 'En Proceso', value: 'PROCESSING' },
+  { label: 'Pagado', value: 'PAID' },
+  { label: 'Completado', value: 'COMPLETED' },
+];
+
+function getRestaurantIdFromToken(): string | null {
+  const token = getAccessToken();
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.restaurantId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export default function OrdersDashboard() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [activeFilter, setActiveFilter] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadOrders = useCallback(async (status = activeFilter) => {
+    const query = status ? `?status=${status}` : '';
+    const res = await apiFetch(`/v1/orders${query}`);
+    if (!res.ok) {
+      setError(res.status === 403 ? 'No tienes permisos para acceder a esta sección' : 'Error al cargar pedidos');
+      setLoading(false);
+      return;
+    }
+    const data = await res.json();
+    setOrders(data);
+    setError(null);
+    setLoading(false);
+  }, [activeFilter]);
+
+  // Carga inicial y cuando cambia el filtro
+  useEffect(() => {
+    setLoading(true);
+    loadOrders(activeFilter);
+  }, [activeFilter]);
+
+  // SSE: conectar al stream del restaurante
+  useEffect(() => {
+    const restaurantId = getRestaurantIdFromToken();
+    const token = getAccessToken();
+    if (!restaurantId || !token) return;
+
+    const es = new EventSource(
+      `/v1/events/${restaurantId}/stream?token=${encodeURIComponent(token)}`
+    );
+
+    es.onmessage = () => {
+      loadOrders(activeFilter);
+    };
+
+    es.onerror = () => {
+      es.close();
+      // Fallback: polling cada 15 segundos si SSE falla
+      const interval = setInterval(() => loadOrders(activeFilter), 15_000);
+      return () => clearInterval(interval);
+    };
+
+    return () => es.close();
+  }, []);
+
+  async function advanceStatus(orderId: string, nextStatus: string) {
+    const res = await apiFetch(`/v1/orders/${orderId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: nextStatus }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      alert(err?.message || 'Error al actualizar estado');
+      return;
+    }
+    loadOrders(activeFilter);
+  }
+
+  async function openReceipt(orderId: string) {
+    const res = await apiFetch(`/v1/print/receipt/${orderId}`);
+    if (!res.ok) { alert('Error al obtener recibo'); return; }
+    const receipt = await res.json();
+    const win = window.open('', '_blank', 'width=400,height=600');
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>Recibo #${receipt.orderNumber}</title>
+      <style>body{font-family:monospace;padding:20px;max-width:350px;margin:0 auto}table{width:100%;border-collapse:collapse}td,th{padding:4px 0;text-align:left}th:last-child,td:last-child{text-align:right}.total{border-top:2px solid #000;font-weight:bold;font-size:1.2em}</style>
+      </head><body>
+      <h2>${receipt.restaurantName}</h2>
+      <p>Pedido #${receipt.orderNumber}<br>${new Date(receipt.date).toLocaleString()}</p>
+      <table>
+        <tr><th>Producto</th><th>Cant</th><th>Subtotal</th></tr>
+        ${receipt.items.map((i: any) => `<tr><td>${i.productName}</td><td>${i.quantity}</td><td>$${i.subtotal.toFixed(2)}</td></tr>${i.notes ? `<tr><td colspan="3" style="color:#666;font-size:0.9em">${i.notes}</td></tr>` : ''}`).join('')}
+      </table>
+      <p class="total">Total: $${receipt.totalAmount.toFixed(2)}</p>
+      <p>Pago: ${receipt.paymentMethod}</p>
+      </body></html>
+    `);
+    win.document.close();
+    win.print();
+  }
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-slate-800">Pedidos</h2>
+
+      {/* Filtros de estado */}
+      <div className="flex gap-2 flex-wrap">
+        {FILTERS.map(f => (
+          <button
+            key={f.value}
+            onClick={() => setActiveFilter(f.value)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border-none ${
+              f.value === activeFilter
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tabla */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 border-b border-slate-200">
+            <tr>
+              {['#', 'Hora', 'Items', 'Total', 'Pago', 'Estado', 'Acciones'].map(h => (
+                <th key={h} className={`px-4 py-3 font-medium text-slate-600 ${h === 'Acciones' ? 'text-right' : 'text-left'}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Cargando...</td></tr>
+            ) : error ? (
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-red-400">{error}</td></tr>
+            ) : orders.length === 0 ? (
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">No hay pedidos</td></tr>
+            ) : orders.map(o => {
+              const time = new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              const itemsSummary = o.items?.map(i => `${i.quantity}x ${i.product?.name || '?'}`).join(', ') || '-';
+              const next = NEXT_STATUS[o.status];
+              const badge = STATUS_COLORS[o.status] || 'bg-slate-100 text-slate-600';
+              return (
+                <tr key={o.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="px-4 py-3 font-bold text-slate-800">#{o.orderNumber}</td>
+                  <td className="px-4 py-3 text-slate-600">{time}</td>
+                  <td className="px-4 py-3 text-slate-600 max-w-[200px] truncate">{itemsSummary}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-800">${Number(o.totalAmount).toFixed(2)}</td>
+                  <td className="px-4 py-3 text-slate-600">{o.paymentMethod || '-'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${badge}`}>
+                      {STATUS_LABELS[o.status] || o.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right space-x-2">
+                    {next && (
+                      <button
+                        onClick={() => advanceStatus(o.id, next)}
+                        className="text-indigo-600 hover:text-indigo-800 cursor-pointer bg-transparent border-none text-sm font-medium"
+                      >
+                        {NEXT_STATUS_LABEL[o.status]}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => openReceipt(o.id)}
+                      className="text-slate-500 hover:text-slate-700 cursor-pointer bg-transparent border-none text-sm"
+                    >
+                      Recibo
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+```
+
+- [ ] **Step 6.2 — Reemplazar `apps/ui/src/pages/dash/orders.astro`**
+
+Eliminar todo el HTML de la tabla, los status tabs, y el `<script>` completo. Montar el island:
+
+```astro
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import OrdersDashboard from '../../components/dash/OrdersDashboard';
+---
+
+<DashboardLayout>
+  <OrdersDashboard client:load />
+</DashboardLayout>
+```
+
+- [ ] **Step 6.3 — Verificar compilación**
+
+```bash
+pnpm --filter @restaurants/ui build
+```
+
+Esperado: build exitoso sin errores TypeScript.
+
+- [ ] **Step 6.4 — Commit**
+
+```bash
+git add apps/ui/src/components/dash/OrdersDashboard.tsx apps/ui/src/pages/dash/orders.astro
+git commit -m "feat(orders): migrate to React island with SSE real-time updates"
+```
+
+---
+
+## Task 7: Smoke test
+
+- [ ] **Step 7.1 — Rebuild y copiar estáticos**
+
+```bash
+pnpm --filter @restaurants/ui build && pnpm copy-static && pnpm --filter api-core build
+```
+
+- [ ] **Step 7.2 — Levantar NestJS**
+
+```bash
+pnpm --filter api-core dev
+```
+
+- [ ] **Step 7.3 — Verificar endpoint SSE sin token**
+
+```bash
+curl -i "http://localhost:3000/v1/events/test-id/stream"
+```
+
+Esperado: `401 Unauthorized`
+
+- [ ] **Step 7.4 — Verificar endpoint SSE con token inválido**
+
+```bash
+curl -i "http://localhost:3000/v1/events/test-id/stream?token=invalid"
+```
+
+Esperado: `401 Unauthorized`
+
+- [ ] **Step 7.5 — Verificar flujo completo en browser**
+
+1. Abrir `http://localhost:3000/login` y hacer login
+2. Navegar a `http://localhost:3000/dash/orders`
+3. Abrir DevTools → Network → filtrar por "stream"
+4. Esperado: una conexión SSE activa a `/v1/events/:restaurantId/stream?token=...`
+5. Desde otro tab, hacer un pedido en el kiosk (`/kiosk?r=tu-slug`)
+6. Esperado: la tabla de órdenes se actualiza automáticamente sin recargar la página

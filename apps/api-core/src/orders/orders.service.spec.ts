@@ -28,7 +28,7 @@ const mockPrisma: Record<string, any> = {
   $transaction: jest.fn((cb: (tx: any) => any) => cb(mockPrisma)),
   product: { findUnique: jest.fn(), update: jest.fn() },
   menuItem: { findUnique: jest.fn(), update: jest.fn() },
-  registerSession: { update: jest.fn() },
+  cashShift: { update: jest.fn() },
 };
 const mockOrderEvents = {
   emitOrderCreated: jest.fn(),
@@ -175,7 +175,7 @@ describe('OrdersService', () => {
     };
 
     beforeEach(() => {
-      mockPrisma.registerSession.update.mockResolvedValue({ lastOrderNumber: 1 });
+      mockPrisma.cashShift.update.mockResolvedValue({ lastOrderNumber: 1 });
       mockOrderRepository.createWithItems.mockResolvedValue(makeOrder());
     });
 

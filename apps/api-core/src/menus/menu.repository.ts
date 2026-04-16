@@ -31,21 +31,17 @@ export class MenuRepository {
 
   async findById(id: string, restaurantId: string): Promise<Menu | null> {
     return this.prisma.menu.findFirst({
-      where: { id, restaurantId },
+      where: { id, restaurantId, deletedAt: null },
     });
   }
 
   async findByIdWithItems(id: string, restaurantId: string) {
     return this.prisma.menu.findFirst({
-      where: { id, restaurantId },
+      where: { id, restaurantId, deletedAt: null },
       include: {
         items: {
           include: {
-            product: {
-              include: {
-                category: true,
-              },
-            },
+            product: true,
           },
           orderBy: [{ sectionName: 'asc' }, { order: 'asc' }],
         },
@@ -55,7 +51,7 @@ export class MenuRepository {
 
   async findByRestaurantId(restaurantId: string) {
     return this.prisma.menu.findMany({
-      where: { restaurantId },
+      where: { restaurantId, deletedAt: null },
       include: {
         _count: {
           select: { items: true },
@@ -72,9 +68,10 @@ export class MenuRepository {
     });
   }
 
-  async delete(id: string): Promise<Menu> {
-    return this.prisma.menu.delete({
+  async softDelete(id: string): Promise<void> {
+    await this.prisma.menu.update({
       where: { id },
+      data: { deletedAt: new Date() },
     });
   }
 }
