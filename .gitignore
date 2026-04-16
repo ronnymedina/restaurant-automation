@@ -14,3 +14,4 @@ apps/api-core/dist-binary/
 # RSA private key — never commit
 apps/license-server/keys/
 
+.worktrees/
