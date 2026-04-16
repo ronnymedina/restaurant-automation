@@ -333,79 +333,281 @@ git commit -m "feat(kiosk): emit SSE event after order creation"
 
 ---
 
-## Task 6: Actualizar el frontend de órdenes
+## Task 6: Crear OrdersDashboard React island
 
-**Archivo:** `apps/ui/src/pages/dash/orders.astro`
+**Decisión de arquitectura:** En lugar de agregar vanilla JS con `EventSource` al `<script>` de `orders.astro`, migramos la página completa a un React island. Esto elimina la manipulación manual del DOM, permite reutilizar patrones del dashboard, y encapsula el estado SSE + órdenes en hooks React.
 
-Reemplazar el `setInterval(loadOrders, 15000)` (polling cada 15 segundos) con `EventSource`. Al recibir un evento de nueva orden, recargar la lista.
+**Archivos:**
+- CREAR `apps/ui/src/components/dash/OrdersDashboard.tsx`
+- MODIFICAR `apps/ui/src/pages/dash/orders.astro`
 
-El token JWT está en `localStorage` — se pasa como query param al crear el `EventSource`.
+**Nota sobre restaurantId:** `auth.ts` solo almacena `accessToken` y `refreshToken` en localStorage — no hay un objeto `user`. El `restaurantId` se extrae decodificando el payload del JWT (base64 del segmento del medio) sin librería externa.
 
-- [ ] **Step 6.1 — Agregar conexión SSE al script existente**
+- [ ] **Step 6.1 — Crear `apps/ui/src/components/dash/OrdersDashboard.tsx`**
 
-En el `<script>` de `orders.astro`, encontrar la línea:
+```tsx
+import React, { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '../../lib/api';
+import { getAccessToken } from '../../lib/auth';
 
-```typescript
-// Auto-refresh every 15 seconds
-setInterval(loadOrders, 15000);
-```
-
-Reemplazar esas dos líneas con:
-
-```typescript
-// Real-time updates via SSE
-function startSSE(restaurantId: string) {
-  const token = localStorage.getItem('accessToken');
-  if (!token) return;
-
-  const es = new EventSource(`/v1/events/${restaurantId}/stream?token=${encodeURIComponent(token)}`);
-
-  es.onmessage = () => {
-    loadOrders();
-  };
-
-  es.onerror = () => {
-    // On error, fall back to polling every 15 seconds
-    es.close();
-    setInterval(loadOrders, 15_000);
-  };
+interface OrderItem {
+  quantity: number;
+  product?: { name: string };
 }
 
-// Read restaurantId from the auth token payload (stored as JSON in localStorage)
-const rawUser = localStorage.getItem('user');
-if (rawUser) {
+interface Order {
+  id: string;
+  orderNumber: number;
+  createdAt: string;
+  status: string;
+  totalAmount: string;
+  paymentMethod: string;
+  items?: OrderItem[];
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  CREATED: 'bg-yellow-100 text-yellow-700',
+  PROCESSING: 'bg-blue-100 text-blue-700',
+  PAID: 'bg-emerald-100 text-emerald-700',
+  COMPLETED: 'bg-slate-100 text-slate-600',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  CREATED: 'Creado',
+  PROCESSING: 'En Proceso',
+  PAID: 'Pagado',
+  COMPLETED: 'Completado',
+};
+
+const NEXT_STATUS: Record<string, string> = {
+  CREATED: 'PROCESSING',
+  PROCESSING: 'PAID',
+  PAID: 'COMPLETED',
+};
+
+const NEXT_STATUS_LABEL: Record<string, string> = {
+  CREATED: 'Procesar',
+  PROCESSING: 'Marcar Pagado',
+  PAID: 'Completar',
+};
+
+const FILTERS = [
+  { label: 'Todos', value: '' },
+  { label: 'Creado', value: 'CREATED' },
+  { label: 'En Proceso', value: 'PROCESSING' },
+  { label: 'Pagado', value: 'PAID' },
+  { label: 'Completado', value: 'COMPLETED' },
+];
+
+function getRestaurantIdFromToken(): string | null {
+  const token = getAccessToken();
+  if (!token) return null;
   try {
-    const user = JSON.parse(rawUser) as { restaurantId?: string };
-    if (user.restaurantId) startSSE(user.restaurantId);
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.restaurantId ?? null;
   } catch {
-    // ignore parse error — no SSE
+    return null;
   }
 }
+
+export default function OrdersDashboard() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [activeFilter, setActiveFilter] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadOrders = useCallback(async (status = activeFilter) => {
+    const query = status ? `?status=${status}` : '';
+    const res = await apiFetch(`/v1/orders${query}`);
+    if (!res.ok) {
+      setError(res.status === 403 ? 'No tienes permisos para acceder a esta sección' : 'Error al cargar pedidos');
+      setLoading(false);
+      return;
+    }
+    const data = await res.json();
+    setOrders(data);
+    setError(null);
+    setLoading(false);
+  }, [activeFilter]);
+
+  // Carga inicial y cuando cambia el filtro
+  useEffect(() => {
+    setLoading(true);
+    loadOrders(activeFilter);
+  }, [activeFilter]);
+
+  // SSE: conectar al stream del restaurante
+  useEffect(() => {
+    const restaurantId = getRestaurantIdFromToken();
+    const token = getAccessToken();
+    if (!restaurantId || !token) return;
+
+    const es = new EventSource(
+      `/v1/events/${restaurantId}/stream?token=${encodeURIComponent(token)}`
+    );
+
+    es.onmessage = () => {
+      loadOrders(activeFilter);
+    };
+
+    es.onerror = () => {
+      es.close();
+      // Fallback: polling cada 15 segundos si SSE falla
+      const interval = setInterval(() => loadOrders(activeFilter), 15_000);
+      return () => clearInterval(interval);
+    };
+
+    return () => es.close();
+  }, []);
+
+  async function advanceStatus(orderId: string, nextStatus: string) {
+    const res = await apiFetch(`/v1/orders/${orderId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: nextStatus }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      alert(err?.message || 'Error al actualizar estado');
+      return;
+    }
+    loadOrders(activeFilter);
+  }
+
+  async function openReceipt(orderId: string) {
+    const res = await apiFetch(`/v1/print/receipt/${orderId}`);
+    if (!res.ok) { alert('Error al obtener recibo'); return; }
+    const receipt = await res.json();
+    const win = window.open('', '_blank', 'width=400,height=600');
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>Recibo #${receipt.orderNumber}</title>
+      <style>body{font-family:monospace;padding:20px;max-width:350px;margin:0 auto}table{width:100%;border-collapse:collapse}td,th{padding:4px 0;text-align:left}th:last-child,td:last-child{text-align:right}.total{border-top:2px solid #000;font-weight:bold;font-size:1.2em}</style>
+      </head><body>
+      <h2>${receipt.restaurantName}</h2>
+      <p>Pedido #${receipt.orderNumber}<br>${new Date(receipt.date).toLocaleString()}</p>
+      <table>
+        <tr><th>Producto</th><th>Cant</th><th>Subtotal</th></tr>
+        ${receipt.items.map((i: any) => `<tr><td>${i.productName}</td><td>${i.quantity}</td><td>$${i.subtotal.toFixed(2)}</td></tr>${i.notes ? `<tr><td colspan="3" style="color:#666;font-size:0.9em">${i.notes}</td></tr>` : ''}`).join('')}
+      </table>
+      <p class="total">Total: $${receipt.totalAmount.toFixed(2)}</p>
+      <p>Pago: ${receipt.paymentMethod}</p>
+      </body></html>
+    `);
+    win.document.close();
+    win.print();
+  }
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-slate-800">Pedidos</h2>
+
+      {/* Filtros de estado */}
+      <div className="flex gap-2 flex-wrap">
+        {FILTERS.map(f => (
+          <button
+            key={f.value}
+            onClick={() => setActiveFilter(f.value)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border-none ${
+              f.value === activeFilter
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tabla */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 border-b border-slate-200">
+            <tr>
+              {['#', 'Hora', 'Items', 'Total', 'Pago', 'Estado', 'Acciones'].map(h => (
+                <th key={h} className={`px-4 py-3 font-medium text-slate-600 ${h === 'Acciones' ? 'text-right' : 'text-left'}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Cargando...</td></tr>
+            ) : error ? (
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-red-400">{error}</td></tr>
+            ) : orders.length === 0 ? (
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">No hay pedidos</td></tr>
+            ) : orders.map(o => {
+              const time = new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              const itemsSummary = o.items?.map(i => `${i.quantity}x ${i.product?.name || '?'}`).join(', ') || '-';
+              const next = NEXT_STATUS[o.status];
+              const badge = STATUS_COLORS[o.status] || 'bg-slate-100 text-slate-600';
+              return (
+                <tr key={o.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="px-4 py-3 font-bold text-slate-800">#{o.orderNumber}</td>
+                  <td className="px-4 py-3 text-slate-600">{time}</td>
+                  <td className="px-4 py-3 text-slate-600 max-w-[200px] truncate">{itemsSummary}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-800">${Number(o.totalAmount).toFixed(2)}</td>
+                  <td className="px-4 py-3 text-slate-600">{o.paymentMethod || '-'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${badge}`}>
+                      {STATUS_LABELS[o.status] || o.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right space-x-2">
+                    {next && (
+                      <button
+                        onClick={() => advanceStatus(o.id, next)}
+                        className="text-indigo-600 hover:text-indigo-800 cursor-pointer bg-transparent border-none text-sm font-medium"
+                      >
+                        {NEXT_STATUS_LABEL[o.status]}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => openReceipt(o.id)}
+                      className="text-slate-500 hover:text-slate-700 cursor-pointer bg-transparent border-none text-sm"
+                    >
+                      Recibo
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 ```
 
-> **Nota sobre `localStorage.getItem('user')`:** La forma exacta en que `auth.ts` almacena el usuario puede variar. Verificar en `apps/ui/src/lib/auth.ts` cómo se guarda el `restaurantId` y ajustar si es necesario.
+- [ ] **Step 6.2 — Reemplazar `apps/ui/src/pages/dash/orders.astro`**
 
-- [ ] **Step 6.2 — Revisar auth.ts para confirmar cómo se accede al restaurantId**
+Eliminar todo el HTML de la tabla, los status tabs, y el `<script>` completo. Montar el island:
 
-```bash
-cat apps/ui/src/lib/auth.ts
+```astro
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import OrdersDashboard from '../../components/dash/OrdersDashboard';
+---
+
+<DashboardLayout>
+  <OrdersDashboard client:load />
+</DashboardLayout>
 ```
 
-Si el `restaurantId` no está directamente en `localStorage.getItem('user')`, ajustar el Step 6.1 para usar la función/key correcta.
-
-- [ ] **Step 6.3 — Verificar que el build compila**
+- [ ] **Step 6.3 — Verificar compilación**
 
 ```bash
 pnpm --filter @restaurants/ui build
 ```
 
-Esperado: build exitoso sin errores.
+Esperado: build exitoso sin errores TypeScript.
 
 - [ ] **Step 6.4 — Commit**
 
 ```bash
-git add apps/ui/src/pages/dash/orders.astro
-git commit -m "feat(orders): replace polling with SSE EventSource for real-time updates"
+git add apps/ui/src/components/dash/OrdersDashboard.tsx apps/ui/src/pages/dash/orders.astro
+git commit -m "feat(orders): migrate to React island with SSE real-time updates"
 ```
 
 ---

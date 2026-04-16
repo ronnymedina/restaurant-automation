@@ -1,0 +1,132 @@
+<h2>Diseño — Sección 2: Cambios en el frontend</h2>
+<p class="subtitle">Astro static + React islands — qué cambia y qué se mantiene</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px">
+
+  <!-- CONFIG CHANGES -->
+  <div>
+    <div class="label">astro.config.mjs — antes vs después</div>
+    <div class="split" style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="background:#fef2f2;border-radius:8px;padding:10px;font-family:monospace;font-size:11px">
+        <div style="color:#ef4444;font-weight:700;margin-bottom:6px">❌ Antes</div>
+        output: 'server'<br>
+        adapter: node({<br>
+        &nbsp;&nbsp;mode: 'standalone'<br>
+        })<br>
+        integrations: [<br>
+        &nbsp;&nbsp;tailwind()<br>
+        ]
+      </div>
+      <div style="background:#f0fdf4;border-radius:8px;padding:10px;font-family:monospace;font-size:11px">
+        <div style="color:#10b981;font-weight:700;margin-bottom:6px">✅ Después</div>
+        output: 'static'<br>
+        <span style="color:#94a3b8">// sin adapter</span><br>
+        integrations: [<br>
+        &nbsp;&nbsp;react(),<br>
+        &nbsp;&nbsp;tailwind()<br>
+        ]
+      </div>
+    </div>
+  </div>
+
+  <!-- REACT ISLANDS MAP -->
+  <div>
+    <div class="label">¿Dónde van los React islands?</div>
+    <div style="margin-top:8px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;font-size:12px">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="background:#f8fafc">
+            <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0">Página</th>
+            <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0">Island</th>
+            <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-family:monospace">/</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;color:#64748b">Ninguno — Astro puro</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9"><span style="background:#dcfce7;color:#166534;padding:2px 6px;border-radius:4px;font-size:10px">NUEVO</span></td>
+          </tr>
+          <tr style="background:#fafafa">
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-family:monospace">/login</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;color:#64748b">Sin cambios — Astro</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9"><span style="background:#f3f4f6;color:#374151;padding:2px 6px;border-radius:4px;font-size:10px">SIN CAMBIOS</span></td>
+          </tr>
+          <tr>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-family:monospace">/dash/orders</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-family:monospace;color:#6366f1">&lt;OrdersLive /&gt;</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9"><span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:10px">MIGRAR</span></td>
+          </tr>
+          <tr style="background:#fafafa">
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-family:monospace">/dash/products</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-family:monospace;color:#6366f1">&lt;ProductsTable /&gt;</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9"><span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:10px">MIGRAR</span></td>
+          </tr>
+          <tr>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-family:monospace">/dash/menus</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-family:monospace;color:#6366f1">&lt;MenusTable /&gt;</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9"><span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:10px">MIGRAR</span></td>
+          </tr>
+          <tr style="background:#fafafa">
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-family:monospace">/kiosk/[slug]</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-family:monospace;color:#6366f1">&lt;KioskApp /&gt;</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9"><span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:10px">MIGRAR</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- KIOSK ROUTING PROBLEM -->
+<div class="section" style="margin-top:20px">
+  <div class="label">Problema de routing — /kiosk/[slug] en modo estático</div>
+  <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:14px;margin-top:8px;font-size:13px">
+    <p style="margin:0 0 10px"><strong>Problema:</strong> Astro static necesita conocer todos los slugs en build time para generar <code>/kiosk/mi-restaurante/index.html</code>. Los slugs vienen de la base de datos — imposible en build time.</p>
+    <p style="margin:0 0 8px"><strong>Solución:</strong> Renombrar la página a <code>src/pages/kiosk/index.astro</code> y configurar NestJS para que cualquier request a <code>/kiosk/*</code> sirva ese HTML. El slug se lee desde <code>window.location.pathname</code> en el React island.</p>
+    <div style="background:#1e293b;color:#e2e8f0;border-radius:8px;padding:12px;font-family:monospace;font-size:11px;margin-top:10px">
+      <span style="color:#94a3b8">// KioskApp.tsx — leer slug del path</span><br>
+      const slug = window.location.pathname.split('/kiosk/')[1]<br><br>
+      <span style="color:#94a3b8">// NestJS — wildcard handler para SPA</span><br>
+      <span style="color:#86efac">@Get('/kiosk/*')</span><br>
+      serveKiosk(@Res() res) {<br>
+      &nbsp;&nbsp;res.sendFile('kiosk/index.html', { root: 'public' })<br>
+      }
+    </div>
+  </div>
+</div>
+
+<!-- SSE -->
+<div class="section" style="margin-top:20px">
+  <div class="label">SSE — reemplaza WebSocket (sólo para notificaciones servidor → cliente)</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
+    <div style="background:#f0fdf4;border-radius:8px;padding:12px;font-size:12px">
+      <strong style="color:#166534">NestJS — endpoint SSE</strong>
+      <div style="background:#1e293b;color:#e2e8f0;border-radius:6px;padding:10px;font-family:monospace;font-size:11px;margin-top:8px">
+        <span style="color:#86efac">@Sse</span>('/v1/events/:restaurantId')<br>
+        stream(@Param('restaurantId') id) {<br>
+        &nbsp;&nbsp;return this.events.stream(id)<br>
+        &nbsp;&nbsp;<span style="color:#94a3b8">// Observable&lt;MessageEvent&gt;</span><br>
+        }
+      </div>
+    </div>
+    <div style="background:#eff6ff;border-radius:8px;padding:12px;font-size:12px">
+      <strong style="color:#1d4ed8">React — OrdersLive.tsx</strong>
+      <div style="background:#1e293b;color:#e2e8f0;border-radius:6px;padding:10px;font-family:monospace;font-size:11px;margin-top:8px">
+        useEffect(() => {<br>
+        &nbsp;&nbsp;const es = new EventSource(<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#fbbf24">`/v1/events/${id}`</span><br>
+        &nbsp;&nbsp;)<br>
+        &nbsp;&nbsp;es.onmessage = (e) => <br>
+        &nbsp;&nbsp;&nbsp;&nbsp;setOrders(JSON.parse(e.data))<br>
+        &nbsp;&nbsp;return () => es.close()<br>
+        }, [id])
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:16px;padding:12px;background:#eff6ff;border-radius:8px;font-size:13px">
+  ¿Tiene sentido este diseño del frontend? ¿Algún ajuste en los islands o en cómo manejamos el routing del kiosk?
+</div>

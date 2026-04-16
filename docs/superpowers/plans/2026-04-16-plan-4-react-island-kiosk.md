@@ -536,7 +536,9 @@ git commit -m "feat(kiosk): mount KioskApp React island in kiosk page"
 
 ---
 
-## Task 4: Smoke test
+## Task 4: Smoke test del kiosk
+
+
 
 - [ ] **Step 4.1 — Rebuild y copiar**
 
@@ -562,3 +564,71 @@ Esperado:
 Abrir `http://localhost:3000/kiosk?r=slug-que-no-existe`
 
 Esperado: toast rojo con "No se pudieron cargar los menús"
+
+---
+
+## Task 5: Migrar products.astro a React island (sienta el patrón para el dashboard)
+
+**Motivación:** `products.astro` tiene ~170 líneas de vanilla JS con `document.getElementById` repetidos e `innerHTML` con template strings. Este task convierte esa página al patrón React island, que se repetirá para el resto de páginas CRUD en Plan 6. Si este patrón funciona, Plan 6 es mecánico.
+
+**Archivos:**
+- CREAR `apps/ui/src/components/dash/ProductsDashboard.tsx`
+- MODIFICAR `apps/ui/src/pages/dash/products.astro`
+
+- [ ] **Step 5.1 — Crear `apps/ui/src/components/dash/ProductsDashboard.tsx`**
+
+Migrar la lógica del `<script>` de `products.astro` a un componente React. El componente debe gestionar:
+
+```
+Estado:
+  products[]        — lista de productos de la página actual
+  categories[]      — para el select del formulario
+  currentPage       — paginación
+  meta              — totalPages del API
+  editingProduct    — producto en edición (null = nuevo)
+  showForm          — boolean para mostrar/ocultar el formulario
+
+Lógica:
+  loadProducts(page)  — fetch /v1/products?page=&limit=50, actualiza products + meta
+  loadCategories()    — fetch /v1/categories?limit=100, actualiza categories
+  saveProduct(data)   — POST o PATCH según editingProduct
+  deleteProduct(id)   — DELETE con confirm()
+
+JSX reemplaza:
+  - El div#productForm (formulario inline create/edit)
+  - El <DataTable> con tbody renderizado dinámicamente
+  - Los botones de paginación
+```
+
+> Mantener los mismos estilos Tailwind del HTML actual. No cambiar la UX, solo migrar a React.
+
+- [ ] **Step 5.2 — Actualizar `apps/ui/src/pages/dash/products.astro`**
+
+Reemplazar todo el contenido por el island montado:
+
+```astro
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import ProductsDashboard from '../../components/dash/ProductsDashboard';
+---
+
+<DashboardLayout>
+  <ProductsDashboard client:load />
+</DashboardLayout>
+```
+
+- [ ] **Step 5.3 — Verificar compilación**
+
+```bash
+pnpm --filter @restaurants/ui build
+```
+
+Esperado: build exitoso sin errores TypeScript.
+
+- [ ] **Step 5.4 — Commit**
+
+```bash
+git add apps/ui/src/components/dash/ProductsDashboard.tsx apps/ui/src/pages/dash/products.astro
+git commit -m "feat(products): migrate to React island — establishes dashboard component pattern"
+```
