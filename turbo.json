@@ -9,9 +9,8 @@
       "cache": false,
       "persistent": true
     },
-    "lint": {},
     "//#copy-static": {
-      "dependsOn": ["@restaurants/ui-dashboard#build", "@restaurants/ui-storefront#build"],
+      "dependsOn": ["@restaurants/ui#build"],
       "cache": false
     },
     "//#build:cloud": {
