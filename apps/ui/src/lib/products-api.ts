@@ -21,6 +21,7 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
+  isDefault: boolean;
 }
 
 export interface ProductPayload {
@@ -65,7 +66,10 @@ export async function updateProduct(id: string, payload: Partial<ProductPayload>
 
 export async function deleteProduct(id: string): Promise<void> {
   const res = await apiFetch(`/v1/products/${id}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Error al eliminar el producto');
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.message || 'Error al eliminar el producto');
+  }
 }
 
 export async function uploadImage(file: File): Promise<string> {
