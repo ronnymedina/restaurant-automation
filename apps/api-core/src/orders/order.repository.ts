@@ -9,6 +9,32 @@ const ORDER_WITH_ITEMS = {
   },
 } as const;
 
+/** Convert BigInt monetary fields to numbers so JSON serialization works. */
+function serializeOrder<T extends Record<string, any>>(order: T): T {
+  const result: Record<string, any> = { ...order };
+
+  if (typeof result['totalAmount'] === 'bigint') {
+    result['totalAmount'] = Number(result['totalAmount']);
+  }
+
+  if (Array.isArray(result['items'])) {
+    result['items'] = result['items'].map((item: Record<string, any>) => {
+      const si: Record<string, any> = { ...item };
+      if (typeof si['unitPrice'] === 'bigint') si['unitPrice'] = Number(si['unitPrice']);
+      if (typeof si['subtotal'] === 'bigint') si['subtotal'] = Number(si['subtotal']);
+      if (si['product'] && typeof si['product']['price'] === 'bigint') {
+        si['product'] = { ...si['product'], price: Number(si['product']['price']) };
+      }
+      if (si['menuItem'] && typeof si['menuItem']['priceOverride'] === 'bigint') {
+        si['menuItem'] = { ...si['menuItem'], priceOverride: Number(si['menuItem']['priceOverride']) };
+      }
+      return si;
+    });
+  }
+
+  return result as T;
+}
+
 export interface CreateOrderData {
   orderNumber: number;
   totalAmount: number;
@@ -32,7 +58,7 @@ export class OrderRepository {
 
   async createWithItems(data: CreateOrderData, tx?: Prisma.TransactionClient) {
     const client = tx || this.prisma;
-    return client.order.create({
+    const order = await client.order.create({
       data: {
         orderNumber: data.orderNumber,
         totalAmount: data.totalAmount,
@@ -57,17 +83,19 @@ export class OrderRepository {
         },
       },
     });
+    return serializeOrder(order);
   }
 
   async findById(id: string) {
-    return this.prisma.order.findUnique({
+    const order = await this.prisma.order.findUnique({
       where: { id },
       include: ORDER_WITH_ITEMS,
     });
+    return order ? serializeOrder(order) : null;
   }
 
   async findByRestaurantId(restaurantId: string, status?: OrderStatus, statuses?: OrderStatus[]) {
-    return this.prisma.order.findMany({
+    const orders = await this.prisma.order.findMany({
       where: {
         restaurantId,
         ...(statuses?.length ? { status: { in: statuses } } : status ? { status } : {}),
@@ -75,30 +103,34 @@ export class OrderRepository {
       include: ORDER_WITH_ITEMS,
       orderBy: { createdAt: 'desc' },
     });
+    return orders.map(serializeOrder);
   }
 
   async updateStatus(id: string, status: OrderStatus) {
-    return this.prisma.order.update({
+    const order = await this.prisma.order.update({
       where: { id },
       data: { status },
       include: ORDER_WITH_ITEMS,
     });
+    return serializeOrder(order);
   }
 
   async markAsPaid(id: string) {
-    return this.prisma.order.update({
+    const order = await this.prisma.order.update({
       where: { id },
       data: { isPaid: true },
       include: ORDER_WITH_ITEMS,
     });
+    return serializeOrder(order);
   }
 
   async cancelOrder(id: string, reason: string) {
-    return this.prisma.order.update({
+    const order = await this.prisma.order.update({
       where: { id },
       data: { status: OrderStatus.CANCELLED, cancellationReason: reason },
       include: ORDER_WITH_ITEMS,
     });
+    return serializeOrder(order);
   }
 
   async findHistory(
@@ -142,7 +174,7 @@ export class OrderRepository {
     ]);
 
     return {
-      data,
+      data: data.map(serializeOrder),
       meta: {
         total,
         page: filters.page,
