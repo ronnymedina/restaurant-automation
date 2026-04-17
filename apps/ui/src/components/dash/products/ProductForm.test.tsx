@@ -33,14 +33,15 @@ const editProduct: Product = {
   category: { name: 'Bebidas' },
 };
 
-const defaultProps = {
-  categories,
-  onSuccess: vi.fn(),
-  onCancel: vi.fn(),
-};
+let defaultProps: { categories: Category[]; onSuccess: ReturnType<typeof vi.fn>; onCancel: ReturnType<typeof vi.fn> };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  defaultProps = {
+    categories,
+    onSuccess: vi.fn(),
+    onCancel: vi.fn(),
+  };
 });
 
 test('renders "Nuevo producto" title in create mode', () => {
@@ -88,7 +89,9 @@ test('calls createProduct and onSuccess on valid create submit', async () => {
   fireEvent.change(screen.getByLabelText(/Precio/i), { target: { value: '5' } });
   fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
 
-  await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+  await waitFor(() => expect(mockCreate).toHaveBeenCalledWith(
+    expect.objectContaining({ name: 'Agua', price: 5, categoryId: categories[0].id })
+  ));
   expect(defaultProps.onSuccess).toHaveBeenCalled();
   expect(mockUpdate).not.toHaveBeenCalled();
 });
@@ -100,7 +103,7 @@ test('calls updateProduct and onSuccess on valid edit submit', async () => {
   fireEvent.change(screen.getByLabelText(/Nombre/i), { target: { value: 'Hamburguesa XL' } });
   fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
 
-  await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith('prod-1', expect.objectContaining({ name: 'Hamburguesa XL' })));
+  await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith('prod-1', expect.objectContaining({ name: 'Hamburguesa XL', categoryId: editProduct.categoryId })));
   expect(defaultProps.onSuccess).toHaveBeenCalled();
   expect(mockCreate).not.toHaveBeenCalled();
 });
@@ -115,6 +118,19 @@ test('shows API error message when createProduct throws', async () => {
 
   await waitFor(() =>
     expect(screen.getByText('Error del servidor')).toBeInTheDocument(),
+  );
+  expect(defaultProps.onSuccess).not.toHaveBeenCalled();
+});
+
+test('shows API error message when updateProduct throws', async () => {
+  mockUpdate.mockRejectedValue(new Error('Error de actualización'));
+  render(<ProductForm {...defaultProps} initialData={editProduct} />);
+
+  fireEvent.change(screen.getByLabelText(/Nombre/i), { target: { value: 'Hamburguesa XL' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+  await waitFor(() =>
+    expect(screen.getByText('Error de actualización')).toBeInTheDocument(),
   );
   expect(defaultProps.onSuccess).not.toHaveBeenCalled();
 });
