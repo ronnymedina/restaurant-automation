@@ -1,5 +1,6 @@
 ---
 import ProtectedLayout from './ProtectedLayout.astro';
+import Providers from '../components/commons/Providers';
 
 const currentPath = Astro.url.pathname;
 
@@ -69,7 +70,13 @@ const googleFormUrl = import.meta.env.PUBLIC_SUPPORT_GOOGLE_FORM_URL || '';
       </nav>
 
       <main class="flex-1 p-6">
-        <slot />
+        <!-- Astro islands in <slot> are independently hydrated and do not inherit
+             this QueryClient context. Each island must wrap itself with QueryClientProvider
+             using the exported queryClient singleton from Providers.tsx.
+             This wrapper exists for full-React pages rendered under this layout. -->
+        <Providers client:load>
+          <slot />
+        </Providers>
       </main>
     </div>
   </div>
