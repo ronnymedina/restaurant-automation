@@ -111,8 +111,7 @@ export class OrdersService {
 
   async findById(id: string, restaurantId: string) {
     const order = await this.orderRepository.findById(id);
-    if (!order) throw new OrderNotFoundException(id);
-    if (order.restaurantId !== restaurantId) throw new ForbiddenAccessException();
+    if (!order || order.restaurantId !== restaurantId) throw new OrderNotFoundException(id);
     return order;
   }
 
