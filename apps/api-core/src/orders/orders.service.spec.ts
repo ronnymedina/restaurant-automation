@@ -26,7 +26,7 @@ const mockOrderRepository = {
 };
 const mockPrisma: Record<string, any> = {
   $transaction: jest.fn((cb: (tx: any) => any) => cb(mockPrisma)),
-  product: { findUnique: jest.fn(), update: jest.fn() },
+  product: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
   menuItem: { findUnique: jest.fn(), update: jest.fn() },
   cashShift: { update: jest.fn() },
 };
@@ -187,7 +187,7 @@ describe('OrdersService', () => {
         stock: 10,
         name: 'Widget',
       });
-      mockPrisma.menuItem.findUnique.mockResolvedValue(null);
+      mockPrisma.product.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.createOrder('r1', 'session1', baseDto as any);
       expect(mockOrderRepository.createWithItems).toHaveBeenCalled();
@@ -262,50 +262,41 @@ describe('OrdersService', () => {
       );
     });
 
-    it('uses menuItem price when menuItemId is provided', async () => {
+    it('uses product price when menuItemId is provided (no menuItem price override)', async () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
         price: 5,
         stock: null,
         name: 'Widget',
-      });
-      mockPrisma.menuItem.findUnique.mockResolvedValue({
-        id: 'mi1',
-        price: 8,
-        stock: null,
       });
 
       const dto = { ...baseDto, items: [{ productId: 'p1', menuItemId: 'mi1', quantity: 1 }] };
       const result = await service.createOrder('r1', 'session1', dto as any);
       expect(mockOrderRepository.createWithItems).toHaveBeenCalledWith(
-        expect.objectContaining({ totalAmount: 8 }),
+        expect.objectContaining({ totalAmount: 5 }),
         expect.anything(),
       );
       expect(result).toBeDefined();
     });
 
-    it('throws StockInsufficientException when menuItem stock is insufficient', async () => {
+    it('throws StockInsufficientException when updateMany returns count 0 (concurrent stock depletion)', async () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
         price: 5,
-        stock: null,
+        stock: 10,
         name: 'Widget',
       });
-      mockPrisma.menuItem.findUnique.mockResolvedValue({
-        id: 'mi1',
-        price: 8,
-        stock: 1,
-      });
+      // Simulate concurrent depletion: the atomic WHERE stock >= quantity fails
+      mockPrisma.product.updateMany.mockResolvedValue({ count: 0 });
 
-      const dto = { ...baseDto, items: [{ productId: 'p1', menuItemId: 'mi1', quantity: 5 }] };
-      await expect(service.createOrder('r1', 'session1', dto as any)).rejects.toThrow(
+      await expect(service.createOrder('r1', 'session1', baseDto as any)).rejects.toThrow(
         StockInsufficientException,
       );
     });
 
-    it('decrements menuItem stock when both product and menuItem have finite stock', async () => {
+    it('decrements product stock atomically using updateMany with conditional WHERE', async () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
@@ -313,23 +304,13 @@ describe('OrdersService', () => {
         stock: 10,
         name: 'Widget',
       });
-      mockPrisma.menuItem.findUnique.mockResolvedValue({
-        id: 'mi1',
-        price: 8,
-        stock: 10,
-      });
-      mockPrisma.product.update.mockResolvedValue({});
-      mockPrisma.menuItem.update.mockResolvedValue({});
+      mockPrisma.product.updateMany.mockResolvedValue({ count: 1 });
 
-      const dto = { ...baseDto, items: [{ productId: 'p1', menuItemId: 'mi1', quantity: 2 }] };
+      const dto = { ...baseDto, items: [{ productId: 'p1', quantity: 2 }] };
       await service.createOrder('r1', 'session1', dto as any);
 
-      expect(mockPrisma.product.update).toHaveBeenCalledWith({
-        where: { id: 'p1' },
-        data: { stock: { decrement: 2 } },
-      });
-      expect(mockPrisma.menuItem.update).toHaveBeenCalledWith({
-        where: { id: 'mi1' },
+      expect(mockPrisma.product.updateMany).toHaveBeenCalledWith({
+        where: { id: 'p1', stock: { gte: 2 } },
         data: { stock: { decrement: 2 } },
       });
     });
