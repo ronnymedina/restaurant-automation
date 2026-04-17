@@ -68,7 +68,7 @@ export default function ProductForm({ initialData, categories, onSuccess, onCanc
     if (!isEditing && categories.length > 0 && !categoryId) {
       setCategoryId(categories[0].id);
     }
-  }, [categories]);
+  }, [categories, isEditing, categoryId]);
 
   useEffect(() => {
     return () => {
@@ -114,6 +114,11 @@ export default function ProductForm({ initialData, categories, onSuccess, onCanc
       return;
     }
 
+    if (uploadStatus === 'error') {
+      setErrors(['La subida de imagen falló. Quita el archivo e intenta de nuevo.']);
+      return;
+    }
+
     const resolvedImageUrl: string | null | undefined = uploadedImageUrl
       ? uploadedImageUrl
       : imageRemoved
@@ -139,8 +144,8 @@ export default function ProductForm({ initialData, categories, onSuccess, onCanc
 
     setIsSubmitting(true);
     try {
-      if (isEditing) {
-        await updateProduct(initialData!.id, result.data);
+      if (initialData) {
+        await updateProduct(initialData.id, result.data);
       } else {
         await createProduct(result.data as ProductPayload);
       }
