@@ -50,6 +50,7 @@ export class CashRegisterController {
   }
 
   @Post('close')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cerrar sesión de caja activa' })
   @ApiResponse({ status: 200, description: 'Sesión cerrada con resumen de ventas', type: CloseSessionResponseDto })
   @ApiResponse({ status: 409, description: 'No hay sesión de caja abierta (NO_OPEN_CASH_REGISTER)' })
