@@ -45,18 +45,19 @@ export class CashRegisterController {
   @ApiResponse({ status: 409, description: 'Ya existe una sesión de caja abierta (CASH_REGISTER_ALREADY_OPEN)' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
-  async open(@CurrentUser() user: { restaurantId: string }) {
-    return this.registerService.openSession(user.restaurantId);
+  async open(@CurrentUser() user: { restaurantId: string; id: string }) {
+    return this.registerService.openSession(user.restaurantId, user.id);
   }
 
   @Post('close')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cerrar sesión de caja activa' })
   @ApiResponse({ status: 200, description: 'Sesión cerrada con resumen de ventas', type: CloseSessionResponseDto })
   @ApiResponse({ status: 409, description: 'No hay sesión de caja abierta (NO_OPEN_CASH_REGISTER)' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async close(@CurrentUser() user: { restaurantId: string; id: string }) {
-    return this.registerService.closeSession(user.restaurantId, user.id);
+    return this.registerService.closeSession(user.restaurantId, user.id, user.id);
   }
 
   @Get('history')

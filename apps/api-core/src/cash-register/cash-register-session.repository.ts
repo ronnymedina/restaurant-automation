@@ -7,17 +7,18 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CashShiftRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(restaurantId: string): Promise<CashShift> {
+  async create(restaurantId: string, userId: string): Promise<CashShift> {
     return this.prisma.cashShift.create({
-      data: { restaurantId },
+      data: { restaurantId, userId },
     });
   }
 
-  async findOpen(restaurantId: string): Promise<CashShift | null> {
+  async findOpen(restaurantId: string, userId?: string): Promise<CashShift | null> {
     return this.prisma.cashShift.findFirst({
       where: {
         restaurantId,
         status: CashShiftStatus.OPEN,
+        ...(userId ? { userId } : {}),
       },
     });
   }

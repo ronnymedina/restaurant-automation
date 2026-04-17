@@ -111,8 +111,7 @@ export class OrdersService {
 
   async findById(id: string, restaurantId: string) {
     const order = await this.orderRepository.findById(id);
-    if (!order) throw new OrderNotFoundException(id);
-    if (order.restaurantId !== restaurantId) throw new ForbiddenAccessException();
+    if (!order || order.restaurantId !== restaurantId) throw new OrderNotFoundException(id);
     return order;
   }
 
@@ -241,10 +240,14 @@ export class OrdersService {
   private async decrementAllStock(stockEntries: StockEntry[], tx: Prisma.TransactionClient): Promise<void> {
     for (const { product, item } of stockEntries) {
       if (product.stock !== null) {
-        await tx.product.update({
-          where: { id: item.productId },
+        const updated = await tx.product.updateMany({
+          where: { id: item.productId, stock: { gte: item.quantity } },
           data: { stock: { decrement: item.quantity } },
         });
+        if (updated.count === 0) {
+          // product.stock is stale (pre-transaction read); pass 0 to signal stock was depleted concurrently
+          throw new StockInsufficientException(product.name, 0, item.quantity);
+        }
       }
     }
   }

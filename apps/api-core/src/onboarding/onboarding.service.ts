@@ -205,7 +205,7 @@ export class OnboardingService {
       .map((p) => ({
         name: p.name,
         description: p.description,
-        price: BigInt(p.price as number),
+        price: BigInt(Math.round(p.price as number)),
       }));
 
     if (validProducts.length === 0) {

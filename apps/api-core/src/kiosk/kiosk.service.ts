@@ -120,8 +120,8 @@ export class KioskService {
       const sectionName = item.sectionName || 'General';
       if (!sections[sectionName]) sections[sectionName] = [];
 
-      const effectiveStock = item.product.stock;
-      const price = Number(item.product.price);
+      const effectiveStock = item.stock ?? item.product.stock;
+      const price = Number(item.price ?? item.product.price);
 
       sections[sectionName].push({
         id: item.product.id,

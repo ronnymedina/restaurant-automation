@@ -418,7 +418,7 @@ describe('Products (e2e)', () => {
       await request(app.getHttpServer())
         .delete(`/v1/products/${softDeletedId}`)
         .set('Authorization', `Bearer ${adminTokenA}`)
-        .expect(200);
+        .expect(204);
 
       const product = await prisma.product.findUnique({ where: { id: softDeletedId } });
       expect(product).not.toBeNull();

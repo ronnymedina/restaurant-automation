@@ -29,6 +29,7 @@ model User {
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
   refreshTokens RefreshToken[]
+  cashShifts    CashShift[]
 
   deletedAt DateTime?
 
@@ -209,6 +210,7 @@ model Order {
 
   @@index([restaurantId, createdAt])
   @@index([cashShiftId])
+  @@unique([cashShiftId, orderNumber])
 }
 
 model OrderItem {
@@ -228,10 +230,17 @@ model OrderItem {
   createdAt DateTime @default(now())
 }
 
+// Note: In PostgreSQL, enforce one open shift per user per restaurant with:
+// CREATE UNIQUE INDEX "one_open_shift_per_user_per_restaurant" ON "CashShift"("restaurantId", "userId") WHERE status = 'OPEN';
+// SQLite does not support partial indexes; uniqueness is enforced at the application layer.
 model CashShift {
   id              String          @id @default(uuid())
   status          CashShiftStatus @default(OPEN)
   lastOrderNumber Int             @default(0)
+  openingBalance  BigInt          @default(0)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
   totalSales  BigInt?
   totalOrders Int?

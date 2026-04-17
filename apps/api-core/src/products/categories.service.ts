@@ -145,7 +145,7 @@ export class CategoriesService {
 
   async findCategoryAndThrowIfNotFound(id: string, restaurantId: string): Promise<ProductCategory> {
     const category = await this.categoryRepository.findById(id, restaurantId);
-    if (!category) throw new EntityNotFoundException('ProductCategory', id);
+    if (!category) throw new EntityNotFoundException('Category', id);
     return category;
   }
 }

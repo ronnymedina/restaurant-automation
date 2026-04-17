@@ -16,6 +16,7 @@ import { OrdersModule } from './orders/orders.module';
 import { CashRegisterModule } from './cash-register/cash-register.module';
 import { KioskModule } from './kiosk/kiosk.module';
 import { PrintModule } from './print/print.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { PrintModule } from './print/print.module';
     CashRegisterModule,
     KioskModule,
     PrintModule,
+    UploadsModule,
   ],
   controllers: [AppController],
 })
