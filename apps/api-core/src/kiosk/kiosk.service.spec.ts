@@ -184,41 +184,41 @@ describe('KioskService', () => {
   // ── getCurrentDayAndTime (timezone) ──────────────────────────────
 
   describe('getCurrentDayAndTime', () => {
-    it('returns correct day and time for a known UTC instant in America/Bogota (UTC-5)', () => {
-      // 2024-01-15 15:00 UTC  →  2024-01-15 10:00 America/Bogota (Monday)
+    it('returns correct day and time for a known UTC instant in America/Argentina/Buenos_Aires (UTC-3)', () => {
+      // 2024-01-15 15:00 UTC  →  2024-01-15 12:00 Buenos Aires (Monday)
       const utc = new Date('2024-01-15T15:00:00Z');
       const { currentDay, currentTime } = service.getCurrentDayAndTime(utc);
       expect(currentDay).toBe('MON');
-      expect(currentTime).toBe('10:00');
+      expect(currentTime).toBe('12:00');
     });
 
-    it('handles day boundary: UTC midnight belongs to the previous day in UTC-5', () => {
-      // 2024-01-16 00:30 UTC  →  2024-01-15 19:30 America/Bogota (Monday, not Tuesday)
+    it('handles day boundary: UTC midnight belongs to the previous day in UTC-3', () => {
+      // 2024-01-16 00:30 UTC  →  2024-01-15 21:30 Buenos Aires (Monday, not Tuesday)
       const utc = new Date('2024-01-16T00:30:00Z');
       const { currentDay, currentTime } = service.getCurrentDayAndTime(utc);
       expect(currentDay).toBe('MON');
-      expect(currentTime).toBe('19:30');
+      expect(currentTime).toBe('21:30');
     });
 
     it('handles end of day: 23:59 local time', () => {
-      // 2024-01-16 04:59 UTC  →  2024-01-15 23:59 America/Bogota (Monday)
-      const utc = new Date('2024-01-16T04:59:00Z');
+      // 2024-01-16 02:59 UTC  →  2024-01-15 23:59 Buenos Aires (Monday)
+      const utc = new Date('2024-01-16T02:59:00Z');
       const { currentDay, currentTime } = service.getCurrentDayAndTime(utc);
       expect(currentDay).toBe('MON');
       expect(currentTime).toBe('23:59');
     });
 
     it('handles start of day: 00:00 local time', () => {
-      // 2024-01-15 05:00 UTC  →  2024-01-15 00:00 America/Bogota (Monday)
-      const utc = new Date('2024-01-15T05:00:00Z');
+      // 2024-01-15 03:00 UTC  →  2024-01-15 00:00 Buenos Aires (Monday)
+      const utc = new Date('2024-01-15T03:00:00Z');
       const { currentDay, currentTime } = service.getCurrentDayAndTime(utc);
       expect(currentDay).toBe('MON');
       expect(currentTime).toBe('00:00');
     });
 
     it('returns zero-padded hours and minutes', () => {
-      // 2024-01-15 14:05 UTC  →  2024-01-15 09:05 America/Bogota
-      const utc = new Date('2024-01-15T14:05:00Z');
+      // 2024-01-15 12:05 UTC  →  2024-01-15 09:05 Buenos Aires
+      const utc = new Date('2024-01-15T12:05:00Z');
       const { currentTime } = service.getCurrentDayAndTime(utc);
       expect(currentTime).toBe('09:05');
     });

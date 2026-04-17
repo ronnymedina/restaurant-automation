@@ -3,7 +3,7 @@ import { RestaurantsController } from './restaurants.controller';
 import { RestaurantsService } from './restaurants.service';
 
 const mockRestaurantsService = {
-  update: jest.fn(),
+  rename: jest.fn(),
 };
 
 describe('RestaurantsController', () => {
@@ -26,10 +26,10 @@ describe('RestaurantsController', () => {
 
   describe('rename', () => {
     it('calls service.update with restaurantId and name, returns slug', async () => {
-      mockRestaurantsService.update.mockResolvedValue({ id: 'r1', name: 'Nuevo Nombre', slug: 'nuevo-nombre' });
+      mockRestaurantsService.rename.mockResolvedValue({ id: 'r1', name: 'Nuevo Nombre', slug: 'nuevo-nombre' });
       const user = { restaurantId: 'r1' };
       const result = await controller.rename(user, { name: 'Nuevo Nombre' });
-      expect(mockRestaurantsService.update).toHaveBeenCalledWith('r1', { name: 'Nuevo Nombre' });
+      expect(mockRestaurantsService.rename).toHaveBeenCalledWith('r1', 'Nuevo Nombre');
       expect(result).toEqual({ slug: 'nuevo-nombre' });
     });
   });
