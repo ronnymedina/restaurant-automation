@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CashShift } from '@prisma/client';
+import { CashShift, CashShiftStatus, OrderStatus, Prisma } from '@prisma/client';
 
 import { CashShiftRepository } from './cash-register-session.repository';
 import { OrderRepository } from '../orders/order.repository';
@@ -10,60 +10,89 @@ import {
 } from './exceptions/cash-register.exceptions';
 import { DEFAULT_PAGE_SIZE } from '../config';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class CashRegisterService {
   constructor(
     private readonly registerSessionRepository: CashShiftRepository,
     private readonly orderRepository: OrderRepository,
+    private readonly prisma: PrismaService,
   ) { }
 
-  async openSession(restaurantId: string): Promise<CashShift> {
+  async openSession(restaurantId: string, userId: string): Promise<CashShift> {
     const existing =
-      await this.registerSessionRepository.findOpen(restaurantId);
+      await this.registerSessionRepository.findOpen(restaurantId, userId);
 
     if (existing) throw new CashRegisterAlreadyOpenException();
 
-    return this.registerSessionRepository.create(restaurantId);
+    try {
+      return await this.registerSessionRepository.create(restaurantId, userId);
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new CashRegisterAlreadyOpenException();
+      }
+      throw e;
+    }
   }
 
-  async closeSession(restaurantId: string, closedBy?: string) {
-    const session = await this.registerSessionRepository.findOpen(restaurantId);
-    if (!session) throw new NoOpenCashRegisterException();
+  async closeSession(restaurantId: string, closedBy?: string, userId?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const session = await tx.cashShift.findFirst({
+        where: {
+          restaurantId,
+          status: CashShiftStatus.OPEN,
+          ...(userId ? { userId } : {}),
+        },
+      });
+      if (!session) throw new NoOpenCashRegisterException();
 
-    const orders = await this.orderRepository.findBySessionId(session.id, restaurantId);
+      const [agg, paymentGroups] = await Promise.all([
+        tx.order.aggregate({
+          where: { cashShiftId: session.id },
+          _sum: { totalAmount: true },
+          _count: { id: true },
+        }),
+        tx.order.groupBy({
+          by: ['paymentMethod'],
+          where: { cashShiftId: session.id },
+          _sum: { totalAmount: true },
+          _count: { id: true },
+        }),
+      ]);
 
-    const totalSales = orders.reduce(
-      (sum, o) => sum + Number(o.totalAmount),
-      0,
-    );
-    const totalOrders = orders.length;
+      const totalSales = Number(agg._sum.totalAmount ?? 0n);
+      const totalOrders = agg._count.id;
 
-    // Payment method breakdown
-    const paymentBreakdown: Record<string, { count: number; total: number }> =
-      {};
-    for (const order of orders) {
-      const method = order.paymentMethod || 'UNKNOWN';
-      if (!paymentBreakdown[method]) {
-        paymentBreakdown[method] = { count: 0, total: 0 };
+      const paymentBreakdown: Record<string, { count: number; total: number }> = {};
+      for (const group of paymentGroups) {
+        const method = group.paymentMethod ?? 'UNKNOWN';
+        paymentBreakdown[method] = {
+          count: group._count.id,
+          total: Number(group._sum.totalAmount ?? 0n),
+        };
       }
-      paymentBreakdown[method].count++;
-      paymentBreakdown[method].total += Number(order.totalAmount);
-    }
 
-    const closedSession = await this.registerSessionRepository.close(
-      session.id,
-      { totalSales, totalOrders, closedBy },
-    );
+      const closedSession = await tx.cashShift.update({
+        where: { id: session.id },
+        data: {
+          status: CashShiftStatus.CLOSED,
+          closedAt: new Date(),
+          closedBy,
+          totalSales: agg._sum.totalAmount ?? 0n,
+          totalOrders,
+        },
+      });
 
-    return {
-      session: closedSession,
-      summary: {
-        totalOrders,
-        totalSales,
-        paymentBreakdown,
-      },
-    };
+      return {
+        session: closedSession,
+        summary: {
+          totalOrders,
+          totalSales,
+          paymentBreakdown,
+        },
+      };
+    });
   }
 
   async getSessionHistory(
@@ -121,28 +150,33 @@ export class CashRegisterService {
       else if (order.status === 'CANCELLED') cancelledOrders++;
     }
 
-    // Top-selling products aggregated from order items
-    const productMap: Record<string, { name: string; quantity: number; total: number }> = {};
-    for (const order of orders) {
-      if (order.status === 'CANCELLED') continue;
-      for (const item of order.items) {
-        const pid = item.productId;
-        if (!productMap[pid]) {
-          productMap[pid] = {
-            name: item.product?.name ?? 'Producto',
-            quantity: 0,
-            total: 0,
-          };
-        }
-        productMap[pid].quantity += item.quantity;
-        productMap[pid].total += Number(item.subtotal);
-      }
-    }
+    // Top-selling products aggregated via DB groupBy (performant for large sessions)
+    const topProductRows = await this.prisma.orderItem.groupBy({
+      by: ['productId'],
+      where: {
+        order: {
+          cashShiftId: session.id,
+          status: { not: OrderStatus.CANCELLED },
+        },
+      },
+      _sum: { quantity: true, subtotal: true },
+      orderBy: { _sum: { quantity: 'desc' } },
+      take: 10,
+    });
 
-    const topProducts = Object.entries(productMap)
-      .map(([id, data]) => ({ id, ...data }))
-      .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 10);
+    const productIds = topProductRows.map((r) => r.productId);
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, name: true },
+    });
+    const productNameMap = Object.fromEntries(products.map((p) => [p.id, p.name]));
+
+    const topProducts = topProductRows.map((r) => ({
+      id: r.productId,
+      name: productNameMap[r.productId] ?? 'Producto',
+      quantity: r._sum.quantity ?? 0,
+      total: Number(r._sum.subtotal ?? 0n),
+    }));
 
     return {
       session,
