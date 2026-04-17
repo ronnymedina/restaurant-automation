@@ -31,12 +31,11 @@ export default function TableWithFetch<T>({
 }: TableWithFetchProps<T>) {
   const [page, setPage] = useState(1);
 
-  const queryString = new URLSearchParams({ ...params, page: String(page) }).toString();
-
   const { data, isLoading, isError } = useQuery<ApiResponse<T>>({
     queryKey: [url, params, page],
     queryFn: async () => {
-      const res = await apiFetch(`${url}?${queryString}`);
+      const qs = new URLSearchParams({ ...params, page: String(page) }).toString();
+      const res = await apiFetch(`${url}?${qs}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json() as Promise<ApiResponse<T>>;
     },
