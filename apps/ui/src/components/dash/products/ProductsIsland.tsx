@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { queryClient } from '../../commons/Providers';
@@ -17,6 +17,7 @@ function ProductsContent() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const { data: categories = [] } = useQuery({
     queryKey: [CATEGORIES_QUERY_KEY, 'all'],
@@ -28,10 +29,10 @@ function ProductsContent() {
     setShowForm(true);
   };
 
-  const handleEdit = (product: Product) => {
+  const handleEdit = useCallback((product: Product) => {
     setEditingProduct(product);
     setShowForm(true);
-  };
+  }, []);
 
   const handleSuccess = () => {
     setShowForm(false);
@@ -44,17 +45,18 @@ function ProductsContent() {
     setEditingProduct(null);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
+    setDeleteError(null);
     if (!confirm('¿Eliminar este producto?')) return;
     try {
       await deleteProduct(id);
       qc.invalidateQueries({ queryKey: [PRODUCTS_QUERY_KEY] });
     } catch {
-      alert('Error al eliminar el producto');
+      setDeleteError('Error al eliminar el producto');
     }
-  };
+  }, [qc]);
 
-  const columns: ColumnDef<Product>[] = [
+  const columns = useMemo<ColumnDef<Product>[]>(() => [
     {
       accessorKey: 'name',
       header: 'Nombre',
@@ -116,7 +118,7 @@ function ProductsContent() {
         </div>
       ),
     },
-  ];
+  ], [handleEdit, handleDelete]);
 
   return (
     <div className="space-y-6">
@@ -126,6 +128,12 @@ function ProductsContent() {
           <Button onClick={handleNew}>Nuevo producto</Button>
         )}
       </div>
+
+      {deleteError && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
+          {deleteError}
+        </p>
+      )}
 
       {showForm && (
         <ProductForm
