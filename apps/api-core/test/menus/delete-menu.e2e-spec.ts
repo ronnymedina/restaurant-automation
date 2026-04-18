@@ -140,7 +140,7 @@ describe('DELETE /v1/menus/:id (e2e)', () => {
       .set('Authorization', `Bearer ${adminTokenA}`)
       .expect(200);
 
-    const found = listRes.body.find((m: { id: string }) => m.id === menuId);
+    const found = listRes.body.data.find((m: { id: string }) => m.id === menuId);
     expect(found).toBeUndefined();
   });
 
