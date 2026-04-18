@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   UseInterceptors,
   ClassSerializerInterceptor,
@@ -21,9 +22,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { PaginationDto } from '../common/dto/pagination.dto';
 import { MenuSerializer } from './serializers/menu.serializer';
 import { MenuListSerializer } from './serializers/menu-list.serializer';
 import { MenuWithItemsSerializer } from './serializers/menu-with-items.serializer';
+import { PaginatedMenusSerializer } from './serializers/paginated-menus.serializer';
 
 @ApiTags('menus')
 @ApiBearerAuth()
@@ -35,12 +38,22 @@ export class MenusController {
 
   @Get()
   @Roles(Role.ADMIN, Role.MANAGER, Role.BASIC)
-  @ApiOperation({ summary: 'Listar menús del restaurante' })
-  @ApiResponse({ status: 200, description: 'Lista de menús', type: [MenuListSerializer] })
+  @ApiOperation({ summary: 'Listar menús del restaurante (paginado)' })
+  @ApiResponse({ status: 200, description: 'Lista paginada de menús', type: PaginatedMenusSerializer })
   @ApiResponse({ status: 401, description: 'No autenticado' })
-  async listMenus(@CurrentUser() user: { restaurantId: string }) {
-    const menus = await this.menusService.findByRestaurantId(user.restaurantId);
-    return menus.map(menu => new MenuListSerializer(menu));
+  async listMenus(
+    @CurrentUser() user: { restaurantId: string },
+    @Query() query: PaginationDto,
+  ) {
+    const result = await this.menusService.listMenusPaginated(
+      user.restaurantId,
+      query.page,
+      query.limit,
+    );
+    return new PaginatedMenusSerializer({
+      data: result.data.map(menu => new MenuListSerializer(menu)),
+      meta: result.meta,
+    });
   }
 
   @Get(':id')
