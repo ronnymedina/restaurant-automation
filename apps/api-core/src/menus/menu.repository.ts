@@ -61,6 +61,24 @@ export class MenuRepository {
     });
   }
 
+  async findByRestaurantIdPaginated(
+    restaurantId: string,
+    skip: number,
+    take: number,
+  ): Promise<{ items: Awaited<ReturnType<typeof this.findByRestaurantId>>; total: number }> {
+    const [items, total] = await Promise.all([
+      this.prisma.menu.findMany({
+        where: { restaurantId, deletedAt: null },
+        include: { _count: { select: { items: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.menu.count({ where: { restaurantId, deletedAt: null } }),
+    ]);
+    return { items, total };
+  }
+
   async update(id: string, data: Partial<CreateMenuData>): Promise<Menu> {
     return this.prisma.menu.update({
       where: { id },

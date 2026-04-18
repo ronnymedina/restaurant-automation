@@ -5,8 +5,10 @@
  *  - 401 unauthenticated
  *  - 200 ADMIN, MANAGER, BASIC can list
  *  - 200 isolation — only own restaurant menus
+ *  - 200 paginated response shape { data, meta }
  *  - 200 serializer shape (fields present and absent)
  *  - 200 soft-deleted menus excluded
+ *  - 200 itemsCount reflects actual count
  */
 
 import * as fs from 'fs';
@@ -40,7 +42,6 @@ describe('GET /v1/menus (e2e)', () => {
     const seedB = await seedRestaurant(prisma, 'listB');
     adminTokenB = await login(app, seedB.admin.email);
 
-    // Create menus for restaurant A
     await request(app.getHttpServer())
       .post('/v1/menus')
       .set('Authorization', `Bearer ${adminTokenA}`)
@@ -53,7 +54,6 @@ describe('GET /v1/menus (e2e)', () => {
       .send({ name: 'Cena', active: false })
       .expect(201);
 
-    // Create menu for restaurant B (isolation)
     await request(app.getHttpServer())
       .post('/v1/menus')
       .set('Authorization', `Bearer ${adminTokenB}`)
@@ -70,28 +70,37 @@ describe('GET /v1/menus (e2e)', () => {
     await request(app.getHttpServer()).get('/v1/menus').expect(401);
   });
 
-  it('200 — ADMIN can list menus', async () => {
+  it('200 — ADMIN can list menus and response has data/meta shape', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/menus')
       .set('Authorization', `Bearer ${adminTokenA}`)
       .expect(200);
 
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThanOrEqual(2);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBeGreaterThanOrEqual(2);
+    expect(res.body.meta).toBeDefined();
+    expect(typeof res.body.meta.total).toBe('number');
+    expect(typeof res.body.meta.page).toBe('number');
+    expect(typeof res.body.meta.totalPages).toBe('number');
+    expect(typeof res.body.meta.limit).toBe('number');
   });
 
   it('200 — MANAGER can list menus', async () => {
-    await request(app.getHttpServer())
+    const res = await request(app.getHttpServer())
       .get('/v1/menus')
       .set('Authorization', `Bearer ${managerTokenA}`)
       .expect(200);
+
+    expect(Array.isArray(res.body.data)).toBe(true);
   });
 
   it('200 — BASIC can list menus', async () => {
-    await request(app.getHttpServer())
+    const res = await request(app.getHttpServer())
       .get('/v1/menus')
       .set('Authorization', `Bearer ${basicTokenA}`)
       .expect(200);
+
+    expect(Array.isArray(res.body.data)).toBe(true);
   });
 
   it('200 — serializer exposes correct fields', async () => {
@@ -100,10 +109,9 @@ describe('GET /v1/menus (e2e)', () => {
       .set('Authorization', `Bearer ${adminTokenA}`)
       .expect(200);
 
-    const menu = res.body.find((m: { name: string }) => m.name === 'Almuerzo');
+    const menu = res.body.data.find((m: { name: string }) => m.name === 'Almuerzo');
     expect(menu).toBeDefined();
 
-    // present
     expect(menu.id).toBeDefined();
     expect(menu.name).toBe('Almuerzo');
     expect(typeof menu.active).toBe('boolean');
@@ -112,7 +120,6 @@ describe('GET /v1/menus (e2e)', () => {
     expect(menu.daysOfWeek).toBe('MON,TUE,WED,THU,FRI');
     expect(typeof menu.itemsCount).toBe('number');
 
-    // absent
     expect(menu.restaurantId).toBeUndefined();
     expect(menu.createdAt).toBeUndefined();
     expect(menu.updatedAt).toBeUndefined();
@@ -130,14 +137,13 @@ describe('GET /v1/menus (e2e)', () => {
       .set('Authorization', `Bearer ${adminTokenB}`)
       .expect(200);
 
-    const idsA = resA.body.map((m: { id: string }) => m.id);
-    const idsB = resB.body.map((m: { id: string }) => m.id);
+    const idsA = resA.body.data.map((m: { id: string }) => m.id);
+    const idsB = resB.body.data.map((m: { id: string }) => m.id);
 
     idsA.forEach((id: string) => expect(idsB).not.toContain(id));
   });
 
   it('200 — soft-deleted menus are excluded', async () => {
-    // Create and soft-delete a menu
     const createRes = await request(app.getHttpServer())
       .post('/v1/menus')
       .set('Authorization', `Bearer ${adminTokenA}`)
@@ -156,7 +162,7 @@ describe('GET /v1/menus (e2e)', () => {
       .set('Authorization', `Bearer ${adminTokenA}`)
       .expect(200);
 
-    const found = res.body.find((m: { id: string }) => m.id === menuId);
+    const found = res.body.data.find((m: { id: string }) => m.id === menuId);
     expect(found).toBeUndefined();
   });
 
@@ -166,7 +172,7 @@ describe('GET /v1/menus (e2e)', () => {
       .set('Authorization', `Bearer ${adminTokenA}`)
       .expect(200);
 
-    const menu = res.body.find((m: { name: string }) => m.name === 'Almuerzo');
+    const menu = res.body.data.find((m: { name: string }) => m.name === 'Almuerzo');
     expect(menu.itemsCount).toBe(0);
   });
 });

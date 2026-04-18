@@ -2,6 +2,7 @@ import { Injectable, Optional } from '@nestjs/common';
 import { Menu } from '@prisma/client';
 
 import { MenuRepository, CreateMenuData } from './menu.repository';
+import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import { MenuNotFoundException } from './exceptions/menus.exceptions';
 import { EventsGateway } from '../events/events.gateway';
 
@@ -14,6 +15,30 @@ export class MenusService {
 
   async findByRestaurantId(restaurantId: string) {
     return this.menuRepository.findByRestaurantId(restaurantId);
+  }
+
+  async listMenusPaginated(
+    restaurantId: string,
+    page?: number,
+    limit?: number,
+  ): Promise<PaginatedResult<Awaited<ReturnType<MenuRepository['findByRestaurantId']>>[number]>> {
+    const currentPage = page || 1;
+    const currentLimit = limit || 50;
+    const skip = (currentPage - 1) * currentLimit;
+    const { items, total } = await this.menuRepository.findByRestaurantIdPaginated(
+      restaurantId,
+      skip,
+      currentLimit,
+    );
+    return {
+      data: items,
+      meta: {
+        total,
+        page: currentPage,
+        limit: currentLimit,
+        totalPages: Math.ceil(total / currentLimit),
+      },
+    };
   }
 
   async findByIdWithItems(id: string, restaurantId: string) {
