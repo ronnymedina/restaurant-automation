@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { StorageProvider } from './storage-provider.interface';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { StorageProvider, PresignedUploadResult } from './storage-provider.interface';
 import { ImageUploadFailedException } from '../exceptions/uploads.exceptions';
 
 export interface R2Config {
@@ -41,6 +42,21 @@ export class R2StorageProvider implements StorageProvider {
         }),
       );
       return `${this.publicUrl}/products/${filename}`;
+    } catch {
+      throw new ImageUploadFailedException();
+    }
+  }
+
+  async getPresignedUpload(key: string, mimetype: string, expiresInSeconds: number): Promise<PresignedUploadResult> {
+    try {
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        ContentType: mimetype,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const presignedUrl = await getSignedUrl(this.client as any, command as any, { expiresIn: expiresInSeconds });
+      return { presignedUrl, publicUrl: `${this.publicUrl}/${key}` };
     } catch {
       throw new ImageUploadFailedException();
     }
