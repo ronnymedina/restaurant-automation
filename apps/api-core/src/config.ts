@@ -67,8 +67,12 @@ export const API_PUBLIC_PATH = process.env.API_PUBLIC_PATH
 export const UPLOAD_STORAGE = process.env.UPLOAD_STORAGE || 'local'; // 'local' | 'r2'
 
 // Cloudflare R2 — required only when UPLOAD_STORAGE=r2
-export const UPLOAD_CF_R2_ACCOUNT_ID        = process.env.UPLOAD_CF_R2_ACCOUNT_ID        || '';
-export const UPLOAD_CF_R2_ACCESS_KEY_ID     = process.env.UPLOAD_CF_R2_ACCESS_KEY_ID     || '';
+export const UPLOAD_CF_R2_ACCOUNT_ID = process.env.UPLOAD_CF_R2_ACCOUNT_ID || '';
+export const UPLOAD_CF_R2_ACCESS_KEY_ID = process.env.UPLOAD_CF_R2_ACCESS_KEY_ID || '';
 export const UPLOAD_CF_R2_SECRET_ACCESS_KEY = process.env.UPLOAD_CF_R2_SECRET_ACCESS_KEY || '';
-export const UPLOAD_CF_R2_BUCKET_NAME       = process.env.UPLOAD_CF_R2_BUCKET_NAME       || '';
-export const UPLOAD_CF_R2_PUBLIC_URL        = process.env.UPLOAD_CF_R2_PUBLIC_URL        || '';
+export const UPLOAD_CF_R2_BUCKET_NAME = process.env.UPLOAD_CF_R2_BUCKET_NAME || '';
+export const UPLOAD_CF_R2_PUBLIC_URL = process.env.UPLOAD_CF_R2_PUBLIC_URL || '';
+
+// uploads — presign
+export const UPLOAD_PRESIGN_EXPIRY_SECONDS = Number(process.env.UPLOAD_PRESIGN_EXPIRY_SECONDS) || 120;
+export const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000';
