@@ -34,4 +34,8 @@ export class UploadsService {
     const key = `restaurants/${restaurantId}/${crypto.randomUUID()}${ext}`;
     return this.storageProvider.getPresignedUpload(key, mimetype, this.config.presignExpirySeconds);
   }
+
+  async saveLocalPut(_token: string, _buffer: Buffer): Promise<void> {
+    throw new Error('not implemented');
+  }
 }
