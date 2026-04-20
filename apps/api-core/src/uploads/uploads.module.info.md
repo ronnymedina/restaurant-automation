@@ -1,83 +1,131 @@
 ### Upload (uploads)
 
-### Respuesta serializada
+## Flujo de subida (a partir de 2026-04-18)
 
-**POST /v1/uploads/image** retorna:
+El frontend siempre usa un flujo de dos pasos, idéntico en modo local y web:
 
-```json
-{ "url": "string" }
-```
+1. **`POST /v1/uploads/presign`** — autenticado con JWT. El backend genera una URL temporal (`presignedUrl`) y la URL pública final (`publicUrl`).
+2. **`PUT {presignedUrl}`** — el frontend sube el archivo raw directamente a esa URL (a R2 o al endpoint local).
 
-En modo `local`: `url` es un path relativo (`/uploads/products/{uuid}.{ext}`), servido como estático.
-En modo `r2`: `url` es una URL pública de Cloudflare R2 (`{UPLOAD_CF_R2_PUBLIC_URL}/products/{uuid}.{ext}`).
+**En modo R2:** `presignedUrl` es una URL firmada de Cloudflare R2 (válida `UPLOAD_PRESIGN_EXPIRY_SECONDS` segundos). El archivo se sube directo a R2 desde el navegador.
+
+**En modo local:** `presignedUrl` apunta a `{API_BASE_URL}/v1/uploads/local-put/{token}`. El token es un JWT firmado con `JWT_SECRET` que contiene el path de destino. El backend recibe el raw body y guarda en disco.
+
+### Organización de paths
+
+Todos los archivos se guardan bajo `restaurants/{restaurantId}/{uuid}.ext`:
+
+- **R2:** `{UPLOAD_CF_R2_PUBLIC_URL}/restaurants/{restaurantId}/{uuid}.jpg`
+- **Local:** `/uploads/restaurants/{restaurantId}/{uuid}.jpg`
 
 ### Endpoints
 
-| Método | Ruta | Roles permitidos | Respuesta | Descripción |
-|---|---|---|---|---|
-| `POST` | `/v1/uploads/image` | ADMIN, MANAGER | `{ url: string }` | Subir imagen de producto |
+| Método | Ruta | Auth | Roles | Descripción |
+|--------|------|------|-------|-------------|
+| `POST` | `/v1/uploads/image` | JWT | ADMIN, MANAGER | Subida legacy (onboarding/backend). No afectado por el nuevo flujo. |
+| `POST` | `/v1/uploads/presign` | JWT | ADMIN, MANAGER | Generar presigned URL |
+| `PUT` | `/v1/uploads/local-put/:token` | Token JWT en URL | — | Recibir imagen en modo local |
 
 ---
 
-#### Upload Image — `POST /v1/uploads/image`
+#### POST /v1/uploads/presign
 
-E2E: ✅ `test/uploads/uploadImage.e2e-spec.ts`
+**Request body:**
+```json
+{ "mimetype": "image/jpeg" }
+```
+Valores permitidos: `image/jpeg`, `image/png`, `image/webp`.
 
-| Caso | Status | Detalle |
-|---|---|---|
-| Sin token | 401 | Unauthenticated |
-| BASIC intenta subir | 403 | Solo ADMIN o MANAGER |
-| ADMIN sube JPG | 201 | Retorna `{ url }` |
-| MANAGER sube PNG | 201 | Retorna `{ url }` |
-| ADMIN sube WEBP | 201 | Retorna `{ url }` |
-| Sin archivo | 400 | `Debes subir un archivo de imagen` |
-| Tipo no permitido (ej. PDF) | 400 | `Solo se permiten imágenes JPG, PNG o WEBP` |
-| Archivo mayor a 2MB | 413 | Multer rechaza por `limits.fileSize` |
+**Response:**
+```json
+{
+  "presignedUrl": "https://... o http://localhost:3000/v1/uploads/local-put/{token}",
+  "publicUrl": "/uploads/restaurants/{restaurantId}/{uuid}.jpg"
+}
+```
+
+**Casos cubiertos por e2e:**
+
+| Caso | Status |
+|------|--------|
+| Sin token | 401 |
+| BASIC intenta acceder | 403 |
+| ADMIN con mimetype válido | 201 |
+| Token contiene key con restaurantId correcto | ✓ |
+| mimetype no soportado (ej. PDF) | 400 |
+
+---
+
+#### PUT /v1/uploads/local-put/:token
+
+Solo activo en modo local (`UPLOAD_STORAGE=local`). En modo R2 este endpoint no existe.
+
+Recibe raw body con `Content-Type: image/*`. Valida el JWT en el path param, crea el directorio y guarda el archivo.
+
+**Casos cubiertos por e2e:**
+
+| Caso | Status |
+|------|--------|
+| Token válido + imagen | 204 |
+| Token expirado | 401 |
+| Token inválido/tampered | 401 |
+| Sin JWT de sesión (es público) | 204 ✓ |
 
 ---
 
 ### Configuración
 
 | Variable | Descripción | Default |
-|---|---|---|
+|----------|-------------|---------|
 | `UPLOAD_STORAGE` | `local` o `r2` | `local` |
 | `UPLOADS_PATH` | Carpeta local para imágenes | `{cwd}/uploads` |
+| `UPLOAD_PRESIGN_EXPIRY_SECONDS` | Expiración de presigned URLs en segundos | `120` |
+| `API_BASE_URL` | URL base del API, usada para construir URLs locales | `http://localhost:3000` |
 | `UPLOAD_CF_R2_ACCOUNT_ID` | Account ID de Cloudflare R2 | — (requerido si `r2`) |
 | `UPLOAD_CF_R2_ACCESS_KEY_ID` | Access Key ID de R2 | — (requerido si `r2`) |
 | `UPLOAD_CF_R2_SECRET_ACCESS_KEY` | Secret Access Key de R2 | — (requerido si `r2`) |
 | `UPLOAD_CF_R2_BUCKET_NAME` | Nombre del bucket R2 | — (requerido si `r2`) |
 | `UPLOAD_CF_R2_PUBLIC_URL` | URL pública del bucket (CDN) | — (requerido si `r2`) |
 
-Si `UPLOAD_STORAGE=r2` y alguna variable de R2 está ausente, la app falla en startup con error descriptivo.
+### Configuración CORS en R2 (manual, una sola vez)
 
----
+En el panel de Cloudflare → R2 bucket → Settings → CORS:
 
-### Notas de implementación
-
-- El `restaurantId` del JWT **no** se usa aquí — uploads es un endpoint genérico de imágenes
-- Límite de tamaño: **2MB** por archivo (multer `limits.fileSize`)
-- Tipos permitidos: `image/jpeg`, `image/png`, `image/webp` — validado por MIME type del header HTTP
-- El filename en disco/storage se genera con `crypto.randomUUID()` — sin riesgo de path traversal
-- **Modo local:** archivos en `{UPLOADS_PATH}/products/{uuid}.{ext}`, retorna path relativo
-- **Modo R2:** `PutObjectCommand` vía `@aws-sdk/client-s3` (R2 es S3-compatible), retorna URL pública del CDN
-
-### Limitaciones conocidas
-
-- **MIME spoofing:** la validación de tipo usa `file.mimetype`, que viene del header HTTP y puede ser falsificado por el cliente. La verificación de magic bytes del buffer (usando `sharp.metadata()` o la librería `file-type`) queda pendiente como mejora de seguridad futura.
+```json
+[
+  {
+    "AllowedOrigins": ["https://tu-dominio.com", "http://localhost:4321"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["Content-Type"]
+  }
+]
+```
 
 ### Providers
 
-| Clase | Condición de uso | URL retornada |
-|---|---|---|
-| `LocalStorageProvider` | `UPLOAD_STORAGE=local` (default) | `/uploads/products/{uuid}.{ext}` |
-| `R2StorageProvider` | `UPLOAD_STORAGE=r2` | `{UPLOAD_CF_R2_PUBLIC_URL}/products/{uuid}.{ext}` |
+| Clase | Condición | presignedUrl retornada | publicUrl retornada |
+|-------|-----------|------------------------|---------------------|
+| `LocalStorageProvider` | `UPLOAD_STORAGE=local` | `{API_BASE_URL}/v1/uploads/local-put/{jwt}` | `/uploads/restaurants/{restaurantId}/{uuid}.ext` |
+| `R2StorageProvider` | `UPLOAD_STORAGE=r2` | URL firmada de Cloudflare R2 | `{UPLOAD_CF_R2_PUBLIC_URL}/restaurants/{restaurantId}/{uuid}.ext` |
 
-### Tests existentes
+### Nota técnica: middleware raw body
 
-| Tipo | Archivo | Cobertura |
-|---|---|---|
-| Unit (service) | `src/uploads/uploads.service.spec.ts` | ✅ 4 tests |
-| Unit (controller) | `src/uploads/uploads.controller.spec.ts` | ✅ 2 tests |
-| Unit (local provider) | `src/uploads/providers/local-storage.provider.spec.ts` | ✅ 3 tests |
-| Unit (R2 provider) | `src/uploads/providers/r2-storage.provider.spec.ts` | ✅ 3 tests |
-| E2E | `test/uploads/uploadImage.e2e-spec.ts` | ✅ 8 tests |
+`express.raw({ type: 'image/*' })` se aplica vía `MiddlewareConsumer.forRoutes(UploadsController)`.
+Usar la clase del controlador (en lugar de un path string) es necesario para que NestJS
+resuelva correctamente el path versionado `/v1/uploads/local-put/:token` con URI versioning.
+
+### Tests
+
+| Tipo | Archivo | Tests |
+|------|---------|-------|
+| Unit (service) | `src/uploads/uploads.service.spec.ts` | 12 |
+| Unit (controller) | `src/uploads/uploads.controller.spec.ts` | 4 |
+| Unit (local provider) | `src/uploads/providers/local-storage.provider.spec.ts` | 7 |
+| Unit (R2 provider) | `src/uploads/providers/r2-storage.provider.spec.ts` | 6 |
+| E2E (imagen legacy) | `test/uploads/uploadImage.e2e-spec.ts` | 8 |
+| E2E (presign flow) | `test/uploads/presign.e2e-spec.ts` | 9 |
+
+### Limitaciones conocidas
+
+- **MIME spoofing:** validación usa `Content-Type` header (puede falsificarse). Verificación de magic bytes pendiente.
+- El endpoint `POST /v1/uploads/image` (flujo legacy) no usa aislamiento por `restaurantId` — sigue guardando en `products/{uuid}.ext`.
