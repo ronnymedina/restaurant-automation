@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { ConfigModule, type ConfigType } from '@nestjs/config';
+import * as express from 'express';
 import { UploadsController } from './uploads.controller';
 import { UploadsService } from './uploads.service';
 import { STORAGE_PROVIDER } from './providers/storage-provider.interface';
@@ -51,4 +52,10 @@ import { uploadsConfig } from './uploads.config';
     },
   ],
 })
-export class UploadsModule {}
+export class UploadsModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(express.raw({ type: /^image\//, limit: '10mb' }))
+      .forRoutes({ path: 'uploads/local-put/:token', method: RequestMethod.PUT });
+  }
+}

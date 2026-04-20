@@ -3,6 +3,12 @@ import { UploadsService } from './uploads.service';
 import { STORAGE_PROVIDER } from './providers/storage-provider.interface';
 import { uploadsConfig } from './uploads.config';
 import { UnsupportedMimetypeException } from './exceptions/uploads.exceptions';
+import * as fs from 'fs/promises';
+
+jest.mock('fs/promises', () => ({
+  mkdir: jest.fn(),
+  writeFile: jest.fn(),
+}));
 
 const mockStorageProvider = {
   save: jest.fn(),
@@ -126,6 +132,46 @@ describe('UploadsService', () => {
     it('should throw UnsupportedMimetypeException for unsupported types', async () => {
       await expect(service.getPresignedUpload('rest-id', 'application/pdf'))
         .rejects.toThrow(UnsupportedMimetypeException);
+    });
+  });
+
+  describe('saveLocalPut', () => {
+    it('should write the buffer to disk at path derived from token', async () => {
+      // Create a valid token to simulate what LocalStorageProvider produces
+      const jwt = await import('jsonwebtoken');
+      const token = jwt.default.sign(
+        { key: 'restaurants/rest-id/uuid.jpg', publicUrl: '/uploads/restaurants/rest-id/uuid.jpg' },
+        'test-secret',
+        { expiresIn: 120 },
+      );
+
+      (fs.mkdir as jest.Mock).mockResolvedValue(undefined);
+      (fs.writeFile as jest.Mock).mockResolvedValue(undefined);
+
+      await service.saveLocalPut(token, Buffer.from('img-bytes'));
+
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('restaurants/rest-id/uuid.jpg'),
+        Buffer.from('img-bytes'),
+      );
+    });
+
+    it('should throw InvalidUploadTokenException for an expired token', async () => {
+      const jwt = await import('jsonwebtoken');
+      const expiredToken = jwt.default.sign(
+        { key: 'restaurants/rest-id/uuid.jpg', publicUrl: '/uploads/restaurants/rest-id/uuid.jpg' },
+        'test-secret',
+        { expiresIn: -1 },
+      );
+      const { InvalidUploadTokenException } = await import('./exceptions/uploads.exceptions');
+
+      await expect(service.saveLocalPut(expiredToken, Buffer.from('img'))).rejects.toThrow(InvalidUploadTokenException);
+    });
+
+    it('should throw InvalidUploadTokenException for a tampered token', async () => {
+      const { InvalidUploadTokenException } = await import('./exceptions/uploads.exceptions');
+
+      await expect(service.saveLocalPut('not.a.valid.token', Buffer.from('img'))).rejects.toThrow(InvalidUploadTokenException);
     });
   });
 });

@@ -1,9 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import * as jwt from 'jsonwebtoken';
 import type { ConfigType } from '@nestjs/config';
 import { STORAGE_PROVIDER, type StorageProvider, type PresignedUploadResult } from './providers/storage-provider.interface';
 import { uploadsConfig } from './uploads.config';
-import { UnsupportedMimetypeException } from './exceptions/uploads.exceptions';
+import { UnsupportedMimetypeException, InvalidUploadTokenException } from './exceptions/uploads.exceptions';
 
 const MIME_TO_EXT: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -35,7 +38,16 @@ export class UploadsService {
     return this.storageProvider.getPresignedUpload(key, mimetype, this.config.presignExpirySeconds);
   }
 
-  async saveLocalPut(_token: string, _buffer: Buffer): Promise<void> {
-    throw new Error('not implemented');
+  async saveLocalPut(token: string, buffer: Buffer): Promise<void> {
+    let payload: { key: string; publicUrl: string };
+    try {
+      payload = jwt.verify(token, this.config.jwtSecret) as { key: string; publicUrl: string };
+    } catch {
+      throw new InvalidUploadTokenException();
+    }
+
+    const filePath = path.join(this.config.uploadsPath, payload.key);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, buffer);
   }
 }
