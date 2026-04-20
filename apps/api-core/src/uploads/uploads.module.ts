@@ -40,7 +40,12 @@ import { uploadsConfig } from './uploads.config';
             publicUrl: config.cfR2PublicUrl,
           });
         }
-        return new LocalStorageProvider(config.uploadsPath);
+        return new LocalStorageProvider(
+          config.uploadsPath,
+          config.jwtSecret,
+          config.apiBaseUrl,
+          config.presignExpirySeconds,
+        );
       },
       inject: [uploadsConfig.KEY],
     },
