@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { ConfigModule, type ConfigType } from '@nestjs/config';
+import * as express from 'express';
 import { UploadsController } from './uploads.controller';
 import { UploadsService } from './uploads.service';
 import { STORAGE_PROVIDER } from './providers/storage-provider.interface';
@@ -40,10 +41,23 @@ import { uploadsConfig } from './uploads.config';
             publicUrl: config.cfR2PublicUrl,
           });
         }
-        return new LocalStorageProvider(config.uploadsPath);
+        return new LocalStorageProvider(
+          config.uploadsPath,
+          config.jwtSecret,
+          config.apiBaseUrl,
+          config.presignExpirySeconds,
+        );
       },
       inject: [uploadsConfig.KEY],
     },
   ],
 })
-export class UploadsModule {}
+export class UploadsModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Apply express.raw() so PUT /local-put/:token receives binary body as Buffer.
+    // Using the controller class ensures the versioned path (/v1/...) is matched correctly.
+    consumer
+      .apply(express.raw({ type: 'image/*', limit: '10mb' }))
+      .forRoutes(UploadsController);
+  }
+}

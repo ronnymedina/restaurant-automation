@@ -13,3 +13,23 @@ export class ImageUploadFailedException extends BaseException {
     );
   }
 }
+
+export class UnsupportedMimetypeException extends BaseException {
+  constructor(mimetype: string) {
+    super(
+      `Unsupported mimetype: ${mimetype}. Allowed: image/jpeg, image/png, image/webp`,
+      HttpStatus.BAD_REQUEST,
+      'UNSUPPORTED_MIMETYPE',
+    );
+  }
+}
+
+export class InvalidUploadTokenException extends BaseException {
+  constructor() {
+    super(
+      'Upload token is invalid or has expired',
+      HttpStatus.UNAUTHORIZED,
+      'INVALID_UPLOAD_TOKEN',
+    );
+  }
+}
