@@ -54,8 +54,10 @@ import { uploadsConfig } from './uploads.config';
 })
 export class UploadsModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    // Apply express.raw() so PUT /local-put/:token receives binary body as Buffer.
+    // Using the controller class ensures the versioned path (/v1/...) is matched correctly.
     consumer
-      .apply(express.raw({ type: /^image\//, limit: '10mb' }))
-      .forRoutes({ path: 'uploads/local-put/:token', method: RequestMethod.PUT });
+      .apply(express.raw({ type: 'image/*', limit: '10mb' }))
+      .forRoutes(UploadsController);
   }
 }
