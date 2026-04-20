@@ -73,10 +73,19 @@ export async function deleteProduct(id: string): Promise<void> {
 }
 
 export async function uploadImage(file: File): Promise<string> {
-  const formData = new FormData();
-  formData.append('file', file);
-  const res = await apiFetch('/v1/uploads/image', { method: 'POST', body: formData });
-  if (!res.ok) throw new Error('Error al subir la imagen');
-  const { url } = await res.json();
-  return url;
+  const presignRes = await apiFetch('/v1/uploads/presign', {
+    method: 'POST',
+    body: JSON.stringify({ mimetype: file.type }),
+  });
+  if (!presignRes.ok) throw new Error('Error al obtener URL de subida');
+  const { presignedUrl, publicUrl } = await presignRes.json();
+
+  const putRes = await fetch(presignedUrl, {
+    method: 'PUT',
+    body: file,
+    headers: { 'Content-Type': file.type },
+  });
+  if (!putRes.ok) throw new Error('Error al subir la imagen');
+
+  return publicUrl;
 }
