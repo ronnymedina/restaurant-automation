@@ -4,6 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { queryClient } from '../../commons/Providers';
 import TableWithFetch from '../../commons/TableWithFetch';
 import Button from '../../commons/Button';
+import IconButton from '../../commons/IconButton';
 import ProductForm from './ProductForm';
 import {
   fetchCategories,
@@ -108,13 +109,19 @@ function ProductsContent() {
       id: 'actions',
       header: 'Acciones',
       cell: ({ row }) => (
-        <div className="flex gap-2 justify-end">
-          <Button variant="secondary" size="sm" onClick={() => handleEdit(row.original)}>
-            Editar
-          </Button>
-          <Button variant="danger" size="sm" onClick={() => handleDelete(row.original.id)}>
-            Eliminar
-          </Button>
+        <div className="flex gap-1 justify-end">
+          <IconButton
+            icon="pencil"
+            label="Editar"
+            variant="primary"
+            onClick={() => handleEdit(row.original)}
+          />
+          <IconButton
+            icon="trash"
+            label="Eliminar"
+            variant="danger"
+            onClick={() => handleDelete(row.original.id)}
+          />
         </div>
       ),
     },

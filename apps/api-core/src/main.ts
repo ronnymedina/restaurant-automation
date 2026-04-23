@@ -4,13 +4,16 @@ import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
-import { NODE_ENV, PORT, FRONTEND_URL } from './config';
+import * as express from 'express';
+import { NODE_ENV, PORT, FRONTEND_URL, UPLOADS_PATH } from './config';
 
 const isProduction = NODE_ENV === 'production';
 const port = PORT;
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.use('/uploads', express.static(UPLOADS_PATH));
 
   app.use(helmet());
 

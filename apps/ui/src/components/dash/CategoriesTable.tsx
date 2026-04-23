@@ -4,16 +4,13 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { queryClient } from '../commons/Providers';
 import TableWithFetch from '../commons/TableWithFetch';
 import Button from '../commons/Button';
+import IconButton from '../commons/IconButton';
 import { apiFetch } from '../../lib/api';
 
 interface Category {
   id: number;
   name: string;
-  createdAt: string | null | undefined;
 }
-
-const formatDate = (val: string | null | undefined) =>
-  val ? new Date(val).toLocaleDateString('es-MX') : '—';
 
 export default function CategoriesTable() {
   const [showForm, setShowForm] = useState(false);
@@ -54,13 +51,13 @@ export default function CategoriesTable() {
     try {
       const res = editingId
         ? await apiFetch(`/v1/categories/${editingId}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ name: formName }),
-          })
+          method: 'PATCH',
+          body: JSON.stringify({ name: formName }),
+        })
         : await apiFetch('/v1/categories', {
-            method: 'POST',
-            body: JSON.stringify({ name: formName }),
-          });
+          method: 'POST',
+          body: JSON.stringify({ name: formName }),
+        });
       if (!res.ok) throw new Error();
       queryClient.invalidateQueries({ queryKey: ['/v1/categories'] });
       resetForm();
@@ -72,21 +69,22 @@ export default function CategoriesTable() {
   const columns: ColumnDef<Category>[] = [
     { accessorKey: 'name', header: 'Nombre' },
     {
-      id: 'createdAt',
-      header: 'Fecha de creación',
-      cell: ({ row }) => formatDate(row.original.createdAt),
-    },
-    {
       id: 'actions',
       header: 'Acciones',
       cell: ({ row }) => (
-        <div className="flex gap-2 justify-end">
-          <Button variant="secondary" size="sm" onClick={() => handleEdit(row.original)}>
-            Editar
-          </Button>
-          <Button variant="danger" size="sm" onClick={() => handleDelete(row.original.id)}>
-            Eliminar
-          </Button>
+        <div className="flex gap-1 justify-end">
+          <IconButton
+            icon="pencil"
+            label="Editar"
+            variant="primary"
+            onClick={() => handleEdit(row.original)}
+          />
+          <IconButton
+            icon="trash"
+            label="Eliminar"
+            variant="danger"
+            onClick={() => handleDelete(row.original.id)}
+          />
         </div>
       ),
     },

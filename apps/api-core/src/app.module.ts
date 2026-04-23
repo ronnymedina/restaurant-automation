@@ -23,7 +23,7 @@ import { UploadsModule } from './uploads/uploads.module';
     ConfigModule.forRoot(),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
-      exclude: ['/v1/*', '/health', '/docs'],
+      exclude: ['/v1/{*path}', '/health', '/docs'],
     }),
     EventsModule,
     PrismaModule,

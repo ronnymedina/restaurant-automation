@@ -17,11 +17,11 @@ export class LocalStorageProvider implements StorageProvider {
     const uploadsDir = path.join(this.uploadsPath, 'products');
     await fs.mkdir(uploadsDir, { recursive: true });
     await fs.writeFile(path.join(uploadsDir, filename), buffer);
-    return `/uploads/products/${filename}`;
+    return `${this.apiBaseUrl}/uploads/products/${filename}`;
   }
 
   async getPresignedUpload(key: string, _mimetype: string, expiresInSeconds: number): Promise<PresignedUploadResult> {
-    const publicUrl = `/uploads/${key}`;
+    const publicUrl = `${this.apiBaseUrl}/uploads/${key}`;
     const token = jwt.sign({ key, publicUrl }, this.jwtSecret, { expiresIn: expiresInSeconds });
     const presignedUrl = `${this.apiBaseUrl}/v1/uploads/local-put/${token}`;
     return { presignedUrl, publicUrl };
