@@ -5,7 +5,7 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc --noEmit false",
-    "dev": "tsc && electron .",
+    "dev2": "tsc && electron .",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",
     "pending": "node node_modules/electron/install.js"

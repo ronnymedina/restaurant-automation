@@ -22,9 +22,9 @@ describe('LocalStorageProvider', () => {
   });
 
   describe('save', () => {
-    it('should return a /uploads/products/ URL', async () => {
+    it('should return a full URL for /uploads/products/', async () => {
       const url = await provider.save(Buffer.from('img'), 'abc.jpg', 'image/jpeg');
-      expect(url).toBe('/uploads/products/abc.jpg');
+      expect(url).toBe('http://localhost:3000/uploads/products/abc.jpg');
     });
 
     it('should write the file to the configured uploads/products directory', async () => {
@@ -55,13 +55,13 @@ describe('LocalStorageProvider', () => {
       );
     });
 
-    it('should return publicUrl as /uploads/{key}', async () => {
+    it('should return publicUrl as a full URL for /uploads/{key}', async () => {
       const result = await provider.getPresignedUpload(
         'restaurants/abc/uuid.jpg',
         'image/jpeg',
         120,
       );
-      expect(result.publicUrl).toBe('/uploads/restaurants/abc/uuid.jpg');
+      expect(result.publicUrl).toBe('http://localhost:3000/uploads/restaurants/abc/uuid.jpg');
     });
 
     it('should embed key and publicUrl in the signed token', async () => {
@@ -74,7 +74,7 @@ describe('LocalStorageProvider', () => {
       const payload = jwt.verify(token, TEST_JWT_SECRET) as { key: string; publicUrl: string };
 
       expect(payload.key).toBe('restaurants/abc/uuid.jpg');
-      expect(payload.publicUrl).toBe('/uploads/restaurants/abc/uuid.jpg');
+      expect(payload.publicUrl).toBe('http://localhost:3000/uploads/restaurants/abc/uuid.jpg');
     });
 
     it('should sign the token with the configured expiry', async () => {

@@ -33,7 +33,7 @@ export default function Table<T>({
   });
 
   return (
-    <div className="overflow-x-auto">
+    <div className="w-full overflow-x-auto">
       <table className="min-w-full bg-white border border-gray-200 rounded-lg">
         <thead className="bg-gray-50">
           {table.getHeaderGroups().map((headerGroup) => (
