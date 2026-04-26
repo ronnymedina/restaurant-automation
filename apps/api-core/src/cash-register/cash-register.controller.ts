@@ -5,6 +5,8 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  ClassSerializerInterceptor,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -24,15 +26,14 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
-import {
-  CashShiftDto,
-  CloseSessionResponseDto,
-  SessionSummaryResponseDto,
-} from './dto/cash-register-response.dto';
+import { CashShiftSerializer } from './serializers/cash-shift.serializer';
+import { PaginatedCashShiftsSerializer } from './serializers/paginated-cash-shifts.serializer';
+import { CloseSessionResponseDto, SessionSummaryResponseDto } from './dto/cash-register-response.dto';
 
 @ApiTags('Cash Register')
 @ApiBearerAuth()
 @Controller({ version: '1', path: 'cash-register' })
+@UseInterceptors(ClassSerializerInterceptor)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN, Role.MANAGER)
 export class CashRegisterController {
@@ -41,12 +42,13 @@ export class CashRegisterController {
   @Post('open')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Abrir sesión de caja' })
-  @ApiResponse({ status: 201, description: 'Sesión creada exitosamente', type: CashShiftDto })
+  @ApiResponse({ status: 201, description: 'Sesión creada exitosamente', type: CashShiftSerializer })
   @ApiResponse({ status: 409, description: 'Ya existe una sesión de caja abierta (CASH_REGISTER_ALREADY_OPEN)' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async open(@CurrentUser() user: { restaurantId: string; id: string }) {
-    return this.registerService.openSession(user.restaurantId, user.id);
+    const session = await this.registerService.openSession(user.restaurantId, user.id);
+    return new CashShiftSerializer(session);
   }
 
   @Post('close')
@@ -57,47 +59,45 @@ export class CashRegisterController {
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async close(@CurrentUser() user: { restaurantId: string; id: string }) {
-    return this.registerService.closeSession(user.restaurantId, user.id, user.id);
+    const result = await this.registerService.closeSession(user.restaurantId, user.id, user.id);
+    return {
+      session: new CashShiftSerializer(result.session),
+      summary: result.summary,
+    };
   }
 
   @Get('history')
   @ApiOperation({ summary: 'Historial paginado de sesiones de caja' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Número de página (default: 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Elementos por página (default: 10)' })
-  @ApiResponse({ status: 200, description: 'Lista paginada de sesiones', schema: {
-    properties: {
-      data: { type: 'array', items: { $ref: '#/components/schemas/CashShiftDto' } },
-      meta: {
-        type: 'object',
-        properties: {
-          total: { type: 'number' },
-          page: { type: 'number' },
-          limit: { type: 'number' },
-          totalPages: { type: 'number' },
-        },
-      },
-    },
-  }})
+  @ApiResponse({ status: 200, description: 'Lista paginada de sesiones', type: PaginatedCashShiftsSerializer })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async history(
     @CurrentUser() user: { restaurantId: string },
     @Query() query: PaginationDto,
   ) {
-    return this.registerService.getSessionHistory(
+    const result = await this.registerService.getSessionHistory(
       user.restaurantId,
       query.page,
       query.limit,
     );
+    return new PaginatedCashShiftsSerializer({
+      data: result.data.map(s => new CashShiftSerializer(s)),
+      meta: result.meta,
+    });
   }
 
   @Get('current')
   @ApiOperation({ summary: 'Sesión de caja actualmente abierta' })
-  @ApiResponse({ status: 200, description: 'Sesión activa con conteo de órdenes, o {} si no hay sesión abierta', type: CashShiftDto })
+  @ApiResponse({ status: 200, description: 'Sesión activa con conteo de órdenes, o {} si no hay sesión abierta', type: CashShiftSerializer })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async current(@CurrentUser() user: { restaurantId: string }) {
-    return this.registerService.getCurrentSession(user.restaurantId);
+    const session = await this.registerService.getCurrentSession(user.restaurantId);
+    if (!('id' in session)) return {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return new CashShiftSerializer(session as any);
   }
 
   @Get('summary/:sessionId')
@@ -108,6 +108,11 @@ export class CashRegisterController {
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async summary(@Param('sessionId') sessionId: string) {
-    return this.registerService.getSessionSummary(sessionId);
+    const result = await this.registerService.getSessionSummary(sessionId);
+    return {
+      session: new CashShiftSerializer(result.session),
+      summary: result.summary,
+      orders: result.orders,
+    };
   }
 }

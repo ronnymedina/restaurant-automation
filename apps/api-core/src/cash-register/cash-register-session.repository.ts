@@ -24,9 +24,7 @@ export class CashShiftRepository {
   }
 
   async findById(id: string): Promise<CashShift | null> {
-    return this.prisma.cashShift.findUnique({
-      where: { id },
-    });
+    return this.prisma.cashShift.findUnique({ where: { id } });
   }
 
   async close(
