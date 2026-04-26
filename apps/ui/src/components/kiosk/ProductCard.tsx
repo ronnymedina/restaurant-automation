@@ -66,7 +66,7 @@ export function ProductCard({
           )}
 
           <p
-            className={`font-bold text-sm ${priceChanged ? 'text-amber-600' : 'text-emerald-700'}`}
+            className={`font-bold text-sm ${priceChanged ? 'text-amber-600' : ''}`}
             style={priceChanged ? undefined : { color: theme.primary }}
           >
             ${price.toFixed(2)}
