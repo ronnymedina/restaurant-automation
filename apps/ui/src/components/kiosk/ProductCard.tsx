@@ -1,4 +1,4 @@
-import type { KioskTheme } from '../types/kiosk.types'
+import type { KioskTheme } from './types/kiosk.types'
 
 type StockStatus = 'available' | 'low_stock' | 'out_of_stock'
 

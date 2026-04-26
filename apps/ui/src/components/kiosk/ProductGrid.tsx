@@ -1,4 +1,4 @@
-import type { AddToCartPayload, KioskTheme, MenuItem } from '../types/kiosk.types'
+import type { AddToCartPayload, KioskTheme, MenuItem } from './types/kiosk.types'
 import { ProductCard } from './ProductCard'
 
 type ProductGridProps = {
