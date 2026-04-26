@@ -8,7 +8,10 @@ Turborepo monorepo (pnpm workspaces) with two apps:
 - **`apps/api-core`** — NestJS REST API + WebSocket, Prisma ORM, PostgreSQL
 - **`apps/restaurant-ui`** — Astro + Tailwind CSS frontend
 
-Two products: a **kiosk interface** for customers to order (accessed via restaurant slug URL) and a **management dashboard** for restaurant owners/staff.
+Two products: a **kiosk interface** for customers to order and a **management dashboard** for restaurant owners/staff.
+
+### Kiosk URL routing
+The kiosk uses a **query param** (`/kiosk?slug=mi-restaurante`) instead of path segments (`/kiosk/[slug]`). This is intentional: the Astro UI is compiled as static HTML and embedded inside an Express server that is packaged as an Electron desktop app. Dynamic path segments (`[slug].astro`) don't work reliably in that static-file-serving context, so the slug is passed via query string instead.
 
 ## Commands
 
