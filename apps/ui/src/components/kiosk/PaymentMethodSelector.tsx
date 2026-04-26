@@ -1,3 +1,4 @@
+import React from 'react'
 import type { KioskTheme, PaymentMethod } from './types/kiosk.types'
 
 type PaymentOption = {
@@ -23,7 +24,7 @@ type Props = {
   theme: KioskTheme
 }
 
-export default function PaymentMethodSelector({
+export function PaymentMethodSelector({
   selectedMethod,
   onSelect,
   customerEmail,
@@ -49,7 +50,7 @@ export default function PaymentMethodSelector({
                 className="py-4 px-6 rounded-xl text-lg font-medium flex items-center gap-3 cursor-pointer bg-white transition-all active:scale-95 w-full border-2"
                 style={
                   isSelected
-                    ? { borderColor: theme.primary, backgroundColor: theme.background ?? '#f0fdf4' }
+                    ? { borderColor: theme.primary, backgroundColor: theme.background }
                     : { borderColor: '#e2e8f0' }
                 }
               >
@@ -70,7 +71,8 @@ export default function PaymentMethodSelector({
             value={customerEmail}
             onChange={(e) => onEmailChange(e.target.value)}
             placeholder="tu@email.com"
-            className="w-full px-4 py-3 border border-slate-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full px-4 py-3 border border-slate-300 rounded-xl text-base focus:outline-none focus:ring-2"
+            style={{ '--tw-ring-color': theme.primary } as React.CSSProperties}
           />
         </div>
 

@@ -12,12 +12,8 @@ export function CartPanel({ onClose, onCheckout, theme }: CartPanelProps) {
   const cart = useKioskStore((s) => s.cart)
   const total = cart.reduce((s, c) => s + c.price * c.quantity, 0)
 
-  function handleBackdropClick() {
-    onClose()
-  }
-
   return (
-    <div className="fixed inset-0 bg-black/50 z-50" onClick={handleBackdropClick}>
+    <div className="fixed inset-0 bg-black/50 z-50" onClick={onClose}>
       <div
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85vh] flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}

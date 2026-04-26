@@ -8,7 +8,7 @@ type Props = {
   theme: KioskTheme
 }
 
-export default function OrderConfirmation({ orderNumber, items, total, onNewOrder, theme }: Props) {
+export function OrderConfirmation({ orderNumber, items, total, onNewOrder, theme }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-6"
@@ -31,7 +31,7 @@ export default function OrderConfirmation({ orderNumber, items, total, onNewOrde
         {/* Item summary */}
         <div className="text-left text-sm text-slate-600 space-y-1">
           {items.map((item) => (
-            <div key={`${item.productId}-${item.menuItemId ?? ''}`} className="flex justify-between">
+            <div key={`${item.productId}:${item.menuItemId ?? ''}`} className="flex justify-between">
               <span>
                 {item.quantity}x {item.name}
               </span>

@@ -9,36 +9,36 @@ interface OrderSummaryItemProps {
 }
 
 export function OrderSummaryItem({ item, theme }: OrderSummaryItemProps) {
-  const store = useKioskStore()
-  const hasPriceChange = item.oldPrice !== undefined
+  const updateQuantity = useKioskStore((s) => s.updateQuantity)
+  const updateNotes = useKioskStore((s) => s.updateNotes)
 
   return (
-    <div className={`bg-slate-50 rounded-xl p-3 space-y-2${hasPriceChange ? ' border border-amber-200' : ''}`}>
+    <div className={`bg-slate-50 rounded-xl p-3 space-y-2${item.oldPrice !== undefined ? ' border border-amber-200' : ''}`}>
       <div className="flex items-center justify-between">
         <div>
           <p className="font-medium text-sm">{item.name}</p>
-          {hasPriceChange && (
+          {item.oldPrice !== undefined && (
             <p className="text-xs text-slate-400 line-through">
-              ${(item.oldPrice! * item.quantity).toFixed(2)}
+              ${(item.oldPrice * item.quantity).toFixed(2)}
             </p>
           )}
           <p
-            className={`font-bold text-sm${hasPriceChange ? ' text-amber-600' : ''}`}
-            style={hasPriceChange ? undefined : { color: theme.primary }}
+            className={`font-bold text-sm${item.oldPrice !== undefined ? ' text-amber-600' : ''}`}
+            style={item.oldPrice !== undefined ? undefined : { color: theme.primary }}
           >
             ${(item.price * item.quantity).toFixed(2)}
           </p>
         </div>
         <QuantityControls
           value={item.quantity}
-          onIncrease={() => store.updateQuantity(item.productId, item.menuItemId, 1)}
-          onDecrease={() => store.updateQuantity(item.productId, item.menuItemId, -1)}
+          onIncrease={() => updateQuantity(item.productId, item.menuItemId, 1)}
+          onDecrease={() => updateQuantity(item.productId, item.menuItemId, -1)}
           theme={theme}
         />
       </div>
       <ProductNoteForm
         value={item.notes}
-        onChange={(val) => store.updateNotes(item.productId, item.menuItemId, val)}
+        onChange={(val) => updateNotes(item.productId, item.menuItemId, val)}
         theme={theme}
       />
     </div>
