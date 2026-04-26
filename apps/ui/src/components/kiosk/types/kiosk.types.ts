@@ -62,7 +62,7 @@ export type KioskStore = {
   isLoading: boolean
   menus: Menu[]
   activeMenuId: string | null
-  menuSections: Record<string, MenuItem[]>
+  menuSections: Record<string, Record<string, MenuItem[]>>
   cart: CartItem[]
   selectedPayment: PaymentMethod | null
   customerEmail: string
