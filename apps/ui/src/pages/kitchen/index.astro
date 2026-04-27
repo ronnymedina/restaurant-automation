@@ -88,7 +88,7 @@
 </html>
 
 <script>
-  import { createKitchenSocket } from '../../lib/socket';
+  import { ORDER_EVENTS } from '../../lib/sse-events';
 
   const API_URL = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -274,25 +274,15 @@
     bindCardEvents(colProcessing);
   }
 
-  // ── Socket.IO ─────────────────────────────────────────────────────
+  // ── SSE ───────────────────────────────────────────────────────────
 
-  const socket = createKitchenSocket(token, slug);
+  const es = new EventSource(`${API_URL}/v1/events/kitchen?slug=${slug}&token=${token}`);
 
-  socket.on('connect', () => { setConnected(); loadOrders(); });
-  socket.on('order:new', () => loadOrders());
-  socket.on('order:updated', () => loadOrders());
-  socket.on('disconnect', () => { connDot.style.background = '#fbbf24'; });
+  es.onopen = () => { setConnected(); loadOrders(); };
+  es.onerror = () => { connDot.style.background = '#fbbf24'; setOffline(); };
+  es.addEventListener(ORDER_EVENTS.NEW, () => loadOrders());
+  es.addEventListener(ORDER_EVENTS.UPDATED, () => loadOrders());
 
-  socket.on('reconnect_attempt', (attempt: number) => {
-    if (attempt <= 3) {
-      showBanner(`Reconectando... (intento ${attempt})`, '#ca8a04', 'black');
-    } else {
-      showBanner('Sin conexión', '#dc2626', 'white');
-      setOffline();
-    }
-  });
-
-  socket.on('reconnect', () => { setConnected(); loadOrders(); });
-
+  window.addEventListener('beforeunload', () => es.close());
   loadOrders();
 </script>
