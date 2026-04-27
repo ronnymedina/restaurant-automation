@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrderEventsService, ORDER_EVENTS } from './orders.events';
-import { EventsGateway } from './events.gateway';
+import { SseService } from './sse.service';
 import { Order } from '@prisma/client';
 
-const mockGateway = {
+const mockSseService = {
   emitToRestaurant: jest.fn(),
   emitToKitchen: jest.fn(),
 };
@@ -15,7 +15,7 @@ describe('OrderEventsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrderEventsService,
-        { provide: EventsGateway, useValue: mockGateway },
+        { provide: SseService, useValue: mockSseService },
       ],
     }).compile();
 
@@ -28,32 +28,24 @@ describe('OrderEventsService', () => {
   describe('emitOrderCreated', () => {
     it('emits order:new event to restaurant room', () => {
       service.emitOrderCreated('r1', mockOrder);
-      expect(mockGateway.emitToRestaurant).toHaveBeenCalledWith('r1', ORDER_EVENTS.NEW, {
-        order: mockOrder,
-      });
+      expect(mockSseService.emitToRestaurant).toHaveBeenCalledWith('r1', ORDER_EVENTS.NEW, {});
     });
 
     it('emits order:new event to kitchen room', () => {
       service.emitOrderCreated('r1', mockOrder);
-      expect(mockGateway.emitToKitchen).toHaveBeenCalledWith('r1', ORDER_EVENTS.NEW, {
-        order: mockOrder,
-      });
+      expect(mockSseService.emitToKitchen).toHaveBeenCalledWith('r1', ORDER_EVENTS.NEW, {});
     });
   });
 
   describe('emitOrderUpdated', () => {
     it('emits order:updated event to restaurant room', () => {
       service.emitOrderUpdated('r1', mockOrder);
-      expect(mockGateway.emitToRestaurant).toHaveBeenCalledWith('r1', ORDER_EVENTS.UPDATED, {
-        order: mockOrder,
-      });
+      expect(mockSseService.emitToRestaurant).toHaveBeenCalledWith('r1', ORDER_EVENTS.UPDATED, {});
     });
 
     it('emits order:updated event to kitchen room', () => {
       service.emitOrderUpdated('r1', mockOrder);
-      expect(mockGateway.emitToKitchen).toHaveBeenCalledWith('r1', ORDER_EVENTS.UPDATED, {
-        order: mockOrder,
-      });
+      expect(mockSseService.emitToKitchen).toHaveBeenCalledWith('r1', ORDER_EVENTS.UPDATED, {});
     });
   });
 });

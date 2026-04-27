@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { EventsGateway } from './events.gateway';
+import { SseService } from './sse.service';
 
 export const KIOSK_EVENTS = {
   CATALOG_CHANGED: 'catalog:changed',
@@ -15,9 +15,7 @@ export type StockStatus = (typeof STOCK_STATUS)[keyof typeof STOCK_STATUS];
 
 @Injectable()
 export class KioskEventsService {
-  constructor(private readonly gateway: EventsGateway) {}
+  constructor(private readonly sseService: SseService) {}
 
-  emitCatalogChanged(restaurantId: string): void {
-    this.gateway.emitToKiosk(restaurantId, KIOSK_EVENTS.CATALOG_CHANGED, {});
-  }
+  emitCatalogChanged(restaurantId: string): void {}
 }
