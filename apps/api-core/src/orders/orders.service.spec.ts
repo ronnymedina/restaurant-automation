@@ -15,6 +15,7 @@ import {
 } from './exceptions/orders.exceptions';
 import { ForbiddenAccessException } from '../common/exceptions';
 import { BadRequestException } from '@nestjs/common';
+import { TimezoneService } from '../restaurants/timezone.service';
 
 const mockOrderRepository = {
   findById: jest.fn(),
@@ -41,6 +42,7 @@ const mockPrint = {
   printKitchenTicket: jest.fn().mockResolvedValue({ success: true, message: '' }),
   printReceipt: jest.fn().mockResolvedValue({ success: true, message: '' }),
 };
+const mockTimezoneService = { getTimezone: jest.fn().mockResolvedValue('UTC') };
 
 const makeOrder = (overrides = {}) => ({
   id: 'o1',
@@ -63,6 +65,7 @@ describe('OrdersService', () => {
         { provide: OrderEventsService, useValue: mockOrderEvents },
         { provide: EmailService, useValue: mockEmail },
         { provide: PrintService, useValue: mockPrint },
+        { provide: TimezoneService, useValue: mockTimezoneService },
       ],
     }).compile();
 
