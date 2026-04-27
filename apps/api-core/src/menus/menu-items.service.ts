@@ -1,13 +1,11 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import { MenuItemRepository, CreateMenuItemData, MenuItemWithProduct } from './menu-item.repository';
-import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class MenuItemsService {
   constructor(
     private readonly menuItemRepository: MenuItemRepository,
-    @Optional() private readonly eventsGateway?: EventsGateway,
   ) {}
 
   async createItem(
@@ -23,7 +21,6 @@ export class MenuItemsService {
       data.order = maxOrder + 1;
     }
     const item = await this.menuItemRepository.create({ ...data, menuId });
-    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'menuItem', action: 'created' });
     return item;
   }
 
@@ -51,12 +48,10 @@ export class MenuItemsService {
     data: Partial<Omit<CreateMenuItemData, 'menuId' | 'productId'>>,
   ): Promise<MenuItemWithProduct> {
     const item = await this.menuItemRepository.update(itemId, data);
-    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'menuItem', action: 'updated' });
     return item;
   }
 
   async deleteItem(itemId: string, restaurantId: string): Promise<void> {
     await this.menuItemRepository.delete(itemId);
-    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'menuItem', action: 'deleted' });
   }
 }
