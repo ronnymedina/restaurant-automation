@@ -6,7 +6,7 @@ import { randomBytes } from 'crypto';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { OrdersService } from '../orders/orders.service';
 import { OrderRepository } from '../orders/order.repository';
-import { EventsGateway } from '../events/events.gateway';
+import { SseService } from '../events/sse.service';
 import { KITCHEN_TOKEN_EXPIRY_DAYS } from '../config';
 
 @Injectable()
@@ -15,7 +15,7 @@ export class KitchenService {
     private readonly restaurantsService: RestaurantsService,
     private readonly ordersService: OrdersService,
     private readonly orderRepository: OrderRepository,
-    private readonly eventsGateway: EventsGateway,
+    private readonly sseService: SseService,
   ) {}
 
   async getActiveOrders(restaurant: Restaurant) {
@@ -85,9 +85,6 @@ export class KitchenService {
   }
 
   async notifyOffline(restaurant: Restaurant) {
-    this.eventsGateway.emitToRestaurant(restaurant.id, 'kitchen:offline', {
-      slug: restaurant.slug,
-      since: new Date().toISOString(),
-    });
+    this.sseService.emitToRestaurant(restaurant.id, 'kitchen:offline', {});
   }
 }

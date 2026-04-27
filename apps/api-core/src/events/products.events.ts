@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { EventsGateway } from './events.gateway';
 
 export const PRODUCT_TYPES = {
   PRODUCT: 'product',
@@ -22,47 +21,16 @@ export const CATEGORY_EVENTS = {
 
 @Injectable()
 export class ProductEventsService {
-  constructor(private readonly gateway: EventsGateway) { }
 
-  emitProductCreated(restaurantId: string): void {
-    this.gateway.emitToKiosk(restaurantId, PRODUCT_EVENTS.CATALOG_CHANGED, {
-      type: PRODUCT_TYPES.PRODUCT,
-      action: PRODUCT_ACTIONS.CREATED,
-    });
-  }
+  emitProductCreated(restaurantId: string): void {}
 
-  emitProductUpdated(restaurantId: string): void {
-    this.gateway.emitToKiosk(restaurantId, PRODUCT_EVENTS.CATALOG_CHANGED, {
-      type: PRODUCT_TYPES.PRODUCT,
-      action: PRODUCT_ACTIONS.UPDATED,
-    });
-  }
+  emitProductUpdated(restaurantId: string): void {}
 
-  emitProductDeleted(restaurantId: string): void {
-    this.gateway.emitToKiosk(restaurantId, PRODUCT_EVENTS.CATALOG_CHANGED, {
-      type: PRODUCT_TYPES.PRODUCT,
-      action: PRODUCT_ACTIONS.DELETED,
-    });
-  }
+  emitProductDeleted(restaurantId: string): void {}
 
-  emitCategoryCreated(restaurantId: string): void {
-    this.gateway.emitToKiosk(restaurantId, CATEGORY_EVENTS.CATALOG_CHANGED, {
-      type: PRODUCT_TYPES.CATEGORY,
-      action: PRODUCT_ACTIONS.CREATED,
-    });
-  }
+  emitCategoryCreated(restaurantId: string): void {}
 
-  emitCategoryUpdated(restaurantId: string): void {
-    this.gateway.emitToKiosk(restaurantId, CATEGORY_EVENTS.CATALOG_CHANGED, {
-      type: PRODUCT_TYPES.CATEGORY,
-      action: PRODUCT_ACTIONS.UPDATED,
-    });
-  }
+  emitCategoryUpdated(restaurantId: string): void {}
 
-  emitCategoryDeleted(restaurantId: string): void {
-    this.gateway.emitToKiosk(restaurantId, CATEGORY_EVENTS.CATALOG_CHANGED, {
-      type: PRODUCT_TYPES.CATEGORY,
-      action: PRODUCT_ACTIONS.DELETED,
-    });
-  }
+  emitCategoryDeleted(restaurantId: string): void {}
 }

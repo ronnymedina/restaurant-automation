@@ -89,8 +89,8 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 
 <script>
   import { apiFetch } from '../../lib/api';
-  import { createDashboardSocket } from '../../lib/socket';
   import { getAccessToken } from '../../lib/auth';
+  import { ORDER_EVENTS } from '../../lib/sse-events';
 
   const colCreated = document.getElementById('colCreated')!;
   const colProcessing = document.getElementById('colProcessing')!;
@@ -350,9 +350,10 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 
   const token = getAccessToken();
   if (token) {
-    const socket = createDashboardSocket(token);
-    socket.on('order:new', () => loadOrders());
-    socket.on('order:updated', () => loadOrders());
-    window.addEventListener('beforeunload', () => socket.disconnect());
+    const API_URL = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
+    const es = new EventSource(`${API_URL}/v1/events/dashboard?token=${token}`);
+    es.addEventListener(ORDER_EVENTS.NEW, () => loadOrders());
+    es.addEventListener(ORDER_EVENTS.UPDATED, () => loadOrders());
+    window.addEventListener('beforeunload', () => es.close());
   }
 </script>

@@ -1,16 +1,14 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Menu } from '@prisma/client';
 
 import { MenuRepository, CreateMenuData } from './menu.repository';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import { MenuNotFoundException } from './exceptions/menus.exceptions';
-import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class MenusService {
   constructor(
     private readonly menuRepository: MenuRepository,
-    @Optional() private readonly eventsGateway?: EventsGateway,
   ) { }
 
   async findByRestaurantId(restaurantId: string) {
@@ -52,7 +50,6 @@ export class MenusService {
     data: Omit<CreateMenuData, 'restaurantId'>,
   ): Promise<Menu> {
     const menu = await this.menuRepository.create({ ...data, restaurantId });
-    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'menu', action: 'created' });
     return menu;
   }
 
@@ -63,14 +60,12 @@ export class MenusService {
   ): Promise<Menu> {
     await this.findMenuAndThrowIfNotFound(id, restaurantId);
     const menu = await this.menuRepository.update(id, data);
-    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'menu', action: 'updated' });
     return menu;
   }
 
   async deleteMenu(id: string, restaurantId: string): Promise<void> {
     await this.findMenuAndThrowIfNotFound(id, restaurantId);
     await this.menuRepository.softDelete(id);
-    this.eventsGateway?.emitToKiosk(restaurantId, 'catalog:changed', { type: 'menu', action: 'deleted' });
   }
   async verifyOwnership(id: string, restaurantId: string): Promise<Menu> {
     return this.findMenuAndThrowIfNotFound(id, restaurantId);
