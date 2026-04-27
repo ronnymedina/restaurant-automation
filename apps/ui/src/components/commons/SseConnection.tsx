@@ -21,7 +21,6 @@ export default function SseConnection({
 }: SseConnectionProps) {
   const [status, setStatus] = useState<Status>('connected');
   const [countdown, setCountdown] = useState(0);
-  const [retryCount, setRetryCount] = useState(0);
 
   const esRef = useRef<EventSource | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -49,7 +48,6 @@ export default function SseConnection({
 
     es.onopen = () => {
       retryCountRef.current = 0;
-      setRetryCount(0);
       setStatus('connected');
       onConnect?.();
     };
@@ -58,7 +56,6 @@ export default function SseConnection({
       closeEs();
       const next = currentRetry + 1;
       retryCountRef.current = next;
-      setRetryCount(next);
 
       if (next > maxRetries) {
         setStatus('failed');
