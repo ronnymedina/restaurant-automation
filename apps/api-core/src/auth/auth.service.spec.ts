@@ -44,6 +44,7 @@ const mockRestaurant = {
   id: 'restaurant-uuid-1',
   name: 'Test Restaurant',
   slug: 'test-restaurant',
+  settings: { timezone: 'UTC' },
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -65,6 +66,7 @@ const mockUsersService = {
 
 const mockRestaurantsService = {
   findById: jest.fn(),
+  findByIdWithSettings: jest.fn(),
 };
 
 const mockRefreshTokenRepository = {
@@ -146,7 +148,7 @@ describe('AuthService', () => {
     it('throws InvalidCredentialsException when restaurant is not found', async () => {
       mockUsersService.findByEmail.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      mockRestaurantsService.findById.mockResolvedValue(null);
+      mockRestaurantsService.findByIdWithSettings.mockResolvedValue(null);
 
       await expect(service.login(mockUser.email, 'password')).rejects.toThrow(
         InvalidCredentialsException,
@@ -156,7 +158,7 @@ describe('AuthService', () => {
     it('returns accessToken and refreshToken on successful login', async () => {
       mockUsersService.findByEmail.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      mockRestaurantsService.findById.mockResolvedValue(mockRestaurant);
+      mockRestaurantsService.findByIdWithSettings.mockResolvedValue(mockRestaurant);
       mockRefreshTokenRepository.create.mockResolvedValue(mockRefreshToken);
 
       const result = await service.login(mockUser.email, 'correct-password');
@@ -164,6 +166,7 @@ describe('AuthService', () => {
       expect(result).toEqual({
         accessToken: 'signed-jwt-token',
         refreshToken: expect.any(String),
+        timezone: 'UTC',
       });
       expect(mockJwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({ sub: mockUser.id, email: mockUser.email }),
@@ -205,7 +208,7 @@ describe('AuthService', () => {
     it('throws InvalidRefreshTokenException when restaurant is not found', async () => {
       mockRefreshTokenRepository.findByToken.mockResolvedValue(mockRefreshToken);
       mockUsersService.findById.mockResolvedValue(mockUser);
-      mockRestaurantsService.findById.mockResolvedValue(null);
+      mockRestaurantsService.findByIdWithSettings.mockResolvedValue(null);
 
       await expect(service.refreshTokens(mockRefreshToken.token)).rejects.toThrow(
         InvalidRefreshTokenException,
@@ -215,7 +218,7 @@ describe('AuthService', () => {
     it('deletes used token and returns new pair (rotation)', async () => {
       mockRefreshTokenRepository.findByToken.mockResolvedValue(mockRefreshToken);
       mockUsersService.findById.mockResolvedValue(mockUser);
-      mockRestaurantsService.findById.mockResolvedValue(mockRestaurant);
+      mockRestaurantsService.findByIdWithSettings.mockResolvedValue(mockRestaurant);
       mockRefreshTokenRepository.create.mockResolvedValue(mockRefreshToken);
 
       const result = await service.refreshTokens(mockRefreshToken.token);
@@ -225,6 +228,7 @@ describe('AuthService', () => {
       expect(result).toEqual({
         accessToken: 'signed-jwt-token',
         refreshToken: expect.any(String),
+        timezone: 'UTC',
       });
     });
   });
@@ -285,7 +289,7 @@ describe('AuthService', () => {
     async function createServiceWithRefreshExpiration(jwtRefreshExpiration: string) {
       mockUsersService.findByEmail.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      mockRestaurantsService.findById.mockResolvedValue(mockRestaurant);
+      mockRestaurantsService.findByIdWithSettings.mockResolvedValue(mockRestaurant);
       mockRefreshTokenRepository.create.mockResolvedValue(mockRefreshToken);
 
       const module: TestingModule = await Test.createTestingModule({

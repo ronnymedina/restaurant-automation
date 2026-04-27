@@ -48,7 +48,7 @@ export class AuthService {
       throw new InactiveAccountException();
     }
 
-    const restaurant = await this.restaurantsService.findById(
+    const restaurant = await this.restaurantsService.findByIdWithSettings(
       user.restaurantId,
     );
 
@@ -67,7 +67,7 @@ export class AuthService {
 
     this.logger.log(`User logged in: ${user.email}`);
 
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, timezone: restaurant.settings?.timezone ?? 'UTC' };
   }
 
   async refreshTokens(token: string) {
@@ -91,7 +91,7 @@ export class AuthService {
       throw new InvalidRefreshTokenException();
     }
 
-    const restaurant = await this.restaurantsService.findById(
+    const restaurant = await this.restaurantsService.findByIdWithSettings(
       user.restaurantId,
     );
     if (!restaurant) {
@@ -108,7 +108,7 @@ export class AuthService {
 
     const refreshToken = await this.generateRefreshToken(user.id);
 
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, timezone: restaurant.settings?.timezone ?? 'UTC' };
   }
 
   async getProfile(userId: string) {
