@@ -6,7 +6,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { SseService } from './sse.service';
 
-@Controller('events')
+@Controller({ version: '1', path: 'events' })
 export class EventsController {
   constructor(
     private readonly jwtService: JwtService,
