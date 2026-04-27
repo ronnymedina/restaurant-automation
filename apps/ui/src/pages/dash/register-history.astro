@@ -41,7 +41,10 @@ import DataTable from '../../components/dash/DataTable.astro';
 <script>
   import { apiFetch } from '../../lib/api';
   import { renderPagination, setTableLoading, setTableEmpty, setTableError } from '../../lib/pagination';
+  import { getRestaurantTimezone } from '../../lib/auth';
+  import { formatDate as formatDateTz } from '../../lib/date';
 
+  const timezone = getRestaurantTimezone();
   const COLSPAN = 5;
   let currentPage = 1;
 
@@ -52,8 +55,7 @@ import DataTable from '../../components/dash/DataTable.astro';
   const detailContent = document.getElementById('detailContent')!;
 
   function formatDate(value: string | null): string {
-    if (!value) return '—';
-    return new Date(value).toLocaleString();
+    return formatDateTz(value, timezone);
   }
 
   function formatCurrency(value: number | null): string {
