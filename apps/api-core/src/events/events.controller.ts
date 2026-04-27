@@ -16,15 +16,19 @@ export class EventsController {
 
   @Public()
   @Sse('dashboard')
-  dashboard(@Query('token') token: string): Observable<MessageEvent> {
+  dashboard(@Query('token') token: string | undefined): Observable<MessageEvent> {
     if (!token) {
       throw new UnauthorizedException();
     }
 
-    let payload: { restaurantId: string };
+    let payload: { restaurantId?: string };
     try {
-      payload = this.jwtService.verify<{ restaurantId: string }>(token);
+      payload = this.jwtService.verify<{ restaurantId?: string }>(token);
     } catch {
+      throw new UnauthorizedException();
+    }
+
+    if (!payload.restaurantId) {
       throw new UnauthorizedException();
     }
 
@@ -34,9 +38,13 @@ export class EventsController {
   @Public()
   @Sse('kitchen')
   async kitchen(
-    @Query('token') token: string,
-    @Query('slug') slug: string,
+    @Query('token') token: string | undefined,
+    @Query('slug') slug: string | undefined,
   ): Promise<Observable<MessageEvent>> {
+    if (!slug || !token) {
+      throw new UnauthorizedException();
+    }
+
     const restaurant = await this.restaurantsService.findBySlugWithSettings(slug);
 
     if (!restaurant || !restaurant.settings) {

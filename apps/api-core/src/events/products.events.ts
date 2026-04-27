@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { SseService } from './sse.service';
 
 export const PRODUCT_TYPES = {
   PRODUCT: 'product',
@@ -22,7 +21,6 @@ export const CATEGORY_EVENTS = {
 
 @Injectable()
 export class ProductEventsService {
-  constructor(private readonly sseService: SseService) {}
 
   emitProductCreated(restaurantId: string): void {}
 

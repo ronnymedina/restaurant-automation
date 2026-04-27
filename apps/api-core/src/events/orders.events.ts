@@ -11,12 +11,12 @@ export const ORDER_EVENTS = {
 export class OrderEventsService {
   constructor(private readonly sseService: SseService) {}
 
-  emitOrderCreated(restaurantId: string, order: Order): void {
+  emitOrderCreated(restaurantId: string, _order: Order): void {
     this.sseService.emitToRestaurant(restaurantId, ORDER_EVENTS.NEW, {});
     this.sseService.emitToKitchen(restaurantId, ORDER_EVENTS.NEW, {});
   }
 
-  emitOrderUpdated(restaurantId: string, order: Order): void {
+  emitOrderUpdated(restaurantId: string, _order: Order): void {
     this.sseService.emitToRestaurant(restaurantId, ORDER_EVENTS.UPDATED, {});
     this.sseService.emitToKitchen(restaurantId, ORDER_EVENTS.UPDATED, {});
   }
