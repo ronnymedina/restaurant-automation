@@ -9,9 +9,9 @@ type TransactionClient = Prisma.TransactionClient;
 export class RestaurantsService {
   constructor(private readonly restaurantRepository: RestaurantRepository) {}
 
-  async createRestaurant(name: string, tx?: TransactionClient): Promise<Restaurant> {
+  async createRestaurant(name: string, timezone = 'UTC', tx?: TransactionClient): Promise<Restaurant> {
     const slug = await this.generateSlug(name, tx);
-    return this.restaurantRepository.create({ name, slug }, tx);
+    return this.restaurantRepository.createWithSettings({ name, slug, timezone }, tx);
   }
 
   async findById(id: string): Promise<Restaurant | null> {

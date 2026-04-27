@@ -28,6 +28,24 @@ export class RestaurantRepository {
     });
   }
 
+  async createWithSettings(
+    data: { name: string; slug: string; timezone: string },
+    tx?: TransactionClient,
+  ): Promise<Restaurant> {
+    const run = async (client: TransactionClient) => {
+      const restaurant = await client.restaurant.create({
+        data: { name: data.name, slug: data.slug },
+      });
+      await client.restaurantSettings.create({
+        data: { restaurantId: restaurant.id, timezone: data.timezone },
+      });
+      return restaurant;
+    };
+
+    if (tx) return run(tx);
+    return this.prisma.$transaction(run);
+  }
+
   async findBySlug(slug: string, tx?: TransactionClient): Promise<Restaurant | null> {
     const client = tx ?? this.prisma;
     return client.restaurant.findUnique({

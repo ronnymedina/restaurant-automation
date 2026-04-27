@@ -92,7 +92,7 @@ export class OnboardingService {
       return await this.prisma.$transaction(async (tx: TransactionClient) => {
         let restaurant: Restaurant;
         try {
-          restaurant = await this.restaurantsService.createRestaurant(input.restaurantName, tx);
+          restaurant = await this.restaurantsService.createRestaurant(input.restaurantName, 'UTC', tx);
         } catch (error) {
           this.logger.error('Failed to create restaurant', error);
           throw new RestaurantCreationFailedException({ restaurantName: input.restaurantName });
