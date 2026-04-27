@@ -87,14 +87,14 @@ El componente `SseConnection` y todos los consumidores importan desde `sse-event
 Dos endpoints SSE, marcados como `@Public()` a nivel de JWT guard pero con su propia validación interna:
 
 ```
-GET /v1/events/dashboard
-  - Autenticación: JWT estándar (JwtAuthGuard aplicado globalmente)
-  - Filtra stream por restaurantId extraído del token
+GET /v1/events/dashboard?token=<jwt>
+  - @Public() — el JwtAuthGuard global no puede leer query params
+  - El controller valida el JWT manualmente (JwtService.verify) y extrae restaurantId
+  - Filtra stream por restaurantId
 
-GET /v1/events/kitchen
-  - Query params: slug, token (kitchen token)
-  - Autenticación: valida kitchen token + slug contra la BD (igual que el gateway actual)
-  - @Public() — sin JWT
+GET /v1/events/kitchen?slug=x&token=<kitchen-token>
+  - @Public()
+  - El controller valida kitchen token + slug contra la BD (igual que el gateway actual)
   - Filtra stream por restaurantId del restaurante encontrado
 ```
 
@@ -128,13 +128,12 @@ Componente React que encapsula toda la lógica de conexión SSE y reconexión. E
 
 ```ts
 interface SseConnectionProps {
-  url: string;                              // endpoint SSE
-  authHeader?: string;                      // "Bearer <token>" si requiere JWT
-  events: string[];                         // nombres de eventos a escuchar
+  url: string;                              // endpoint SSE, con token en query param si aplica
+  events: string[];                         // constantes de sse-events.ts
   onEvent: (event: string, data: unknown) => void;
-  onConnect?: () => void;                   // llamado al conectar/reconectar
+  onConnect?: () => void;                   // llamado al conectar/reconectar exitosamente
   maxRetries?: number;                      // default: 5
-  retryDelay?: number;                      // segundos base de espera, default: 3
+  retryDelay?: number;                      // segundos entre intentos (lineal), default: 3
 }
 ```
 
@@ -150,7 +149,7 @@ Estados internos: `connected | reconnecting | failed`
 
 Al conectar exitosamente: llama `onConnect?.()`, suscribe a los eventos listados en `events`, llama `onEvent` por cada uno. Al desmontar: cierra el `EventSource`.
 
-**Nota sobre `EventSource` y autenticación:** `EventSource` nativo no soporta headers custom. Para el dashboard (JWT), se pasa el token como query param: `/v1/events/dashboard?token=<jwt>`. El controller lo acepta via query param además de header `Authorization`.
+**Nota sobre `EventSource` y autenticación:** `EventSource` nativo no soporta headers custom. Para ambos endpoints el token viaja en la URL como query param. El componente recibe la URL ya formada con el token incluido — no tiene una prop de auth separada.
 
 ### Uso en páginas
 
