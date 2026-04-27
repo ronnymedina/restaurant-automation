@@ -1,7 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, MessageEvent, OnModuleDestroy } from '@nestjs/common';
 import { Subject, Observable } from 'rxjs';
 import { filter, map } from 'rxjs/operators';
-import { MessageEvent } from '@nestjs/common/interfaces/http';
 
 export interface SseEvent {
   restaurantId: string;
@@ -10,9 +9,14 @@ export interface SseEvent {
 }
 
 @Injectable()
-export class SseService {
+export class SseService implements OnModuleDestroy {
   private readonly restaurant$ = new Subject<SseEvent>();
   private readonly kitchen$ = new Subject<SseEvent>();
+
+  onModuleDestroy() {
+    this.restaurant$.complete();
+    this.kitchen$.complete();
+  }
 
   emitToRestaurant(restaurantId: string, event: string, data: unknown): void {
     this.restaurant$.next({ restaurantId, event, data });

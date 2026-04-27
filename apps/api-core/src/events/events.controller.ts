@@ -1,7 +1,6 @@
-import { Controller, Query, Sse, UnauthorizedException } from '@nestjs/common';
+import { Controller, MessageEvent, Query, Sse, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Observable } from 'rxjs';
-import { MessageEvent } from '@nestjs/common/interfaces/http';
 
 import { Public } from '../auth/decorators/public.decorator';
 import { RestaurantsService } from '../restaurants/restaurants.service';
