@@ -279,7 +279,7 @@
   const es = new EventSource(`${API_URL}/v1/events/kitchen?slug=${slug}&token=${token}`);
 
   es.onopen = () => { setConnected(); loadOrders(); };
-  es.onerror = () => { connDot.style.background = '#fbbf24'; setOffline(); };
+  es.onerror = () => { setOffline(); };
   es.addEventListener(ORDER_EVENTS.NEW, () => loadOrders());
   es.addEventListener(ORDER_EVENTS.UPDATED, () => loadOrders());
 
