@@ -106,4 +106,78 @@ describe('GET /v1/orders/history - orderHistory (e2e)', () => {
     expect(resB.body.meta.total).toBe(0);
     expect(resA.body.meta.total).toBeGreaterThan(0);
   });
+
+  describe('Filtro por fecha con timezone (America/Mexico_City)', () => {
+    let tzToken: string;
+    let orderInDayId: string;
+    let orderOutBeforeId: string;
+    let orderOutAfterId: string;
+
+    beforeAll(async () => {
+      // Separate restaurant with Mexico City timezone (UTC-6 in January)
+      const rest = await seedRestaurant(prisma, 'TZ');
+      tzToken = await login(app, rest.admin.email);
+
+      await prisma.restaurantSettings.update({
+        where: { restaurantId: rest.restaurant.id },
+        data: { timezone: 'America/Mexico_City' },
+      });
+
+      const product = await seedProduct(prisma, rest.restaurant.id, rest.category.id);
+      const shift = await openCashShift(prisma, rest.restaurant.id, rest.admin.id);
+
+      // Jan 14, 23:59:59 Mexico City = 2026-01-15T05:59:59Z (NOT in Jan 15 local)
+      const before = await seedOrder(prisma, rest.restaurant.id, shift.id, product.id, {
+        createdAt: new Date('2026-01-15T05:59:59.000Z'),
+      });
+      orderOutBeforeId = before.id;
+
+      // Jan 15, 00:00:00 Mexico City = 2026-01-15T06:00:00Z (IS in Jan 15 local)
+      const inside = await seedOrder(prisma, rest.restaurant.id, shift.id, product.id, {
+        createdAt: new Date('2026-01-15T06:00:00.000Z'),
+      });
+      orderInDayId = inside.id;
+
+      // Jan 16, 00:00:00 Mexico City = 2026-01-16T06:00:00Z (NOT in Jan 15 local)
+      const after = await seedOrder(prisma, rest.restaurant.id, shift.id, product.id, {
+        createdAt: new Date('2026-01-16T06:00:00.000Z'),
+      });
+      orderOutAfterId = after.id;
+    });
+
+    it('?dateFrom=2026-01-15&dateTo=2026-01-15 incluye solo órdenes del día local', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/v1/orders/history?dateFrom=2026-01-15&dateTo=2026-01-15')
+        .set('Authorization', `Bearer ${tzToken}`)
+        .expect(200);
+
+      const ids = res.body.data.map((o: any) => o.id);
+      expect(ids).toContain(orderInDayId);
+      expect(ids).not.toContain(orderOutBeforeId);
+      expect(ids).not.toContain(orderOutAfterId);
+    });
+
+    it('?dateFrom=2026-01-15 excluye órdenes anteriores al inicio del día local', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/v1/orders/history?dateFrom=2026-01-15')
+        .set('Authorization', `Bearer ${tzToken}`)
+        .expect(200);
+
+      const ids = res.body.data.map((o: any) => o.id);
+      expect(ids).not.toContain(orderOutBeforeId);
+      expect(ids).toContain(orderInDayId);
+    });
+
+    it('?dateTo=2026-01-15 excluye órdenes posteriores al fin del día local', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/v1/orders/history?dateTo=2026-01-15')
+        .set('Authorization', `Bearer ${tzToken}`)
+        .expect(200);
+
+      const ids = res.body.data.map((o: any) => o.id);
+      expect(ids).not.toContain(orderOutAfterId);
+      expect(ids).toContain(orderOutBeforeId);
+      expect(ids).toContain(orderInDayId);
+    });
+  });
 });

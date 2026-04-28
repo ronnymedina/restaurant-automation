@@ -24,6 +24,7 @@ const mockOrderRepository = {
   cancelOrder: jest.fn(),
   markAsPaid: jest.fn(),
   findByRestaurantId: jest.fn(),
+  findHistory: jest.fn(),
 };
 const mockPrisma: Record<string, any> = {
   $transaction: jest.fn((cb: (tx: any) => any) => cb(mockPrisma)),
@@ -360,6 +361,56 @@ describe('OrdersService', () => {
       mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CANCELLED }));
       await expect(service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.PROCESSING))
         .rejects.toThrow(OrderAlreadyCancelledException);
+    });
+  });
+
+  describe('findHistory', () => {
+    beforeEach(() => {
+      mockOrderRepository.findHistory.mockResolvedValue({ data: [], total: 0 });
+    });
+
+    it('always calls getTimezone with the restaurantId', async () => {
+      mockTimezoneService.getTimezone.mockResolvedValue('UTC');
+      await service.findHistory('r1', { page: 1, limit: 10 });
+      expect(mockTimezoneService.getTimezone).toHaveBeenCalledWith('r1');
+    });
+
+    it('passes undefined dateFrom and dateTo when no dates provided', async () => {
+      mockTimezoneService.getTimezone.mockResolvedValue('UTC');
+      await service.findHistory('r1', { page: 1, limit: 10 });
+      expect(mockOrderRepository.findHistory).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({ dateFrom: undefined, dateTo: undefined }),
+      );
+    });
+
+    it('converts dateFrom to UTC start-of-day boundary for the restaurant timezone', async () => {
+      mockTimezoneService.getTimezone.mockResolvedValue('America/Mexico_City');
+      await service.findHistory('r1', { dateFrom: '2026-01-15', page: 1, limit: 10 });
+      // Mexico City is UTC-6 in January; midnight local = 06:00 UTC
+      expect(mockOrderRepository.findHistory).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({ dateFrom: new Date('2026-01-15T06:00:00.000Z') }),
+      );
+    });
+
+    it('converts dateTo to UTC end-of-day boundary for the restaurant timezone', async () => {
+      mockTimezoneService.getTimezone.mockResolvedValue('America/Mexico_City');
+      await service.findHistory('r1', { dateTo: '2026-01-15', page: 1, limit: 10 });
+      // End of Jan 15 in Mexico City = 2026-01-16T05:59:59.999Z UTC
+      expect(mockOrderRepository.findHistory).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({ dateTo: new Date('2026-01-16T05:59:59.999Z') }),
+      );
+    });
+
+    it('forwards page and limit to the repository', async () => {
+      mockTimezoneService.getTimezone.mockResolvedValue('UTC');
+      await service.findHistory('r1', { page: 3, limit: 5 });
+      expect(mockOrderRepository.findHistory).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({ page: 3, limit: 5 }),
+      );
     });
   });
 });
