@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { Restaurant } from '@prisma/client';
 
 import { RestaurantsService } from '../restaurants/restaurants.service';
+import { RestaurantWithSettings } from '../restaurants/restaurant.repository';
 import { MenuRepository } from '../menus/menu.repository';
 import { OrdersService } from '../orders/orders.service';
 import { CashShiftRepository } from '../cash-register/cash-register-session.repository';
@@ -9,7 +9,6 @@ import { CreateOrderDto } from '../orders/dto/create-order.dto';
 import { EntityNotFoundException } from '../common/exceptions';
 import { RegisterNotOpenException } from '../orders/exceptions/orders.exceptions';
 import { STOCK_STATUS, StockStatus } from '../events/kiosk.events';
-import { TIMEZONE } from '../config';
 
 export interface MenuItemEntry {
   id: string;
@@ -30,8 +29,8 @@ export class KioskService {
     private readonly registerSessionRepository: CashShiftRepository,
   ) {}
 
-  async resolveRestaurant(slug: string): Promise<Restaurant> {
-    const restaurant = await this.restaurantsService.findBySlug(slug);
+  async resolveRestaurant(slug: string): Promise<RestaurantWithSettings> {
+    const restaurant = await this.restaurantsService.findBySlugWithSettings(slug);
     if (!restaurant) throw new EntityNotFoundException('Restaurant', { slug });
     return restaurant;
   }
@@ -39,7 +38,10 @@ export class KioskService {
   async getAvailableMenus(slug: string) {
     const restaurant = await this.resolveRestaurant(slug);
     const menus = await this.menuRepository.findByRestaurantId(restaurant.id);
-    const { currentDay, currentTime } = this.getCurrentDayAndTime();
+    const { currentDay, currentTime } = this.getCurrentDayAndTime(
+      new Date(),
+      restaurant.settings?.timezone ?? 'UTC',
+    );
     return menus.filter((menu) => this.isMenuAvailable(menu, currentDay, currentTime));
   }
 
@@ -64,13 +66,16 @@ export class KioskService {
     return this.ordersService.createOrder(restaurant.id, session.id, dto);
   }
 
-  getCurrentDayAndTime(now = new Date()): { currentDay: string; currentTime: string } {
+  getCurrentDayAndTime(
+    now: Date,
+    timezone: string,
+  ): { currentDay: string; currentTime: string } {
     const DAY_MAP: Record<string, string> = {
       Mon: 'MON', Tue: 'TUE', Wed: 'WED', Thu: 'THU', Fri: 'FRI', Sat: 'SAT', Sun: 'SUN',
     };
 
     const parts = new Intl.DateTimeFormat('en-US', {
-      timeZone: TIMEZONE,
+      timeZone: timezone,
       weekday: 'short',
       hour: '2-digit',
       minute: '2-digit',
@@ -80,7 +85,6 @@ export class KioskService {
     const weekday = parts.find(p => p.type === 'weekday')?.value ?? '';
     const hour = parts.find(p => p.type === 'hour')?.value ?? '00';
     const minute = parts.find(p => p.type === 'minute')?.value ?? '00';
-    // Intl with hour12:false may return "24" for midnight; normalize
     const normalizedHour = hour === '24' ? '00' : hour;
 
     return {

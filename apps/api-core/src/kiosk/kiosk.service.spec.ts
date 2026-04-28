@@ -8,12 +8,17 @@ import { EntityNotFoundException } from '../common/exceptions';
 import { STOCK_STATUS } from '../events/kiosk.events';
 import { RegisterNotOpenException } from '../orders/exceptions/orders.exceptions';
 
-const mockRestaurantsService = { findBySlug: jest.fn() };
+const mockRestaurantsService = { findBySlugWithSettings: jest.fn() };
 const mockMenuRepository = { findByRestaurantId: jest.fn(), findByIdWithItems: jest.fn() };
 const mockOrdersService = { createOrder: jest.fn() };
 const mockRegisterSessionRepo = { findOpen: jest.fn() };
 
-const mockRestaurant = { id: 'r1', slug: 'test-rest', name: 'Test' };
+const mockRestaurant = {
+  id: 'r1',
+  slug: 'test-rest',
+  name: 'Test',
+  settings: { timezone: 'America/Argentina/Buenos_Aires' },
+};
 
 describe('KioskService', () => {
   let service: KioskService;
@@ -37,12 +42,12 @@ describe('KioskService', () => {
 
   describe('resolveRestaurant', () => {
     it('throws EntityNotFoundException when slug not found', async () => {
-      mockRestaurantsService.findBySlug.mockResolvedValue(null);
+      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(null);
       await expect(service.resolveRestaurant('unknown')).rejects.toThrow(EntityNotFoundException);
     });
 
     it('returns restaurant when found', async () => {
-      mockRestaurantsService.findBySlug.mockResolvedValue(mockRestaurant);
+      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(mockRestaurant);
       expect(await service.resolveRestaurant('test-rest')).toEqual(mockRestaurant);
     });
   });
@@ -187,7 +192,7 @@ describe('KioskService', () => {
     it('returns correct day and time for a known UTC instant in America/Argentina/Buenos_Aires (UTC-3)', () => {
       // 2024-01-15 15:00 UTC  →  2024-01-15 12:00 Buenos Aires (Monday)
       const utc = new Date('2024-01-15T15:00:00Z');
-      const { currentDay, currentTime } = service.getCurrentDayAndTime(utc);
+      const { currentDay, currentTime } = service.getCurrentDayAndTime(utc, 'America/Argentina/Buenos_Aires');
       expect(currentDay).toBe('MON');
       expect(currentTime).toBe('12:00');
     });
@@ -195,7 +200,7 @@ describe('KioskService', () => {
     it('handles day boundary: UTC midnight belongs to the previous day in UTC-3', () => {
       // 2024-01-16 00:30 UTC  →  2024-01-15 21:30 Buenos Aires (Monday, not Tuesday)
       const utc = new Date('2024-01-16T00:30:00Z');
-      const { currentDay, currentTime } = service.getCurrentDayAndTime(utc);
+      const { currentDay, currentTime } = service.getCurrentDayAndTime(utc, 'America/Argentina/Buenos_Aires');
       expect(currentDay).toBe('MON');
       expect(currentTime).toBe('21:30');
     });
@@ -203,7 +208,7 @@ describe('KioskService', () => {
     it('handles end of day: 23:59 local time', () => {
       // 2024-01-16 02:59 UTC  →  2024-01-15 23:59 Buenos Aires (Monday)
       const utc = new Date('2024-01-16T02:59:00Z');
-      const { currentDay, currentTime } = service.getCurrentDayAndTime(utc);
+      const { currentDay, currentTime } = service.getCurrentDayAndTime(utc, 'America/Argentina/Buenos_Aires');
       expect(currentDay).toBe('MON');
       expect(currentTime).toBe('23:59');
     });
@@ -211,7 +216,7 @@ describe('KioskService', () => {
     it('handles start of day: 00:00 local time', () => {
       // 2024-01-15 03:00 UTC  →  2024-01-15 00:00 Buenos Aires (Monday)
       const utc = new Date('2024-01-15T03:00:00Z');
-      const { currentDay, currentTime } = service.getCurrentDayAndTime(utc);
+      const { currentDay, currentTime } = service.getCurrentDayAndTime(utc, 'America/Argentina/Buenos_Aires');
       expect(currentDay).toBe('MON');
       expect(currentTime).toBe('00:00');
     });
@@ -219,18 +224,18 @@ describe('KioskService', () => {
     it('returns zero-padded hours and minutes', () => {
       // 2024-01-15 12:05 UTC  →  2024-01-15 09:05 Buenos Aires
       const utc = new Date('2024-01-15T12:05:00Z');
-      const { currentTime } = service.getCurrentDayAndTime(utc);
+      const { currentTime } = service.getCurrentDayAndTime(utc, 'America/Argentina/Buenos_Aires');
       expect(currentTime).toBe('09:05');
     });
 
     it('returns a valid day abbreviation', () => {
       const validDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-      const { currentDay } = service.getCurrentDayAndTime(new Date());
+      const { currentDay } = service.getCurrentDayAndTime(new Date(), 'America/Argentina/Buenos_Aires');
       expect(validDays).toContain(currentDay);
     });
 
     it('returns time in HH:MM format', () => {
-      const { currentTime } = service.getCurrentDayAndTime(new Date());
+      const { currentTime } = service.getCurrentDayAndTime(new Date(), 'America/Argentina/Buenos_Aires');
       expect(currentTime).toMatch(/^\d{2}:\d{2}$/);
     });
   });
@@ -239,11 +244,11 @@ describe('KioskService', () => {
 
   describe('getAvailableMenus', () => {
     beforeEach(() => {
-      mockRestaurantsService.findBySlug.mockResolvedValue(mockRestaurant);
+      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(mockRestaurant);
     });
 
     it('throws EntityNotFoundException when restaurant not found', async () => {
-      mockRestaurantsService.findBySlug.mockResolvedValue(null);
+      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(null);
       await expect(service.getAvailableMenus('unknown')).rejects.toThrow(EntityNotFoundException);
     });
 
@@ -292,11 +297,9 @@ describe('KioskService', () => {
     });
 
     it('dashboard and kiosk use the same timezone — same day/time result', () => {
-      // Both contexts call getCurrentDayAndTime with the same instance, so timezone is consistent.
-      const fixedDate = new Date('2024-03-11T20:00:00Z'); // 15:00 America/Bogota (Monday)
-      const result = service.getCurrentDayAndTime(fixedDate);
-      // Verify the result is stable/consistent
-      expect(result).toEqual(service.getCurrentDayAndTime(fixedDate));
+      const fixedDate = new Date('2024-03-11T20:00:00Z');
+      const result = service.getCurrentDayAndTime(fixedDate, 'America/Argentina/Buenos_Aires');
+      expect(result).toEqual(service.getCurrentDayAndTime(fixedDate, 'America/Argentina/Buenos_Aires'));
     });
 
     it('returns all menus when none have schedule restrictions', async () => {
@@ -338,7 +341,7 @@ describe('KioskService', () => {
     });
 
     beforeEach(() => {
-      mockRestaurantsService.findBySlug.mockResolvedValue(mockRestaurant);
+      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(mockRestaurant);
     });
 
     it('throws EntityNotFoundException when menu not found', async () => {
@@ -398,14 +401,14 @@ describe('KioskService', () => {
 
   describe('getStatus', () => {
     it('returns registerOpen: true when a session is open', async () => {
-      mockRestaurantsService.findBySlug.mockResolvedValue(mockRestaurant);
+      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(mockRestaurant);
       mockRegisterSessionRepo.findOpen.mockResolvedValue({ id: 's1' });
       const result = await service.getStatus('test-rest');
       expect(result).toEqual({ registerOpen: true });
     });
 
     it('returns registerOpen: false when no session is open', async () => {
-      mockRestaurantsService.findBySlug.mockResolvedValue(mockRestaurant);
+      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(mockRestaurant);
       mockRegisterSessionRepo.findOpen.mockResolvedValue(null);
       const result = await service.getStatus('test-rest');
       expect(result).toEqual({ registerOpen: false });
@@ -418,7 +421,7 @@ describe('KioskService', () => {
     const mockDto = { items: [], paymentMethod: 'cash' } as any;
 
     it('throws RegisterNotOpenException when no session is open', async () => {
-      mockRestaurantsService.findBySlug.mockResolvedValue(mockRestaurant);
+      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(mockRestaurant);
       mockRegisterSessionRepo.findOpen.mockResolvedValue(null);
       await expect(service.createKioskOrder('test-rest', mockDto)).rejects.toThrow(
         RegisterNotOpenException,
@@ -426,7 +429,7 @@ describe('KioskService', () => {
     });
 
     it('delegates to ordersService.createOrder when session is open', async () => {
-      mockRestaurantsService.findBySlug.mockResolvedValue(mockRestaurant);
+      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(mockRestaurant);
       mockRegisterSessionRepo.findOpen.mockResolvedValue({ id: 's1' });
       const mockOrder = { id: 'o1' };
       mockOrdersService.createOrder.mockResolvedValue(mockOrder);

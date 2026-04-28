@@ -6,9 +6,10 @@ import { OrderRepository } from './order.repository';
 import { EmailModule } from '../email/email.module';
 import { PrintModule } from '../print/print.module';
 import { EventsModule } from '../events/events.module';
+import { RestaurantsModule } from '../restaurants/restaurants.module';
 
 @Module({
-  imports: [EmailModule, forwardRef(() => PrintModule), EventsModule],
+  imports: [EmailModule, forwardRef(() => PrintModule), EventsModule, RestaurantsModule],
   controllers: [OrdersController],
   providers: [OrdersService, OrderRepository],
   exports: [OrdersService, OrderRepository],

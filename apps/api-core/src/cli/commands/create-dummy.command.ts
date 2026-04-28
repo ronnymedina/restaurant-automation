@@ -7,6 +7,7 @@ import { UsersService } from '../../users/users.service';
 const DEFAULT_EMAIL = 'admin@demo.com';
 const DUMMY_PASSWORD = '12345678';
 const DUMMY_RESTAURANT_NAME = 'Demo Restaurant';
+const DUMMY_TIMEZONE = process.env.DUMMY_TIMEZONE || 'UTC';
 
 interface DummyOptions {
   email?: string;
@@ -51,7 +52,7 @@ export class CreateDummyCommand extends CommandRunner {
         restaurantSlug = restaurant?.slug ?? 'unknown';
         this.logger.log(`Restaurant already exists: ${restaurant?.name} (${restaurantId})`);
       } else {
-        const restaurant = await this.restaurantsService.createRestaurant(DUMMY_RESTAURANT_NAME);
+        const restaurant = await this.restaurantsService.createRestaurant(DUMMY_RESTAURANT_NAME, DUMMY_TIMEZONE);
         restaurantId = restaurant.id;
         restaurantSlug = restaurant.slug;
         this.logger.log(`Restaurant created: ${restaurant.name} (${restaurantId})`);
