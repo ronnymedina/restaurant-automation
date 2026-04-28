@@ -132,7 +132,7 @@ export async function seedOrder(
   restaurantId: string,
   cashShiftId: string,
   productId: string,
-  overrides: { status?: string; isPaid?: boolean } = {},
+  overrides: { status?: string; isPaid?: boolean; createdAt?: Date } = {},
 ) {
   const updatedShift = await prisma.cashShift.update({
     where: { id: cashShiftId },
@@ -147,6 +147,7 @@ export async function seedOrder(
       totalAmount: BigInt(1000),
       status: (overrides.status as any) ?? 'CREATED',
       isPaid: overrides.isPaid ?? false,
+      ...(overrides.createdAt ? { createdAt: overrides.createdAt } : {}),
       items: {
         create: [{ productId, quantity: 1, unitPrice: BigInt(1000), subtotal: BigInt(1000) }],
       },
