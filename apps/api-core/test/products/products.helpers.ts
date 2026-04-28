@@ -42,6 +42,10 @@ export async function seedRestaurant(prisma: PrismaService, suffix: string) {
     },
   });
 
+  await prisma.restaurantSettings.create({
+    data: { restaurantId: restaurant.id, timezone: 'UTC' },
+  });
+
   const category = await prisma.productCategory.create({
     data: { name: 'General', restaurantId: restaurant.id, isDefault: false },
   });
