@@ -4,6 +4,7 @@ import { RestaurantsService } from './restaurants.service';
 
 const mockRestaurantsService = {
   rename: jest.fn(),
+  findByIdWithSettings: jest.fn(),
 };
 
 describe('RestaurantsController', () => {
@@ -31,6 +32,27 @@ describe('RestaurantsController', () => {
       const result = await controller.rename(user, { name: 'Nuevo Nombre' });
       expect(mockRestaurantsService.rename).toHaveBeenCalledWith('r1', 'Nuevo Nombre');
       expect(result).toEqual({ slug: 'nuevo-nombre' });
+    });
+  });
+
+  describe('getSettings', () => {
+    it('returns timezone from restaurant settings', async () => {
+      mockRestaurantsService.findByIdWithSettings.mockResolvedValue({
+        id: 'r1',
+        settings: { timezone: 'America/Mexico_City' },
+      });
+      const result = await controller.getSettings({ restaurantId: 'r1' });
+      expect(mockRestaurantsService.findByIdWithSettings).toHaveBeenCalledWith('r1');
+      expect(result).toEqual({ timezone: 'America/Mexico_City' });
+    });
+
+    it('returns UTC when settings is null', async () => {
+      mockRestaurantsService.findByIdWithSettings.mockResolvedValue({
+        id: 'r1',
+        settings: null,
+      });
+      const result = await controller.getSettings({ restaurantId: 'r1' });
+      expect(result).toEqual({ timezone: 'UTC' });
     });
   });
 });
