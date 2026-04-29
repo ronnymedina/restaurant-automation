@@ -14,13 +14,13 @@ export function CartFab({ itemCount, onClick, theme }: CartFabProps) {
       <div className="relative">
         <button
           onClick={onClick}
-          className="rounded-full w-16 h-16 shadow-lg flex items-center justify-center text-2xl active:scale-95 transition-transform cursor-pointer border-none"
+          className="rounded-full w-16 h-16 md:w-20 md:h-20 shadow-lg flex items-center justify-center text-2xl md:text-3xl active:scale-95 transition-transform cursor-pointer border-none"
           style={{ backgroundColor: theme.primary }}
           aria-label={`Ver carrito (${itemCount} productos)`}
         >
           <span className="text-white">🛒</span>
         </button>
-        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">
+        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-6 h-6 md:w-7 md:h-7 flex items-center justify-center font-bold">
           {itemCount}
         </span>
       </div>
