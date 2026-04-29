@@ -1,10 +1,9 @@
-import { Global, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { CACHE_SERVICE } from './cache.interface';
 import { InMemoryCacheService } from './in-memory-cache.service';
 import { RedisCacheService } from './redis-cache.service';
 import { CACHE_DRIVER, REDIS_URL } from '../config';
 
-@Global()
 @Module({
   providers: [
     {

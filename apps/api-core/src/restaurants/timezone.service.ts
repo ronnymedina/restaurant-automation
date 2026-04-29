@@ -1,6 +1,7 @@
 import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ICacheService, CACHE_SERVICE } from '../cache/cache.interface';
+import type { ICacheService } from '../cache/cache.interface';
+import { CACHE_SERVICE } from '../cache/cache.interface';
 
 @Injectable()
 export class TimezoneService {
