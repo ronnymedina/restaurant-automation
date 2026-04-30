@@ -144,7 +144,7 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([deletedAt])
+  @@index([restaurantId, deletedAt])
 }
 
 model Menu {
