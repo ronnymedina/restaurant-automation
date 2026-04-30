@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProductsController } from '../products.controller';
 import { ProductsService } from '../products.service';
-import { PaginationDto } from '../../common/dto/pagination.dto';
+import { ProductQueryDto } from '../dto/product-query.dto';
 import { ProductListSerializer } from '../serializers/product-list.serializer';
 
 describe('ProductsController - listProducts', () => {
@@ -41,7 +41,7 @@ describe('ProductsController - listProducts', () => {
 
   describe('Validaciones de Controller', () => {
     const user = { restaurantId: 'rest-aislado-123' };
-    const query: PaginationDto = { page: 2, limit: 5 };
+    const query: ProductQueryDto = { page: 2, limit: 5 };
 
     const mockResult = {
       data: [{
@@ -64,7 +64,8 @@ describe('ProductsController - listProducts', () => {
       expect(service.listProductsWithPagination).toHaveBeenCalledWith(
         'rest-aislado-123',
         expect.anything(),
-        expect.anything()
+        expect.anything(),
+        undefined,
       );
     });
 
@@ -74,7 +75,32 @@ describe('ProductsController - listProducts', () => {
       expect(service.listProductsWithPagination).toHaveBeenCalledWith(
         expect.anything(),
         2,
-        5
+        5,
+        undefined,
+      );
+    });
+
+    it('debe pasar query.search al servicio cuando está presente', async () => {
+      const queryWithSearch: ProductQueryDto = { page: 1, limit: 10, search: 'burger' };
+      await controller.listProducts(user, queryWithSearch);
+
+      expect(service.listProductsWithPagination).toHaveBeenCalledWith(
+        'rest-aislado-123',
+        1,
+        10,
+        'burger',
+      );
+    });
+
+    it('debe pasar undefined al servicio cuando search no está presente', async () => {
+      const queryWithoutSearch: ProductQueryDto = { page: 1, limit: 10 };
+      await controller.listProducts(user, queryWithoutSearch);
+
+      expect(service.listProductsWithPagination).toHaveBeenCalledWith(
+        'rest-aislado-123',
+        1,
+        10,
+        undefined,
       );
     });
 
