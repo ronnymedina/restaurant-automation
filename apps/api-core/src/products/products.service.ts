@@ -80,6 +80,7 @@ export class ProductsService {
     restaurantId: string,
     page?: number,
     limit?: number,
+    search?: string,
   ): Promise<PaginatedResult<Product>> {
     const currentPage = page || 1;
     const currentLimit = limit
@@ -92,6 +93,7 @@ export class ProductsService {
         restaurantId,
         skip,
         currentLimit,
+        search,
       );
 
     return {
