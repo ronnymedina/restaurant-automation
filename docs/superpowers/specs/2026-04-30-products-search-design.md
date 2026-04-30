@@ -93,12 +93,17 @@ A `useDebounce` hook (~10 lines) is added to `apps/ui/src/hooks/useDebounce.ts`.
   key={debouncedSearch}
   url={PRODUCTS_QUERY_KEY}
   columns={columns}
-  params={{ limit: '50', ...(debouncedSearch ? { search: debouncedSearch } : {}) }}
+  params={{
+    limit: debouncedSearch ? '5' : '50',
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
+  }}
   emptyMessage="No hay productos"
 />
 ```
 
 Using `key={debouncedSearch}` causes React to remount `TableWithFetch` when the search changes, which resets its internal `page` state to 1. No changes to `TableWithFetch`, `ProductForm`, or any other component.
+
+When `search` is active, `limit` is capped at **5** — the intent is to find one specific product quickly, not browse the full catalog. Without search, `limit` stays at `50`.
 
 ## Files Changed
 
