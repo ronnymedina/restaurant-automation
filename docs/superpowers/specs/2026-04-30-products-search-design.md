@@ -7,29 +7,21 @@
 
 Add server-side search to the products dashboard view. A single debounced input lets staff find products by name or SKU without loading the full catalog. The feature spans three layers: database indexes, API query param, and UI input.
 
-## Database (PostgreSQL)
+## Database
 
-Two changes to `schema.postgresql.prisma` and its migration:
+One change to both schemas (`schema.prisma` and `schema.postgresql.prisma`):
 
-**1. Replace the weak single-column index with a composite:**
+**Replace the single-column index with a composite:**
 ```prisma
 // Before
 @@index([deletedAt])
 
-// After (both schema.prisma and schema.postgresql.prisma)
+// After
 @@index([restaurantId, deletedAt])
 ```
-Every product query filters by `restaurantId` first. The existing `deletedAt`-only index is effectively unused.
+Every product query always filters by `restaurantId` first. The existing `deletedAt`-only index is effectively unused. With the composite index, PostgreSQL narrows the dataset to the restaurant's products efficiently, and the subsequent `ILIKE` runs on that already-small set.
 
-**2. Add GIN trigram indexes via raw SQL in the Prisma migration:**
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-CREATE INDEX "Product_name_trgm_idx" ON "Product" USING GIN (name gin_trgm_ops);
-CREATE INDEX "Product_sku_trgm_idx"  ON "Product" USING GIN (sku  gin_trgm_ops);
-```
-This makes `ILIKE '%term%'` O(log n) instead of O(n). The `pg_trgm` extension is available on all major PostgreSQL cloud providers (Railway, Supabase, RDS). The write overhead is negligible because this table has few writes.
-
-The SQLite dev schema gets the composite index only (no GIN support in SQLite).
+**Future optimization (when there are real production clients):** GIN trigram indexes on `name` and `sku` via `pg_trgm` extension. Deferred — no production load to justify it yet.
 
 ## API (NestJS)
 
@@ -63,7 +55,7 @@ where: {
 }
 ```
 
-`mode: 'insensitive'` maps to `ILIKE` in PostgreSQL, which hits the GIN trigram indexes.
+`mode: 'insensitive'` maps to `ILIKE` in PostgreSQL. PostgreSQL usa primero el composite index `(restaurantId, deletedAt)` para acotar al catálogo del restaurante, y luego aplica el `ILIKE` sobre ese set reducido.
 
 ### Service — `listProductsWithPagination`
 
@@ -114,7 +106,7 @@ Using `key={debouncedSearch}` causes React to remount `TableWithFetch` when the 
 |------|--------|
 | `apps/api-core/prisma/schema.prisma` | Replace `@@index([deletedAt])` → `@@index([restaurantId, deletedAt])` |
 | `apps/api-core/prisma/schema.postgresql.prisma` | Same composite index change |
-| `apps/api-core/prisma/migrations/<new>/migration.sql` | Composite index + GIN trigram SQL |
+| `apps/api-core/prisma/migrations/<new>/migration.sql` | Composite index migration |
 | `apps/api-core/src/products/dto/product-query.dto.ts` | New DTO |
 | `apps/api-core/src/products/dto/index.ts` | Export new DTO |
 | `apps/api-core/src/products/product.repository.ts` | Add `search` param to paginated query |
