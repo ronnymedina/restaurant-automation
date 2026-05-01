@@ -18,6 +18,7 @@ export interface MenuItemEntry {
   price: number;
   imageUrl: string | null;
   stockStatus: StockStatus;
+  stock: number | null;
 }
 
 @Injectable()
@@ -135,6 +136,7 @@ export class KioskService {
         price,
         imageUrl: item.product.imageUrl,
         stockStatus: this.computeStockStatus(effectiveStock),
+        stock: effectiveStock,
       });
     }
 

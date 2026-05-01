@@ -102,16 +102,19 @@ export function KioskApp({ theme: themeProp }: Props) {
 
   if (view === KioskView.CHECKOUT) {
     return (
-      <PaymentMethodSelector
-        selectedMethod={selectedPayment}
-        onSelect={setPayment}
-        customerEmail={customerEmail}
-        onEmailChange={setCustomerEmail}
-        onConfirm={placeOrder}
-        onBack={() => setView(isSidebarMode ? KioskView.MENU : KioskView.CART)}
-        isLoading={isSubmitting}
-        theme={theme}
-      />
+      <>
+        <PaymentMethodSelector
+          selectedMethod={selectedPayment}
+          onSelect={setPayment}
+          customerEmail={customerEmail}
+          onEmailChange={setCustomerEmail}
+          onConfirm={placeOrder}
+          onBack={() => setView(isSidebarMode ? KioskView.MENU : KioskView.CART)}
+          isLoading={isSubmitting}
+          theme={theme}
+        />
+        {errorMessage && <ErrorToast message={errorMessage} onDismiss={clearError} />}
+      </>
     )
   }
 
@@ -123,11 +126,11 @@ export function KioskApp({ theme: themeProp }: Props) {
 
   if (isSidebarMode) {
     return (
-      <div className="h-screen flex flex-row" style={{ backgroundColor: theme.background, color: theme.text }}>
-        <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="h-dvh flex flex-row" style={{ backgroundColor: theme.background, color: theme.text }}>
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <KioskHeader title={headerTitle} theme={theme} />
           <MenuTabs menus={menus} activeMenuId={activeMenuId} onSelect={selectMenu} theme={theme} />
-          <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          <main className="flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain p-4 md:p-6">
             {menuContent}
           </main>
         </div>
@@ -144,16 +147,18 @@ export function KioskApp({ theme: themeProp }: Props) {
     )
   }
 
+  const cartItemCount = cart.reduce((s, c) => s + c.quantity, 0)
+
   return (
-    <div className="h-screen flex flex-col" style={{ backgroundColor: theme.background, color: theme.text }}>
+    <div className="h-dvh flex flex-col" style={{ backgroundColor: theme.background, color: theme.text }}>
       <KioskHeader title={headerTitle} theme={theme} />
       <MenuTabs menus={menus} activeMenuId={activeMenuId} onSelect={selectMenu} theme={theme} />
-      <main className="flex-1 overflow-y-auto p-4">
+      <main className={`flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain p-4 ${view === KioskView.MENU && cartItemCount > 0 ? 'pb-28' : ''}`}>
         {menuContent}
       </main>
       {view === KioskView.MENU && (
         <CartFab
-          itemCount={cart.reduce((s, c) => s + c.quantity, 0)}
+          itemCount={cartItemCount}
           onClick={() => setView(KioskView.CART)}
           theme={theme}
         />

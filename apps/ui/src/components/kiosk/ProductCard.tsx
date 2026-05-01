@@ -35,7 +35,7 @@ export function ProductCard({
     <div
       className={`bg-white rounded-xl border overflow-hidden flex flex-col ${borderClass} ${opacityClass}`}
     >
-      <div className="aspect-[4/3] bg-slate-100 flex items-center justify-center text-4xl">
+      <div className="aspect-[4/3] overflow-hidden bg-slate-100 flex items-center justify-center text-4xl">
         {imageUrl ? (
           <img src={imageUrl} alt={title} className="w-full h-full object-cover" />
         ) : (
