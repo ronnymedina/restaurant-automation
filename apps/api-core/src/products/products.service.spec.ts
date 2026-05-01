@@ -204,39 +204,17 @@ describe('ProductsService', () => {
       expect(result.meta.page).toBe(1);
       expect(result.meta.limit).toBe(10); // maxPageSize from mock config
     });
-  });
 
-  describe('listProductsWithPagination', () => {
     it('passes search to repository when provided', async () => {
-      mockProductRepo.findByRestaurantIdPaginated.mockResolvedValue({
-        data: [],
-        total: 0,
-      });
-
+      mockProductRepo.findByRestaurantIdPaginated.mockResolvedValue({ data: [], total: 0 });
       await service.listProductsWithPagination('rest-1', 1, 10, 'burger');
-
-      expect(mockProductRepo.findByRestaurantIdPaginated).toHaveBeenCalledWith(
-        'rest-1',
-        0,
-        10,
-        'burger',
-      );
+      expect(mockProductRepo.findByRestaurantIdPaginated).toHaveBeenCalledWith('rest-1', 0, 10, 'burger');
     });
 
     it('passes undefined search to repository when not provided', async () => {
-      mockProductRepo.findByRestaurantIdPaginated.mockResolvedValue({
-        data: [],
-        total: 0,
-      });
-
+      mockProductRepo.findByRestaurantIdPaginated.mockResolvedValue({ data: [], total: 0 });
       await service.listProductsWithPagination('rest-1', 1, 10);
-
-      expect(mockProductRepo.findByRestaurantIdPaginated).toHaveBeenCalledWith(
-        'rest-1',
-        0,
-        10,
-        undefined,
-      );
+      expect(mockProductRepo.findByRestaurantIdPaginated).toHaveBeenCalledWith('rest-1', 0, 10, undefined);
     });
   });
 
