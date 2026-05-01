@@ -3,7 +3,7 @@ import { Exclude, Expose, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 @Exclude()
-export class CashShiftSerializer implements Omit<CashShift, 'openingBalance' | 'totalSales' | 'userId'> {
+export class CashShiftSerializer implements Omit<CashShift, 'openingBalance' | 'totalSales'> {
   @ApiProperty()
   @Expose()
   id: string;
@@ -11,6 +11,10 @@ export class CashShiftSerializer implements Omit<CashShift, 'openingBalance' | '
   @ApiProperty()
   @Expose()
   restaurantId: string;
+
+  @ApiProperty()
+  @Expose()
+  userId: string;
 
   @ApiProperty({ enum: CashShiftStatus })
   @Expose()
@@ -50,7 +54,11 @@ export class CashShiftSerializer implements Omit<CashShift, 'openingBalance' | '
   @Expose()
   _count?: { orders: number };
 
-  constructor(partial: Partial<CashShift & { _count?: { orders: number } }>) {
+  @ApiPropertyOptional({ type: Object, nullable: true })
+  @Expose()
+  user?: { id: string; email: string } | null;
+
+  constructor(partial: Partial<CashShift & { _count?: { orders: number }; user?: { id: string; email: string } | null }>) {
     Object.assign(this, partial);
   }
 }

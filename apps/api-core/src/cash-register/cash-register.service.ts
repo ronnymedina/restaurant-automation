@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { CashShift, CashShiftStatus, OrderStatus, Prisma } from '@prisma/client';
+import { CashShiftStatus, OrderStatus, Prisma } from '@prisma/client';
 
-import { CashShiftRepository } from './cash-register-session.repository';
+import { CashShiftRepository, CashShiftWithUser, CashShiftWithCount } from './cash-register-session.repository';
 import { OrderRepository } from '../orders/order.repository';
 import {
   CashRegisterAlreadyOpenException,
@@ -20,7 +20,7 @@ export class CashRegisterService {
     private readonly prisma: PrismaService,
   ) { }
 
-  async openSession(restaurantId: string, userId: string): Promise<CashShift> {
+  async openSession(restaurantId: string, userId: string): Promise<CashShiftWithUser> {
     const existing =
       await this.registerSessionRepository.findOpen(restaurantId);
 
@@ -98,7 +98,7 @@ export class CashRegisterService {
     restaurantId: string,
     page?: number,
     limit?: number,
-  ): Promise<PaginatedResult<CashShift>> {
+  ): Promise<PaginatedResult<CashShiftWithCount>> {
     const currentPage = page || 1;
     const currentLimit = limit || DEFAULT_PAGE_SIZE;
     const skip = (currentPage - 1) * currentLimit;

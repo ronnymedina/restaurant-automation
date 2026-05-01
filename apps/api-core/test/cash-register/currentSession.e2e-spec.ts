@@ -52,4 +52,19 @@ describe('GET /v1/cash-register/current - currentSession (e2e)', () => {
     expect(res.body.id).toBeDefined();
     expect(res.body.status).toBe('OPEN');
   });
+
+  it('Con sesión abierta → respuesta incluye user.email del abridor', async () => {
+    const restC = await seedRestaurant(prisma, 'C');
+    const token = await login(app, restC.admin.email);
+    await openCashShiftViaApi(app, token);
+
+    const res = await request(app.getHttpServer())
+      .get('/v1/cash-register/current')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(res.body.userId).toBeDefined();
+    expect(res.body.user).toBeDefined();
+    expect(res.body.user.email).toBe(restC.admin.email);
+  });
 });
