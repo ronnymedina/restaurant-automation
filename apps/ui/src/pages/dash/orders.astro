@@ -10,6 +10,14 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       <h2 class="text-2xl font-bold text-slate-800">Cocina (KDS)</h2>
     </div>
 
+    <!-- Shift info strip -->
+    <div id="shiftInfo" class="hidden bg-white rounded-xl border border-slate-200 px-4 py-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+      <span class="text-slate-400">Sesión:</span>
+      <span id="shiftId" class="font-mono text-slate-700 text-xs"></span>
+      <span class="text-slate-400">Cajero:</span>
+      <span id="shiftUser" class="font-medium text-slate-700"></span>
+    </div>
+
     <!-- Kanban Board: 4 columns -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 min-h-[60vh]">
       <!-- CREATED -->
@@ -104,6 +112,9 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   const countCompleted = document.getElementById('countCompleted')!;
   const countCancelled = document.getElementById('countCancelled')!;
   const toast = document.getElementById('orderToast')!;
+  const shiftInfo = document.getElementById('shiftInfo')!;
+  const shiftIdEl = document.getElementById('shiftId')!;
+  const shiftUserEl = document.getElementById('shiftUser')!;
 
   // Cancel modal elements
   const cancelModal = document.getElementById('cancelModal')!;
@@ -237,6 +248,23 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     `;
   }
 
+  async function loadShiftInfo() {
+    try {
+      const res = await apiFetch('/v1/cash-register/current');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data?.id) {
+        shiftInfo.classList.add('hidden');
+        return;
+      }
+      shiftIdEl.textContent = data.id;
+      shiftUserEl.textContent = data.user?.email ?? data.userId ?? '-';
+      shiftInfo.classList.remove('hidden');
+    } catch {
+      // non-critical — kitchen still works without shift banner
+    }
+  }
+
   function bindCardEvents(container: Element) {
     container.querySelectorAll('.advance-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -349,14 +377,15 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     bindCardEvents(colCancelled);
   }
 
+  loadShiftInfo();
   loadOrders();
 
   const token = getAccessToken();
   if (token) {
     const API_URL = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
     const es = new EventSource(`${API_URL}/v1/events/dashboard?token=${token}`);
-    es.addEventListener(ORDER_EVENTS.NEW, () => loadOrders());
-    es.addEventListener(ORDER_EVENTS.UPDATED, () => loadOrders());
+    es.addEventListener(ORDER_EVENTS.NEW, () => { loadOrders(); loadShiftInfo(); });
+    es.addEventListener(ORDER_EVENTS.UPDATED, () => { loadOrders(); loadShiftInfo(); });
     window.addEventListener('beforeunload', () => es.close());
   }
 </script>
