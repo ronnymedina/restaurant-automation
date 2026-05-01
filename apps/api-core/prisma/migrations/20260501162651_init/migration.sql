@@ -28,21 +28,32 @@ CREATE TABLE "Restaurant" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
-    "kitchenToken" TEXT,
-    "kitchenTokenExpiresAt" DATETIME,
-    "defaultReservationDuration" INTEGER NOT NULL DEFAULT 90,
+    "status" TEXT NOT NULL DEFAULT 'CREATED',
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
 );
 
 -- CreateTable
-CREATE TABLE "Category" (
+CREATE TABLE "RestaurantSettings" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "restaurantId" TEXT NOT NULL,
+    "timezone" TEXT NOT NULL DEFAULT 'UTC',
+    "kitchenToken" TEXT,
+    "kitchenTokenExpiresAt" DATETIME,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "RestaurantSettings_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "Restaurant" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "product_categories" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
+    "isDefault" BOOLEAN NOT NULL DEFAULT false,
     "restaurantId" TEXT NOT NULL,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "Category_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "Restaurant" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "product_categories_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "Restaurant" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -50,17 +61,18 @@ CREATE TABLE "Product" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
     "description" TEXT,
-    "price" DECIMAL NOT NULL DEFAULT 0.00,
+    "price" BIGINT NOT NULL DEFAULT 0,
     "stock" INTEGER,
     "active" BOOLEAN NOT NULL DEFAULT true,
     "sku" TEXT,
     "imageUrl" TEXT,
     "restaurantId" TEXT NOT NULL,
     "categoryId" TEXT NOT NULL,
+    "deletedAt" DATETIME,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "Product_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "Restaurant" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "Product_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "Product_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "product_categories" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -72,6 +84,7 @@ CREATE TABLE "Menu" (
     "endTime" TEXT,
     "daysOfWeek" TEXT,
     "restaurantId" TEXT NOT NULL,
+    "deletedAt" DATETIME,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "Menu_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "Restaurant" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
@@ -97,23 +110,23 @@ CREATE TABLE "Order" (
     "status" TEXT NOT NULL DEFAULT 'CREATED',
     "paymentMethod" TEXT,
     "customerEmail" TEXT,
-    "totalAmount" DECIMAL NOT NULL,
+    "totalAmount" BIGINT NOT NULL,
     "isPaid" BOOLEAN NOT NULL DEFAULT false,
     "cancellationReason" TEXT,
     "restaurantId" TEXT NOT NULL,
-    "registerSessionId" TEXT NOT NULL,
+    "cashShiftId" TEXT NOT NULL,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "Order_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "Restaurant" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "Order_registerSessionId_fkey" FOREIGN KEY ("registerSessionId") REFERENCES "RegisterSession" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "Order_cashShiftId_fkey" FOREIGN KEY ("cashShiftId") REFERENCES "CashShift" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "OrderItem" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "quantity" INTEGER NOT NULL,
-    "unitPrice" DECIMAL NOT NULL,
-    "subtotal" DECIMAL NOT NULL,
+    "unitPrice" BIGINT NOT NULL,
+    "subtotal" BIGINT NOT NULL,
     "notes" TEXT,
     "orderId" TEXT NOT NULL,
     "productId" TEXT NOT NULL,
@@ -125,66 +138,20 @@ CREATE TABLE "OrderItem" (
 );
 
 -- CreateTable
-CREATE TABLE "RegisterSession" (
+CREATE TABLE "CashShift" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "status" TEXT NOT NULL DEFAULT 'OPEN',
     "lastOrderNumber" INTEGER NOT NULL DEFAULT 0,
-    "totalSales" DECIMAL,
+    "openingBalance" BIGINT NOT NULL DEFAULT 0,
+    "userId" TEXT NOT NULL,
+    "totalSales" BIGINT,
     "totalOrders" INTEGER,
     "closedBy" TEXT,
     "restaurantId" TEXT NOT NULL,
     "openedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "closedAt" DATETIME,
-    CONSTRAINT "RegisterSession_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "Restaurant" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
-);
-
--- CreateTable
-CREATE TABLE "PendingOperation" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "type" TEXT NOT NULL,
-    "payload" TEXT NOT NULL,
-    "adminEmail" TEXT NOT NULL,
-    "token" TEXT NOT NULL,
-    "expiresAt" DATETIME NOT NULL,
-    "confirmedAt" DATETIME,
-    "restaurantId" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "PendingOperation_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "Restaurant" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
-);
-
--- CreateTable
-CREATE TABLE "Table" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "name" TEXT NOT NULL,
-    "capacity" INTEGER NOT NULL,
-    "active" BOOLEAN NOT NULL DEFAULT true,
-    "restaurantId" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "Table_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "Restaurant" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
-);
-
--- CreateTable
-CREATE TABLE "Reservation" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "guestName" TEXT NOT NULL,
-    "guestPhone" TEXT NOT NULL,
-    "guestEmail" TEXT,
-    "partySize" INTEGER NOT NULL,
-    "date" DATETIME NOT NULL,
-    "duration" INTEGER NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'PENDING',
-    "notes" TEXT,
-    "isPaid" BOOLEAN NOT NULL DEFAULT false,
-    "paymentReference" TEXT,
-    "paymentPlatform" TEXT,
-    "cancellationReason" TEXT,
-    "tableId" TEXT NOT NULL,
-    "restaurantId" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "Reservation_tableId_fkey" FOREIGN KEY ("tableId") REFERENCES "Table" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "Reservation_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "Restaurant" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "CashShift_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "CashShift_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "Restaurant" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateIndex
@@ -200,34 +167,34 @@ CREATE INDEX "User_deletedAt_idx" ON "User"("deletedAt");
 CREATE UNIQUE INDEX "RefreshToken_token_key" ON "RefreshToken"("token");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Restaurant_name_key" ON "Restaurant"("name");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Restaurant_slug_key" ON "Restaurant"("slug");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Restaurant_kitchenToken_key" ON "Restaurant"("kitchenToken");
+CREATE UNIQUE INDEX "RestaurantSettings_restaurantId_key" ON "RestaurantSettings"("restaurantId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "RestaurantSettings_kitchenToken_key" ON "RestaurantSettings"("kitchenToken");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "product_categories_restaurantId_name_key" ON "product_categories"("restaurantId", "name");
+
+-- CreateIndex
+CREATE INDEX "Product_deletedAt_idx" ON "Product"("deletedAt");
+
+-- CreateIndex
+CREATE INDEX "Menu_deletedAt_idx" ON "Menu"("deletedAt");
 
 -- CreateIndex
 CREATE INDEX "Order_restaurantId_createdAt_idx" ON "Order"("restaurantId", "createdAt");
 
 -- CreateIndex
-CREATE INDEX "Order_registerSessionId_idx" ON "Order"("registerSessionId");
+CREATE INDEX "Order_cashShiftId_idx" ON "Order"("cashShiftId");
 
 -- CreateIndex
-CREATE INDEX "RegisterSession_restaurantId_status_idx" ON "RegisterSession"("restaurantId", "status");
+CREATE UNIQUE INDEX "Order_cashShiftId_orderNumber_key" ON "Order"("cashShiftId", "orderNumber");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "PendingOperation_token_key" ON "PendingOperation"("token");
-
--- CreateIndex
-CREATE INDEX "PendingOperation_token_idx" ON "PendingOperation"("token");
-
--- CreateIndex
-CREATE INDEX "PendingOperation_restaurantId_idx" ON "PendingOperation"("restaurantId");
-
--- CreateIndex
-CREATE INDEX "Table_restaurantId_idx" ON "Table"("restaurantId");
-
--- CreateIndex
-CREATE INDEX "Reservation_restaurantId_date_idx" ON "Reservation"("restaurantId", "date");
-
--- CreateIndex
-CREATE INDEX "Reservation_tableId_date_idx" ON "Reservation"("tableId", "date");
+CREATE INDEX "CashShift_restaurantId_status_idx" ON "CashShift"("restaurantId", "status");
