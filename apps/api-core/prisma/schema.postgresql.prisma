@@ -229,7 +229,9 @@ model OrderItem {
   createdAt DateTime @default(now())
 }
 
-// PostgreSQL partial unique index must be created manually: CREATE UNIQUE INDEX "one_open_shift_per_user_per_restaurant" ON "CashShift"("restaurantId", "userId") WHERE status = 'OPEN';
+// PostgreSQL partial unique index must be created manually:
+// CREATE UNIQUE INDEX "one_open_shift_per_restaurant" ON "CashShift"("restaurantId") WHERE status = 'OPEN';
+// (Replaces the old per-user index "one_open_shift_per_user_per_restaurant" — drop it if it exists)
 model CashShift {
   id              String          @id @default(uuid())
   status          CashShiftStatus @default(OPEN)

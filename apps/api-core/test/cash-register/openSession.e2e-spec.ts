@@ -64,12 +64,13 @@ describe('POST /v1/cash-register/open - openSession (e2e)', () => {
     expect(res.body.code).toBe('REGISTER_ALREADY_OPEN');
   });
 
-  it('MANAGER puede abrir su propia sesión → 201', async () => {
+  it('Con sesión global abierta → MANAGER recibe 409 REGISTER_ALREADY_OPEN', async () => {
+    // adminToken already has an open session from the previous test
     const res = await request(app.getHttpServer())
       .post('/v1/cash-register/open')
       .set('Authorization', `Bearer ${managerToken}`)
-      .expect(201);
+      .expect(409);
 
-    expect(res.body.status).toBe('OPEN');
+    expect(res.body.code).toBe('REGISTER_ALREADY_OPEN');
   });
 });
