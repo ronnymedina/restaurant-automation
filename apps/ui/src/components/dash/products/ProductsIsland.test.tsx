@@ -93,3 +93,35 @@ test('renders product rows from API response', async () => {
   expect(screen.getByText('Bebidas')).toBeInTheDocument();
   expect(screen.getByText('$5.00')).toBeInTheDocument();
 });
+
+test('renders a search input', () => {
+  render(<ProductsIsland />);
+  expect(screen.getByPlaceholderText('Buscar por nombre o SKU...')).toBeInTheDocument();
+});
+
+test('calls API with limit=5 and search param when user types', async () => {
+  render(<ProductsIsland />);
+
+  const input = screen.getByPlaceholderText('Buscar por nombre o SKU...');
+  fireEvent.change(input, { target: { value: 'burger' } });
+
+  // Wait for debounce (300ms) — advance fake timers or use waitFor with real timers
+  await waitFor(() => {
+    const calls = mockApiFetch.mock.calls;
+    const searchCall = calls.find(([url]: [string]) =>
+      typeof url === 'string' && url.includes('search=burger'),
+    );
+    expect(searchCall).toBeDefined();
+    expect(searchCall![0]).toContain('limit=5');
+  }, { timeout: 1000 });
+});
+
+test('uses limit=50 when search is empty', async () => {
+  render(<ProductsIsland />);
+
+  await waitFor(() => {
+    const calls = mockApiFetch.mock.calls;
+    const firstCall = calls[0]?.[0];
+    expect(firstCall).toContain('limit=50');
+  });
+});

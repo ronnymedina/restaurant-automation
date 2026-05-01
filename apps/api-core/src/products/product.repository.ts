@@ -72,19 +72,30 @@ export class ProductRepository {
     restaurantId: string,
     skip: number,
     take: number,
+    search?: string,
   ): Promise<{ data: Product[]; total: number }> {
+    const where = {
+      restaurantId,
+      deletedAt: null,
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' as const } },
+              { sku:  { contains: search, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
+
     const [data, total] = await Promise.all([
       this.prisma.product.findMany({
-        where: { restaurantId, deletedAt: null },
+        where,
         skip,
         take,
         orderBy: { createdAt: 'desc' },
         include: { category: { select: { name: true } } },
       }),
-
-      this.prisma.product.count({
-        where: { restaurantId, deletedAt: null },
-      }),
+      this.prisma.product.count({ where }),
     ]);
 
     return { data, total };
