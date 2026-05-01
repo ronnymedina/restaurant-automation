@@ -6,6 +6,7 @@ import TableWithFetch from '../../commons/TableWithFetch';
 import Button from '../../commons/Button';
 import IconButton from '../../commons/IconButton';
 import ProductForm from './ProductForm';
+import { useDebounce } from '../../../hooks/useDebounce';
 import {
   fetchCategories,
   deleteProduct,
@@ -19,6 +20,8 @@ function ProductsContent() {
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
 
   const { data: categories = [] } = useQuery({
     queryKey: [CATEGORIES_QUERY_KEY, 'all'],
@@ -151,10 +154,22 @@ function ProductsContent() {
         />
       )}
 
+      <input
+        type="search"
+        placeholder="Buscar por nombre o SKU..."
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        className="w-full max-w-sm rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+
       <TableWithFetch<Product>
+        key={debouncedSearch}
         url={PRODUCTS_QUERY_KEY}
         columns={columns}
-        params={{ limit: '50' }}
+        params={{
+          limit: debouncedSearch ? '5' : '50',
+          ...(debouncedSearch ? { search: debouncedSearch } : {}),
+        }}
         emptyMessage="No hay productos"
       />
     </div>
