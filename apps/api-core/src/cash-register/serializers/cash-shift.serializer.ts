@@ -2,6 +2,8 @@ import { CashShift, CashShiftStatus } from '@prisma/client';
 import { Exclude, Expose, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { CashShiftWithUser } from '../cash-register-session.repository';
+
 @Exclude()
 export class CashShiftSerializer implements Omit<CashShift, 'openingBalance' | 'totalSales'> {
   @ApiProperty()
@@ -58,7 +60,7 @@ export class CashShiftSerializer implements Omit<CashShift, 'openingBalance' | '
   @Expose()
   user?: { id: string; email: string } | null;
 
-  constructor(partial: Partial<CashShift & { _count?: { orders: number }; user?: { id: string; email: string } | null }>) {
+  constructor(partial: Partial<CashShiftWithUser & { _count?: { orders: number }; user?: { id: string; email: string } | null }>) {
     Object.assign(this, partial);
   }
 }
