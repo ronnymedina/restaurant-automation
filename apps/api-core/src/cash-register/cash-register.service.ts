@@ -22,7 +22,7 @@ export class CashRegisterService {
 
   async openSession(restaurantId: string, userId: string): Promise<CashShift> {
     const existing =
-      await this.registerSessionRepository.findOpen(restaurantId, userId);
+      await this.registerSessionRepository.findOpen(restaurantId);
 
     if (existing) throw new CashRegisterAlreadyOpenException();
 
@@ -36,13 +36,12 @@ export class CashRegisterService {
     }
   }
 
-  async closeSession(restaurantId: string, closedBy?: string, userId?: string) {
+  async closeSession(restaurantId: string, closedBy?: string) {
     return this.prisma.$transaction(async (tx) => {
       const session = await tx.cashShift.findFirst({
         where: {
           restaurantId,
           status: CashShiftStatus.OPEN,
-          ...(userId ? { userId } : {}),
         },
       });
       if (!session) throw new NoOpenCashRegisterException();
