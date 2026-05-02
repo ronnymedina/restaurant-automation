@@ -207,4 +207,4 @@ volumes:
 |---|---|
 | `apps/api-core/Dockerfile` | Reemplazar (actualmente vacío) |
 | `docker-compose.yml` | Crear (actualmente vacío) |
-| `.dockerignore` | Crear (no existe) |
+| `apps/api-core/.dockerignore` | Crear — junto al Dockerfile; BuildKit lo detecta automáticamente al construir con `-f apps/api-core/Dockerfile` |

@@ -16,18 +16,20 @@
 |---|---|
 | `apps/api-core/Dockerfile` | Reemplazar (actualmente vacío) |
 | `docker-compose.yml` | Reemplazar (actualmente vacío) |
-| `.dockerignore` | Crear |
+| `apps/api-core/.dockerignore` | Crear |
 
 ---
 
-## Task 1: Crear `.dockerignore`
+## Task 1: Crear `apps/api-core/.dockerignore`
 
 **Files:**
-- Create: `.dockerignore`
+- Create: `apps/api-core/.dockerignore`
+
+**Nota sobre ubicación:** Docker BuildKit busca el `.dockerignore` en el mismo directorio que el Dockerfile cuando se construye con `-f apps/api-core/Dockerfile`. Al estar junto al Dockerfile, el archivo aplica solo a este servicio — correcto para un monorepo donde cada app tendrá su propio `.dockerignore`. Los patrones son relativos al build context (raíz del monorepo).
 
 - [ ] **Step 1: Crear el archivo**
 
-Crear en la raíz del monorepo `/Users/ronny/projects/restaurants/.dockerignore`:
+Crear `apps/api-core/.dockerignore`:
 
 ```
 # Dependencies
@@ -67,7 +69,7 @@ Crear en la raíz del monorepo `/Users/ronny/projects/restaurants/.dockerignore`
 - [ ] **Step 2: Verificar que el archivo se creó correctamente**
 
 ```bash
-cat .dockerignore
+cat apps/api-core/.dockerignore
 ```
 
 Expected: contenido del archivo sin errores.
@@ -75,8 +77,8 @@ Expected: contenido del archivo sin errores.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .dockerignore
-git commit -m "chore: add .dockerignore for monorepo Docker builds"
+git add apps/api-core/.dockerignore
+git commit -m "chore(api-core): add .dockerignore for Docker builds"
 ```
 
 ---
