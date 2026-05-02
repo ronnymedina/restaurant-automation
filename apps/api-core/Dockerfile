@@ -69,6 +69,12 @@ ENV NODE_ENV=development
 
 WORKDIR /app/apps/api-core
 
+# Copy config files needed by nest start --watch at runtime.
+# Source (src/) and schema (prisma/) are mounted via docker-compose volumes.
+COPY --chown=node:node apps/api-core/tsconfig.json         ./tsconfig.json
+COPY --chown=node:node apps/api-core/tsconfig.build.json   ./tsconfig.build.json
+COPY --chown=node:node apps/api-core/nest-cli.json         ./nest-cli.json
+
 USER node
 
 # Source code is mounted via docker-compose volume at runtime.
