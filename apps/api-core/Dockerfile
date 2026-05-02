@@ -59,3 +59,18 @@ RUN cp -r apps/api-core/dist    /deploy/dist \
 # Generate Prisma client inside /deploy (ensures correct internal paths)
 WORKDIR /deploy
 RUN /app/node_modules/.pnpm/node_modules/.bin/prisma generate --schema=./prisma/schema.postgresql.prisma
+
+# ============================
+# Stage: dev
+# ============================
+FROM deps AS dev
+
+ENV NODE_ENV=development
+
+WORKDIR /app/apps/api-core
+
+USER node
+
+# Source code is mounted via docker-compose volume at runtime.
+# On startup: generate Prisma client, then start with hot reload.
+CMD ["sh", "-c", "pnpm exec prisma generate --schema=prisma/schema.postgresql.prisma && pnpm run dev"]
