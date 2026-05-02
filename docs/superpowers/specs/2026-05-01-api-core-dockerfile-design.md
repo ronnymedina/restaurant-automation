@@ -48,15 +48,18 @@ Instala todas las dependencias (dev + prod). Esta capa se cachea y es compartida
 Compila la aplicación y produce el artefacto de producción.
 
 - Copia source completo de `apps/api-core/`: `src/`, `prisma/`, `nest-cli.json`, `tsconfig.json`, `tsconfig.build.json`
+- `WORKDIR /app/apps/api-core` — los comandos de compilación corren directo desde el paquete, sin `--filter`
 - Genera cliente Prisma para PostgreSQL:
   ```
-  pnpm --filter @restaurants/api-core exec prisma generate --schema=./prisma/schema.postgresql.prisma
+  pnpm exec prisma generate --schema=./prisma/schema.postgresql.prisma
   ```
-- Compila NestJS: `pnpm --filter @restaurants/api-core run build` → output en `apps/api-core/dist/`
-- Crea directorio de deploy con prod node_modules:
+- Compila NestJS: `pnpm run build` → output en `dist/`
+- Vuelve a raíz del workspace para deploy:
   ```
+  WORKDIR /app
   pnpm deploy --filter @restaurants/api-core --prod /deploy
   ```
+  (`pnpm deploy` requiere correr desde la raíz del workspace — único uso de `--filter`)
 - Copia al directorio de deploy:
   - `apps/api-core/dist/` → `/deploy/dist/`
   - `apps/api-core/node_modules/.prisma/` → `/deploy/node_modules/.prisma/` (cliente generado)
