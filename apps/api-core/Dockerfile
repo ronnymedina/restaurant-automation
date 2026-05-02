@@ -74,3 +74,27 @@ USER node
 # Source code is mounted via docker-compose volume at runtime.
 # On startup: generate Prisma client, then start with hot reload.
 CMD ["sh", "-c", "pnpm exec prisma generate --schema=prisma/schema.postgresql.prisma && pnpm run dev"]
+
+# ============================
+# Stage: prod
+# ============================
+FROM node:24.15.0-trixie-slim AS prod
+
+# Remove npm/npx — not needed in prod, reduces attack surface
+RUN rm -rf /usr/local/lib/node_modules/npm \
+    && rm -f /usr/local/bin/npm \
+    && rm -f /usr/local/bin/npx
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+WORKDIR /app
+
+# Copy only the production artifacts from build stage
+COPY --from=build --chown=node:node /deploy ./
+
+USER node
+
+EXPOSE 3000
+
+CMD ["node", "dist/src/main"]
