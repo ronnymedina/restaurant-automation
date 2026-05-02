@@ -1,0 +1,32 @@
+# Dependencies
+**/node_modules
+
+# Build outputs
+**/dist
+**/dist-bytecode
+**/dist-binary
+**/.turbo
+**/coverage
+
+# Dev artifacts
+**/dev.db
+**/dev.db-journal
+**/*.db
+**/*.db-shm
+**/*.db-wal
+
+# Secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Git / IDE
+.git
+.gitignore
+**/.DS_Store
+
+# Worktrees
+.worktrees
+
+# Logs
+**/*.log
