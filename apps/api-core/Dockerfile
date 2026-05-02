@@ -27,3 +27,35 @@ RUN pnpm install --frozen-lockfile
 
 # Allow node user to write to node_modules (needed for prisma generate in dev stage)
 RUN chown -R node:node /app
+
+# ============================
+# Stage: build
+# ============================
+FROM deps AS build
+
+# Copy source files
+COPY apps/api-core/src            ./apps/api-core/src
+COPY apps/api-core/prisma         ./apps/api-core/prisma
+COPY apps/api-core/nest-cli.json  ./apps/api-core/nest-cli.json
+COPY apps/api-core/tsconfig.json  ./apps/api-core/tsconfig.json
+COPY apps/api-core/tsconfig.build.json ./apps/api-core/tsconfig.build.json
+
+# Generate Prisma client for PostgreSQL (prod schema)
+WORKDIR /app/apps/api-core
+RUN pnpm exec prisma generate --schema=./prisma/schema.postgresql.prisma
+
+# Compile NestJS → dist/
+RUN pnpm run build
+
+# Create production deploy: /deploy contains prod node_modules only
+WORKDIR /app
+RUN pnpm deploy --filter @restaurants/api-core --prod --legacy /deploy
+
+# Copy compiled output and assets into the deploy directory
+RUN cp -r apps/api-core/dist    /deploy/dist \
+    && cp -r apps/api-core/prisma   /deploy/prisma \
+    && mkdir -p /deploy/public
+
+# Generate Prisma client inside /deploy (ensures correct internal paths)
+WORKDIR /deploy
+RUN /app/node_modules/.pnpm/node_modules/.bin/prisma generate --schema=./prisma/schema.postgresql.prisma

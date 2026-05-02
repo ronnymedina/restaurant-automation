@@ -96,6 +96,7 @@ model RestaurantSettings {
   restaurantId String     @unique
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
+  timezone              String    @default("UTC")
   kitchenToken          String?   @unique
   kitchenTokenExpiresAt DateTime?
 
