@@ -22,7 +22,7 @@ Monorepo pnpm workspaces (Turborepo). El servicio `api-core` es una app NestJS c
 |---|---|---|
 | Base image | `node:24.15.0-trixie-slim` (Debian 13 stable) | Versión exacta solicitada, slim para menor superficie |
 | Gestión de deps monorepo | `pnpm deploy --filter @restaurants/api-core --prod /deploy` | Produce node_modules de prod sin devDeps, idiomático para pnpm workspaces |
-| Dev database | PostgreSQL (via docker-compose) | Entorno dev fiel a producción |
+| Dev database (Docker) | PostgreSQL (via docker-compose) | SQLite solo se usa en local sin Docker; Docker dev usa PostgreSQL igual que prod |
 | Prod database | PostgreSQL externo | Solo se genera cliente PostgreSQL en build |
 | Usuario runtime | `node` (uid 1000, pre-incluido en imágenes oficiales) | Principio de mínimos privilegios |
 | npm/npx en prod | Eliminados explícitamente | Superficie de ataque reducida, no son necesarios |
@@ -73,9 +73,10 @@ Stage para desarrollo con hot reload via docker-compose.
 - `WORKDIR /app/apps/api-core`
 - `USER node`
 - Source code montado via volumen — no se copia en la imagen
-- `CMD`: `sh -c "pnpm exec prisma generate --schema=prisma/schema.prisma && pnpm run dev"`
-  - Genera cliente SQLite al iniciar (schema montado como volumen)
+- `CMD`: `sh -c "pnpm exec prisma generate --schema=prisma/schema.postgresql.prisma && pnpm run dev"`
+  - Genera cliente PostgreSQL al iniciar (mismo schema que prod)
   - Luego arranca `nest start --watch`
+- **Nota:** SQLite solo se usa en desarrollo local sin Docker. Docker dev siempre usa PostgreSQL via docker-compose.
 
 ### `prod` (FROM `node:24.15.0-trixie-slim` — imagen limpia)
 
