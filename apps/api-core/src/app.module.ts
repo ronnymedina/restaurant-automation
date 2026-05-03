@@ -19,10 +19,13 @@ import { PrintModule } from './print/print.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { KitchenModule } from './kitchen/kitchen.module';
 import { CacheModule } from './cache/cache.module';
+import { validate } from './config';
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      validate,
+    }),
     CacheModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
