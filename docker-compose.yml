@@ -1,21 +1,23 @@
 services:
-  api:
+  res-api-core:
+    container_name: res-api-core
     build:
-      context: .
-      dockerfile: apps/api-core/Dockerfile
+      context: ./apps/api-core
+      dockerfile: Dockerfile
       target: dev
     ports:
       - "${PORT:-3000}:3000"
     volumes:
-      - ./apps/api-core/src:/app/apps/api-core/src
-      - ./apps/api-core/prisma:/app/apps/api-core/prisma
+      - ./apps/api-core/src:/app/src
+      - ./apps/api-core/prisma:/app/prisma
     env_file:
       - ./apps/api-core/.env
     depends_on:
-      postgres:
+      res-db:
         condition: service_healthy
 
-  postgres:
+  res-db:
+    container_name: res-db
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-restaurants}
@@ -26,7 +28,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
       interval: 5s
       timeout: 5s
       retries: 5

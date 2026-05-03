@@ -1,12 +1,12 @@
 import 'dotenv/config';
 import path from 'node:path';
 import { defineConfig } from 'prisma/config';
-import { DATABASE_URL } from './src/config';
 
-const isPostgres =
-  DATABASE_URL?.startsWith('postgresql://') || DATABASE_URL?.startsWith('postgres://');
+const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://localhost:5432/restaurants';
 
-const schemaFile = isPostgres ? 'schema.postgresql.prisma' : 'schema.prisma';
+const isSQLite = DATABASE_URL?.startsWith('file:');
+
+const schemaFile = isSQLite ? 'schema.prisma' : 'schema.postgresql.prisma';
 
 export default defineConfig({
   schema: path.join(__dirname, 'prisma', schemaFile),
