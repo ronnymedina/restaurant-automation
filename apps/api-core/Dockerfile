@@ -72,13 +72,12 @@ CMD ["sh", "-c", "pnpm run dev"]
 # ============================
 FROM node:24.15.0-bookworm-slim AS prod
 
-# Remove npm/npx — not needed in prod, reduces attack surface
+ENV NODE_ENV=production
+ENV PORT=3000
+
 RUN rm -rf /usr/local/lib/node_modules/npm \
     && rm -f /usr/local/bin/npm \
     && rm -f /usr/local/bin/npx
-
-ENV NODE_ENV=production
-ENV PORT=3000
 
 WORKDIR /app
 
