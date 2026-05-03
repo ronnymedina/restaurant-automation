@@ -65,23 +65,87 @@ Los scripts en `helpers/data.js` usan estas constantes como valores por defecto.
 
 ---
 
+### Observabilidad — Grafana + InfluxDB (opcional pero recomendado)
+
+Para ver gráficas en tiempo real durante los tests, levanta los servicios de observabilidad desde la raíz del monorepo:
+
+```bash
+# Desde la raíz del proyecto
+docker compose -f docker-compose.k6.yml up -d
+```
+
+Esto levanta:
+- **InfluxDB** en `localhost:8086` — recibe las métricas de k6
+- **Grafana** en `localhost:3001` — dashboard visual (usuario: cualquiera, sin contraseña en local)
+
+En Grafana, importa el dashboard oficial de k6 con ID **`2587`** (Dashboards → Import → ID 2587). Queda guardado para futuras sesiones gracias al volumen de Grafana.
+
+Al terminar las pruebas:
+```bash
+docker compose -f docker-compose.k6.yml down
+```
+
+---
+
+### Cuellos de botella en queries (pg_stat_statements)
+
+PostgreSQL acumula estadísticas de todas las queries ejecutadas. Después de un test puedes ver las más lentas:
+
+```sql
+-- Conectarse al postgres del Docker Compose principal y ejecutar:
+SELECT
+  query,
+  calls,
+  round(total_exec_time::numeric, 2) AS total_ms,
+  round(mean_exec_time::numeric, 2)  AS avg_ms,
+  rows
+FROM pg_stat_statements
+ORDER BY total_exec_time DESC
+LIMIT 20;
+```
+
+Para habilitar la extensión (solo la primera vez):
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+```
+
+Para resetear las estadísticas antes de un test limpio:
+```sql
+SELECT pg_stat_statements_reset();
+```
+
+---
+
 ### Ejecutar escenarios
 
-**Linux:**
+**Sin observabilidad (solo output en terminal):**
+
+Linux:
 ```bash
 docker run --rm -i --network host grafana/k6 run - < test/k6/scenarios/smoke.js
-docker run --rm -i --network host grafana/k6 run - < test/k6/scenarios/load.js
-docker run --rm -i --network host grafana/k6 run - < test/k6/scenarios/stress.js
-docker run --rm -i --network host grafana/k6 run - < test/k6/scenarios/spike.js
 ```
-
-**macOS** (`--network host` no funciona en Docker Desktop — usar `host.docker.internal`):
+macOS (`--network host` no funciona en Docker Desktop):
 ```bash
 docker run --rm -i -e BASE_URL=http://host.docker.internal:3000 grafana/k6 run - < test/k6/scenarios/smoke.js
-docker run --rm -i -e BASE_URL=http://host.docker.internal:3000 grafana/k6 run - < test/k6/scenarios/load.js
-docker run --rm -i -e BASE_URL=http://host.docker.internal:3000 grafana/k6 run - < test/k6/scenarios/stress.js
-docker run --rm -i -e BASE_URL=http://host.docker.internal:3000 grafana/k6 run - < test/k6/scenarios/spike.js
 ```
+
+**Con Grafana + InfluxDB (métricas en tiempo real):**
+
+Linux:
+```bash
+docker run --rm -i --network host \
+  grafana/k6 run --out influxdb=http://localhost:8086/k6 \
+  - < test/k6/scenarios/load.js
+```
+macOS:
+```bash
+docker run --rm -i \
+  -e BASE_URL=http://host.docker.internal:3000 \
+  grafana/k6 run --out influxdb=http://host.docker.internal:8086/k6 \
+  - < test/k6/scenarios/load.js
+```
+
+Sustituye el archivo de escenario (`smoke.js`, `load.js`, `stress.js`, `spike.js`) según lo que quieras correr.
 
 Los scripts leen `__ENV.BASE_URL` y usan `http://localhost:3000` como fallback para Linux.
 
@@ -129,8 +193,11 @@ Un resultado saludable antes de desplegar a Railway debe pasar el escenario **lo
 
 ### Flujo recomendado pre-deploy
 
-1. Levantar entorno local: `docker compose up`
-2. Seed de datos: `pnpm run cli create-dummy`
-3. Correr smoke → si pasa, correr load → si pasa, correr stress
-4. Revisar thresholds en el output
-5. Si todo pasa: proceder al deploy en Railway
+1. Levantar entorno principal: `docker compose up -d`
+2. Levantar observabilidad: `docker compose -f docker-compose.k6.yml up -d` (desde la raíz)
+3. Seed de datos: `pnpm run cli create-dummy`
+4. Abrir Grafana en `http://localhost:3001` e importar dashboard ID `2587`
+5. Resetear stats de Postgres: `SELECT pg_stat_statements_reset();`
+6. Correr smoke → si pasa, correr load → si pasa, correr stress
+7. Revisar gráficas en Grafana y queries lentas con `pg_stat_statements`
+8. Si todo pasa: proceder al deploy en Railway
