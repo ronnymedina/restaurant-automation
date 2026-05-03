@@ -107,6 +107,9 @@ importers:
       pg:
         specifier: 8.13.0
         version: 8.13.0
+      prisma:
+        specifier: 7.3.0
+        version: 7.3.0(@types/react@19.2.13)(better-sqlite3@12.6.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.7.3)
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2
@@ -183,9 +186,6 @@ importers:
       prettier:
         specifier: 3.4.2
         version: 3.4.2
-      prisma:
-        specifier: 7.3.0
-        version: 7.3.0(@types/react@19.2.13)(better-sqlite3@12.6.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.7.3)
       source-map-support:
         specifier: 0.5.21
         version: 0.5.21
