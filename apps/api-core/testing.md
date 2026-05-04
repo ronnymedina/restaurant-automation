@@ -120,33 +120,39 @@ SELECT pg_stat_statements_reset();
 
 **Sin observabilidad (solo output en terminal):**
 
-Linux:
+Linux (desde `apps/api-core/`):
 ```bash
-docker run --rm -i --network host grafana/k6 run - < test/k6/scenarios/smoke.js
+docker run --rm --network host \
+  -v $(pwd)/test/k6:/scripts \
+  grafana/k6 run /scripts/scenarios/smoke.js
 ```
-macOS (`--network host` no funciona en Docker Desktop):
+macOS (desde `apps/api-core/`):
 ```bash
-docker run --rm -i -e BASE_URL=http://host.docker.internal:3000 grafana/k6 run - < test/k6/scenarios/smoke.js
+docker run --rm \
+  -e BASE_URL=http://host.docker.internal:3000 \
+  -v $(pwd)/test/k6:/scripts \
+  grafana/k6 run /scripts/scenarios/smoke.js
 ```
 
 **Con Grafana + InfluxDB (métricas en tiempo real):**
 
-Linux:
+Linux (desde `apps/api-core/`):
 ```bash
-docker run --rm -i --network host \
+docker run --rm --network host \
+  -v $(pwd)/test/k6:/scripts \
   grafana/k6 run --out influxdb=http://localhost:8086/k6 \
-  - < test/k6/scenarios/load.js
+  /scripts/scenarios/load.js
 ```
-macOS:
+macOS (desde `apps/api-core/`):
 ```bash
-docker run --rm -i \
+docker run --rm \
   -e BASE_URL=http://host.docker.internal:3000 \
+  -v $(pwd)/test/k6:/scripts \
   grafana/k6 run --out influxdb=http://host.docker.internal:8086/k6 \
-  - < test/k6/scenarios/load.js
+  /scripts/scenarios/load.js
 ```
 
-Sustituye el archivo de escenario (`smoke.js`, `load.js`, `stress.js`, `spike.js`) según lo que quieras correr.
-
+Sustituye `smoke.js` / `load.js` / `stress.js` / `spike.js` según el escenario a correr.
 Los scripts leen `__ENV.BASE_URL` y usan `http://localhost:3000` como fallback para Linux.
 
 ---
