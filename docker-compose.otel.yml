@@ -1,0 +1,14 @@
+services:
+  jaeger:
+    container_name: jaeger
+    image: jaegertracing/all-in-one:latest
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4318:4318"     # OTLP HTTP receiver
+    volumes:
+      - jaeger_data:/badger
+
+volumes:
+  jaeger_data:
