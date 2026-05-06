@@ -317,6 +317,31 @@ describe('OrdersService', () => {
         data: { stock: { decrement: 2 } },
       });
     });
+
+    it('increments the order counter before the main transaction starts', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue({
+        id: 'p1', restaurantId: 'r1', price: 5, stock: null, name: 'Widget',
+      });
+
+      await service.createOrder('r1', 'session1', baseDto as any);
+
+      expect(mockPrisma.cashShift.update.mock.invocationCallOrder[0])
+        .toBeLessThan(mockPrisma.$transaction.mock.invocationCallOrder[0]);
+    });
+
+    it('increments the counter even when the main transaction fails — gap is acceptable', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue(null);
+
+      await expect(service.createOrder('r1', 'session1', baseDto as any)).rejects.toThrow(
+        StockInsufficientException,
+      );
+
+      expect(mockPrisma.cashShift.update).toHaveBeenCalledWith({
+        where: { id: 'session1' },
+        data: { lastOrderNumber: { increment: 1 } },
+        select: { lastOrderNumber: true },
+      });
+    });
   });
 
   describe('findByRestaurantId', () => {
