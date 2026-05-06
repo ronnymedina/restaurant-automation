@@ -46,14 +46,15 @@ test/k6/
 
 ### Preparar datos de prueba
 
-Antes de correr cualquier escenario, inicializa la DB con datos demo:
+Los tests requieren dos pasos: crear el restaurante base y luego cargar volumen de datos realista.
+
+**Paso 1 — Crear restaurante y admin** (desde el contenedor o desde `apps/api-core/`):
 
 ```bash
-# Desde apps/api-core/
-pnpm run cli create-dummy
+docker compose exec res-api-core pnpm run cli create-dummy
 ```
 
-Esto crea un restaurante de prueba, un usuario admin y productos con las siguientes credenciales fijas:
+Credenciales fijas que usan los scripts de k6:
 
 | Campo | Valor |
 |-------|-------|
@@ -61,7 +62,24 @@ Esto crea un restaurante de prueba, un usuario admin y productos con las siguien
 | Password | `12345678` |
 | Slug | `demo-restaurant` |
 
-Los scripts en `helpers/data.js` usan estas constantes como valores por defecto.
+**Paso 2 — Seed de volumen para escenarios realistas:**
+
+```bash
+# Obtener el restaurant ID del paso anterior (o desde la DB)
+docker exec res-db psql -U postgres -d restaurants -c "SELECT id FROM \"Restaurant\";"
+
+# Cargar datos de volumen
+docker compose exec res-api-core pnpm run cli seed \
+  --restaurant-id <ID> \
+  --categories 15 \
+  --products 200 \
+  --menus 8 \
+  --items-per-menu 40
+```
+
+Esto carga **15 categorías, 200 productos y 8 menús con 320 items** — suficiente para que los endpoints devuelvan payloads reales y los queries toquen índices y joins.
+
+> Sin el seed de volumen los endpoints responden con listas vacías, lo que produce latencias artificialmente bajas y no representa producción.
 
 ---
 
@@ -76,9 +94,20 @@ docker compose -f docker-compose.k6.yml up -d
 
 Esto levanta:
 - **InfluxDB** en `localhost:8086` — recibe las métricas de k6
-- **Grafana** en `localhost:3001` — dashboard visual (usuario: cualquiera, sin contraseña en local)
+- **Grafana** en `localhost:3001` — sin login, acceso anónimo con rol Admin
 
-En Grafana, importa el dashboard oficial de k6 con ID **`2587`** (Dashboards → Import → ID 2587). Queda guardado para futuras sesiones gracias al volumen de Grafana.
+Los dashboards se provisionan automáticamente — no hace falta importar nada:
+
+| Dashboard | URL |
+|-----------|-----|
+| k6 Results | `http://localhost:3001/d/k6-results` |
+| PostgreSQL — Slow Queries | `http://localhost:3001/d/pg-slow-queries` |
+
+**Setup inicial (una sola vez):** habilitar `pg_stat_statements` en la DB:
+
+```bash
+docker exec res-db psql -U postgres -d restaurants -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"
+```
 
 Al terminar las pruebas:
 ```bash
@@ -199,11 +228,37 @@ Un resultado saludable antes de desplegar a Railway debe pasar el escenario **lo
 
 ### Flujo recomendado pre-deploy
 
-1. Levantar entorno principal: `docker compose up -d`
-2. Levantar observabilidad: `docker compose -f docker-compose.k6.yml up -d` (desde la raíz)
-3. Seed de datos: `pnpm run cli create-dummy`
-4. Abrir Grafana en `http://localhost:3001` e importar dashboard ID `2587`
-5. Resetear stats de Postgres: `SELECT pg_stat_statements_reset();`
-6. Correr smoke → si pasa, correr load → si pasa, correr stress
-7. Revisar gráficas en Grafana y queries lentas con `pg_stat_statements`
-8. Si todo pasa: proceder al deploy en Railway
+```bash
+# 1. Levantar entorno principal
+docker compose up -d
+
+# 2. Levantar observabilidad (desde la raíz)
+docker compose -f docker-compose.k6.yml up -d
+
+# 3. Crear restaurante y admin (si no existe)
+docker compose exec res-api-core pnpm run cli create-dummy
+
+# 4. Seed de volumen (obtener el ID primero)
+docker exec res-db psql -U postgres -d restaurants -c "SELECT id FROM \"Restaurant\";"
+docker compose exec res-api-core pnpm run cli seed \
+  --restaurant-id <ID> \
+  --categories 15 --products 200 --menus 8 --items-per-menu 40
+
+# 5. Habilitar pg_stat_statements (solo la primera vez)
+docker exec res-db psql -U postgres -d restaurants -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"
+
+# 6. Resetear stats antes del test
+docker exec res-db psql -U postgres -d restaurants -c "SELECT pg_stat_statements_reset();"
+
+# 7. Correr smoke → load → stress (desde apps/api-core/)
+docker run --rm -e BASE_URL=http://host.docker.internal:3000 \
+  -v $(pwd)/test/k6:/scripts \
+  grafana/k6 run --out influxdb=http://host.docker.internal:8086/k6 \
+  /scripts/scenarios/load.js
+
+# 8. Revisar resultados
+#    → Grafana k6:       http://localhost:3001/d/k6-results
+#    → Grafana Postgres: http://localhost:3001/d/pg-slow-queries
+
+# 9. Si todo pasa: proceder al deploy en Railway
+```

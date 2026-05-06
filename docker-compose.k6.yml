@@ -2,6 +2,7 @@ services:
   influxdb:
     container_name: k6-influxdb
     image: influxdb:1.8-alpine
+    platform: linux/amd64
     environment:
       INFLUXDB_DB: k6
     ports:
