@@ -10,6 +10,7 @@ services:
     env_file: ./apps/ui/.env
     environment:
       PUBLIC_API_URL: http://res-api-core:3000
+    # res-api-core service to be added when API is dockerized
     depends_on:
       - res-api-core
     ports:
