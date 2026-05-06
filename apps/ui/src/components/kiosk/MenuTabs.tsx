@@ -9,7 +9,7 @@ interface MenuTabsProps {
 
 export function MenuTabs({ menus, activeMenuId, onSelect, theme }: MenuTabsProps) {
   return (
-    <div className="bg-white border-b overflow-x-auto">
+    <div className="bg-white border-b border-slate-100 overflow-x-auto">
       <div className="flex gap-1 py-2 px-2 md:py-3 md:px-3">
         {menus.length === 0 ? (
           <span className="text-sm md:text-base text-slate-400 px-3 py-2">
