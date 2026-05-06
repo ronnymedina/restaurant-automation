@@ -1,1 +1,13 @@
-
+services:
+  res-ui:
+    build:
+      context: ./apps/ui
+      target: dev
+    volumes:
+      - ./apps/ui/src:/app/src
+      - ./apps/ui/public:/app/public
+    env_file: ./apps/ui/.env
+    depends_on:
+      - res-api-core
+    ports:
+      - "${UI_PORT:-4321}:4321"
