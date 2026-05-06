@@ -1,6 +1,8 @@
 # OpenTelemetry — Trazas distribuidas
 
-`api-core` exporta trazas OpenTelemetry automáticamente. En local van a Jaeger; en producción a Grafana Cloud (o cualquier colector OTLP compatible).
+`api-core` exporta trazas OpenTelemetry automáticamente al arrancar. En local van a Jaeger; en producción a Grafana Cloud (o cualquier colector OTLP compatible).
+
+La instrumentación está **siempre activa** — no requiere código adicional. Se desactiva o configura exclusivamente con variables de entorno.
 
 ---
 
@@ -47,11 +49,22 @@ docker compose -f docker-compose.otel.yml down
 
 | Variable | Default | Descripción |
 |---|---|---|
+| `OTEL_SDK_DISABLED` | `false` | `true` desactiva el SDK completamente — no se generan ni exportan trazas |
 | `OTEL_SERVICE_NAME` | `api-core` | Nombre del servicio en Jaeger / Grafana |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318/v1/traces` | URL del colector OTLP (incluir `/v1/traces`) |
-| `OTEL_EXPORTER_OTLP_HEADERS` | — | Headers de autenticación (Grafana Cloud) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318/v1/traces` | URL del colector OTLP — debe incluir `/v1/traces` |
+| `OTEL_EXPORTER_OTLP_HEADERS` | — | Headers de autenticación, ej. `Authorization=Basic <token>` |
 
-> **Nota:** El `.env` de Docker usa `http://host.docker.internal:4318/v1/traces` en lugar de `localhost` porque el contenedor no puede alcanzar puertos del host vía `localhost`.
+> **`host.docker.internal` vs `localhost`:** El `.env` de Docker usa `http://host.docker.internal:4318/v1/traces` porque dentro del contenedor `localhost` apunta al propio contenedor, no al host. En macOS con Docker Desktop, `host.docker.internal` resuelve al host correctamente.
+
+### Desactivar el tracing
+
+Para desactivar sin tocar código — útil en entornos donde no hay colector disponible:
+
+```bash
+OTEL_SDK_DISABLED=true
+```
+
+El `NodeSDK` lee esta variable en el constructor y convierte todas las operaciones en no-ops. La app arranca normal, sin intentar conectarse a ningún colector.
 
 ---
 
@@ -59,15 +72,15 @@ docker compose -f docker-compose.otel.yml down
 
 1. Crear cuenta en [Grafana Cloud](https://grafana.com/auth/sign-up) (free tier: 50 GB/mes).
 2. Ir a **Stack → Connections → OpenTelemetry** y copiar el endpoint y el token.
-3. Agregar estas variables en Railway (o el proveedor que uses):
+3. Agregar estas variables de entorno (Railway, Docker, etc.):
 
-```
+```bash
 OTEL_SERVICE_NAME=api-core
 OTEL_EXPORTER_OTLP_ENDPOINT=https://<stack>.grafana.net/otlp/v1/traces
 OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <base64-token>
 ```
 
-El código no cambia — solo las variables de entorno.
+El código no cambia — solo variables de entorno.
 
 ---
 
@@ -75,24 +88,26 @@ El código no cambia — solo las variables de entorno.
 
 | Span | Qué representa |
 |---|---|
-| `HTTP GET /v1/...` | Request HTTP entrante completo |
-| `prisma:client:operation` | Operación Prisma (findMany, create, etc.) |
-| `prisma:client:db_query` | Query SQL enviada a Postgres |
-| `pg.query:SELECT` | Ejecución real en el pool de conexiones |
+| `HTTP GET /v1/...` | Request HTTP entrante completo (Express) |
+| `prisma:client:operation` | Operación Prisma (findMany, create, update…) |
+| `prisma:client:db_query` | Query SQL enviada a Postgres — visible en el atributo `db.statement` |
+| `pg.query:SELECT` | Ejecución real en el pool de conexiones pg |
 | `pg-pool.connect` | Adquisición de conexión del pool |
 | `AuthController.login` | Método del controlador NestJS |
 
-El filesystem (`fs`) está deshabilitado porque genera miles de spans de ruido sin valor.
+El filesystem (`fs`) está deshabilitado explícitamente — genera miles de spans de ruido durante el boot de Node sin ningún valor diagnóstico.
 
 ---
 
 ## Implementación
 
-El SDK se inicializa en `src/instrumentation.ts` y se importa al principio de `src/main.ts` — antes de que NestJS cargue — para que el monkey-patching de Express quede activo desde el inicio.
+El SDK se inicializa en `src/instrumentation.ts` y se importa al comienzo de `src/main.ts`, antes de que NestJS cargue. Esto es necesario para que el monkey-patching de Express ocurra antes de que el framework lo use.
 
 ```
 main.ts
   ├── import 'dotenv/config'       ← carga OTEL_* del .env
-  ├── import './instrumentation'   ← arranca el SDK (lee las vars)
+  ├── import './instrumentation'   ← NodeSDK.start() (lee las vars, incluyendo OTEL_SDK_DISABLED)
   └── import { NestFactory } ...   ← Express ya está instrumentado
 ```
+
+`instrumentation.ts` usa el enfoque de SDK manual (en lugar del zero-code `--require`) para poder incluir `@prisma/instrumentation`, que no forma parte del paquete de auto-instrumentaciones estándar de OpenTelemetry.
