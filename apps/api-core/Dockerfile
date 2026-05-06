@@ -11,6 +11,24 @@ RUN pnpm install --frozen-lockfile
 RUN chown -R node:node /deps
 
 # ============================
+# Stage: prod-deps
+# ============================
+FROM node:24.15.0-bookworm AS prod-deps
+
+WORKDIR /prod-deps
+
+RUN corepack enable && corepack prepare pnpm@10.24.0 --activate
+
+COPY package.json pnpm-lock.yaml ./
+COPY prisma ./prisma
+
+RUN pnpm install --frozen-lockfile
+
+RUN pnpm exec prisma generate --schema=./prisma/schema.postgresql.prisma
+
+RUN pnpm prune --prod
+
+# ============================
 # Stage: build
 # ============================
 FROM node:24.15.0-bookworm AS build
@@ -37,9 +55,6 @@ RUN pnpm exec prisma generate --schema=./prisma/schema.postgresql.prisma
 
 # Compile NestJS → dist/
 RUN pnpm run build
-
-# Strip devDependencies for the production image
-RUN pnpm prune --prod
 
 
 FROM deps AS dev
@@ -84,14 +99,13 @@ RUN rm -rf /usr/local/lib/node_modules/npm \
 
 WORKDIR /app
 
-COPY --from=build --chown=node:node /builder/dist         ./dist
-COPY --from=build --chown=node:node /builder/node_modules ./node_modules
-COPY --from=build --chown=node:node /builder/prisma       ./prisma
-COPY --from=build --chown=node:node /builder/commands       ./commands
+COPY --from=build     --chown=node:node /builder/dist          ./dist
+COPY --from=prod-deps --chown=node:node /prod-deps/node_modules ./node_modules
+COPY --from=build     --chown=node:node /builder/prisma        ./prisma
+COPY --from=build     --chown=node:node /builder/commands      ./commands
 
 USER node
 
 EXPOSE 3000
 
-# Run migrations at startup using the Prisma binary directly (no pnpm/npm in prod)
-CMD ["sh", "-c", "node dist/src/main"]
+CMD ["sh", "-c", "node dist/main"]
