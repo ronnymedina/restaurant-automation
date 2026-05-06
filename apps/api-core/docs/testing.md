@@ -226,6 +226,74 @@ Un resultado saludable antes de desplegar a Railway debe pasar el escenario **lo
 
 ---
 
+### Trazas distribuidas con Jaeger (OpenTelemetry)
+
+Mientras k6 genera carga, Jaeger captura el rastro interno de cada request: qué hizo el controlador, qué queries Prisma ejecutó, cuánto tardó cada span. Esto permite cruzar "la latencia sube en el load test" con "este query SQL específico es el culpable".
+
+#### Levantar Jaeger
+
+Corre en un compose separado para no contaminar el stack principal:
+
+```bash
+# Desde la raíz del proyecto
+docker compose -f docker-compose.otel.yml up -d
+```
+
+La API detecta automáticamente las variables `OTEL_*` del `.env` y empieza a exportar trazas. No se requiere reiniciar nada más.
+
+#### Variables necesarias en `apps/api-core/.env`
+
+```bash
+OTEL_SERVICE_NAME=api-core
+OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318/v1/traces
+```
+
+> `host.docker.internal` es necesario porque la API corre dentro de Docker. En Linux, reemplazar por la IP del host o usar `--network host`.
+
+#### Visualizar trazas en Jaeger UI
+
+Abrir `http://localhost:16686`:
+
+1. **Service** → seleccionar `api-core`
+2. **Operation** → elegir el endpoint a analizar (ej. `GET /v1/kiosk/:slug/menus`) o dejar `all`
+3. Hacer clic en **Find Traces**
+4. Seleccionar cualquier traza para ver el breakdown de spans:
+
+```
+GET /v1/kiosk/demo-restaurant/menus   (total: 18ms)
+  ├── middleware chain                 (1ms)
+  ├── KioskController.getMenus        (16ms)
+  │     ├── prisma:client:operation   (14ms)   ← findMany
+  │     │     ├── prisma:client:db_query (11ms) ← SQL en db.statement
+  │     │     └── pg.query:SELECT     (10ms)   ← ejecución real en pool
+  │     └── pg-pool.connect           (1ms)    ← adquisición de conexión
+  └── serialize response              (<1ms)
+```
+
+#### Cómo usar Jaeger durante un test k6
+
+1. Abrir Jaeger UI antes de correr el escenario
+2. Correr el test (smoke / load / stress)
+3. Mientras corre: ir a Jaeger → buscar trazas del endpoint bajo carga → observar si algún span crece
+4. Después del test: comparar trazas del inicio vs. el pico de VUs — si `prisma:client:db_query` crece de 5ms a 400ms bajo carga, el cuello de botella está en la DB
+
+#### Señales de alerta en Jaeger
+
+| Patrón | Causa probable |
+|--------|---------------|
+| `pg-pool.connect` con duración alta | Pool de conexiones agotado — muchos VUs esperando conexión |
+| `prisma:client:db_query` crece linealmente con los VUs | Query sin índice o full table scan |
+| Muchos spans `prisma:client:operation` en serie dentro del mismo request | Problema N+1 — cada item hace su propia query |
+| Span total del request alto pero `db_query` bajo | Cuello de botella en CPU (bcrypt, serialización) o en red |
+
+#### Cerrar Jaeger
+
+```bash
+docker compose -f docker-compose.otel.yml down
+```
+
+---
+
 ### Flujo recomendado pre-deploy
 
 ```bash
