@@ -3,7 +3,12 @@ import { vi } from 'vitest'
 
 vi.mock('./store/kiosk.store', () => ({
   useKioskStore: (selector: (s: any) => any) =>
-    selector({ cart: [{ productId: 'p1', menuItemId: undefined, name: 'Burger', price: 10, quantity: 2, notes: '' }] }),
+    selector({
+      cart: [{ productId: 'p1', menuItemId: undefined, name: 'Burger', price: 10, quantity: 2, notes: '' }],
+      menuSections: {},
+      updateQuantity: vi.fn(),
+      updateNotes: vi.fn(),
+    }),
 }))
 
 import { CartPanel } from './CartPanel'
