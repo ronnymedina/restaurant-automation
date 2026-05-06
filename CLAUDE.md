@@ -4,58 +4,63 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Turborepo monorepo (pnpm workspaces) with two apps:
-- **`apps/api-core`** — NestJS REST API + WebSocket, Prisma ORM, PostgreSQL
-- **`apps/restaurant-ui`** — Astro + Tailwind CSS frontend
+Restaurant automation platform with two independently deployed apps:
+- **`apps/api-core`** — NestJS REST API + SSE, Prisma ORM, PostgreSQL
+- **`apps/ui`** — Astro + Tailwind CSS frontend (kiosk + management dashboard)
 
-Two products: a **kiosk interface** for customers to order and a **management dashboard** for restaurant owners/staff.
+Two products: a **kiosk** for customers to order and a **dashboard** for restaurant owners/staff.
+
+License server (`apps/license-server`) and Electron desktop app (`apps/desktop`) are planned but not yet active — the platform launched as a cloud-only SaaS first.
 
 ### Kiosk URL routing
-The kiosk uses a **query param** (`/kiosk?slug=mi-restaurante`) instead of path segments (`/kiosk/[slug]`). This is intentional: the Astro UI is compiled as static HTML and embedded inside an Express server that is packaged as an Electron desktop app. Dynamic path segments (`[slug].astro`) don't work reliably in that static-file-serving context, so the slug is passed via query string instead.
+The kiosk uses a **query param** (`/kiosk?slug=mi-restaurante`) not path segments. Astro is compiled as static HTML served by nginx; dynamic path segments don't work reliably in that context, so the slug goes via query string instead.
 
 ## Commands
 
-### Root (runs both apps via Turborepo)
+### Local development (Docker — preferred)
 ```bash
-pnpm dev        # start all apps in watch mode
-pnpm build      # build all apps
-pnpm lint       # lint all apps
+# From repo root
+docker compose up                    # all services (api, ui, postgres)
+docker compose up res-api-core res-db  # backend only
+docker compose up res-ui             # frontend only
 ```
+`src/` and `prisma/` are mounted as volumes — changes reload without rebuilding.
 
 ### api-core (run from `apps/api-core/`)
 ```bash
-pnpm run dev             # start in watch mode
-pnpm test                # run unit tests
-pnpm test:watch          # run tests in watch mode
-pnpm test:cov            # run with coverage
-pnpm test:e2e            # run e2e tests
-pnpm run cli <command>   # run CLI management tool (see below)
+pnpm run dev             # watch mode (without Docker)
+pnpm test                # unit tests
+pnpm test:watch          # unit tests in watch mode
+pnpm test:cov            # coverage
+pnpm test:e2e            # e2e tests
+pnpm run cli <command>   # CLI management tool
 ```
 
 ### Prisma (run from `apps/api-core/`)
 ```bash
-pnpm exec prisma migrate dev --name <migration_name>  # create and apply migration
-pnpm exec prisma generate                              # regenerate Prisma client after schema changes
-pnpm exec prisma studio                                # open database browser UI
+pnpm exec prisma migrate dev --name <migration_name>   # create and apply migration
+pnpm exec prisma generate                               # regenerate Prisma client
+pnpm exec prisma studio                                 # database browser UI
 ```
+Schema file: `prisma/schema.postgresql.prisma`
 
 ### CLI management tool
 ```bash
-pnpm run cli create-dummy                                             # seed demo restaurant + admin + products
-pnpm run cli create-restaurant --name <name>                          # create restaurant, prints id/name/slug
+pnpm run cli create-dummy                                              # seed demo restaurant + admin + products
+pnpm run cli create-restaurant --name <name>                           # create restaurant
 pnpm run cli create-admin -e <email> -p <password> --restaurant-id <id>
 ```
 
-### restaurant-ui (run from `apps/restaurant-ui/`)
+### ui (run from `apps/ui/`)
 ```bash
-pnpm dev      # dev server at localhost:4321
+pnpm dev      # dev server at localhost:4321 (without Docker)
 pnpm build    # production build to ./dist/
 pnpm preview  # preview production build
 ```
 
 ## API Architecture
 
-All routes are prefixed with `/v1/`. Key modules in `apps/api-core/src/`:
+All routes are prefixed with `/v1/`. Swagger UI available at `/docs` in development. Key modules in `apps/api-core/src/`:
 
 | Module | Purpose |
 |--------|---------|
@@ -63,13 +68,15 @@ All routes are prefixed with `/v1/`. Key modules in `apps/api-core/src/`:
 | `restaurants` | Restaurant CRUD |
 | `products` | Product catalog (scoped to restaurantId) |
 | `menus` | Menu management (time/day restricted menus) |
-| `orders` | Order lifecycle (CREATED → PROCESSING → PAID → COMPLETED) |
-| `register` | Cash register sessions (OPEN/CLOSED) |
+| `orders` | Order lifecycle (CREATED → PROCESSING → COMPLETED → CANCELLED) |
+| `cash-register` | Cash shift sessions (OPEN/CLOSED), tracks sequential orderNumber |
 | `kiosk` | Public-facing kiosk endpoints (unauthenticated) |
+| `kitchen` | Kitchen display — order queue for kitchen staff |
 | `onboarding` | AI-assisted product creation from photos (Gemini API) |
 | `users` | Staff user management with email activation |
-| `events` | WebSocket gateway (socket.io) for real-time updates |
+| `events` | SSE gateway (Server-Sent Events) for real-time order/catalog updates |
 | `print` | Print/receipt functionality |
+| `uploads` | File upload handling |
 | `common` | Shared DTOs, guards, interfaces |
 
 ### Auth & Authorization
@@ -79,47 +86,66 @@ All routes are prefixed with `/v1/`. Key modules in `apps/api-core/src/`:
 - `@Public()` decorator — marks routes as unauthenticated (kiosk endpoints)
 - `@Roles(Role.MANAGER)` decorator — restricts route to specific roles
 - Roles: `ADMIN > MANAGER > BASIC`
-- All non-kiosk, non-auth endpoints require a valid JWT
 
 ### Data Model
 
 Everything is scoped to a `restaurantId`. Key relationships:
-- `Restaurant` → `User`, `Product`, `Menu`, `Category`, `Order`, `RegisterSession`
+- `Restaurant` → `User`, `Product`, `Menu`, `Category`, `Order`, `CashShift`
 - `Menu` ←→ `Product` via `MenuItem` (pivot with optional price/stock overrides)
 - `Order` → `OrderItem` → `Product` (optionally via `MenuItem`)
-- `RegisterSession` contains `Order`s; tracks sequential `orderNumber`
+- `CashShift` contains `Order`s; tracks sequential `orderNumber`
 
 See `apps/api-core/docs/database_schema.md` for full schema and nullable field rationale.
 
+### Real-time (SSE)
+
+The `events` module uses Server-Sent Events (not WebSocket). `SseService` holds two RxJS Subjects: `restaurant$` (orders, catalog) and `kitchen$`. Clients connect via EventSource; events are scoped to `restaurantId`. Frontend constants in `apps/ui/src/lib/sse-events.ts`.
+
 ## Frontend Architecture
 
-Astro pages in `apps/restaurant-ui/src/pages/`:
-- `/kiosk/[slug].astro` — customer-facing ordering interface
-- `/dash/*` — management dashboard (login-gated)
-- `/login.astro`, `/activate.astro`, `/onboarding.astro`
+Pages in `apps/ui/src/pages/`:
+- `/kiosk/index.astro` — customer-facing ordering interface (`?slug=` query param)
+- `/kitchen/index.astro` — kitchen display
+- `/dash/index.astro` — dashboard home
+- `/dash/orders.astro`, `/dash/orders-history.astro`
+- `/dash/register.astro`, `/dash/register-history.astro`
+- `/dash/products.astro`, `/dash/categories.astro`
+- `/dash/menus.astro`, `/dash/menus/detail.astro`
+- `/dash/users.astro`, `/dash/tables.astro`, `/dash/reservations.astro`, `/dash/settings.astro`, `/dash/kitchen.astro`
+- `/login.astro`, `/activate.astro`, `/onboarding.astro`, `/confirm-operation.astro`
 
 `src/lib/` utilities:
-- `api.ts` — central `apiFetch()` wrapper with automatic JWT refresh on 401 and redirect to `/login` on auth failure; uses `PUBLIC_API_URL` env var
+- `api.ts` — central `apiFetch()` wrapper; auto JWT refresh on 401, redirects to `/login` on auth failure
 - `auth.ts` — localStorage token read/write helpers
 - `kiosk-api.ts` — unauthenticated kiosk API calls
+- `sse-events.ts` — SSE event name constants (ORDER_EVENTS, CATALOG_EVENTS)
+- `menus-api.ts`, `products-api.ts` — typed API wrappers for specific resources
 - `pagination.ts` — shared pagination helpers
 
 ## Environment Variables
 
-Required for `apps/api-core`:
-- `DATABASE_URL` — PostgreSQL connection string
-- `JWT_SECRET` — signing secret for JWT tokens
+Required for `apps/api-core` (see `apps/api-core/docs/environments.md` for full reference):
+- `NODE_ENV`, `DATABASE_URL`, `PORT`, `JWT_SECRET`
+- `JWT_ACCESS_EXPIRATION` (e.g. `15m`), `JWT_REFRESH_EXPIRATION` (e.g. `7d`)
+- `BCRYPT_SALT_ROUNDS`
 
-Optional but commonly needed:
-- `GEMINI_API_KEY` + `GEMINI_MODEL` — for AI photo-to-products onboarding
-- `RESEND_API_KEY` + `EMAIL_FROM` — for user activation emails
+Optional:
+- `GEMINI_API_KEY` + `GEMINI_MODEL` — AI photo-to-products onboarding
+- `RESEND_API_KEY` + `EMAIL_FROM` — user activation emails
 - `FRONTEND_URL` — defaults to `http://localhost:4321`
-- `PORT` — API port, defaults to `3000`
+- `API_BASE_URL` — used in presigned URLs, defaults to `http://localhost:3000`
 
-For `apps/restaurant-ui`:
-- `PUBLIC_API_URL` — API base URL, defaults to `http://localhost:3000`
+For `apps/ui`:
+- `PUBLIC_API_URL` — API base URL; baked into the static bundle at build time (see `apps/ui/README.md` for the Railway placeholder injection mechanism)
 
-Full reference: `apps/api-core/docs/environments.md`
+## Docker
+
+Both apps use multi-stage Dockerfiles. `docker-compose.yml` at root uses the `dev` stage; Railway deploys use the `prod` stage.
+
+| Stage | api-core | ui |
+|-------|----------|----|
+| `dev` | NestJS hot reload | Astro dev server |
+| `prod` | node-slim, runs `node dist/src/main` | nginx + entrypoint injects `PUBLIC_API_URL` |
 
 ## Skills
 
