@@ -82,6 +82,10 @@ import DataTable from '../../components/dash/DataTable.astro';
 <script>
   import { apiFetch } from '../../lib/api';
   import { renderPagination, setTableLoading, setTableEmpty, setTableError } from '../../lib/pagination';
+  import { getRestaurantTimezone } from '../../lib/auth';
+  import { formatDate as formatDateTz } from '../../lib/date';
+
+  const timezone = getRestaurantTimezone();
 
   const COLSPAN = 7;
   let currentPage = 1;
@@ -99,10 +103,7 @@ import DataTable from '../../components/dash/DataTable.astro';
   const filterDateTo      = document.getElementById('filterDateTo') as HTMLInputElement;
 
   function formatDate(value: string): string {
-    return new Date(value).toLocaleString('es', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    });
+    return formatDateTz(value, timezone);
   }
 
   function formatCurrency(value: number): string {

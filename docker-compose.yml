@@ -1,1 +1,41 @@
+services:
+  res-api-core:
+    container_name: res-api-core
+    build:
+      context: ./apps/api-core
+      dockerfile: Dockerfile
+      target: dev
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - ./apps/api-core/src:/app/src
+      - ./apps/api-core/prisma:/app/prisma
+    env_file:
+      - ./apps/api-core/.env
+    depends_on:
+      res-db:
+        condition: service_healthy
 
+  res-db:
+    container_name: res-db
+    image: postgres:17-alpine
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-restaurants}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

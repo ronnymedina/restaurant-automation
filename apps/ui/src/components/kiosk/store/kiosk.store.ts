@@ -41,6 +41,20 @@ function findCartItem(
   )
 }
 
+function findMenuItemStock(
+  menuSections: Record<string, Record<string, MenuItem[]>>,
+  productId: string,
+  menuItemId: string | undefined,
+): number | null | undefined {
+  for (const sections of Object.values(menuSections)) {
+    for (const items of Object.values(sections)) {
+      const found = items.find((i) => i.id === productId && i.menuItemId === menuItemId)
+      if (found) return found.stock
+    }
+  }
+  return undefined
+}
+
 const initialState: KioskStore = {
   slug: '',
   sessionOpen: false,
@@ -156,8 +170,18 @@ export const useKioskStore = create<KioskStore & KioskActions>((set, get) => ({
   },
 
   addToCart(item: AddToCartPayload): void {
-    const { cart } = get()
+    const { cart, menuSections } = get()
     const existing = findCartItem(cart, item.productId, item.menuItemId)
+    const currentQty = existing?.quantity ?? 0
+    const stock = findMenuItemStock(menuSections, item.productId, item.menuItemId)
+
+    if (stock !== null && stock !== undefined && currentQty >= stock) {
+      const msg = stock === 0
+        ? `"${item.name}" está agotado`
+        : `Solo quedan ${stock} unidades de "${item.name}"`
+      set({ errorMessage: msg })
+      return
+    }
 
     if (existing) {
       set({
@@ -175,7 +199,17 @@ export const useKioskStore = create<KioskStore & KioskActions>((set, get) => ({
     menuItemId: string | undefined,
     delta: number,
   ): void {
-    const { cart } = get()
+    const { cart, menuSections } = get()
+
+    if (delta > 0) {
+      const existing = findCartItem(cart, productId, menuItemId)
+      const stock = findMenuItemStock(menuSections, productId, menuItemId)
+      if (stock !== null && stock !== undefined && existing && existing.quantity >= stock) {
+        set({ errorMessage: `Solo quedan ${stock} unidades de "${existing.name}"` })
+        return
+      }
+    }
+
     const updated = cart
       .map((c) => {
         if (c.productId === productId && c.menuItemId === menuItemId) {
@@ -244,6 +278,16 @@ export const useKioskStore = create<KioskStore & KioskActions>((set, get) => ({
 
       if (!res.ok) {
         const err = await res.json().catch(() => null)
+
+        if (res.status === 409 && err?.code === 'STOCK_INSUFFICIENT') {
+          const { productName, available } = (err?.details ?? {}) as { productName?: string; available?: number }
+          const msg = available && available > 0
+            ? `Solo quedan ${available} unidades de "${productName}". Ajusta las cantidades.`
+            : `"${productName}" se agotó. Retíralo de tu carrito.`
+          if (activeMenuId) await get().selectMenu(activeMenuId)
+          set({ view: KioskView.CART, errorMessage: msg })
+          return
+        }
 
         if (res.status === 400 && activeMenuId) {
           // Snapshot current prices so selectMenu can detect changes

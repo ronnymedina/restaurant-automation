@@ -15,11 +15,18 @@ const { restaurantName = 'Restaurante' } = Astro.props;
     <style>
       html, body {
         margin: 0;
+        padding: 0;
         width: 100%;
-        height: 100%;
-        overflow: hidden;
-        touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
+      }
+      html {
+        height: 100dvh;
+        overflow: hidden;
+      }
+      body {
+        height: 100%;
+        overscroll-behavior: none;
+        touch-action: manipulation;
       }
     </style>
   </head>

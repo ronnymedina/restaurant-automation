@@ -9,14 +9,21 @@
 {
   "id": "string",
   "restaurantId": "string",
+  "userId": "string",
+  "user": { "id": "string", "email": "string" },
   "status": "OPEN | CLOSED",
+  "lastOrderNumber": 0,
+  "openingBalance": 0.0,
   "openedAt": "ISO8601",
   "closedAt": "ISO8601 | null",
   "totalSales": 150.0,
   "totalOrders": 12,
-  "closedBy": "string | null"
+  "closedBy": "string | null",
+  "_count": { "orders": 12 }
 }
 ```
+
+Note: `_count` is only present in responses from `GET /current` and `GET /history`.
 
 **CloseSessionResponseDto** — usado en POST /close:
 
@@ -100,8 +107,8 @@ E2E: ✅ `test/cash-register/openCashRegister.e2e-spec.ts`
 | BASIC intenta abrir | 403 | Solo ADMIN o MANAGER |
 | ADMIN abre sesión | 201 | Retorna `CashShiftDto` con `status = OPEN` |
 | MANAGER abre sesión | 201 | Retorna `CashShiftDto` con `status = OPEN` |
-| Ya existe sesión abierta para el mismo usuario | 409 | `CASH_REGISTER_ALREADY_OPEN` |
-| Otro usuario puede abrir su propia sesión | 201 | Aislamiento por `userId` — cada usuario tiene su propio turno |
+| Ya existe una sesión abierta para el restaurante | 409 | `REGISTER_ALREADY_OPEN` |
+| Segunda sesión bloqueada | 409 | Solo una sesión global activa por restaurante |
 
 ---
 
@@ -115,7 +122,7 @@ E2E: ✅ `test/cash-register/closeCashRegister.e2e-spec.ts`
 | BASIC intenta cerrar | 403 | Solo ADMIN o MANAGER |
 | ADMIN cierra sesión abierta | 200 | Retorna `CloseSessionResponseDto` con resumen |
 | MANAGER cierra sesión abierta | 200 | Retorna `CloseSessionResponseDto` con resumen |
-| No hay sesión abierta | 409 | `NO_OPEN_CASH_REGISTER` |
+| No hay sesión abierta | 409 | `NO_OPEN_REGISTER` |
 | `summary.totalSales` como number | 200 | BigInt serializado a number |
 | `paymentBreakdown` refleja métodos usados | 200 | Agrupado por `paymentMethod` |
 
@@ -163,14 +170,16 @@ E2E: ✅ `test/cash-register/cashRegisterSummary.e2e-spec.ts`
 | `topProducts` agrupados por ventas | 200 | Máximo 10 productos, ordenados por cantidad |
 | Órdenes CANCELLED excluidas de `topProducts` | 200 | Solo se agregan productos de órdenes no canceladas |
 | `completedOrders` y `cancelledOrders` en summary | 200 | Contadores separados |
-| Sesión no encontrada | 404 | `CASH_REGISTER_NOT_FOUND` |
+| Sesión no encontrada | 404 | `REGISTER_NOT_FOUND` |
 
 ---
 
 ### Notas de implementación
 
 - El `restaurantId` viene del JWT — toda operación está aislada por restaurante
-- Aislamiento por usuario: cada usuario solo puede tener una sesión `OPEN` activa por restaurante a la vez. La validación es doble: `findOpen(restaurantId, userId)` + manejo del error `P2002` de unique constraint en PostgreSQL
+- Solo puede existir una sesión `OPEN` por restaurante a la vez (global). `openSession` llama a `findOpen(restaurantId)` — sin filtro de usuario — y lanza `REGISTER_ALREADY_OPEN` (409) si ya existe una sesión abierta, sin importar qué usuario la abrió. Cualquier ADMIN o MANAGER puede cerrarla.
+- En PostgreSQL, la unicidad se refuerza con un partial index: `CREATE UNIQUE INDEX "one_open_shift_per_restaurant" ON "CashShift"("restaurantId") WHERE status = 'OPEN';` — debe crearse manualmente al hacer deploy (Prisma no lo gestiona automáticamente).
+- `userId` y `user.email` se incluyen en las respuestas de `POST /open`, `GET /current` y `GET /summary/:sessionId`. La respuesta de `POST /close` no incluye `user` (omitido de la transacción de cierre).
 - El endpoint `POST /close` usa `@HttpCode(HttpStatus.OK)` explícito — devuelve 200 aunque sea un `POST`
 - El cierre de sesión (`closeSession`) es atómico via `$transaction` de Prisma: calcula totales, actualiza la sesión y retorna el resumen en una sola transacción
 - `totalSales` se almacena como `BigInt` en la BD (centavos). El servicio lo convierte con `Number()` antes de devolver el resumen

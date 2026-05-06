@@ -23,10 +23,10 @@ export function ProductGrid({ sections, theme, onAddItem }: ProductGridProps) {
     <div>
       {sectionEntries.map(([sectionName, items]) => (
         <div key={sectionName}>
-          <h3 className="text-lg font-bold text-slate-700 mt-6 mb-3 first:mt-0">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-6 mb-3 first:mt-0">
             {sectionName}
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
             {items.map((item) => (
               <ProductCard
                 key={item.menuItemId ?? item.id}

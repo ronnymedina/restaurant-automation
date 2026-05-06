@@ -106,7 +106,6 @@ describe('CashRegisterService', () => {
 
       expect(mockRegisterSessionRepository.findOpen).toHaveBeenCalledWith(
         'restaurant-uuid-1',
-        'user-uuid-1',
       );
       expect(mockRegisterSessionRepository.create).toHaveBeenCalledWith(
         'restaurant-uuid-1',
@@ -272,29 +271,6 @@ describe('CashRegisterService', () => {
           data: expect.objectContaining({ closedBy: 'manager-uuid-1' }),
         }),
       );
-    });
-
-    it('should filter findFirst by userId when userId is provided', async () => {
-      const session = mockSession({ userId: 'user-uuid-1' });
-      const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
-
-      mockTx.cashShift.findFirst.mockResolvedValue(session);
-      mockTx.order.aggregate.mockResolvedValue({
-        _sum: { totalAmount: 0n },
-        _count: { id: 0 },
-      });
-      mockTx.order.groupBy.mockResolvedValue([]);
-      mockTx.cashShift.update.mockResolvedValue(closedSession);
-
-      await service.closeSession('restaurant-uuid-1', 'user-uuid-1', 'user-uuid-1');
-
-      expect(mockTx.cashShift.findFirst).toHaveBeenCalledWith({
-        where: {
-          restaurantId: 'restaurant-uuid-1',
-          status: CashShiftStatus.OPEN,
-          userId: 'user-uuid-1',
-        },
-      });
     });
 
     it('should handle zero total when no orders exist', async () => {

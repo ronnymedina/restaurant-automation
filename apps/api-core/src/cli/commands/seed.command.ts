@@ -144,12 +144,20 @@ export class SeedCommand extends CommandRunner {
       let seededCategoryIds: string[] = [];
 
       if (options.categories && options.categories > 0) {
-        const names = generateNames(CATEGORY_NAMES, options.categories, 'Categoría');
-        const created = await Promise.all(
+        // Append a short run-unique suffix so re-runs don't collide on the unique(restaurantId, name) constraint
+        const runSuffix = Date.now().toString(36).slice(-4);
+        const names = generateNames(CATEGORY_NAMES, options.categories, 'Categoría').map(
+          n => `${n} #${runSuffix}`,
+        );
+        const settled = await Promise.allSettled(
           names.map(name => this.categoriesService.createCategory(restaurantId, name)),
         );
+        const created = settled
+          .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof this.categoriesService.createCategory>>> => r.status === 'fulfilled')
+          .map(r => r.value);
+        const failed = settled.filter(r => r.status === 'rejected').length;
         seededCategoryIds = created.map(c => c.id);
-        results.push(`✓ ${created.length} categories created`);
+        results.push(`✓ ${created.length} categories created${failed ? ` (${failed} skipped — duplicate)` : ''}`);
       }
 
       // ── 2. Products ────────────────────────────────────────────────────────

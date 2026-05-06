@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Order } from '@prisma/client';
-import { EventsGateway } from './events.gateway';
+import { SseService } from './sse.service';
 
 export const ORDER_EVENTS = {
   NEW: 'order:new',
@@ -9,15 +9,15 @@ export const ORDER_EVENTS = {
 
 @Injectable()
 export class OrderEventsService {
-  constructor(private readonly gateway: EventsGateway) {}
+  constructor(private readonly sseService: SseService) {}
 
-  emitOrderCreated(restaurantId: string, order: Order): void {
-    this.gateway.emitToRestaurant(restaurantId, ORDER_EVENTS.NEW, { order });
-    this.gateway.emitToKitchen(restaurantId, ORDER_EVENTS.NEW, { order });
+  emitOrderCreated(restaurantId: string, _order: Order): void {
+    this.sseService.emitToRestaurant(restaurantId, ORDER_EVENTS.NEW, {});
+    this.sseService.emitToKitchen(restaurantId, ORDER_EVENTS.NEW, {});
   }
 
-  emitOrderUpdated(restaurantId: string, order: Order): void {
-    this.gateway.emitToRestaurant(restaurantId, ORDER_EVENTS.UPDATED, { order });
-    this.gateway.emitToKitchen(restaurantId, ORDER_EVENTS.UPDATED, { order });
+  emitOrderUpdated(restaurantId: string, _order: Order): void {
+    this.sseService.emitToRestaurant(restaurantId, ORDER_EVENTS.UPDATED, {});
+    this.sseService.emitToKitchen(restaurantId, ORDER_EVENTS.UPDATED, {});
   }
 }

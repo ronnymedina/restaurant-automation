@@ -93,7 +93,7 @@ import Layout from "../layouts/Layout.astro";
 </style>
 
 <script>
-  import { setTokens, isAuthenticated } from '../lib/auth';
+  import { setTokens, isAuthenticated, setRestaurantTimezone } from '../lib/auth';
   import { getErrorMessage } from '../lib/error-messages';
 
   // Redirect if already authenticated
@@ -155,6 +155,7 @@ import Layout from "../layouts/Layout.astro";
 
       const result = await response.json();
       setTokens(result.accessToken, result.refreshToken);
+      setRestaurantTimezone(result.timezone ?? 'UTC');
       window.location.href = '/dash';
     } catch (error) {
       console.error('Login error:', error);
