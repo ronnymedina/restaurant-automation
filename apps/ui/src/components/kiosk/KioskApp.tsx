@@ -14,12 +14,12 @@ import { OrderConfirmation } from './OrderConfirmation'
 import { PaymentMethodSelector } from './PaymentMethodSelector'
 
 const defaultTheme: KioskTheme = {
-  primary: '#059669',
-  primaryDark: '#047857',
+  primary: '#111827',
+  primaryDark: '#1f2937',
   accent: '#d97706',
-  background: '#fffbeb',
+  background: '#f8fafc',
   surface: '#ffffff',
-  text: '#1e293b',
+  text: '#0f172a',
   textMuted: '#94a3b8',
 }
 
