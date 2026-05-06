@@ -28,13 +28,14 @@ export function ProductCard({
   const isOutOfStock = stockStatus === 'out_of_stock'
   const isLowStock = stockStatus === 'low_stock'
 
-  const borderClass = priceChanged ? 'border-amber-300' : 'border-slate-200'
-  const opacityClass = isOutOfStock ? 'opacity-50' : ''
+  const cardClass = [
+    'bg-white rounded-xl overflow-hidden flex flex-col shadow',
+    priceChanged ? 'border border-amber-300' : '',
+    isOutOfStock ? 'opacity-50' : '',
+  ].filter(Boolean).join(' ')
 
   return (
-    <div
-      className={`bg-white rounded-xl border overflow-hidden flex flex-col ${borderClass} ${opacityClass}`}
-    >
+    <div className={cardClass}>
       <div className="aspect-[4/3] overflow-hidden bg-slate-100 flex items-center justify-center text-4xl">
         {imageUrl ? (
           <img src={imageUrl} alt={title} className="w-full h-full object-cover" />
@@ -47,7 +48,7 @@ export function ProductCard({
         <p className="font-semibold text-sm md:text-base leading-tight mb-1">{title}</p>
 
         {description && (
-          <p className="text-xs md:text-sm text-slate-500 mb-2 line-clamp-2">{description}</p>
+          <p className="text-xs md:text-sm text-slate-400 mb-2 line-clamp-2">{description}</p>
         )}
 
         <div className="mt-auto">
@@ -63,8 +64,8 @@ export function ProductCard({
           )}
 
           <p
-            className={`font-bold text-base md:text-lg ${priceChanged ? 'text-amber-600' : ''}`}
-            style={priceChanged ? undefined : { color: theme.primary }}
+            className={`font-black text-base md:text-lg ${priceChanged ? 'text-amber-600' : ''}`}
+            style={priceChanged ? undefined : { color: theme.text }}
           >
             ${price.toFixed(2)}
           </p>
@@ -80,11 +81,11 @@ export function ProductCard({
         {!isOutOfStock && (
           <button
             type="button"
-            className="mt-2 w-full py-2.5 md:py-4 text-white text-sm md:text-base font-medium rounded-lg active:opacity-90 transition-colors cursor-pointer border-none"
+            className="mt-2 w-full py-2.5 md:py-4 text-white text-xs md:text-sm font-bold uppercase tracking-wide rounded-lg active:opacity-90 transition-colors cursor-pointer border-none"
             style={{ backgroundColor: theme.primary }}
             onClick={onAdd}
           >
-            Agregar
+            + Agregar
           </button>
         )}
       </div>
