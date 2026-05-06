@@ -37,5 +37,21 @@ services:
       timeout: 5s
       retries: 5
 
+  res-ui:
+    build:
+      context: ./apps/ui
+      target: dev
+    volumes:
+      - ./apps/ui/src:/app/src
+      - ./apps/ui/public:/app/public
+      - /app/node_modules
+    env_file: ./apps/ui/.env
+    environment:
+      PUBLIC_API_URL: http://res-api-core:3000
+    depends_on:
+      - res-api-core
+    ports:
+      - "${UI_PORT:-4321}:4321"
+
 volumes:
   postgres_data:
