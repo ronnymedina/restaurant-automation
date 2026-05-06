@@ -8,6 +8,8 @@ services:
       - ./apps/ui/public:/app/public
       - /app/node_modules
     env_file: ./apps/ui/.env
+    environment:
+      PUBLIC_API_URL: http://res-api-core:3000
     depends_on:
       - res-api-core
     ports:

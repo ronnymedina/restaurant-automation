@@ -8,6 +8,8 @@ The placeholder mechanism solves this: build once with a known string placeholde
 
 ## How It Works
 
+> **Note:** This mechanism only applies to the **`prod` stage** (the nginx image). The `dev` stage used by `docker-compose.yml` runs `astro dev` directly and handles environment variables normally through `env_file` and `environment` overrides.
+
 ### Build Time
 1. The image is built with `PUBLIC_API_URL=__PLACEHOLDER_API_URL__` (defined as a build argument in the Dockerfile)
 2. This placeholder string is baked into the compiled `.js` files when `astro build` runs in the `build` stage
@@ -16,7 +18,7 @@ The placeholder mechanism solves this: build once with a known string placeholde
 ### Runtime
 4. The production image (`prod` stage) copies the compiled files from the `build` stage to nginx
 5. At container startup, the entrypoint script (`docker/entrypoint.sh`) runs before nginx starts
-6. The script uses `sed` to search all `.js` files in `/usr/share/nginx/html` and replace `__PLACEHOLDER_API_URL__` with the value of the `$PUBLIC_API_URL` environment variable
+6. The script uses `sed` to search all `.js` files in `/usr/share/nginx/html` and replace `__PLACEHOLDER_API_URL__` with the value of the `$PUBLIC_API_URL` environment variable. If `PUBLIC_API_URL` is unset, the script exits with an error (fail-fast behavior).
 7. nginx then serves the modified files with the correct API URL injected
 
 ### Railway Deployment
@@ -37,7 +39,8 @@ This approach is text-based replacement on compiled files. It works well for env
 
 2. **entrypoint.sh** — add a `sed` line to replace the placeholder:
    ```bash
-   sed -i "s#__PLACEHOLDER_MY_NEW_VAR__#${MY_NEW_VAR}#g" {} +
+   find /usr/share/nginx/html -name "*.js" \
+     -exec sed -i "s#__PLACEHOLDER_MY_NEW_VAR__#${MY_NEW_VAR}#g" {} +
    ```
 
 3. **.env (local development)** — add the variable for local testing:
