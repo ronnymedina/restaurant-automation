@@ -9,7 +9,7 @@ RUN npm install
 # Development server with hot reload
 FROM deps AS dev
 WORKDIR /app
-CMD ["npm", "run", "dev"]
+CMD ["astro", "dev", "--host"]
 
 # Stage 3: build
 # Production build
