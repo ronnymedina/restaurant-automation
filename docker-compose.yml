@@ -6,6 +6,7 @@ services:
     volumes:
       - ./apps/ui/src:/app/src
       - ./apps/ui/public:/app/public
+      - /app/node_modules
     env_file: ./apps/ui/.env
     depends_on:
       - res-api-core
