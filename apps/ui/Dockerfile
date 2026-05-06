@@ -9,6 +9,7 @@ RUN npm install
 # Development server with hot reload
 FROM deps AS dev
 WORKDIR /app
+COPY astro.config.mjs tsconfig.json tailwind.config.mjs ./
 CMD ["npx", "astro", "dev", "--host"]
 
 # Stage 3: build
