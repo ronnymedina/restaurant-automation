@@ -1,4 +1,4 @@
-import { Controller, Patch, Body, UseGuards } from '@nestjs/common';
+import { Controller, Patch, Get, Body, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
@@ -15,6 +15,15 @@ import { Roles } from '../auth/decorators/roles.decorator';
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class RestaurantsController {
   constructor(private readonly restaurantsService: RestaurantsService) { }
+
+  @Get('settings')
+  @ApiOperation({ summary: 'Get restaurant settings including timezone' })
+  async getSettings(
+    @CurrentUser() user: { restaurantId: string },
+  ): Promise<{ timezone: string }> {
+    const restaurant = await this.restaurantsService.findByIdWithSettings(user.restaurantId);
+    return { timezone: restaurant?.settings?.timezone ?? 'UTC' };
+  }
 
   @Patch('name')
   @Roles(Role.ADMIN)

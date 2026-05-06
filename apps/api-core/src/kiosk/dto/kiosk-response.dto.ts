@@ -12,6 +12,7 @@ export class KioskMenuItemEntryDto {
   @ApiProperty() price: number;
   @ApiPropertyOptional({ nullable: true }) imageUrl: string | null;
   @ApiProperty() stockStatus: string;
+  @ApiPropertyOptional({ nullable: true }) stock: number | null;
 }
 
 export class KioskMenuItemsResponseDto {

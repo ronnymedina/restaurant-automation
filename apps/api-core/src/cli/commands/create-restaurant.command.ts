@@ -14,7 +14,10 @@ export class CreateRestaurantCommand extends CommandRunner {
     super();
   }
 
-  async run(_passedParams: string[], options: { name: string }): Promise<void> {
+  async run(
+    _passedParams: string[],
+    options: { name: string; timezone: string },
+  ): Promise<void> {
     if (!options.name) {
       this.logger.error('--name is required');
       return process.exit(1);
@@ -23,9 +26,10 @@ export class CreateRestaurantCommand extends CommandRunner {
     try {
       const restaurant = await this.restaurantsService.createRestaurant(
         options.name,
+        options.timezone,
       );
       this.logger.log(
-        `Restaurant created successfully:\n  id:   ${restaurant.id}\n  name: ${restaurant.name}\n  slug: ${restaurant.slug}`,
+        `Restaurant created successfully:\n  id:       ${restaurant.id}\n  name:     ${restaurant.name}\n  slug:     ${restaurant.slug}\n  timezone: ${options.timezone}`,
       );
     } catch (error) {
       this.logger.error(
@@ -41,6 +45,21 @@ export class CreateRestaurantCommand extends CommandRunner {
     required: true,
   })
   parseName(val: string): string {
+    return val;
+  }
+
+  @Option({
+    flags: '-tz, --timezone <timezone>',
+    description: 'IANA timezone identifier (e.g. America/Mexico_City). Defaults to UTC.',
+    required: false,
+    defaultValue: 'UTC',
+  })
+  parseTimezone(val: string): string {
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: val });
+    } catch {
+      throw new Error(`Invalid IANA timezone: "${val}". Example: America/Mexico_City`);
+    }
     return val;
   }
 }

@@ -117,7 +117,7 @@ type KioskStore = {
   isSubmitting: boolean
 
   // UI state
-  view: 'menu' | 'cart' | 'checkout' | 'confirmation'
+  view: KioskView
   confirmedOrder: ConfirmedOrder | null
   errorMessage: string | null
 
@@ -148,6 +148,19 @@ type KioskStore = {
 
   // UI
   setView(view: KioskView): void
+```
+
+`KioskView` is defined in `kiosk.types.ts` as:
+
+```typescript
+export const KioskView = {
+  MENU: 'menu',
+  CART: 'cart',
+  CHECKOUT: 'checkout',
+  CONFIRMATION: 'confirmation',
+} as const;
+
+export type KioskView = typeof KioskView[keyof typeof KioskView];
   clearError(): void
 ```
 

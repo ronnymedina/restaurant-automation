@@ -31,6 +31,7 @@ export type MenuItem = {
   price: number
   imageUrl?: string
   stockStatus: 'available' | 'low_stock' | 'out_of_stock'
+  stock: number | null
 }
 
 export type CartItem = {

@@ -96,6 +96,7 @@ model RestaurantSettings {
   restaurantId String     @unique
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
+  timezone              String    @default("UTC")
   kitchenToken          String?   @unique
   kitchenTokenExpiresAt DateTime?
 
@@ -230,9 +231,9 @@ model OrderItem {
   createdAt DateTime @default(now())
 }
 
-// Note: In PostgreSQL, enforce one open shift per user per restaurant with:
-// CREATE UNIQUE INDEX "one_open_shift_per_user_per_restaurant" ON "CashShift"("restaurantId", "userId") WHERE status = 'OPEN';
-// SQLite does not support partial indexes; uniqueness is enforced at the application layer.
+// Note: In PostgreSQL, enforce one open shift per restaurant with a partial index.
+// Run manually on prod: CREATE UNIQUE INDEX "one_open_shift_per_restaurant" ON "CashShift"("restaurantId") WHERE status = 'OPEN';
+// SQLite does not support partial indexes; uniqueness is enforced at the application layer (openSession checks findOpen before creating).
 model CashShift {
   id              String          @id @default(uuid())
   status          CashShiftStatus @default(OPEN)

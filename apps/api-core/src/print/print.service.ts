@@ -15,18 +15,27 @@ export class PrintService {
     private readonly restaurantsService: RestaurantsService,
   ) {}
 
+  private formatDateTime(date: Date, timezone: string): string {
+    return new Intl.DateTimeFormat('es', {
+      timeZone: timezone,
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(date);
+  }
+
   async generateReceipt(orderId: string): Promise<Receipt> {
     const order = await this.orderRepository.findById(orderId);
     if (!order) throw new EntityNotFoundException('Order', orderId);
-    const restaurant = await this.restaurantsService.findById(order.restaurantId);
+    const restaurant = await this.restaurantsService.findByIdWithSettings(order.restaurantId);
     if (!restaurant) throw new EntityNotFoundException('Restaurant', order.restaurantId);
+    const timezone = restaurant.settings?.timezone ?? 'UTC';
     const orderWithItems = order as typeof order & {
       items: Prisma.OrderItemGetPayload<{ include: { product: true } }>[];
     };
     return {
       restaurantName: restaurant.name,
       orderNumber: order.orderNumber,
-      date: order.createdAt.toISOString(),
+      date: this.formatDateTime(order.createdAt, timezone),
       items: orderWithItems.items.map((item) => ({
         productName: item.product?.name || 'Unknown',
         quantity: item.quantity,
@@ -43,12 +52,14 @@ export class PrintService {
   async generateKitchenTicket(orderId: string): Promise<KitchenTicket> {
     const order = await this.orderRepository.findById(orderId);
     if (!order) throw new EntityNotFoundException('Order', orderId);
+    const restaurant = await this.restaurantsService.findByIdWithSettings(order.restaurantId);
+    const timezone = restaurant?.settings?.timezone ?? 'UTC';
     const orderWithItems = order as typeof order & {
       items: Prisma.OrderItemGetPayload<{ include: { product: true } }>[];
     };
     return {
       orderNumber: order.orderNumber,
-      createdAt: order.createdAt.toISOString(),
+      createdAt: this.formatDateTime(order.createdAt, timezone),
       items: orderWithItems.items.map((item) => ({
         productName: item.product?.name || 'Unknown',
         quantity: item.quantity,
@@ -60,15 +71,16 @@ export class PrintService {
   async generateBoth(orderId: string): Promise<{ receipt: Receipt; kitchenTicket: KitchenTicket }> {
     const order = await this.orderRepository.findById(orderId);
     if (!order) throw new EntityNotFoundException('Order', orderId);
-    const restaurant = await this.restaurantsService.findById(order.restaurantId);
+    const restaurant = await this.restaurantsService.findByIdWithSettings(order.restaurantId);
     if (!restaurant) throw new EntityNotFoundException('Restaurant', order.restaurantId);
+    const timezone = restaurant.settings?.timezone ?? 'UTC';
     const orderWithItems = order as typeof order & {
       items: Prisma.OrderItemGetPayload<{ include: { product: true } }>[];
     };
     const receipt: Receipt = {
       restaurantName: restaurant.name,
       orderNumber: order.orderNumber,
-      date: order.createdAt.toISOString(),
+      date: this.formatDateTime(order.createdAt, timezone),
       items: orderWithItems.items.map((item) => ({
         productName: item.product?.name || 'Unknown',
         quantity: item.quantity,
@@ -82,7 +94,7 @@ export class PrintService {
     };
     const kitchenTicket: KitchenTicket = {
       orderNumber: order.orderNumber,
-      createdAt: order.createdAt.toISOString(),
+      createdAt: this.formatDateTime(order.createdAt, timezone),
       items: orderWithItems.items.map((item) => ({
         productName: item.product?.name || 'Unknown',
         quantity: item.quantity,

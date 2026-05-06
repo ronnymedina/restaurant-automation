@@ -57,6 +57,10 @@ async function seedRestaurant(prisma: PrismaService, suffix: string) {
     data: { name: `Restaurant ${suffix}`, slug: `rest-${suffix}-${Date.now()}` },
   });
 
+  await prisma.restaurantSettings.create({
+    data: { restaurantId: restaurant.id, timezone: 'UTC' },
+  });
+
   const passwordHash = await bcrypt.hash('Admin1234!', 10);
 
   const admin = await prisma.user.create({

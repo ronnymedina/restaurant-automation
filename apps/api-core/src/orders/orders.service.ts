@@ -18,6 +18,8 @@ import { EmailService } from '../email/email.service';
 import { PrintService } from '../print/print.service';
 import { OrderEventsService } from '../events/orders.events';
 import { PRINT_CUSTOMER_ON_CREATE } from '../config';
+import { TimezoneService } from '../restaurants/timezone.service';
+import { toUtcBoundary } from '../common/date.utils';
 
 const STATUS_ORDER: OrderStatus[] = [
   OrderStatus.CREATED,
@@ -50,6 +52,7 @@ export class OrdersService {
     private readonly emailService: EmailService,
     @Inject(forwardRef(() => PrintService))
     private readonly printService: PrintService,
+    private readonly timezoneService: TimezoneService,
   ) {}
 
   async createOrder(restaurantId: string, cashShiftId: string, dto: CreateOrderDto) {
@@ -93,12 +96,14 @@ export class OrdersService {
     restaurantId: string,
     filters: { orderNumber?: number; status?: OrderStatus; dateFrom?: string; dateTo?: string; page: number; limit: number },
   ) {
-    const dateFrom = filters.dateFrom ? new Date(filters.dateFrom) : undefined;
-    let dateTo: Date | undefined;
-    if (filters.dateTo) {
-      dateTo = new Date(filters.dateTo);
-      dateTo.setHours(23, 59, 59, 999);
-    }
+    const timezone = await this.timezoneService.getTimezone(restaurantId);
+    const dateFrom = filters.dateFrom
+      ? toUtcBoundary(filters.dateFrom, timezone, 'start')
+      : undefined;
+    const dateTo = filters.dateTo
+      ? toUtcBoundary(filters.dateTo, timezone, 'end')
+      : undefined;
+
     return this.orderRepository.findHistory(restaurantId, {
       orderNumber: filters.orderNumber,
       status: filters.status,

@@ -10,6 +10,14 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       <h2 class="text-2xl font-bold text-slate-800">Cocina (KDS)</h2>
     </div>
 
+    <!-- Shift info strip -->
+    <div id="shiftInfo" class="hidden bg-white rounded-xl border border-slate-200 px-4 py-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+      <span class="text-slate-400">Sesión:</span>
+      <span id="shiftId" class="font-mono text-slate-700 text-xs"></span>
+      <span class="text-slate-400">Cajero:</span>
+      <span id="shiftUser" class="font-medium text-slate-700"></span>
+    </div>
+
     <!-- Kanban Board: 4 columns -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 min-h-[60vh]">
       <!-- CREATED -->
@@ -89,8 +97,11 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 
 <script>
   import { apiFetch } from '../../lib/api';
-  import { createDashboardSocket } from '../../lib/socket';
-  import { getAccessToken } from '../../lib/auth';
+  import { getAccessToken, getRestaurantTimezone } from '../../lib/auth';
+  import { formatDate, formatTime } from '../../lib/date';
+  import { ORDER_EVENTS } from '../../lib/sse-events';
+
+  const timezone = getRestaurantTimezone();
 
   const colCreated = document.getElementById('colCreated')!;
   const colProcessing = document.getElementById('colProcessing')!;
@@ -101,6 +112,9 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   const countCompleted = document.getElementById('countCompleted')!;
   const countCancelled = document.getElementById('countCancelled')!;
   const toast = document.getElementById('orderToast')!;
+  const shiftInfo = document.getElementById('shiftInfo')!;
+  const shiftIdEl = document.getElementById('shiftId')!;
+  const shiftUserEl = document.getElementById('shiftUser')!;
 
   // Cancel modal elements
   const cancelModal = document.getElementById('cancelModal')!;
@@ -181,7 +195,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   });
 
   function renderCard(order: any): string {
-    const time = new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const time = formatTime(order.createdAt, timezone);
     const border = borderColors[order.status] || 'border-l-slate-300';
     const isPaidBadge = order.isPaid
       ? '<span class="px-2 py-0.5 text-xs rounded-full font-medium bg-green-100 text-green-700">Pagado</span>'
@@ -232,6 +246,23 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
         </div>
       </div>
     `;
+  }
+
+  async function loadShiftInfo() {
+    try {
+      const res = await apiFetch('/v1/cash-register/current');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data?.id) {
+        shiftInfo.classList.add('hidden');
+        return;
+      }
+      shiftIdEl.textContent = data.id;
+      shiftUserEl.textContent = data.user?.email ?? data.userId ?? '-';
+      shiftInfo.classList.remove('hidden');
+    } catch {
+      // non-critical — kitchen still works without shift banner
+    }
   }
 
   function bindCardEvents(container: Element) {
@@ -294,7 +325,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
             <style>body{font-family:monospace;padding:20px;max-width:350px;margin:0 auto}table{width:100%;border-collapse:collapse}td,th{padding:4px 0;text-align:left}th:last-child,td:last-child{text-align:right}.total{border-top:2px solid #000;font-weight:bold;font-size:1.2em}</style>
             </head><body>
             <h2>${receipt.restaurantName}</h2>
-            <p>Pedido #${receipt.orderNumber}<br>${new Date(receipt.date).toLocaleString()}</p>
+            <p>Pedido #${receipt.orderNumber}<br>${receipt.date}</p>
             <table>
               <tr><th>Producto</th><th>Cant</th><th>Subtotal</th></tr>
               ${receipt.items.map((i: any) => `<tr><td>${i.productName}</td><td>${i.quantity}</td><td>$${i.subtotal.toFixed(2)}</td></tr>${i.notes ? `<tr><td colspan="3" style="color:#666;font-size:0.9em">${i.notes}</td></tr>` : ''}`).join('')}
@@ -346,13 +377,15 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     bindCardEvents(colCancelled);
   }
 
+  loadShiftInfo();
   loadOrders();
 
   const token = getAccessToken();
   if (token) {
-    const socket = createDashboardSocket(token);
-    socket.on('order:new', () => loadOrders());
-    socket.on('order:updated', () => loadOrders());
-    window.addEventListener('beforeunload', () => socket.disconnect());
+    const API_URL = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
+    const es = new EventSource(`${API_URL}/v1/events/dashboard?token=${token}`);
+    es.addEventListener(ORDER_EVENTS.NEW, () => { loadOrders(); loadShiftInfo(); });
+    es.addEventListener(ORDER_EVENTS.UPDATED, () => { loadOrders(); loadShiftInfo(); });
+    window.addEventListener('beforeunload', () => es.close());
   }
 </script>

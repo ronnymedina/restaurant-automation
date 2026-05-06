@@ -59,7 +59,7 @@ export class CashRegisterController {
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async close(@CurrentUser() user: { restaurantId: string; id: string }) {
-    const result = await this.registerService.closeSession(user.restaurantId, user.id, user.id);
+    const result = await this.registerService.closeSession(user.restaurantId, user.id);
     return {
       session: new CashShiftSerializer(result.session),
       summary: result.summary,

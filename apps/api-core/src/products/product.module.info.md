@@ -147,6 +147,28 @@ E2E: ✅ `test/products/deleteProduct.e2e-spec.ts`
 
 ---
 
+### Flujo de búsqueda (`?search=`)
+
+```mermaid
+sequenceDiagram
+    participant U as Usuario
+    participant UI as ProductsIsland (React)
+    participant API as GET /v1/products
+    participant SVC as ProductsService
+    participant DB as PostgreSQL
+
+    U->>UI: escribe "piz"
+    Note over UI: debounce 300ms
+    UI->>API: ?search=piz&limit=5
+    API->>SVC: listProducts(restaurantId, search="piz", limit=5)
+    SVC->>DB: WHERE restaurantId = 'x'<br/>AND deletedAt IS NULL<br/>AND (name ILIKE '%piz%'<br/>OR sku ILIKE '%piz%')<br/>LIMIT 5
+    Note over DB: 1. index scan (restaurantId, deletedAt)<br/>→ acota al catálogo del restaurante<br/>2. ILIKE filter sobre ese set pequeño
+    DB-->>SVC: [Pizza Margarita, Pizza BBQ, ...]
+    SVC-->>API: PaginatedProductsSerializer
+    API-->>UI: { data: [...], meta: {...} }
+    UI-->>U: tabla con hasta 5 resultados
+```
+
 ### Notas de implementación
 
 - El `restaurantId` viene del JWT — toda operación está aislada por restaurante

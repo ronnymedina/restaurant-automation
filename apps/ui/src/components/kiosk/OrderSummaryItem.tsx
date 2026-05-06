@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import type { CartItem, KioskTheme } from './types/kiosk.types'
 import { QuantityControls } from './QuantityControls'
 import { ProductNoteForm } from './ProductNoteForm'
@@ -11,6 +12,14 @@ interface OrderSummaryItemProps {
 export function OrderSummaryItem({ item, theme }: OrderSummaryItemProps) {
   const updateQuantity = useKioskStore((s) => s.updateQuantity)
   const updateNotes = useKioskStore((s) => s.updateNotes)
+  const menuSections = useKioskStore((s) => s.menuSections)
+
+  const maxStock = useMemo(() => {
+    const allItems = Object.values(menuSections).flatMap((sections) =>
+      Object.values(sections).flat(),
+    )
+    return allItems.find((i) => i.id === item.productId && i.menuItemId === item.menuItemId)?.stock ?? null
+  }, [menuSections, item.productId, item.menuItemId])
 
   return (
     <div className={`bg-slate-50 rounded-xl p-3 space-y-2${item.oldPrice !== undefined ? ' border border-amber-200' : ''}`}>
@@ -34,6 +43,7 @@ export function OrderSummaryItem({ item, theme }: OrderSummaryItemProps) {
           onIncrease={() => updateQuantity(item.productId, item.menuItemId, 1)}
           onDecrease={() => updateQuantity(item.productId, item.menuItemId, -1)}
           theme={theme}
+          maxQuantity={maxStock}
         />
       </div>
       <ProductNoteForm

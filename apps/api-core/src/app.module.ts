@@ -17,10 +17,16 @@ import { CashRegisterModule } from './cash-register/cash-register.module';
 import { KioskModule } from './kiosk/kiosk.module';
 import { PrintModule } from './print/print.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { KitchenModule } from './kitchen/kitchen.module';
+import { CacheModule } from './cache/cache.module';
+import { validate } from './config';
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      validate,
+    }),
+    CacheModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
       exclude: ['/v1/{*path}', '/health', '/docs'],
@@ -39,6 +45,7 @@ import { UploadsModule } from './uploads/uploads.module';
     KioskModule,
     PrintModule,
     UploadsModule,
+    KitchenModule,
   ],
   controllers: [AppController],
 })

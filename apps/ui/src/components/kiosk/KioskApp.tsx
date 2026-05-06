@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useKioskStore } from './store/kiosk.store'
 import type { KioskTheme } from './types/kiosk.types'
 import { KioskView } from './types/kiosk.types'
+import { useViewport } from './hooks/useViewport'
 import { LoadingScreen } from './LoadingScreen'
 import { SessionClosedScreen } from './SessionClosedScreen'
 import { KioskHeader } from './KioskHeader'
@@ -13,12 +14,12 @@ import { OrderConfirmation } from './OrderConfirmation'
 import { PaymentMethodSelector } from './PaymentMethodSelector'
 
 const defaultTheme: KioskTheme = {
-  primary: '#059669',
-  primaryDark: '#047857',
+  primary: '#111827',
+  primaryDark: '#1f2937',
   accent: '#d97706',
-  background: '#fffbeb',
+  background: '#f8fafc',
   surface: '#ffffff',
-  text: '#1e293b',
+  text: '#0f172a',
   textMuted: '#94a3b8',
 }
 
@@ -41,6 +42,7 @@ type Props = {
 
 export function KioskApp({ theme: themeProp }: Props) {
   const theme = { ...defaultTheme, ...themeProp }
+  const { isSidebarMode } = useViewport()
 
   const slug = useMemo(
     () => new URLSearchParams(window.location.search).get('slug') ?? '',
@@ -82,13 +84,9 @@ export function KioskApp({ theme: themeProp }: Props) {
     )
   }
 
-  if (isLoading) {
-    return <LoadingScreen theme={theme} />
-  }
+  if (isLoading) return <LoadingScreen theme={theme} />
 
-  if (!sessionOpen) {
-    return <SessionClosedScreen theme={theme} />
-  }
+  if (!sessionOpen) return <SessionClosedScreen theme={theme} />
 
   if (view === KioskView.CONFIRMATION && confirmedOrder) {
     return (
@@ -104,50 +102,67 @@ export function KioskApp({ theme: themeProp }: Props) {
 
   if (view === KioskView.CHECKOUT) {
     return (
-      <PaymentMethodSelector
-        selectedMethod={selectedPayment}
-        onSelect={setPayment}
-        customerEmail={customerEmail}
-        onEmailChange={setCustomerEmail}
-        onConfirm={placeOrder}
-        onBack={() => setView(KioskView.CART)}
-        isLoading={isSubmitting}
-        theme={theme}
-      />
+      <>
+        <PaymentMethodSelector
+          selectedMethod={selectedPayment}
+          onSelect={setPayment}
+          customerEmail={customerEmail}
+          onEmailChange={setCustomerEmail}
+          onConfirm={placeOrder}
+          onBack={() => setView(isSidebarMode ? KioskView.MENU : KioskView.CART)}
+          isLoading={isSubmitting}
+          theme={theme}
+        />
+        {errorMessage && <ErrorToast message={errorMessage} onDismiss={clearError} />}
+      </>
     )
   }
 
-  return (
-    <div className="h-screen flex flex-col" style={{ backgroundColor: theme.background, color: theme.text }}>
-      <KioskHeader
-        title={menus.find(m => m.id === activeMenuId)?.name ?? 'Menú'}
-        theme={theme}
-      />
-      <MenuTabs
-        menus={menus}
-        activeMenuId={activeMenuId}
-        onSelect={selectMenu}
-        theme={theme}
-      />
-      <main className="flex-1 overflow-y-auto p-4">
-        {activeMenuId && menuSections[activeMenuId]
-          ? <ProductGrid
-              sections={menuSections[activeMenuId]}
-              onAddItem={addToCart}
-              theme={theme}
-            />
-          : <div className="text-center text-slate-400 py-12">Selecciona un menú para ver los productos</div>
-        }
-      </main>
+  const menuContent = activeMenuId && menuSections[activeMenuId]
+    ? <ProductGrid sections={menuSections[activeMenuId]} onAddItem={addToCart} theme={theme} />
+    : <div className="text-center text-slate-400 py-12">Selecciona un menú para ver los productos</div>
 
+  const headerTitle = menus.find(m => m.id === activeMenuId)?.name ?? 'Menú'
+
+  if (isSidebarMode) {
+    return (
+      <div className="h-dvh flex flex-row" style={{ backgroundColor: theme.background, color: theme.text }}>
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <KioskHeader title={headerTitle} theme={theme} />
+          <MenuTabs menus={menus} activeMenuId={activeMenuId} onSelect={selectMenu} theme={theme} />
+          <main className="flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain p-4 md:p-6">
+            {menuContent}
+          </main>
+        </div>
+        <div className="w-[380px] xl:w-[420px] flex-shrink-0 flex flex-col">
+          <CartPanel
+            variant="sidebar"
+            onClose={() => {}}
+            onCheckout={() => setView(KioskView.CHECKOUT)}
+            theme={theme}
+          />
+        </div>
+        {errorMessage && <ErrorToast message={errorMessage} onDismiss={clearError} />}
+      </div>
+    )
+  }
+
+  const cartItemCount = cart.reduce((s, c) => s + c.quantity, 0)
+
+  return (
+    <div className="h-dvh flex flex-col" style={{ backgroundColor: theme.background, color: theme.text }}>
+      <KioskHeader title={headerTitle} theme={theme} />
+      <MenuTabs menus={menus} activeMenuId={activeMenuId} onSelect={selectMenu} theme={theme} />
+      <main className={`flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain p-4 ${view === KioskView.MENU && cartItemCount > 0 ? 'pb-28' : ''}`}>
+        {menuContent}
+      </main>
       {view === KioskView.MENU && (
         <CartFab
-          itemCount={cart.reduce((s, c) => s + c.quantity, 0)}
+          itemCount={cartItemCount}
           onClick={() => setView(KioskView.CART)}
           theme={theme}
         />
       )}
-
       {view === KioskView.CART && (
         <CartPanel
           onClose={() => setView(KioskView.MENU)}
@@ -155,7 +170,6 @@ export function KioskApp({ theme: themeProp }: Props) {
           theme={theme}
         />
       )}
-
       {errorMessage && <ErrorToast message={errorMessage} onDismiss={clearError} />}
     </div>
   )

@@ -5,7 +5,7 @@ import { KitchenService } from './kitchen.service';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { OrdersService } from '../orders/orders.service';
 import { OrderRepository } from '../orders/order.repository';
-import { EventsGateway } from '../events/events.gateway';
+import { SseService } from '../events/sse.service';
 
 const mockRestaurantsService = {
   findById: jest.fn(),
@@ -19,7 +19,7 @@ const mockOrdersService = {
 const mockOrderRepository = {
   findByRestaurantId: jest.fn(),
 };
-const mockEventsGateway = {
+const mockSseService = {
   emitToRestaurant: jest.fn(),
 };
 
@@ -45,7 +45,7 @@ describe('KitchenService', () => {
         { provide: RestaurantsService, useValue: mockRestaurantsService },
         { provide: OrdersService, useValue: mockOrdersService },
         { provide: OrderRepository, useValue: mockOrderRepository },
-        { provide: EventsGateway, useValue: mockEventsGateway },
+        { provide: SseService, useValue: mockSseService },
       ],
     }).compile();
     service = module.get(KitchenService);
@@ -108,10 +108,10 @@ describe('KitchenService', () => {
   describe('notifyOffline', () => {
     it('emits kitchen:offline to restaurant room', async () => {
       await service.notifyOffline(makeRestaurant() as any);
-      expect(mockEventsGateway.emitToRestaurant).toHaveBeenCalledWith(
+      expect(mockSseService.emitToRestaurant).toHaveBeenCalledWith(
         'r1',
         'kitchen:offline',
-        expect.objectContaining({ slug: 'test-restaurant' }),
+        {},
       );
     });
   });
