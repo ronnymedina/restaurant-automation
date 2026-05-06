@@ -56,22 +56,26 @@ export class OrdersService {
   ) {}
 
   async createOrder(restaurantId: string, cashShiftId: string, dto: CreateOrderDto) {
+    const { lastOrderNumber } = await this.prisma.cashShift.update({
+      where: { id: cashShiftId },
+      data: { lastOrderNumber: { increment: 1 } },
+      select: { lastOrderNumber: true },
+    });
+
     const order = await this.prisma.$transaction(async (tx) => {
       const { orderItems, stockEntries, totalAmount } = await this.validateAndBuildItems(restaurantId, dto, tx);
       this.validateExpectedTotal(totalAmount, dto.expectedTotal);
       await this.decrementAllStock(stockEntries, tx);
-      const created = await this.persistOrder({ restaurantId, cashShiftId, totalAmount, dto, orderItems }, tx);
+      const created = await this.persistOrder({ restaurantId, cashShiftId, totalAmount, dto, orderItems, orderNumber: lastOrderNumber }, tx);
       return created;
     });
 
     this.orderEventsService.emitOrderCreated(restaurantId, order);
 
-    // Fire-and-forget: kitchen ticket — never blocks the response
     void this.printService.printKitchenTicket(order.id).catch((err) =>
       this.logger.warn(`Kitchen print failed for order #${order.orderNumber}: ${err.message}`),
     );
 
-    // Fire-and-forget: customer receipt on creation (opt-in via PRINT_CUSTOMER_ON_CREATE)
     if (PRINT_CUSTOMER_ON_CREATE) {
       void this.printService.printReceipt(order.id).catch((err) =>
         this.logger.warn(`Customer receipt print failed for order #${order.orderNumber}: ${err.message}`),
@@ -278,17 +282,13 @@ export class OrdersService {
       totalAmount: number;
       dto: CreateOrderDto;
       orderItems: OrderItemEntry[];
+      orderNumber: number;
     },
     tx: Prisma.TransactionClient,
   ) {
-    const session = await tx.cashShift.update({
-      where: { id: params.cashShiftId },
-      data: { lastOrderNumber: { increment: 1 } },
-    });
-
     return this.orderRepository.createWithItems(
       {
-        orderNumber: session.lastOrderNumber,
+        orderNumber: params.orderNumber,
         totalAmount: params.totalAmount,
         restaurantId: params.restaurantId,
         cashShiftId: params.cashShiftId,
