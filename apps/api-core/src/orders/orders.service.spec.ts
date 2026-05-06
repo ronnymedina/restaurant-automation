@@ -13,7 +13,6 @@ import {
   OrderNotPaidException,
   StockInsufficientException,
 } from './exceptions/orders.exceptions';
-import { ForbiddenAccessException } from '../common/exceptions';
 import { BadRequestException } from '@nestjs/common';
 import { TimezoneService } from '../restaurants/timezone.service';
 
@@ -80,9 +79,9 @@ describe('OrdersService', () => {
       await expect(service.findById('bad', 'r1')).rejects.toThrow(OrderNotFoundException);
     });
 
-    it('throws ForbiddenAccessException when restaurantId mismatches', async () => {
+    it('throws OrderNotFoundException when restaurantId mismatches (prevents cross-tenant enumeration)', async () => {
       mockOrderRepository.findById.mockResolvedValue(makeOrder({ restaurantId: 'other' }));
-      await expect(service.findById('o1', 'r1')).rejects.toThrow(ForbiddenAccessException);
+      await expect(service.findById('o1', 'r1')).rejects.toThrow(OrderNotFoundException);
     });
 
     it('returns order when found and authorized', async () => {
