@@ -6,8 +6,6 @@ Estrategia de pruebas para `api-core`: unit tests, e2e tests y stress testing co
 
 ## Unit & E2E Tests
 
-Ver comandos en el [README principal](../../README.md) y en [`docs/commands.md`](docs/commands.md).
-
 ```bash
 pnpm test           # unit tests
 pnpm test:cov       # cobertura
@@ -20,11 +18,40 @@ pnpm test:e2e       # e2e tests (requiere DB levantada)
 
 ### Requisitos
 
-- [Docker](https://docs.docker.com/get-docker/) — para correr k6 y el entorno local
-- Docker Compose levantado con `api-core` + PostgreSQL + Redis
+- [k6](https://k6.io/docs/get-started/installation/) instalado localmente
+- Docker Compose levantado (ver abajo)
 - Datos de prueba inicializados (ver abajo)
 
-No se requiere instalar k6 globalmente — se corre vía imagen Docker.
+---
+
+### Docker Compose — profiles
+
+Todo el stack está en un único `docker-compose.yml` en la raíz del proyecto. Usa profiles para levantar solo lo que necesitás:
+
+```bash
+# Solo API + DB (desarrollo normal)
+docker compose up -d
+
+# API + DB + métricas k6 (Grafana + InfluxDB)
+docker compose --profile k6 up -d
+
+# API + DB + trazas distribuidas (Jaeger)
+docker compose --profile otel up -d
+
+# Todo junto — sesión completa de load testing
+docker compose --profile k6 --profile otel up -d
+```
+
+| Profile | Servicios | Puertos |
+|---------|-----------|---------|
+| *(ninguno)* | `res-api-core`, `res-db` | 3000, 5432 |
+| `k6` | + InfluxDB, Grafana | + 8086, 3001 |
+| `otel` | + Jaeger | + 16686, 4318 |
+
+Para bajar todo:
+```bash
+docker compose --profile k6 --profile otel down
+```
 
 ---
 
@@ -33,22 +60,25 @@ No se requiere instalar k6 globalmente — se corre vía imagen Docker.
 ```
 test/k6/
   scenarios/
-    smoke.js      # Verificación básica: 2 VUs × 30s
-    load.js       # Carga sostenida normal: ramp 0→20 VUs
-    stress.js     # Carga extrema: ramp 0→50 VUs
-    spike.js      # Ráfaga súbita: simula apertura simultánea de kiosks
+    smoke.js                # Verificación básica: 2 VUs × 30s
+    load.js                 # Carga sostenida normal: ramp 0→20 VUs
+    stress.js               # Carga extrema: ramp 0→50 VUs
+    spike.js                # Ráfaga súbita: simula apertura simultánea de kiosks
+    orders.js               # Órdenes concurrentes genéricas: 10→30→50 VUs
+    orders-with-stock.js    # Órdenes con stock garantizado (stock=9999): verifica 201 bajo carga
+    orders-no-stock.js      # Órdenes sin stock (stock=0): verifica rechazo 409 graceful
+    concurrent-readwrite.js # Escenario mixto: escrituras + lecturas dashboard + cocina en paralelo
   helpers/
-    auth.js       # Obtiene JWT de admin antes de cada suite
-    data.js       # Constantes: BASE_URL, restaurantId, slug, etc.
+    auth.js    # getAuthToken(), authHeaders(), openCashRegister()
+    data.js    # Constantes: BASE_URL, slug, KITCHEN_TOKEN
+    stock.js   # fetchAllProductIds(), resetStock() — manejo de stock en setup()
 ```
 
 ---
 
 ### Preparar datos de prueba
 
-Los tests requieren dos pasos: crear el restaurante base y luego cargar volumen de datos realista.
-
-**Paso 1 — Crear restaurante y admin** (desde el contenedor o desde `apps/api-core/`):
+**Paso 1 — Crear restaurante y admin:**
 
 ```bash
 docker compose exec res-api-core pnpm run cli create-dummy
@@ -65,7 +95,7 @@ Credenciales fijas que usan los scripts de k6:
 **Paso 2 — Seed de volumen para escenarios realistas:**
 
 ```bash
-# Obtener el restaurant ID del paso anterior (o desde la DB)
+# Obtener el restaurant ID
 docker exec res-db psql -U postgres -d restaurants -c "SELECT id FROM \"Restaurant\";"
 
 # Cargar datos de volumen
@@ -81,50 +111,74 @@ Esto carga **15 categorías, 200 productos y 8 menús con 320 items** — sufici
 
 > Sin el seed de volumen los endpoints responden con listas vacías, lo que produce latencias artificialmente bajas y no representa producción.
 
+**Nota:** Los escenarios `orders-with-stock.js` y `orders-no-stock.js` obtienen los IDs de productos dinámicamente vía `GET /v1/products` en su `setup()`. No es necesario actualizar `helpers/data.js` cuando cambia el seed.
+
 ---
 
-### Observabilidad — Grafana + InfluxDB (opcional pero recomendado)
+### Pre-requisitos antes de correr escenarios de órdenes
 
-Para ver gráficas en tiempo real durante los tests, levanta los servicios de observabilidad desde la raíz del monorepo:
+Los escenarios que crean órdenes (`orders.js`, `orders-with-stock.js`, `orders-no-stock.js`, `concurrent-readwrite.js`) requieren una caja abierta. Esto está automatizado en la función `setup()` de cada escenario via `openCashRegister()` en `helpers/auth.js` — no hace falta abrirla manualmente.
 
+Si la caja ya estaba abierta, `setup()` recibe `409` y continúa sin error.
+
+---
+
+### Ejecutar escenarios
+
+**Sin observabilidad:**
 ```bash
-# Desde la raíz del proyecto
-docker compose -f docker-compose.k6.yml up -d
+k6 run apps/api-core/test/k6/scenarios/smoke.js
 ```
 
-Esto levanta:
-- **InfluxDB** en `localhost:8086` — recibe las métricas de k6
-- **Grafana** en `localhost:3001` — sin login, acceso anónimo con rol Admin
+**Con métricas en Grafana:**
+```bash
+k6 run --out influxdb=http://localhost:8086/k6 \
+  apps/api-core/test/k6/scenarios/load.js
+```
 
-Los dashboards se provisionan automáticamente — no hace falta importar nada:
+Escenarios disponibles:
+
+| Escenario | Archivo | Propósito |
+|-----------|---------|-----------|
+| Verificación básica | `smoke.js` | Confirma que el servidor responde |
+| Carga sostenida | `load.js` | Simula tráfico normal de producción |
+| Estrés extremo | `stress.js` | Busca el límite del sistema |
+| Ráfaga súbita | `spike.js` | Simula apertura simultánea de kiosks |
+| Órdenes concurrentes | `orders.js` | Órdenes con stock variable |
+| Órdenes con stock | `orders-with-stock.js` | Happy path bajo carga (verifica 201, detecta deadlocks) |
+| Órdenes sin stock | `orders-no-stock.js` | Degradación graceful (verifica 409 rápido) |
+| Lectura + escritura | `concurrent-readwrite.js` | Contención entre kiosk, dashboard y cocina |
+
+---
+
+### Observabilidad
+
+#### Grafana + InfluxDB (métricas k6)
+
+Con `--profile k6` levantado:
 
 | Dashboard | URL |
 |-----------|-----|
 | k6 Results | `http://localhost:3001/d/k6-results` |
 | PostgreSQL — Slow Queries | `http://localhost:3001/d/pg-slow-queries` |
 
-**Setup inicial (una sola vez):** habilitar `pg_stat_statements` en la DB:
+Los dashboards se provisionan automáticamente.
 
+**Setup inicial (una sola vez):**
 ```bash
-docker exec res-db psql -U postgres -d restaurants -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"
+docker exec res-db psql -U postgres -d restaurants \
+  -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"
 ```
 
-Al terminar las pruebas:
+**Resetear estadísticas antes de un test limpio:**
 ```bash
-docker compose -f docker-compose.k6.yml down
+docker exec res-db psql -U postgres -d restaurants \
+  -c "SELECT pg_stat_statements_reset();"
 ```
 
----
-
-### Cuellos de botella en queries (pg_stat_statements)
-
-PostgreSQL acumula estadísticas de todas las queries ejecutadas. Después de un test puedes ver las más lentas:
-
+**Queries más lentas después de un test:**
 ```sql
--- Conectarse al postgres del Docker Compose principal y ejecutar:
-SELECT
-  query,
-  calls,
+SELECT query, calls,
   round(total_exec_time::numeric, 2) AS total_ms,
   round(mean_exec_time::numeric, 2)  AS avg_ms,
   rows
@@ -133,69 +187,34 @@ ORDER BY total_exec_time DESC
 LIMIT 20;
 ```
 
-Para habilitar la extensión (solo la primera vez):
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
-```
+#### Jaeger (trazas distribuidas)
 
-Para resetear las estadísticas antes de un test limpio:
-```sql
-SELECT pg_stat_statements_reset();
-```
+Con `--profile otel` levantado, la API exporta trazas automáticamente según las variables `OTEL_*` del `.env`.
 
----
-
-### Ejecutar escenarios
-
-**Sin observabilidad (solo output en terminal):**
-
-Linux (desde `apps/api-core/`):
+**Variables en `apps/api-core/.env`:**
 ```bash
-docker run --rm --network host \
-  -v $(pwd)/test/k6:/scripts \
-  grafana/k6 run /scripts/scenarios/smoke.js
-```
-macOS (desde `apps/api-core/`):
-```bash
-docker run --rm \
-  -e BASE_URL=http://host.docker.internal:3000 \
-  -v $(pwd)/test/k6:/scripts \
-  grafana/k6 run /scripts/scenarios/smoke.js
+OTEL_SERVICE_NAME=api-core
+OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318/v1/traces
+OTEL_TRACES_SAMPLER=parentbased_traceidratio
+OTEL_TRACES_SAMPLER_ARG=0.1   # 10% bajo load testing; cambiar a 1.0 para debugging puntual
 ```
 
-**Con Grafana + InfluxDB (métricas en tiempo real):**
+> El sampler al 10% reduce el volumen de trazas bajo carga y evita que Jaeger se quede sin memoria. Para investigar un endpoint específico, cambiar `OTEL_TRACES_SAMPLER_ARG=1.0` y reiniciar el contenedor.
 
-Linux (desde `apps/api-core/`):
-```bash
-docker run --rm --network host \
-  -v $(pwd)/test/k6:/scripts \
-  grafana/k6 run --out influxdb=http://localhost:8086/k6 \
-  /scripts/scenarios/load.js
-```
-macOS (desde `apps/api-core/`):
-```bash
-docker run --rm \
-  -e BASE_URL=http://host.docker.internal:3000 \
-  -v $(pwd)/test/k6:/scripts \
-  grafana/k6 run --out influxdb=http://host.docker.internal:8086/k6 \
-  /scripts/scenarios/load.js
-```
+**Jaeger UI:** `http://localhost:16686`
 
-Sustituye `smoke.js` / `load.js` / `stress.js` / `spike.js` según el escenario a correr.
-Los scripts leen `__ENV.BASE_URL` y usan `http://localhost:3000` como fallback para Linux.
+1. **Service** → `api-core`
+2. **Operation** → endpoint a analizar (ej. `POST /v1/kiosk/:slug/orders`)
+3. **Find Traces** → seleccionar una traza para ver el breakdown de spans
 
----
+**Señales de alerta:**
 
-### Endpoints cubiertos
-
-| Prioridad | Endpoint | Motivo |
-|-----------|----------|--------|
-| Alta | `GET /health` | Baseline — debe aguantar siempre |
-| Alta | `POST /v1/auth/login` | bcrypt es costoso en CPU, vulnerable a spikes |
-| Alta | `GET /v1/kiosk/menu?slug=X` | Endpoint público, mayor superficie de abuso |
-| Media | `POST /v1/orders` | Escritura en DB + eventos WebSocket |
-| Media | `GET /v1/products` | Lectura paginada + cache Redis |
-| Baja | `POST /v1/onboarding` | Llama a Gemini API — requiere throttle estricto |
+| Patrón | Causa probable |
+|--------|---------------|
+| `pg-pool.connect` con duración alta | Pool de conexiones agotado |
+| `prisma:client:db_query` crece con los VUs | Query sin índice o full table scan |
+| Muchos `prisma:client:operation` en serie | Problema N+1 |
+| `pg.query:UPDATE` lento en la misma fila | Lock contention (ej. `CashShift.lastOrderNumber`) |
 
 ---
 
@@ -203,130 +222,71 @@ Los scripts leen `__ENV.BASE_URL` y usan `http://localhost:3000` como fallback p
 
 | Escenario | Perfil de carga | Error rate | Latencia |
 |-----------|----------------|------------|----------|
-| Smoke | 2 VUs × 30s | 0% | p95 < 500ms |
-| Load | Ramp 0→20 VUs en 1min, sostenido 3min, ramp down 1min | < 1% | p95 < 800ms |
-| Stress | Ramp 0→50 VUs en 2min, sostenido 5min | < 5% | p99 < 2s |
-| Spike | 5 VUs → 80 VUs en 10s → vuelve a 5 VUs | sistema se recupera | p95 < 3s post-spike |
-
-Si algún threshold falla, k6 termina con código de salida no-cero — útil para bloquear deploys en CI.
-
----
-
-### Interpretar resultados
-
-Los campos clave del output de k6:
-
-- `http_req_failed` — porcentaje de requests con error (threshold principal)
-- `http_req_duration{p(95)}` — latencia del percentil 95
-- `http_req_duration{p(99)}` — latencia del percentil 99 (stress/spike)
-- `vus_max` — pico de usuarios virtuales alcanzado
-- `iterations` — total de ciclos completados
-
-Un resultado saludable antes de desplegar a Railway debe pasar el escenario **load** sin errores y el **stress** con menos de 5% de error rate.
+| Smoke | 2 VUs × 30s | < 1% | p95 < 500ms |
+| Load | Ramp 0→20 VUs, sostenido 3min | < 1% | p95 < 800ms |
+| Stress | Ramp 0→50 VUs, sostenido 5min | < 5% | p99 < 2s |
+| Spike | 5→80 VUs en 10s, hold 1min | < 10% | — |
+| orders-with-stock | Ramp 0→50 VUs | < 1% | p95 < 800ms |
+| orders-no-stock | Ramp 0→40 VUs | 409 esperado | p95 < 300ms |
+| Concurrent R/W | 20 kiosk + 5 dashboard + 3 cocina | < 2% | p95 < 1.2s kiosk, < 800ms lecturas |
 
 ---
 
-### Trazas distribuidas con Jaeger (OpenTelemetry)
+### Límites de recursos del contenedor
 
-Mientras k6 genera carga, Jaeger captura el rastro interno de cada request: qué hizo el controlador, qué queries Prisma ejecutó, cuánto tardó cada span. Esto permite cruzar "la latencia sube en el load test" con "este query SQL específico es el culpable".
+`res-api-core` tiene límites configurados en `docker-compose.yml` para simular un servidor de producción:
 
-#### Levantar Jaeger
-
-Corre en un compose separado para no contaminar el stack principal:
-
-```bash
-# Desde la raíz del proyecto
-docker compose -f docker-compose.otel.yml up -d
+```yaml
+deploy:
+  resources:
+    limits:
+      cpus: '2.0'
+      memory: 1536M
 ```
 
-La API detecta automáticamente las variables `OTEL_*` del `.env` y empieza a exportar trazas. No se requiere reiniciar nada más.
-
-#### Variables necesarias en `apps/api-core/.env`
-
-```bash
-OTEL_SERVICE_NAME=api-core
-OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318/v1/traces
-```
-
-> `host.docker.internal` es necesario porque la API corre dentro de Docker. En Linux, reemplazar por la IP del host o usar `--network host`.
-
-#### Visualizar trazas en Jaeger UI
-
-Abrir `http://localhost:16686`:
-
-1. **Service** → seleccionar `api-core`
-2. **Operation** → elegir el endpoint a analizar (ej. `GET /v1/kiosk/:slug/menus`) o dejar `all`
-3. Hacer clic en **Find Traces**
-4. Seleccionar cualquier traza para ver el breakdown de spans:
-
-```
-GET /v1/kiosk/demo-restaurant/menus   (total: 18ms)
-  ├── middleware chain                 (1ms)
-  ├── KioskController.getMenus        (16ms)
-  │     ├── prisma:client:operation   (14ms)   ← findMany
-  │     │     ├── prisma:client:db_query (11ms) ← SQL en db.statement
-  │     │     └── pg.query:SELECT     (10ms)   ← ejecución real en pool
-  │     └── pg-pool.connect           (1ms)    ← adquisición de conexión
-  └── serialize response              (<1ms)
-```
-
-#### Cómo usar Jaeger durante un test k6
-
-1. Abrir Jaeger UI antes de correr el escenario
-2. Correr el test (smoke / load / stress)
-3. Mientras corre: ir a Jaeger → buscar trazas del endpoint bajo carga → observar si algún span crece
-4. Después del test: comparar trazas del inicio vs. el pico de VUs — si `prisma:client:db_query` crece de 5ms a 400ms bajo carga, el cuello de botella está en la DB
-
-#### Señales de alerta en Jaeger
-
-| Patrón | Causa probable |
-|--------|---------------|
-| `pg-pool.connect` con duración alta | Pool de conexiones agotado — muchos VUs esperando conexión |
-| `prisma:client:db_query` crece linealmente con los VUs | Query sin índice o full table scan |
-| Muchos spans `prisma:client:operation` en serie dentro del mismo request | Problema N+1 — cada item hace su propia query |
-| Span total del request alto pero `db_query` bajo | Cuello de botella en CPU (bcrypt, serialización) o en red |
-
-#### Cerrar Jaeger
-
-```bash
-docker compose -f docker-compose.otel.yml down
-```
+Equivale aproximadamente a una instancia Railway Pro de 2 vCPUs / 1.5 GB RAM. Si los tests fallan con estos límites pero pasaban sin ellos, el cuello de botella es de recursos, no de código.
 
 ---
 
 ### Flujo recomendado pre-deploy
 
 ```bash
-# 1. Levantar entorno principal
-docker compose up -d
+# 1. Levantar todo el stack
+docker compose --profile k6 --profile otel up -d
 
-# 2. Levantar observabilidad (desde la raíz)
-docker compose -f docker-compose.k6.yml up -d
-
-# 3. Crear restaurante y admin (si no existe)
+# 2. Crear restaurante y admin (si no existe)
 docker compose exec res-api-core pnpm run cli create-dummy
 
-# 4. Seed de volumen (obtener el ID primero)
+# 3. Seed de volumen
 docker exec res-db psql -U postgres -d restaurants -c "SELECT id FROM \"Restaurant\";"
 docker compose exec res-api-core pnpm run cli seed \
   --restaurant-id <ID> \
   --categories 15 --products 200 --menus 8 --items-per-menu 40
 
-# 5. Habilitar pg_stat_statements (solo la primera vez)
-docker exec res-db psql -U postgres -d restaurants -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"
+# 4. Habilitar pg_stat_statements (solo la primera vez)
+docker exec res-db psql -U postgres -d restaurants \
+  -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"
+
+# 5. Regenerar Prisma client si hubo cambios de schema
+docker compose exec res-api-core pnpm exec prisma generate \
+  --schema=prisma/schema.postgresql.prisma
 
 # 6. Resetear stats antes del test
-docker exec res-db psql -U postgres -d restaurants -c "SELECT pg_stat_statements_reset();"
+docker exec res-db psql -U postgres -d restaurants \
+  -c "SELECT pg_stat_statements_reset();"
 
-# 7. Correr smoke → load → stress (desde apps/api-core/)
-docker run --rm -e BASE_URL=http://host.docker.internal:3000 \
-  -v $(pwd)/test/k6:/scripts \
-  grafana/k6 run --out influxdb=http://host.docker.internal:8086/k6 \
-  /scripts/scenarios/load.js
+# 7. Correr escenarios en orden
+k6 run --out influxdb=http://localhost:8086/k6 apps/api-core/test/k6/scenarios/smoke.js
+k6 run --out influxdb=http://localhost:8086/k6 apps/api-core/test/k6/scenarios/load.js
+k6 run --out influxdb=http://localhost:8086/k6 apps/api-core/test/k6/scenarios/stress.js
+k6 run --out influxdb=http://localhost:8086/k6 apps/api-core/test/k6/scenarios/orders-with-stock.js
+k6 run --out influxdb=http://localhost:8086/k6 apps/api-core/test/k6/scenarios/orders-no-stock.js
+k6 run --out influxdb=http://localhost:8086/k6 apps/api-core/test/k6/scenarios/concurrent-readwrite.js
 
 # 8. Revisar resultados
-#    → Grafana k6:       http://localhost:3001/d/k6-results
-#    → Grafana Postgres: http://localhost:3001/d/pg-slow-queries
+#    → Grafana k6:    http://localhost:3001/d/k6-results
+#    → Grafana PG:    http://localhost:3001/d/pg-slow-queries
+#    → Jaeger:        http://localhost:16686  (servicio: api-core)
 
 # 9. Si todo pasa: proceder al deploy en Railway
 ```
