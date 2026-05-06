@@ -15,6 +15,8 @@ RUN chown -R node:node /deps
 # ============================
 FROM node:24.15.0-bookworm AS build
 
+RUN corepack enable && corepack prepare pnpm@10.24.0 --activate
+
 WORKDIR /builder
 
 COPY package.json pnpm-lock.yaml ./
@@ -24,8 +26,9 @@ COPY nest-cli.json \
     tsconfig.build.json \
     ./
 
-COPY prisma ./prisma
-COPY src    ./src
+COPY prisma    ./prisma
+COPY src       ./src
+COPY commands  ./commands
 
 COPY --from=deps /deps/node_modules ./node_modules
 
