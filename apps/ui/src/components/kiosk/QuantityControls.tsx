@@ -15,7 +15,7 @@ export function QuantityControls({ value, onIncrease, onDecrease, theme, maxQuan
     <div className="flex items-center gap-2">
       <button
         onClick={onDecrease}
-        className="w-8 h-8 rounded-full bg-white border border-slate-300 text-lg cursor-pointer flex items-center justify-center"
+        className="w-8 h-8 rounded-full bg-white border border-slate-200 text-lg cursor-pointer flex items-center justify-center"
         aria-label="Decrease quantity"
       >
         <span style={{ color: theme.primary }}>−</span>
@@ -24,7 +24,7 @@ export function QuantityControls({ value, onIncrease, onDecrease, theme, maxQuan
       <button
         onClick={onIncrease}
         disabled={atMax}
-        className={`w-8 h-8 rounded-full bg-white border border-slate-300 text-lg flex items-center justify-center ${atMax ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+        className={`w-8 h-8 rounded-full bg-white border border-slate-200 text-lg flex items-center justify-center ${atMax ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
         aria-label="Increase quantity"
       >
         <span style={{ color: atMax ? '#94a3b8' : theme.primary }}>+</span>
