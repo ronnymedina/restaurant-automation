@@ -7,7 +7,6 @@ import { productConfig } from './product.config';
 import { ProductEventsService } from '../events/products.events';
 import {
   EntityNotFoundException,
-  DefaultCategoryProtectedException,
   CategoryHasProductsException,
   ValidationException,
 } from '../common/exceptions';
@@ -42,7 +41,6 @@ const makeCat = (overrides = {}) => ({
   id: 'c1',
   name: 'Burgers',
   restaurantId: 'r1',
-  isDefault: false,
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,
@@ -91,13 +89,6 @@ describe('CategoriesService', () => {
       );
     });
 
-    it('throws DefaultCategoryProtectedException when category isDefault', async () => {
-      mockRepo.findById.mockResolvedValue(makeCat({ isDefault: true }));
-      await expect(service.updateCategory('c1', 'r1', { name: 'X' })).rejects.toThrow(
-        DefaultCategoryProtectedException,
-      );
-    });
-
     it('updates category and emits event', async () => {
       const cat = makeCat();
       mockRepo.findById.mockResolvedValue(cat);
@@ -116,13 +107,6 @@ describe('CategoriesService', () => {
       mockRepo.findById.mockResolvedValue(null);
       await expect(service.deleteCategory('c999', 'r1', {})).rejects.toThrow(
         EntityNotFoundException,
-      );
-    });
-
-    it('throws DefaultCategoryProtectedException when category isDefault', async () => {
-      mockRepo.findById.mockResolvedValue(makeCat({ isDefault: true }));
-      await expect(service.deleteCategory('c1', 'r1', {})).rejects.toThrow(
-        DefaultCategoryProtectedException,
       );
     });
 
@@ -191,25 +175,18 @@ describe('CategoriesService', () => {
       await expect(service.checkDelete('c999', 'r1')).rejects.toThrow(EntityNotFoundException);
     });
 
-    it('returns canDeleteDirectly=true when 0 products and not default', async () => {
-      mockRepo.findById.mockResolvedValue(makeCat({ isDefault: false }));
+    it('returns canDeleteDirectly=true when 0 products', async () => {
+      mockRepo.findById.mockResolvedValue(makeCat());
       mockProductRepo.countByCategoryId.mockResolvedValue(0);
       const result = await service.checkDelete('c1', 'r1');
-      expect(result).toEqual({ productsCount: 0, isDefault: false, canDeleteDirectly: true });
+      expect(result).toEqual({ productsCount: 0, canDeleteDirectly: true });
     });
 
     it('returns canDeleteDirectly=false when category has products', async () => {
-      mockRepo.findById.mockResolvedValue(makeCat({ isDefault: false }));
+      mockRepo.findById.mockResolvedValue(makeCat());
       mockProductRepo.countByCategoryId.mockResolvedValue(4);
       const result = await service.checkDelete('c1', 'r1');
-      expect(result).toEqual({ productsCount: 4, isDefault: false, canDeleteDirectly: false });
-    });
-
-    it('returns canDeleteDirectly=false when category isDefault', async () => {
-      mockRepo.findById.mockResolvedValue(makeCat({ isDefault: true }));
-      mockProductRepo.countByCategoryId.mockResolvedValue(0);
-      const result = await service.checkDelete('c1', 'r1');
-      expect(result).toEqual({ productsCount: 0, isDefault: true, canDeleteDirectly: false });
+      expect(result).toEqual({ productsCount: 4, canDeleteDirectly: false });
     });
   });
 

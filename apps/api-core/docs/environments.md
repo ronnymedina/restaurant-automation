@@ -178,3 +178,29 @@ Las variables marcadas como **Required: `true`** deben estar presentes al inicia
 * **PRINT_CUSTOMER_ON_CREATE**: Si `true`, imprime el ticket del cliente al crear la orden (no solo al pagar).
   - Default: `false`
   - Required: `false`
+
+---
+
+### OPENTELEMETRY
+
+Ver guía completa en [`docs/opentelemetry.md`](./opentelemetry.md).
+
+* **OTEL_SDK_DISABLED**: Desactiva el SDK completamente — no se generan ni exportan trazas.
+  - Default: `false`
+  - Required: `false`
+  - Valores: `true`, `false`
+
+* **OTEL_SERVICE_NAME**: Nombre del servicio que aparece en Jaeger / Grafana.
+  - Default: `api-core` (definido en `src/instrumentation.ts`)
+  - Required: `false`
+
+* **OTEL_EXPORTER_OTLP_ENDPOINT**: URL del colector OTLP. Debe incluir `/v1/traces`.
+  - Default: `http://localhost:4318/v1/traces` (definido en `src/instrumentation.ts`)
+  - Required: `false`
+  - Local (Docker): `http://host.docker.internal:4318/v1/traces`
+  - Producción: `https://<stack>.grafana.net/otlp/v1/traces`
+
+* **OTEL_EXPORTER_OTLP_HEADERS**: Headers HTTP para autenticación con el colector.
+  - Default: `""` (vacío)
+  - Required: `false` (requerido para Grafana Cloud)
+  - Ejemplo: `Authorization=Basic <base64-token>`

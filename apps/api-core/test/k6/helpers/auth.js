@@ -23,3 +23,17 @@ export function authHeaders(token) {
     },
   };
 }
+
+// Opens the cash register for the authenticated user's restaurant.
+// Accepts 201 (opened now) and 409 (already open) — safe to call before any test.
+export function openCashRegister(token) {
+  const res = http.post(
+    `${BASE_URL}/v1/cash-register/open`,
+    JSON.stringify({ openingBalance: 0 }),
+    authHeaders(token),
+  );
+
+  if (res.status !== 201 && res.status !== 409) {
+    throw new Error(`Failed to open cash register — status ${res.status}: ${res.body}`);
+  }
+}
