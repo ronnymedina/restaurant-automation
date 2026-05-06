@@ -9,7 +9,7 @@
  * Always operate with BigInt centavos inside the domain layer.
  *
  * Convention:
- *   - API requests:  price in pesos (decimal) — e.g. 300 or 12.5
+ *   - API requests:  price in centavos (integer) — e.g. 30000 or 1250
  *   - DB / domain:   price in centavos (BigInt) — e.g. 30000n or 1250n
  *   - API responses: price in pesos (decimal) — e.g. 300 or 12.5
  */

@@ -44,7 +44,7 @@ export async function seedRestaurant(prisma: PrismaService, suffix: string) {
   });
 
   const defaultCategory = await prisma.productCategory.create({
-    data: { name: 'Sin categoría', restaurantId: restaurant.id, isDefault: true },
+    data: { name: 'Sin categoría', restaurantId: restaurant.id },
   });
 
   const product = await prisma.product.create({

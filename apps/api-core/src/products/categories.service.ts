@@ -8,7 +8,6 @@ import { productConfig } from './product.config';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import {
   EntityNotFoundException,
-  DefaultCategoryProtectedException,
   CategoryHasProductsException,
   ValidationException,
   DuplicateEntityException,
@@ -22,7 +21,6 @@ export interface DeleteCategoryOptions {
 
 export interface CheckDeleteResult {
   productsCount: number;
-  isDefault: boolean;
   canDeleteDirectly: boolean;
 }
 
@@ -87,20 +85,18 @@ export class CategoriesService {
     restaurantId: string,
     data: Partial<Pick<CreateProductCategoryData, 'name'>>,
   ): Promise<ProductCategory> {
-    const category = await this.findCategoryAndThrowIfNotFound(id, restaurantId);
-    if (category.isDefault) throw new DefaultCategoryProtectedException();
+    await this.findCategoryAndThrowIfNotFound(id, restaurantId);
     const updated = await this.categoryRepository.update(id, restaurantId, data);
     this.productEventsService.emitCategoryUpdated(restaurantId);
     return updated;
   }
 
   async checkDelete(id: string, restaurantId: string): Promise<CheckDeleteResult> {
-    const category = await this.findCategoryAndThrowIfNotFound(id, restaurantId);
+    await this.findCategoryAndThrowIfNotFound(id, restaurantId);
     const productsCount = await this.productRepository.countByCategoryId(id, restaurantId);
     return {
       productsCount,
-      isDefault: category.isDefault,
-      canDeleteDirectly: productsCount === 0 && !category.isDefault,
+      canDeleteDirectly: productsCount === 0,
     };
   }
 
@@ -109,9 +105,7 @@ export class CategoriesService {
     restaurantId: string,
     options: DeleteCategoryOptions,
   ): Promise<ProductCategory> {
-    // Guard: default categories are protected
-    const category = await this.findCategoryAndThrowIfNotFound(id, restaurantId);
-    if (category.isDefault) throw new DefaultCategoryProtectedException();
+    await this.findCategoryAndThrowIfNotFound(id, restaurantId);
 
     // Guard: reassignTo cannot point to itself
     if (options.reassignTo && options.reassignTo === id) {

@@ -107,7 +107,6 @@ model RestaurantSettings {
 model ProductCategory {
   id        String  @id @default(uuid())
   name      String // Ej: "Cocina Caliente", "Bebidas", "Postres"
-  isDefault Boolean @default(false)
 
   restaurantId String
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])

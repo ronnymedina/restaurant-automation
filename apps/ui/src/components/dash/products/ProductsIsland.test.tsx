@@ -4,7 +4,7 @@ import ProductsIsland from './ProductsIsland';
 
 vi.mock('../../../lib/products-api', () => ({
   fetchCategories: vi.fn().mockResolvedValue([
-    { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Bebidas', isDefault: false },
+    { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Bebidas' },
   ]),
   deleteProduct: vi.fn(),
   createProduct: vi.fn(),

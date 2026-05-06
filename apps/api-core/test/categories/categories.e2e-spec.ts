@@ -5,8 +5,8 @@
  *  GET    /v1/categories               — list paginated, role guard, isolation
  *  POST   /v1/categories               — create, role guard, DTO validation, duplicate name
  *  GET    /v1/categories/:id/check-delete — check impact before delete
- *  PATCH  /v1/categories/:id           — update, role guard, default protection, isolation
- *  DELETE /v1/categories/:id           — delete direct, reassignment, default protection, isolation
+ *  PATCH  /v1/categories/:id           — update, role guard, isolation
+ *  DELETE /v1/categories/:id           — delete direct, reassignment, isolation
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -53,8 +53,8 @@ async function seedRestaurant(prisma: PrismaService, suffix: string) {
     data: { name: `RestCat ${suffix} ${ts}`, slug: `rest-cat-${suffix}-${ts}` },
   });
 
-  const defaultCategory = await prisma.productCategory.create({
-    data: { name: 'Sin categoría', restaurantId: restaurant.id, isDefault: true },
+  await prisma.productCategory.create({
+    data: { name: 'General', restaurantId: restaurant.id },
   });
 
   const passwordHash = await bcrypt.hash('Admin1234!', 10);
@@ -89,7 +89,7 @@ async function seedRestaurant(prisma: PrismaService, suffix: string) {
     },
   });
 
-  return { restaurant, defaultCategory, admin, manager, basic };
+  return { restaurant, admin, manager, basic };
 }
 
 async function login(app: INestApplication<App>, email: string): Promise<string> {
@@ -113,7 +113,6 @@ describe('Categories (e2e)', () => {
   let adminTokenA: string;
   let managerTokenA: string;
   let basicTokenA: string;
-  let defaultCategoryIdA: string;
   let restaurantAId: string;
 
   // Restaurant B
@@ -125,7 +124,6 @@ describe('Categories (e2e)', () => {
 
     const seedA = await seedRestaurant(prisma, 'A');
     restaurantAId = seedA.restaurant.id;
-    defaultCategoryIdA = seedA.defaultCategory.id;
     adminTokenA   = await login(app, seedA.admin.email);
     managerTokenA = await login(app, seedA.manager.email);
     basicTokenA   = await login(app, seedA.basic.email);
@@ -230,7 +228,6 @@ describe('Categories (e2e)', () => {
 
       expect(res.body.id).toBeDefined();
       expect(res.body.name).toBe('Bebidas');
-      expect(res.body.isDefault).toBe(false);
       // serializer must NOT expose restaurantId, createdAt, updatedAt
       expect(res.body.restaurantId).toBeUndefined();
       expect(res.body.createdAt).toBeUndefined();
@@ -324,18 +321,7 @@ describe('Categories (e2e)', () => {
         .expect(200);
 
       expect(res.body.productsCount).toBe(0);
-      expect(res.body.isDefault).toBe(false);
       expect(res.body.canDeleteDirectly).toBe(true);
-    });
-
-    it('200 — returns canDeleteDirectly=false for default category', async () => {
-      const res = await request(app.getHttpServer())
-        .get(`/v1/categories/${defaultCategoryIdA}/check-delete`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
-        .expect(200);
-
-      expect(res.body.isDefault).toBe(true);
-      expect(res.body.canDeleteDirectly).toBe(false);
     });
 
     it('200 — returns correct productsCount when category has products', async () => {
@@ -356,11 +342,8 @@ describe('Categories (e2e)', () => {
       expect(res.body.productsCount).toBe(1);
       expect(res.body.canDeleteDirectly).toBe(false);
 
-      // Move product away so delete tests work cleanly
-      await prisma.product.updateMany({
-        where: { categoryId: checkCatId },
-        data: { categoryId: defaultCategoryIdA },
-      });
+      // Remove product so delete tests work cleanly
+      await prisma.product.deleteMany({ where: { categoryId: checkCatId } });
     });
   });
 
@@ -407,16 +390,6 @@ describe('Categories (e2e)', () => {
         .set('Authorization', `Bearer ${adminTokenB}`)
         .send({ name: 'Hack' })
         .expect(404);
-    });
-
-    it('403 DEFAULT_CATEGORY_PROTECTED — cannot update the default category', async () => {
-      const res = await request(app.getHttpServer())
-        .patch(`/v1/categories/${defaultCategoryIdA}`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
-        .send({ name: 'Nuevo Nombre Default' })
-        .expect(403);
-
-      expect(res.body.code).toBe('DEFAULT_CATEGORY_PROTECTED');
     });
 
     it('400 — name longer than 255 characters is rejected', async () => {
@@ -512,15 +485,6 @@ describe('Categories (e2e)', () => {
         .delete(`/v1/categories/${deleteCatId}`)
         .set('Authorization', `Bearer ${adminTokenB}`)
         .expect(404);
-    });
-
-    it('403 DEFAULT_CATEGORY_PROTECTED — cannot delete the default category', async () => {
-      const res = await request(app.getHttpServer())
-        .delete(`/v1/categories/${defaultCategoryIdA}`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
-        .expect(403);
-
-      expect(res.body.code).toBe('DEFAULT_CATEGORY_PROTECTED');
     });
 
     it('409 CATEGORY_HAS_PRODUCTS — delete without reassignTo when products exist', async () => {
