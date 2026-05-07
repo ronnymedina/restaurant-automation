@@ -44,9 +44,10 @@ COPY nest-cli.json \
     tsconfig.build.json \
     ./
 
-COPY prisma    ./prisma
-COPY src       ./src
-COPY commands  ./commands
+COPY prisma          ./prisma
+COPY prisma.config.ts ./prisma.config.ts
+COPY src             ./src
+COPY commands        ./commands
 
 COPY --from=deps /deps/node_modules ./node_modules
 
@@ -101,10 +102,11 @@ RUN apt-get update -y && apt-get install -y openssl --no-install-recommends \
 
 WORKDIR /app
 
-COPY --from=build     --chown=node:node /builder/dist          ./dist
-COPY --from=prod-deps --chown=node:node /prod-deps/node_modules ./node_modules
-COPY --from=build     --chown=node:node /builder/prisma        ./prisma
-COPY --from=build     --chown=node:node /builder/commands      ./commands
+COPY --from=build     --chown=node:node /builder/dist            ./dist
+COPY --from=prod-deps --chown=node:node /prod-deps/node_modules  ./node_modules
+COPY --from=build     --chown=node:node /builder/prisma          ./prisma
+COPY --from=build     --chown=node:node /builder/prisma.config.ts ./prisma.config.ts
+COPY --from=build     --chown=node:node /builder/commands        ./commands
 
 RUN chmod +x ./commands/execute-migrations.sh
 
