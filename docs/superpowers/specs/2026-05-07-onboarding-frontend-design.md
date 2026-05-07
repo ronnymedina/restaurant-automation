@@ -67,8 +67,8 @@ Shared state lives in `OnboardingWizard` and is passed down as props. The API ca
 **Upload area:**
 - Drag & drop + click to select
 - Accepts `image/jpeg`, `image/png` only
-- Max 3 files enforced client-side (matches backend `MAX_FILES` default)
-- File list preview with remove button per file
+- Max 1 file enforced client-side (UX decision; backend accepts up to `MAX_FILES` but this UI limits to one)
+- File preview with remove button
 
 **Actions (three paths, all valid):**
 - Primary button — label changes based on state:
