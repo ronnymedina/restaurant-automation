@@ -63,6 +63,7 @@ ENV NODE_ENV=development
 
 WORKDIR /app
 
+COPY --chown=node:node .npmrc              ./.npmrc
 COPY --chown=node:node package.json        ./package.json
 COPY --chown=node:node tsconfig.json       ./tsconfig.json
 COPY --chown=node:node tsconfig.build.json ./tsconfig.build.json
