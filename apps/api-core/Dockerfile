@@ -104,6 +104,8 @@ COPY --from=prod-deps --chown=node:node /prod-deps/node_modules ./node_modules
 COPY --from=build     --chown=node:node /builder/prisma        ./prisma
 COPY --from=build     --chown=node:node /builder/commands      ./commands
 
+RUN chmod +x ./commands/execute-migrations.sh
+
 USER node
 
 EXPOSE 3000
