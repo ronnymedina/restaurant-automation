@@ -53,11 +53,6 @@ export class RestaurantRepository {
     });
   }
 
-  async findByName(name: string, tx?: TransactionClient): Promise<Restaurant | null> {
-    const client = tx ?? this.prisma;
-    return client.restaurant.findUnique({ where: { name } });
-  }
-
   async findById(id: string): Promise<Restaurant | null> {
     return this.prisma.restaurant.findUnique({
       where: { id },
