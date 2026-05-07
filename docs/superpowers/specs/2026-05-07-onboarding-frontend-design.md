@@ -69,9 +69,13 @@ Shared state lives in `OnboardingWizard` and is passed down as props. The API ca
 
 **Upload area:**
 - Drag & drop + click to select
-- Accepts `image/jpeg`, `image/png` only
 - Max 1 file enforced client-side (UX decision; backend accepts up to `MAX_FILES` but this UI limits to one)
 - File preview with remove button; clicking the area when a file is selected replaces it
+
+**Client-side file validation (on select and on drop, before any upload):**
+- Format: only `image/jpeg` and `image/png` accepted; show inline error if another type is dropped or selected: *"Solo se aceptan imágenes en formato JPG o PNG."*
+- Size: max 5 MB (matches backend `MAX_FILE_SIZE_MB` default); show inline error if exceeded: *"La imagen no puede superar 5 MB."*
+- Errors shown below the upload area; file is rejected and not added to state
 
 **Actions (three paths, all valid):**
 - Primary button — label changes based on state:
