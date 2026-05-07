@@ -64,11 +64,14 @@ Shared state lives in `OnboardingWizard` and is passed down as props. The API ca
 
 **Backend behavior (confirmed):** photos and `createDemoData` are both optional. If neither is sent, the backend creates the restaurant and user normally and returns `{ productsCreated: 0 }`. The account creation and activation email are not affected.
 
+**AI notice (shown above the upload area, always visible):**
+> *"Procesamiento con inteligencia artificial — Sube una fotografía de tu menú y extraeremos tus productos de forma automática. Te recomendamos revisar los resultados, ya que pueden requerir ajustes."*
+
 **Upload area:**
 - Drag & drop + click to select
 - Accepts `image/jpeg`, `image/png` only
 - Max 1 file enforced client-side (UX decision; backend accepts up to `MAX_FILES` but this UI limits to one)
-- File preview with remove button
+- File preview with remove button; clicking the area when a file is selected replaces it
 
 **Actions (three paths, all valid):**
 - Primary button — label changes based on state:
