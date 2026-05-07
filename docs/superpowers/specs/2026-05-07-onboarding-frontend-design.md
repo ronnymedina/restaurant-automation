@@ -62,16 +62,20 @@ Shared state lives in `OnboardingWizard` and is passed down as props. The API ca
 
 ## Step 2 — `Step2Upload.tsx`
 
+**Backend behavior (confirmed):** photos and `createDemoData` are both optional. If neither is sent, the backend creates the restaurant and user normally and returns `{ productsCreated: 0 }`. The account creation and activation email are not affected.
+
 **Upload area:**
 - Drag & drop + click to select
 - Accepts `image/jpeg`, `image/png` only
 - Max 3 files enforced client-side (matches backend `MAX_FILES` default)
 - File list preview with remove button per file
 
-**Actions:**
-- "Procesar Menú" (primary) — enabled only when ≥1 file selected; submits with photos
-- "Saltar para Demo" (secondary) — submits with `createDemoData: true`, no photos
-- "Volver" link — goes back to step 1
+**Actions (three paths, all valid):**
+- Primary button — label changes based on state:
+  - Files selected → **"Procesar Menú"** — submits with photos, no `createDemoData`
+  - No files → **"Continuar"** — submits with neither photos nor `createDemoData`; account is created with 0 products
+- **"Usar datos demo"** (secondary, always visible) — submits with `createDemoData: true`, no photos
+- **"Volver"** link — goes back to step 1
 
 ---
 
@@ -110,6 +114,13 @@ restaurantName=...
 photos=<file1>
 photos=<file2>
 ...
+```
+
+**No-products path (Continuar without files):**
+```
+email=...
+restaurantName=...
+(no photos, no createDemoData)
 ```
 
 **Response:** `{ productsCreated: number }` — only field read from response.
