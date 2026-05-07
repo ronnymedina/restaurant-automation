@@ -255,7 +255,8 @@ export const GEMINI_MODEL = process.env.GEMINI_MODEL || '';
 
 const MAX_FILE_SIZE_MB = Number(process.env.MAX_FILE_SIZE_MB) || 5;
 export const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
-export const MAX_FILES = Number(process.env.MAX_FILES) || 3;
+export const MAX_FILES = Number(process.env.MAX_FILES) || 1;
+export const MAX_ONBOARDING_PRODUCTS = Number(process.env.MAX_ONBOARDING_PRODUCTS) || 20;
 
 // print
 export const PRINT_CUSTOMER_ON_CREATE = process.env.PRINT_CUSTOMER_ON_CREATE === 'true';

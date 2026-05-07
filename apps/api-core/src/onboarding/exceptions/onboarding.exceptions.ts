@@ -56,3 +56,17 @@ export class UserCreationFailedException extends BaseException {
     );
   }
 }
+
+/**
+ * Thrown when a registration attempt uses a restaurant name that already exists.
+ */
+export class RestaurantNameAlreadyExistsException extends BaseException {
+  constructor(name: string) {
+    super(
+      `Restaurant name '${name}' is already taken`,
+      HttpStatus.CONFLICT,
+      'RESTAURANT_NAME_ALREADY_EXISTS',
+      { name },
+    );
+  }
+}
