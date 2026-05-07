@@ -22,6 +22,10 @@ export class RestaurantsService {
     return this.restaurantRepository.findBySlug(slug);
   }
 
+  async findByName(name: string): Promise<Restaurant | null> {
+    return this.restaurantRepository.findByName(name);
+  }
+
   async findByIdWithDetails(id: string): Promise<Restaurant | null> {
     return this.restaurantRepository.findByIdWithRelations(id);
   }

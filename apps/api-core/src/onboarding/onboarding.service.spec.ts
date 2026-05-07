@@ -15,6 +15,7 @@ import {
   RestaurantCreationFailedException,
   UserCreationFailedException,
   OnboardingFailedException,
+  RestaurantNameAlreadyExistsException,
 } from './exceptions/onboarding.exceptions';
 
 const mockRestaurant = {
@@ -54,7 +55,10 @@ const mockPrismaService = {
   $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) => fn({})),
 };
 
-const mockRestaurantsService = { createRestaurant: jest.fn() };
+const mockRestaurantsService = {
+  createRestaurant: jest.fn(),
+  findByName: jest.fn(),
+};
 const mockProductsService = {
   getOrCreateDefaultCategory: jest.fn(),
   createProduct: jest.fn(),
@@ -91,6 +95,7 @@ describe('OnboardingService', () => {
     mockUsersService.findByEmail.mockResolvedValue(null);
     mockUsersService.createOnboardingUser.mockResolvedValue(mockUser);
     mockRestaurantsService.createRestaurant.mockResolvedValue(mockRestaurant);
+    mockRestaurantsService.findByName.mockResolvedValue(null);
     mockProductsService.getOrCreateDefaultCategory.mockResolvedValue(mockCategory);
     mockEmailService.sendActivationEmail.mockResolvedValue(true);
   });
@@ -107,6 +112,32 @@ describe('OnboardingService', () => {
 
       expect(mockRestaurantsService.createRestaurant).not.toHaveBeenCalled();
       expect(mockUsersService.createOnboardingUser).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Restaurant name uniqueness ──────────────────────────────────────────
+
+  describe('restaurant name uniqueness', () => {
+    it('rejects duplicate restaurant name before creating anything', async () => {
+      mockRestaurantsService.findByName.mockResolvedValue(mockRestaurant);
+
+      await expect(
+        service.registerRestaurant({ email: 'new@test.com', restaurantName: mockRestaurant.name }),
+      ).rejects.toThrow(RestaurantNameAlreadyExistsException);
+
+      expect(mockRestaurantsService.createRestaurant).not.toHaveBeenCalled();
+      expect(mockUsersService.createOnboardingUser).not.toHaveBeenCalled();
+    });
+
+    it('checks name uniqueness after email uniqueness', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(mockUser);
+      mockRestaurantsService.findByName.mockResolvedValue(mockRestaurant);
+
+      await expect(
+        service.registerRestaurant({ email: mockUser.email, restaurantName: mockRestaurant.name }),
+      ).rejects.toThrow(EmailAlreadyExistsException);
+
+      expect(mockRestaurantsService.findByName).not.toHaveBeenCalled();
     });
   });
 
@@ -177,6 +208,34 @@ describe('OnboardingService', () => {
       const createUserOrder = mockUsersService.createOnboardingUser.mock.invocationCallOrder[0];
       const sendEmailOrder = mockEmailService.sendActivationEmail.mock.invocationCallOrder[0];
       expect(createUserOrder).toBeLessThan(sendEmailOrder);
+    });
+  });
+
+  // ─── Timezone ─────────────────────────────────────────────────────────────
+
+  describe('timezone', () => {
+    it('passes timezone from input to createRestaurant', async () => {
+      await service.registerRestaurant({
+        email: 'new@test.com',
+        restaurantName: 'Test',
+        timezone: 'America/Argentina/Buenos_Aires',
+      });
+
+      expect(mockRestaurantsService.createRestaurant).toHaveBeenCalledWith(
+        'Test',
+        'America/Argentina/Buenos_Aires',
+        expect.anything(),
+      );
+    });
+
+    it('uses UTC as default when timezone is not provided', async () => {
+      await service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test' });
+
+      expect(mockRestaurantsService.createRestaurant).toHaveBeenCalledWith(
+        'Test',
+        undefined,
+        expect.anything(),
+      );
     });
   });
 
@@ -292,9 +351,9 @@ describe('OnboardingService', () => {
   // ─── Photo extraction flow ────────────────────────────────────────────────
 
   describe('photo extraction', () => {
-    const photos = [{ buffer: Buffer.from('img'), mimeType: 'image/jpeg' }];
+    const photo = { buffer: Buffer.from('img'), mimeType: 'image/jpeg' };
 
-    it('creates products extracted from photos', async () => {
+    it('creates products extracted from photo', async () => {
       mockGeminiService.extractProductsFromMultipleImages.mockResolvedValue([
         { name: 'Tacos', price: 7.5 },
         { name: 'Burrito', price: 9.0 },
@@ -304,7 +363,7 @@ describe('OnboardingService', () => {
       const result = await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
-        photos,
+        photo,
       });
 
       expect(result.productsCreated).toBe(2);
@@ -317,7 +376,7 @@ describe('OnboardingService', () => {
       const result = await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
-        photos,
+        photo,
       });
 
       expect(result.productsCreated).toBe(0);
@@ -329,7 +388,7 @@ describe('OnboardingService', () => {
       const result = await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
-        photos,
+        photo,
       });
 
       expect(result.productsCreated).toBe(0);
@@ -347,7 +406,7 @@ describe('OnboardingService', () => {
       await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
-        photos,
+        photo,
       });
 
       const batchCall = mockProductsService.createProductsBatch.mock.calls[0] as unknown[][];
@@ -356,13 +415,34 @@ describe('OnboardingService', () => {
       expect(items[0].name).toBe('Tacos');
     });
 
+    it('caps extracted products at 20 when Gemini returns more', async () => {
+      const manyProducts = Array.from({ length: 25 }, (_, i) => ({
+        name: `Product ${i + 1}`,
+        price: 10.0,
+      }));
+      mockGeminiService.extractProductsFromMultipleImages.mockResolvedValue(manyProducts);
+      mockProductsService.createProductsBatch.mockResolvedValue({ totalCreated: 20, batches: 1 });
+
+      await service.registerRestaurant({
+        email: 'new@test.com',
+        restaurantName: 'Test',
+        photo: { buffer: Buffer.from('img'), mimeType: 'image/jpeg' },
+      });
+
+      const batchCall = mockProductsService.createProductsBatch.mock.calls[0] as unknown[][];
+      const items = batchCall[2] as Array<{ name: string }>;
+      expect(items).toHaveLength(20);
+      expect(items[0].name).toBe('Product 1');
+      expect(items[19].name).toBe('Product 20');
+    });
+
     it('does not create demo products when photo extraction fails', async () => {
       mockGeminiService.extractProductsFromMultipleImages.mockRejectedValue(new Error('API error'));
 
       await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
-        photos,
+        photo,
       });
 
       expect(mockMenusService.createMenu).not.toHaveBeenCalled();

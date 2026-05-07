@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, Restaurant, User } from '@prisma/client';
+import { MAX_ONBOARDING_PRODUCTS } from '../config';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RestaurantsService } from '../restaurants/restaurants.service';
@@ -14,6 +15,7 @@ import {
   EmailAlreadyExistsException,
   RestaurantCreationFailedException,
   UserCreationFailedException,
+  RestaurantNameAlreadyExistsException,
 } from './exceptions/onboarding.exceptions';
 
 type TransactionClient = Prisma.TransactionClient;
@@ -25,8 +27,9 @@ export interface OnboardingResult {
 export interface OnboardingInput {
   email: string;
   restaurantName: string;
+  timezone?: string;
   createDemoData?: boolean;
-  photos?: Array<{ buffer: Buffer; mimeType: string }>;
+  photo?: { buffer: Buffer; mimeType: string };
 }
 
 const DEMO_PRODUCTS = [
@@ -66,7 +69,13 @@ export class OnboardingService {
       throw new EmailAlreadyExistsException(input.email);
     }
 
-    // 2-4. Create restaurant + user + default category atomically
+    // 2. Validate restaurant name uniqueness before creating anything
+    const existingRestaurant = await this.restaurantsService.findByName(input.restaurantName);
+    if (existingRestaurant) {
+      throw new RestaurantNameAlreadyExistsException(input.restaurantName);
+    }
+
+    // 3-5. Create restaurant + user + default category atomically
     const { restaurant, user, defaultCategoryId } = await this.setupCoreEntities(input);
 
     // 5. Handle products
@@ -92,7 +101,7 @@ export class OnboardingService {
       return await this.prisma.$transaction(async (tx: TransactionClient) => {
         let restaurant: Restaurant;
         try {
-          restaurant = await this.restaurantsService.createRestaurant(input.restaurantName, 'UTC', tx);
+          restaurant = await this.restaurantsService.createRestaurant(input.restaurantName, input.timezone, tx);
         } catch (error) {
           this.logger.error('Failed to create restaurant', error);
           throw new RestaurantCreationFailedException({ restaurantName: input.restaurantName });
@@ -134,11 +143,11 @@ export class OnboardingService {
   private async resolveProducts(
     restaurantId: string,
     categoryId: string,
-    input: Pick<OnboardingInput, 'photos' | 'createDemoData'>,
+    input: Pick<OnboardingInput, 'photo' | 'createDemoData'>,
   ): Promise<number> {
-    if (input.photos?.length) {
-      this.logger.log(`Processing ${input.photos.length} photo(s) with Gemini AI`);
-      return this.tryPhotoExtraction(restaurantId, categoryId, input.photos);
+    if (input.photo) {
+      this.logger.log('Processing photo with Gemini AI');
+      return this.tryPhotoExtraction(restaurantId, categoryId, input.photo);
     }
 
     if (input.createDemoData) {
@@ -157,10 +166,10 @@ export class OnboardingService {
   private async tryPhotoExtraction(
     restaurantId: string,
     categoryId: string,
-    photos: NonNullable<OnboardingInput['photos']>,
+    photo: NonNullable<OnboardingInput['photo']>,
   ): Promise<number> {
     try {
-      return await this.handlePhotoExtraction(restaurantId, categoryId, photos);
+      return await this.handlePhotoExtraction(restaurantId, categoryId, photo);
     } catch (error) {
       this.logger.error('Photo extraction failed — continuing without products', error);
       return 0;
@@ -191,9 +200,9 @@ export class OnboardingService {
   private async handlePhotoExtraction(
     restaurantId: string,
     categoryId: string,
-    photos: Array<{ buffer: Buffer; mimeType: string }>,
+    photo: { buffer: Buffer; mimeType: string },
   ): Promise<number> {
-    const extractedProducts = await this.geminiService.extractProductsFromMultipleImages(photos);
+    const extractedProducts = await this.geminiService.extractProductsFromMultipleImages([photo]);
 
     if (extractedProducts.length === 0) {
       this.logger.warn('No products extracted from images');
@@ -208,16 +217,18 @@ export class OnboardingService {
         price: BigInt(Math.round(p.price as number)),
       }));
 
-    if (validProducts.length === 0) {
-      this.logger.warn('No products with valid prices extracted from images');
+    const capped = validProducts.slice(0, MAX_ONBOARDING_PRODUCTS);
+
+    if (capped.length === 0) {
+      this.logger.warn('No products with valid prices extracted from image');
       return 0;
     }
 
-    this.logger.log(`Creating ${validProducts.length} extracted products in batches`);
+    this.logger.log(`Creating ${capped.length} extracted products in batches`);
     const { totalCreated } = await this.productsService.createProductsBatch(
       restaurantId,
       categoryId,
-      validProducts,
+      capped,
     );
 
     return totalCreated;
