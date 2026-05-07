@@ -77,7 +77,9 @@ export class OnboardingService {
     // 6. Send activation email LAST — after all DB operations succeed
     try {
       const sent = await this.emailService.sendActivationEmail(user.email, user.activationToken!);
-      if (!sent) {
+      if (sent) {
+        this.logger.log(`Activation email dispatched to ${user.email}`);
+      } else {
         this.logger.warn(`Activation email could not be sent to ${user.email}`);
       }
     } catch (error) {

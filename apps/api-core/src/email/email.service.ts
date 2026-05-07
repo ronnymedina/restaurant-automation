@@ -26,7 +26,9 @@ export class EmailService {
     const activationUrl = `${this.configService.frontendUrl}/activate?token=${token}`;
 
     if (!this.resend) {
-      this.logger.warn(`[DEV] Activation email for ${email}: ${activationUrl}`);
+      this.logger.warn(
+        `[DEV] RESEND_API_KEY not set — email NOT sent. Activation URL for ${email}: ${activationUrl}`,
+      );
       return true;
     }
 
@@ -213,28 +215,89 @@ export class EmailService {
   }
 
   private buildActivationHtml(activationUrl: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 40px 20px; background-color: #f5f5f5;">
-        <div style="max-width: 480px; margin: 0 auto; background: white; border-radius: 8px; padding: 40px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          <h1 style="margin: 0 0 16px; font-size: 24px; color: #111;">Activa tu cuenta</h1>
-          <p style="color: #555; line-height: 1.6; margin: 0 0 24px;">
-            Haz clic en el botón para activar tu cuenta y establecer tu contraseña.
-          </p>
-          <a href="${activationUrl}" style="display: inline-block; background-color: #111; color: white; text-decoration: none; padding: 12px 32px; border-radius: 6px; font-weight: 500;">
-            Activar cuenta
-          </a>
-          <p style="color: #999; font-size: 13px; margin: 24px 0 0; line-height: 1.5;">
-            Si no solicitaste esta cuenta, puedes ignorar este email.
-          </p>
-        </div>
-      </body>
-      </html>
-    `;
+    return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activá tu cuenta — DaikuLab</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F4F4F5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+
+  <div style="display:none;max-height:0;overflow:hidden;">Tu restaurante ya tiene un lugar. Activá tu cuenta para empezar.</div>
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F4F4F5;">
+    <tr>
+      <td align="center" style="padding:40px 16px;">
+
+        <table width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background-color:#FFFFFF;border-radius:10px;overflow:hidden;border:1px solid #E4E4E7;">
+
+          <!-- Top orange bar -->
+          <tr>
+            <td style="background-color:#F47C20;height:3px;font-size:0;line-height:0;">&nbsp;</td>
+          </tr>
+
+          <!-- Logo -->
+          <tr>
+            <td style="padding:32px 40px 24px;">
+              <span style="font-size:20px;font-weight:400;color:#111111;letter-spacing:-0.3px;">Daiku<strong>Lab</strong></span>
+              <span style="display:block;font-size:9px;font-weight:600;letter-spacing:2px;color:#A1A1AA;text-transform:uppercase;margin-top:2px;">Para Restaurantes</span>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td style="padding:0 40px;"><div style="height:1px;background-color:#E4E4E7;"></div></td></tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:36px 40px 28px;">
+              <h1 style="margin:0 0 14px;font-size:24px;font-weight:700;color:#111111;line-height:1.25;letter-spacing:-0.4px;">
+                ¡Bienvenido a DaikuLab!
+              </h1>
+              <p style="margin:0 0 10px;font-size:15px;color:#52525B;line-height:1.65;">
+                Tu cuenta está casi lista. Hacé clic en el botón para activarla y establecer tu contraseña.
+              </p>
+              <p style="margin:0 0 28px;font-size:15px;color:#52525B;line-height:1.65;">
+                Desde ahí vas a poder gestionar pedidos, cocina, inventario y caja — todo en un solo sistema.
+              </p>
+
+              <!-- CTA -->
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="border-radius:7px;background-color:#F47C20;">
+                    <a href="${activationUrl}" style="display:inline-block;padding:13px 28px;font-size:15px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:7px;">
+                      Activar cuenta
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:20px 0 0;font-size:13px;color:#A1A1AA;line-height:1.5;">
+                Si no creaste esta cuenta, podés ignorar este correo.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td style="padding:0 40px;"><div style="height:1px;background-color:#E4E4E7;"></div></td></tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 40px;">
+              <p style="margin:0;font-size:12px;color:#A1A1AA;">
+                DaikuLab &nbsp;·&nbsp;
+                <a href="${this.configService.frontendUrl}" style="color:#F47C20;text-decoration:none;">daikulab.com</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>`;
   }
 }
