@@ -72,7 +72,7 @@
 
 | Método | Ruta | Roles permitidos | Respuesta | Descripción |
 |---|---|---|---|---|
-| `GET` | `/v1/orders` | ADMIN, MANAGER, BASIC | `OrderDto[]` | Listar órdenes del restaurante (filtro opcional por status) |
+| `GET` | `/v1/orders` | ADMIN, MANAGER, BASIC | `OrderDto[]` | Listar órdenes del restaurante (filtro por status y limit) |
 | `GET` | `/v1/orders/history` | ADMIN, MANAGER, BASIC | `{ data: OrderDto[], meta }` | Historial paginado con filtros |
 | `GET` | `/v1/orders/:id` | ADMIN, MANAGER, BASIC | `OrderWithItemsDto` | Obtener orden por ID con items |
 | `PATCH` | `/v1/orders/:id/status` | ADMIN, MANAGER | `OrderDto` | Avanzar estado de la orden |
@@ -85,6 +85,10 @@
 
 E2E: ✅ `test/orders/listOrders.e2e-spec.ts`
 
+Query params:
+- `status` (opcional) — filtra por estado (`CREATED`, `PROCESSING`, `COMPLETED`, `CANCELLED`)
+- `limit` (opcional) — máximo de registros a retornar (default `50`, max `200`); útil para el KDS del dashboard
+
 | Caso | Status | Detalle |
 |---|---|---|
 | Sin token | 401 | Unauthenticated |
@@ -93,6 +97,8 @@ E2E: ✅ `test/orders/listOrders.e2e-spec.ts`
 | BASIC puede listar | 200 | Retorna array de `OrderDto` |
 | Con `?status=CREATED` | 200 | Filtra por estado |
 | Con `?status=PROCESSING` | 200 | Filtra por estado |
+| Con `?limit=15` | 200 | Retorna máximo 15 pedidos más recientes |
+| Sin `?limit` | 200 | Retorna máximo 50 pedidos (default) |
 | Solo órdenes del propio restaurante | 200 | Aislamiento por `restaurantId` del JWT |
 | `totalAmount` como number | 200 | BigInt serializado a number |
 
@@ -185,6 +191,7 @@ E2E: ✅ `test/orders/cancelOrder.e2e-spec.ts`
 
 ### Notas de implementación
 
+- `GET /v1/orders` aplica un `limit` de 50 por defecto (máximo 200). El KDS del dashboard usa `?limit=15` para evitar cargar pedidos históricos de golpe. Para reportes históricos completos usar `/history` que tiene paginación
 - El `restaurantId` viene del JWT — toda operación está aislada por restaurante
 - `totalAmount`, `unitPrice` y `subtotal` se almacenan como `BigInt` en PostgreSQL (centavos). El serializer los convierte a `number` para la respuesta JSON. JSON no soporta `BigInt` nativo
 - Máquina de estados de orden:

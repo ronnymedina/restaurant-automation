@@ -80,9 +80,9 @@ describe('OrdersService', () => {
       await expect(service.findById('bad', 'r1')).rejects.toThrow(OrderNotFoundException);
     });
 
-    it('throws ForbiddenAccessException when restaurantId mismatches', async () => {
+    it('throws OrderNotFoundException when restaurantId mismatches (avoids info leakage)', async () => {
       mockOrderRepository.findById.mockResolvedValue(makeOrder({ restaurantId: 'other' }));
-      await expect(service.findById('o1', 'r1')).rejects.toThrow(ForbiddenAccessException);
+      await expect(service.findById('o1', 'r1')).rejects.toThrow(OrderNotFoundException);
     });
 
     it('returns order when found and authorized', async () => {
@@ -328,10 +328,16 @@ describe('OrdersService', () => {
       expect(result).toEqual(orders);
     });
 
-    it('passes status filter to repository', async () => {
+    it('passes status filter and limit to repository', async () => {
       mockOrderRepository.findByRestaurantId.mockResolvedValue([]);
-      await service.findByRestaurantId('r1', OrderStatus.CREATED);
-      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith('r1', OrderStatus.CREATED);
+      await service.findByRestaurantId('r1', OrderStatus.CREATED, 15);
+      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith('r1', OrderStatus.CREATED, undefined, 15);
+    });
+
+    it('passes undefined limit when not provided', async () => {
+      mockOrderRepository.findByRestaurantId.mockResolvedValue([]);
+      await service.findByRestaurantId('r1', OrderStatus.PROCESSING);
+      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith('r1', OrderStatus.PROCESSING, undefined, undefined);
     });
   });
 
