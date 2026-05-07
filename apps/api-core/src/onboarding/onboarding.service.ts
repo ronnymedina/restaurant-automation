@@ -15,7 +15,6 @@ import {
   EmailAlreadyExistsException,
   RestaurantCreationFailedException,
   UserCreationFailedException,
-  RestaurantNameAlreadyExistsException,
 } from './exceptions/onboarding.exceptions';
 
 type TransactionClient = Prisma.TransactionClient;
@@ -69,13 +68,7 @@ export class OnboardingService {
       throw new EmailAlreadyExistsException(input.email);
     }
 
-    // 2. Validate restaurant name uniqueness before creating anything
-    const existingRestaurant = await this.restaurantsService.findByName(input.restaurantName);
-    if (existingRestaurant) {
-      throw new RestaurantNameAlreadyExistsException(input.restaurantName);
-    }
-
-    // 3-5. Create restaurant + user + default category atomically
+    // 2. Create restaurant + user + default category atomically
     const { restaurant, user, defaultCategoryId } = await this.setupCoreEntities(input);
 
     // 5. Handle products

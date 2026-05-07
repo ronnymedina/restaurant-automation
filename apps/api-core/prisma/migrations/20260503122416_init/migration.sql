@@ -188,9 +188,6 @@ CREATE INDEX "User_deletedAt_idx" ON "User"("deletedAt");
 CREATE UNIQUE INDEX "RefreshToken_token_key" ON "RefreshToken"("token");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Restaurant_name_key" ON "Restaurant"("name");
-
--- CreateIndex
 CREATE UNIQUE INDEX "Restaurant_slug_key" ON "Restaurant"("slug");
 
 -- CreateIndex

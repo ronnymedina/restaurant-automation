@@ -15,7 +15,6 @@ import {
   RestaurantCreationFailedException,
   UserCreationFailedException,
   OnboardingFailedException,
-  RestaurantNameAlreadyExistsException,
 } from './exceptions/onboarding.exceptions';
 
 const mockRestaurant = {
@@ -57,7 +56,6 @@ const mockPrismaService = {
 
 const mockRestaurantsService = {
   createRestaurant: jest.fn(),
-  findByName: jest.fn(),
 };
 const mockProductsService = {
   getOrCreateDefaultCategory: jest.fn(),
@@ -95,7 +93,6 @@ describe('OnboardingService', () => {
     mockUsersService.findByEmail.mockResolvedValue(null);
     mockUsersService.createOnboardingUser.mockResolvedValue(mockUser);
     mockRestaurantsService.createRestaurant.mockResolvedValue(mockRestaurant);
-    mockRestaurantsService.findByName.mockResolvedValue(null);
     mockProductsService.getOrCreateDefaultCategory.mockResolvedValue(mockCategory);
     mockEmailService.sendActivationEmail.mockResolvedValue(true);
   });
@@ -112,32 +109,6 @@ describe('OnboardingService', () => {
 
       expect(mockRestaurantsService.createRestaurant).not.toHaveBeenCalled();
       expect(mockUsersService.createOnboardingUser).not.toHaveBeenCalled();
-    });
-  });
-
-  // ─── Restaurant name uniqueness ──────────────────────────────────────────
-
-  describe('restaurant name uniqueness', () => {
-    it('rejects duplicate restaurant name before creating anything', async () => {
-      mockRestaurantsService.findByName.mockResolvedValue(mockRestaurant);
-
-      await expect(
-        service.registerRestaurant({ email: 'new@test.com', restaurantName: mockRestaurant.name }),
-      ).rejects.toThrow(RestaurantNameAlreadyExistsException);
-
-      expect(mockRestaurantsService.createRestaurant).not.toHaveBeenCalled();
-      expect(mockUsersService.createOnboardingUser).not.toHaveBeenCalled();
-    });
-
-    it('checks name uniqueness after email uniqueness', async () => {
-      mockUsersService.findByEmail.mockResolvedValue(mockUser);
-      mockRestaurantsService.findByName.mockResolvedValue(mockRestaurant);
-
-      await expect(
-        service.registerRestaurant({ email: mockUser.email, restaurantName: mockRestaurant.name }),
-      ).rejects.toThrow(EmailAlreadyExistsException);
-
-      expect(mockRestaurantsService.findByName).not.toHaveBeenCalled();
     });
   });
 

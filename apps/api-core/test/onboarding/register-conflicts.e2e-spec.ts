@@ -11,7 +11,6 @@ describe('POST /v1/onboarding/register — conflictos 409 (e2e)', () => {
   let app: INestApplication<App>;
 
   const sharedEmail = uniqueEmail('shared');
-  const sharedName = uniqueName('Shared');
 
   beforeAll(async () => {
     ({ app } = await bootstrapAppNoThrottle(TEST_DB));
@@ -19,7 +18,7 @@ describe('POST /v1/onboarding/register — conflictos 409 (e2e)', () => {
     await request(app.getHttpServer())
       .post('/v1/onboarding/register')
       .field('email', sharedEmail)
-      .field('restaurantName', sharedName)
+      .field('restaurantName', uniqueName('Shared'))
       .field('timezone', 'UTC')
       .expect(201);
   });
@@ -40,25 +39,21 @@ describe('POST /v1/onboarding/register — conflictos 409 (e2e)', () => {
     expect(res.body.code).toBe('EMAIL_ALREADY_EXISTS');
   });
 
-  it('409 RESTAURANT_NAME_ALREADY_EXISTS — mismo nombre, email distinto', async () => {
-    const res = await request(app.getHttpServer())
+  it('dos restaurantes pueden tener el mismo nombre si el email es distinto', async () => {
+    const sameName = uniqueName('Mismo Nombre');
+
+    await request(app.getHttpServer())
       .post('/v1/onboarding/register')
-      .field('email', uniqueEmail())
-      .field('restaurantName', sharedName)
+      .field('email', uniqueEmail('name-dup-a'))
+      .field('restaurantName', sameName)
       .field('timezone', 'UTC')
-      .expect(409);
+      .expect(201);
 
-    expect(res.body.code).toBe('RESTAURANT_NAME_ALREADY_EXISTS');
-  });
-
-  it('EMAIL_ALREADY_EXISTS tiene precedencia sobre nombre duplicado', async () => {
-    const res = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/v1/onboarding/register')
-      .field('email', sharedEmail)
-      .field('restaurantName', sharedName)
+      .field('email', uniqueEmail('name-dup-b'))
+      .field('restaurantName', sameName)
       .field('timezone', 'UTC')
-      .expect(409);
-
-    expect(res.body.code).toBe('EMAIL_ALREADY_EXISTS');
+      .expect(201);
   });
 });
