@@ -93,7 +93,9 @@ FROM node:24.15.0-bookworm-slim AS prod
 ENV NODE_ENV=production
 ENV PORT=3000
 
-RUN rm -rf /usr/local/lib/node_modules/npm \
+RUN apt-get update -y && apt-get install -y openssl --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/local/lib/node_modules/npm \
     && rm -f /usr/local/bin/npm \
     && rm -f /usr/local/bin/npx
 
