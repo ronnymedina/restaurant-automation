@@ -1,0 +1,101 @@
+---
+const freeFeatures = [
+  "Hasta 20 productos",
+  "1 menú activo",
+  "500 órdenes por mes",
+  "Acceso desde cualquier dispositivo con navegador",
+  "Actualizaciones automáticas incluidas",
+  "Soporte por formulario de contacto",
+];
+
+const localFeatures = [
+  "Todos los módulos incluidos, sin restricciones",
+  "Productos, menús y órdenes ilimitados",
+  "Funciona en red local (sin internet requerido)",
+  "Conectá tablets y monitores por WiFi interno",
+  "Kioscos de autoservicio",
+  "1 año de actualizaciones incluido",
+  "Tus datos en tu hardware — nadie más tiene acceso",
+];
+---
+<section id="precios" class="py-20 px-4 scroll-mt-20" style="background: #fafaf8;">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center mb-12">
+      <p class="text-sm font-bold uppercase tracking-widest mb-3" style="color: #f97316;">Precios</p>
+      <h2 class="text-3xl md:text-4xl font-extrabold" style="color: #111;">
+        Empezá gratis, sin límites en lo que importa
+      </h2>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <!-- Free tier -->
+      <div
+        class="rounded-2xl border p-8 flex flex-col gap-4"
+        style="background: #ffffff; border-color: #f97316;"
+      >
+        <div>
+          <p class="text-sm font-semibold mb-1" style="color: #555;">☁️ Plan Hobby</p>
+          <div class="flex items-end gap-2">
+            <span class="text-5xl font-extrabold" style="color: #111;">$0</span>
+          </div>
+          <p class="text-sm mt-2" style="color: #555;">
+            Ideal para restaurantes pequeños que quieren digitalizar su operación sin riesgo.
+          </p>
+        </div>
+        <ul class="flex flex-col gap-2 flex-1">
+          {freeFeatures.map((f) => (
+            <li class="flex gap-2 text-sm" style="color: #444;">
+              <span style="color: #f97316;">✅</span> {f}
+            </li>
+          ))}
+        </ul>
+        <a
+          href="/onboarding"
+          class="block text-center py-3 rounded-full font-bold text-white transition-all hover:-translate-y-0.5"
+          style="background: #f97316; box-shadow: 0 4px 16px rgba(249,115,22,0.35);"
+        >
+          Empezar gratis
+        </a>
+        <p class="text-xs text-center" style="color: #888;">Sin tarjeta de crédito</p>
+      </div>
+
+      <!-- Local License (coming soon) -->
+      <div
+        class="rounded-2xl border p-8 flex flex-col gap-4 relative"
+        style="background: #ffffff; border-color: #ebebeb; opacity: 0.75;"
+      >
+        <div
+          class="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-bold text-white"
+          style="background: #888;"
+        >
+          Próximamente
+        </div>
+        <div>
+          <p class="text-sm font-semibold mb-1" style="color: #555;">🖥️ Licencia Local</p>
+          <div class="flex items-end gap-2">
+            <del class="text-xl font-normal mb-1" style="color: #bbb;">$100</del>
+            <span class="text-5xl font-extrabold" style="color: #f97316;">$59</span>
+            <span class="text-base mb-1" style="color: #888;">pago único</span>
+          </div>
+          <p class="text-sm mt-2" style="color: #555;">
+            Todo lo del plan gratuito, sin ningún límite. Instalado en tu propio hardware, sin internet requerido.
+          </p>
+        </div>
+        <ul class="flex flex-col gap-2 flex-1">
+          {localFeatures.map((f) => (
+            <li class="flex gap-2 text-sm" style="color: #444;">
+              <span style="color: #f97316;">✅</span> {f}
+            </li>
+          ))}
+        </ul>
+        <button
+          disabled
+          class="w-full text-center py-3 rounded-full font-bold cursor-not-allowed border"
+          style="color: #888; border-color: #e5e7eb; background: transparent;"
+        >
+          Próximamente
+        </button>
+      </div>
+    </div>
+  </div>
+</section>

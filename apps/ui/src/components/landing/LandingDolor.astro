@@ -1,0 +1,41 @@
+---
+const items = [
+  {
+    icon: "📋",
+    title: "Operación en papel",
+    desc: "Pedidos que se pierden, comandas ilegibles, cocina sin información en tiempo real.",
+  },
+  {
+    icon: "🌐",
+    title: "Si se cae internet, tu negocio se detiene",
+    desc: "Dependencia total de la conexión. Un corte y todo para.",
+  },
+  {
+    icon: "🐢",
+    title: "Filas y esperas que ahuyentan clientes",
+    desc: "Sin un sistema de autoservicio, cada pedido depende de un mozo disponible. Los clientes esperan, la cocina se desordena.",
+  },
+];
+---
+<section class="py-20 px-4" style="background: #fafaf8;">
+  <div class="max-w-5xl mx-auto">
+    <p
+      class="text-center text-sm font-bold uppercase tracking-widest mb-10"
+      style="color: #f97316;"
+    >
+      ¿Te suena familiar?
+    </p>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {items.map((item) => (
+        <div
+          class="rounded-2xl p-6 border flex flex-col gap-3"
+          style="background: #ffffff; border-color: #ebebeb;"
+        >
+          <span class="text-3xl">{item.icon}</span>
+          <h3 class="font-bold text-base leading-snug" style="color: #111;">{item.title}</h3>
+          <p class="text-sm leading-relaxed" style="color: #555;">{item.desc}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
