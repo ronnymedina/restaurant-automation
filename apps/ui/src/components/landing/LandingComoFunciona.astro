@@ -6,7 +6,6 @@ const pasos = [
     desc: "Colocá una pantalla en tu local o compartí el link del menú. Los clientes eligen, agregan al carrito y confirman su pedido sin necesitar un mozo.",
     img: "/screenshots/kiosk.png",
     alt: "Pantalla del kiosko de autoservicio",
-    reverse: false,
   },
   {
     num: "02",
@@ -14,7 +13,6 @@ const pasos = [
     desc: "Cada pedido aparece en la pantalla de cocina en tiempo real. Sin papel, sin intermediarios. El equipo ve qué preparar y en qué orden.",
     img: "/screenshots/kitchen.png",
     alt: "Pantalla de cocina con pedidos en tiempo real",
-    reverse: true,
   },
   {
     num: "03",
@@ -22,7 +20,6 @@ const pasos = [
     desc: "Seguí el estado de cada pedido, cerrá la caja al final del día y revisá el historial completo. Todo en un solo lugar, desde cualquier dispositivo.",
     img: "/screenshots/dashboard.png",
     alt: "Dashboard de gestión de pedidos",
-    reverse: false,
   },
 ];
 ---
@@ -35,31 +32,31 @@ const pasos = [
       </h2>
     </div>
 
-    <div class="flex flex-col gap-20">
+    <div class="flex flex-col gap-16">
       {pasos.map((paso) => (
-        <div class={`flex flex-col ${paso.reverse ? 'md:flex-row-reverse' : 'md:flex-row'} items-center gap-10 md:gap-16`}>
+        <div class="flex flex-col gap-6">
           <!-- Texto -->
-          <div class="flex-1 flex flex-col gap-4">
+          <div class="flex items-start gap-4">
             <span
-              class="text-5xl font-black leading-none"
-              style="color: rgba(249,115,22,0.15); letter-spacing: -2px;"
+              class="text-4xl font-black leading-none flex-shrink-0"
+              style="color: rgba(249,115,22,0.2); letter-spacing: -2px;"
             >
               {paso.num}
             </span>
-            <h3 class="text-2xl font-extrabold" style="color: #111;">{paso.title}</h3>
-            <p class="text-base leading-relaxed" style="color: #555;">{paso.desc}</p>
+            <div class="flex flex-col gap-1">
+              <h3 class="text-xl font-extrabold" style="color: #111;">{paso.title}</h3>
+              <p class="text-base leading-relaxed" style="color: #555;">{paso.desc}</p>
+            </div>
           </div>
 
-          <!-- Screenshot -->
-          <div class="flex-1 w-full">
-            <div class="rounded-2xl overflow-hidden border shadow-lg" style="border-color: #ebebeb;">
-              <img
-                src={paso.img}
-                alt={paso.alt}
-                class="w-full h-auto block"
-                loading="lazy"
-              />
-            </div>
+          <!-- Screenshot full width -->
+          <div class="rounded-2xl overflow-hidden border shadow-md" style="border-color: #ebebeb;">
+            <img
+              src={paso.img}
+              alt={paso.alt}
+              class="w-full h-auto block"
+              loading="lazy"
+            />
           </div>
         </div>
       ))}
