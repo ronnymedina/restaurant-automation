@@ -36,6 +36,13 @@ pnpm test:e2e            # e2e tests
 pnpm run cli <command>   # CLI management tool
 ```
 
+> **IMPORTANTE:** Los tests siempre deben ejecutarse **dentro del contenedor Docker**, no en local:
+> ```bash
+> docker compose exec res-api-core pnpm test
+> docker compose exec res-api-core pnpm test:cov
+> docker compose exec res-api-core pnpm test:e2e
+> ```
+
 ### Prisma (run from `apps/api-core/`)
 ```bash
 pnpm exec prisma migrate dev --name <migration_name>   # create and apply migration

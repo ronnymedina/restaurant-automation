@@ -8,6 +8,19 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     <!-- Header -->
     <div class="flex items-center justify-between">
       <h2 class="text-2xl font-bold text-slate-800">Cocina (KDS)</h2>
+      <div class="flex items-center gap-3">
+        <span id="lastUpdated" class="text-xs text-slate-400"></span>
+        <button
+          id="refreshBtn"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 cursor-pointer"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+            <path d="M21 3v5h-5"/>
+          </svg>
+          Actualizar
+        </button>
+      </div>
     </div>
 
     <!-- Shift info strip -->
@@ -341,8 +354,22 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     });
   }
 
+  const refreshBtn = document.getElementById('refreshBtn')!;
+  const lastUpdated = document.getElementById('lastUpdated')!;
+
+  refreshBtn.addEventListener('click', () => loadOrders());
+
+  function updateTimestamp() {
+    const now = new Date();
+    lastUpdated.textContent = `Actualizado ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
+
   async function loadOrders() {
-    const res = await apiFetch('/v1/orders');
+    refreshBtn.setAttribute('disabled', 'true');
+    refreshBtn.classList.add('opacity-50');
+    const res = await apiFetch('/v1/orders?limit=15');
+    refreshBtn.removeAttribute('disabled');
+    refreshBtn.classList.remove('opacity-50');
     if (!res.ok) {
       const msg = res.status === 403 ? 'No tienes permisos' : 'Error al cargar pedidos';
       colCreated.innerHTML = `<p class="text-sm text-red-400 text-center py-4">${msg}</p>`;
@@ -375,6 +402,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     bindCardEvents(colProcessing);
     bindCardEvents(colCompleted);
     bindCardEvents(colCancelled);
+    updateTimestamp();
   }
 
   loadShiftInfo();
