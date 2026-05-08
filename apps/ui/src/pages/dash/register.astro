@@ -32,6 +32,25 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   const summaryModal = document.getElementById('summaryModal')!;
   const summaryContent = document.getElementById('summaryContent')!;
 
+  const eyeOffSvg = `<svg class="w-4 h-4 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+  const eyeSvg = `<svg class="w-4 h-4 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+
+  function obfField(value: string, cls = '') {
+    return `<span class="obf-field ${cls}" data-real="${value}" data-showing="false">••••••••</span><button class="obf-btn ml-1.5 text-slate-400 hover:text-slate-600 cursor-pointer align-middle p-0.5" title="Mostrar/ocultar">${eyeOffSvg}</button>`;
+  }
+
+  function bindObfToggles(container: HTMLElement) {
+    container.querySelectorAll('.obf-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const field = btn.previousElementSibling as HTMLElement;
+        const showing = field.dataset.showing === 'true';
+        field.textContent = showing ? '••••••••' : (field.dataset.real ?? '');
+        field.dataset.showing = String(!showing);
+        btn.innerHTML = showing ? eyeOffSvg : eyeSvg;
+      });
+    });
+  }
+
   async function loadStatus() {
     try {
     const res = await apiFetch('/v1/cash-register/current');
@@ -66,11 +85,11 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="bg-slate-50 rounded-lg p-4">
               <p class="text-sm text-slate-500">ID de sesión</p>
-              <p class="text-sm font-mono text-slate-700 break-all">${data.id}</p>
+              <p class="text-sm font-mono text-slate-700 break-all flex items-center gap-1">${obfField(data.id, 'font-mono text-sm')}</p>
             </div>
             <div class="bg-slate-50 rounded-lg p-4">
               <p class="text-sm text-slate-500">Abierta por</p>
-              <p class="text-lg font-semibold">${data.user?.email ?? '-'}</p>
+              <p class="text-lg font-semibold flex items-center gap-1">${obfField(data.user?.email ?? '-', 'text-base font-semibold')}</p>
             </div>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -93,6 +112,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
         </div>
       `;
       document.getElementById('closeRegister')!.addEventListener('click', closeRegister);
+      bindObfToggles(statusEl);
     }
     } catch {
       statusEl.innerHTML = `<p class="text-red-400 text-center">Error al cargar el estado de la caja</p>`;
