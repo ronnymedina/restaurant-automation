@@ -18,7 +18,6 @@
 
 ```json
 {
-  "token": "64-char-hex-string",
   "expiresAt": "2026-06-25T00:00:00.000Z",
   "kitchenUrl": "/kitchen?slug=mi-restaurante&token=abc123..."
 }
@@ -87,9 +86,7 @@ Requiere JWT con rol ADMIN. Genera un token nuevo (invalida el anterior). El `re
 |---|---|---|
 | Sin token JWT | 401 | Unauthenticated |
 | Rol < ADMIN | 403 | Solo ADMIN |
-| Sin body (expiresAt por defecto) | 201 | Vence en 60 días |
-| Con `expiresAt` futuro válido | 201 | Token con la fecha indicada |
-| `expiresAt` = hoy o pasado | 400 | Debe ser al menos mañana |
+| Válido | 201 | Token generado, vence en 30 días |
 
 ---
 
@@ -159,6 +156,6 @@ Emite el evento SSE `kitchen:offline` al dashboard del restaurante vía `SseServ
 | Clase | Campos expuestos | Usado en |
 |---|---|---|
 | `KitchenTokenSerializer` | `kitchenUrl`, `expiresAt` (ambos nullable) | GET /token |
-| `KitchenGeneratedTokenSerializer` | `token`, `expiresAt`, `kitchenUrl` | POST /token/generate |
+| `KitchenGeneratedTokenSerializer` | `expiresAt`, `kitchenUrl` | POST /token/generate |
 | `KitchenOrderSerializer` | `id`, `orderNumber`, `status`, `totalAmount` (pesos), `createdAt`, `items[]` | GET orders, PATCH status/cancel |
 | `KitchenOrderItemSerializer` | `id`, `quantity`, `unitPrice` (pesos), `subtotal` (pesos), `notes`, `product{id,name,imageUrl}` | Anidado en KitchenOrderSerializer |
