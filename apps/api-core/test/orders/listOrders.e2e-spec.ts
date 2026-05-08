@@ -112,4 +112,24 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
     expect(res.body.length).toBeGreaterThan(0);
     expect(Array.isArray(res.body[0].items)).toBe(true);
   });
+
+  it('Cada orden incluye displayTime en la respuesta', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/v1/orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body.length).toBeGreaterThan(0);
+    expect(typeof res.body[0].displayTime).toBe('string');
+    expect(res.body[0].displayTime).toMatch(/^\d{2}:\d{2}$/);
+  });
+
+  it('?limit=500 retorna máximo 15 órdenes', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/v1/orders?limit=500')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body.length).toBeLessThanOrEqual(15);
+  });
 });
