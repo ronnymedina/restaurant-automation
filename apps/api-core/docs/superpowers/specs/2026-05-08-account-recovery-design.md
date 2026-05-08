@@ -8,14 +8,15 @@
 
 ## Problem
 
-1. **Wizard UX**: After completar el registro (Step3), el usuario queda atrapado — no hay botón para ir al login ni a ningún otro lugar.
+1. **Wizard UX**: Después de completar el registro (Step3), el usuario queda atrapado — no hay botón para ir al login ni salida alguna. Si el email no llegó y el usuario cierra la pestaña, no tiene forma de volver a pedirlo.
 2. **Recovery gap**: Solo existía `POST /v1/onboarding/resend-activation` para reenviar el email de activación a cuentas inactivas. No había flujo para cuentas activas que olvidaron su contraseña.
+3. **Enumeración de usuarios**: Exponer errores distintos por estado de cuenta (activa/inactiva) revela información sobre los usuarios registrados.
 
 ---
 
 ## Solution Overview
 
-Dos endpoints nuevos en el módulo `auth` reemplazan el endpoint de onboarding, con lógica compartida en `UsersService`. El frontend añade un botón de reenvío en Step3 y una nueva página de reset de contraseña.
+Un solo endpoint público `POST /v1/auth/recover` reemplaza el endpoint de onboarding y cubre ambos casos internamente. Siempre responde `200` — el cliente nunca sabe si el email existe ni cuál es el estado de la cuenta. El frontend tiene una única página `/recover.astro` como punto de entrada.
 
 **Sin migración Prisma** — se reutiliza el campo `activationToken` existente en `User`.
 
@@ -27,47 +28,26 @@ Dos endpoints nuevos en el módulo `auth` reemplazan el endpoint de onboarding, 
 
 | Módulo | Ruta | Motivo |
 |--------|------|--------|
-| `onboarding` | `POST /v1/onboarding/resend-activation` | Movido a auth con lógica extendida |
+| `onboarding` | `POST /v1/onboarding/resend-activation` | Reemplazado por `POST /v1/auth/recover` |
 
 ### Endpoints nuevos en `auth`
 
-#### `POST /v1/auth/resend-activation`
+#### `POST /v1/auth/recover`
 - **Auth:** Público
-- **Rate limit:** 3 req/email en ventana de 15 min
+- **Rate limit:** 3 req/email en ventana de 15 min (clave: email del body)
 - **Body:** `{ email: string }`
 - **Flujo:**
-  1. Busca usuario por email — si no existe responde `200` (no revela enumeración)
-  2. Si `isActive: true` → lanza `UserAlreadyActiveException` (409)
-  3. Genera nuevo `activationToken` (UUID), persiste con `refreshActivationToken()`
-  4. Envía email de activación — link a `/activate?token=xxx`
-  5. Responde `200 { message: string }`
+  1. Busca usuario por email — si no existe, **no hace nada** y responde `200`
+  2. Si `isActive: false` → genera nuevo `activationToken` (UUID), persiste, envía email de activación — link a `/activate?token=xxx`
+  3. Si `isActive: true` → genera nuevo `activationToken` (UUID), persiste, envía email de reset de contraseña — link a `/reset-password?token=xxx`
+  4. Siempre responde `200 { message: "Si el correo está registrado, recibirás un email en breve." }`
 
 | Caso | Status | Code |
 |------|--------|------|
-| Reenvío exitoso | 200 | — |
-| Email no registrado | 200 | — (seguridad) |
-| Cuenta ya activa | 409 | `USER_ALREADY_ACTIVE` |
+| Cualquier resultado | 200 | — |
 | Rate limit excedido | 429 | — |
 
----
-
-#### `POST /v1/auth/recover-password`
-- **Auth:** Público
-- **Rate limit:** 3 req/email en ventana de 15 min
-- **Body:** `{ email: string }`
-- **Flujo:**
-  1. Busca usuario por email — si no existe responde `200` (no revela enumeración)
-  2. Si `isActive: false` → lanza `InactiveAccountException` (403)
-  3. Genera nuevo `activationToken` (UUID), persiste con `refreshActivationToken()`
-  4. Envía email de reset de contraseña — link a `/reset-password?token=xxx`
-  5. Responde `200 { message: string }`
-
-| Caso | Status | Code |
-|------|--------|------|
-| Email enviado | 200 | — |
-| Email no registrado | 200 | — (seguridad) |
-| Cuenta no activada | 403 | `ACCOUNT_INACTIVE` |
-| Rate limit excedido | 429 | — |
+> **Seguridad:** La respuesta es siempre idéntica — no se revela si el email existe ni si la cuenta está activa o inactiva.
 
 ---
 
@@ -81,7 +61,7 @@ Dos endpoints nuevos en el módulo `auth` reemplazan el endpoint de onboarding, 
 | Caso | Status | Code |
 |------|--------|------|
 | Reset exitoso | 200 | — |
-| Token inválido o expirado | 400 | `INVALID_ACTIVATION_TOKEN` |
+| Token inválido | 400 | `INVALID_ACTIVATION_TOKEN` |
 | Cuenta no activa | 400 | `ACCOUNT_INACTIVE` |
 
 ---
@@ -91,16 +71,20 @@ Dos endpoints nuevos en el módulo `auth` reemplazan el endpoint de onboarding, 
 ```typescript
 // Método privado compartido — hash + update BD
 private async commonActivationOrResetAccount(userId: string, password: string): Promise<User>
+  // bcrypt.hash(password)
+  // userRepository.update(userId, { passwordHash, isActive: true, activationToken: null })
 
 // Actualizado — llama commonActivationOrResetAccount en lugar de lógica inline
 async activateUser(token: string, password: string): Promise<User>
   // guarda: !user → InvalidActivationTokenException
   // guarda: user.isActive → UserAlreadyActiveException
+  // → commonActivationOrResetAccount(user.id, password)
 
 // Nuevo — reset para cuentas activas
 async resetPassword(token: string, password: string): Promise<User>
   // guarda: !user → InvalidActivationTokenException
   // guarda: !user.isActive → InactiveAccountException
+  // → commonActivationOrResetAccount(user.id, password)
 ```
 
 ---
@@ -110,8 +94,7 @@ async resetPassword(token: string, password: string): Promise<User>
 | Acción | Archivo |
 |--------|---------|
 | Eliminar tests de resend-activation | `test/onboarding/resend-activation.e2e-spec.ts` |
-| Nuevos tests e2e resend-activation | `test/auth/resend-activation.e2e-spec.ts` |
-| Nuevos tests e2e recover-password | `test/auth/recover-password.e2e-spec.ts` |
+| Nuevos tests e2e recover | `test/auth/recover.e2e-spec.ts` |
 | Nuevos tests e2e reset-password | `test/auth/reset-password.e2e-spec.ts` |
 | Actualizar unit tests UsersService | `src/users/users.service.spec.ts` |
 
@@ -119,7 +102,7 @@ async resetPassword(token: string, password: string): Promise<User>
 
 ### Module info updates
 
-- `auth.module.info.md` — agregar los 3 nuevos endpoints
+- `auth.module.info.md` — agregar `POST /v1/auth/recover` y `PUT /v1/auth/reset-password`
 - `onboarding.module.info.md` — eliminar sección de resend-activation
 
 ---
@@ -129,12 +112,21 @@ async resetPassword(token: string, password: string): Promise<User>
 ### Step3Success — cambios
 
 1. **Botón "Ir al login"** — link a `/login`, siempre visible
-2. **Botón "No me llegó el correo"** — llama `POST /v1/auth/resend-activation` con el email del wizard
-   - En éxito: mensaje inline "Correo reenviado. Revisa tu bandeja." + botón deshabilitado temporalmente
-   - En error `USER_ALREADY_ACTIVE`: mensaje "Tu cuenta ya está activa, ve al login"
-   - En error genérico: mensaje de error inline
+2. **Botón "No me llegó el correo"** — llama `POST /v1/auth/recover` con el email del wizard
+   - En éxito (siempre 200): mensaje inline "Si el correo está registrado, recibirás un email en breve." + botón deshabilitado temporalmente
+   - En error de red: mensaje de error genérico inline
 
 El handler `onResend` se define en `OnboardingWizard` (patrón existente) y se pasa como prop a `Step3Success`.
+
+### Nueva página `/recover.astro`
+
+Página pública accesible en cualquier momento. Único punto de entrada para recuperación de cuenta.
+
+- Campo: email
+- Llama `POST /v1/auth/recover`
+- En éxito: muestra mensaje genérico "Si el correo está registrado, recibirás un email en breve."
+- No revela nada sobre el estado de la cuenta
+- Link "Volver al login" siempre visible
 
 ### Nueva página `/reset-password.astro`
 
@@ -144,7 +136,7 @@ Clon de `/activate.astro` con las siguientes diferencias:
 - Llama `PUT /v1/auth/reset-password` en lugar de `PUT /v1/users/activate`
 - En éxito: muestra "Contraseña actualizada" + link al login
 
-### Error messages (ui/src/lib/error-messages.ts)
+### Error messages (`ui/src/lib/error-messages.ts`)
 
 Agregar:
 ```
@@ -156,18 +148,22 @@ INVALID_ACTIVATION_TOKEN: 'El enlace no es válido o ya fue utilizado.'
 ## Flujo completo por caso de uso
 
 ```
-Registro nuevo
-  → Step3: "No me llegó el correo" → POST /v1/auth/resend-activation
-  → Email → /activate?token=xxx → PUT /v1/users/activate → login
+Registro nuevo — email no llegó, usuario aún en Step3
+  → Botón "No me llegó el correo" → POST /v1/auth/recover
+  → Email de activación → /activate?token=xxx → PUT /v1/users/activate → login
+
+Registro nuevo — usuario cerró el browser sin activar
+  → /recover.astro → ingresa email → POST /v1/auth/recover
+  → Email de activación → /activate?token=xxx → PUT /v1/users/activate → login
 
 Olvidé mi contraseña (cuenta activa)
-  → POST /v1/auth/recover-password
-  → Email → /reset-password?token=xxx → PUT /v1/auth/reset-password → login
+  → /recover.astro → ingresa email → POST /v1/auth/recover
+  → Email de reset → /reset-password?token=xxx → PUT /v1/auth/reset-password → login
 ```
 
 ---
 
 ## Out of scope
 
-- Link "¿Olvidaste tu contraseña?" en la página de login (se puede agregar después)
+- Link "¿Olvidaste tu contraseña?" en la página de login (se puede agregar después usando `/recover.astro`)
 - Expiración de `activationToken` (no existe hoy, se mantiene sin cambio)
