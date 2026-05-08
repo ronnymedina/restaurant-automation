@@ -19,6 +19,7 @@ El flujo crea restaurante + usuario MANAGER + categoría por defecto en una sola
 | Método | Ruta | Auth | Respuesta | Descripción |
 |---|---|---|---|---|
 | `POST` | `/v1/onboarding/register` | Público | `OnboardingResponse` | Registrar restaurante (multipart/form-data) |
+| `POST` | `/v1/onboarding/resend-activation` | Público | `{ message: string }` | Reenviar email de activación |
 
 ---
 
@@ -69,6 +70,33 @@ El flujo crea restaurante + usuario MANAGER + categoría por defecto en una sola
 | 6° request desde misma IP (15 min) | 429 | — |
 | Error interno (ej: falla de BD) | 500 | `ONBOARDING_FAILED` |
 
+---
+
+#### Resend Activation — `POST /v1/onboarding/resend-activation`
+
+**Content-Type:** `application/json`
+
+**Rate limit:** 3 requests por email en ventana de 15 minutos (TTL: 900 000 ms). La clave de throttle es el email del body, no la IP.
+
+| Campo | Tipo | Requerido | Validación |
+|---|---|---|---|
+| `email` | string | ✅ | email válido |
+
+**Flujo interno:**
+
+1. Busca usuario por email — lanza `USER_NOT_FOUND` (404) si no existe
+2. Si `isActive: true` → lanza `USER_ALREADY_ACTIVE` (409)
+3. Genera nuevo `activationToken` (UUID) — invalida el token anterior
+4. Persiste el nuevo token en BD
+5. Envía email de activación (falla silenciosa — no bloquea la respuesta)
+
+| Caso | Status | Code |
+|---|---|---|
+| Reenvío exitoso | 200 | — |
+| Email no registrado | 404 | `USER_NOT_FOUND` |
+| Cuenta ya activa | 409 | `USER_ALREADY_ACTIVE` |
+| 4° request mismo email (15 min) | 429 | — |
+
 ### Excepciones
 
 | Clase | Status | Code |
@@ -77,6 +105,8 @@ El flujo crea restaurante + usuario MANAGER + categoría por defecto en una sola
 | `EmailAlreadyExistsException` | 409 | `EMAIL_ALREADY_EXISTS` |
 | `RestaurantCreationFailedException` | 500 | `RESTAURANT_CREATION_FAILED` |
 | `UserCreationFailedException` | 500 | `USER_CREATION_FAILED` |
+| `UserNotFoundException` | 404 | `USER_NOT_FOUND` |
+| `UserAlreadyActiveException` | 409 | `USER_ALREADY_ACTIVE` |
 
 ### Tests existentes
 
@@ -89,3 +119,4 @@ El flujo crea restaurante + usuario MANAGER + categoría por defecto en una sola
 | E2E — archivos | `test/onboarding/register-file.e2e-spec.ts` | ✅ 3 tests |
 | E2E — demo data | `test/onboarding/register-demo-data.e2e-spec.ts` | ✅ 4 tests |
 | E2E — rate limit | `test/onboarding/register-rate-limit.e2e-spec.ts` | ✅ 2 tests |
+| E2E — resend activation | `test/onboarding/resend-activation.e2e-spec.ts` | ✅ 4 tests |
