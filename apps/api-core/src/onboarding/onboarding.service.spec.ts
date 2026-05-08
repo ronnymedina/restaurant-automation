@@ -15,6 +15,8 @@ import {
   RestaurantCreationFailedException,
   UserCreationFailedException,
   OnboardingFailedException,
+  UserNotFoundException,
+  UserAlreadyActiveException,
 } from './exceptions/onboarding.exceptions';
 
 const mockRestaurant = {
@@ -65,7 +67,11 @@ const mockProductsService = {
 const mockMenusService = { createMenu: jest.fn() };
 const mockMenuItemsService = { bulkCreateItems: jest.fn() };
 const mockGeminiService = { extractProductsFromMultipleImages: jest.fn() };
-const mockUsersService = { findByEmail: jest.fn(), createOnboardingUser: jest.fn() };
+const mockUsersService = {
+  findByEmail: jest.fn(),
+  createOnboardingUser: jest.fn(),
+  refreshActivationToken: jest.fn(),
+};
 const mockEmailService = { sendActivationEmail: jest.fn() };
 
 describe('OnboardingService', () => {
@@ -431,6 +437,69 @@ describe('OnboardingService', () => {
       });
 
       expect(Object.keys(result)).toEqual(['productsCreated']);
+    });
+  });
+
+  // ─── resendActivation ────────────────────────────────────────────────────────
+
+  describe('resendActivation', () => {
+    it('throws UserNotFoundException when email is not registered', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(null);
+
+      await expect(service.resendActivation('unknown@test.com')).rejects.toThrow(
+        UserNotFoundException,
+      );
+
+      expect(mockUsersService.refreshActivationToken).not.toHaveBeenCalled();
+      expect(mockEmailService.sendActivationEmail).not.toHaveBeenCalled();
+    });
+
+    it('throws UserAlreadyActiveException when user is already active', async () => {
+      mockUsersService.findByEmail.mockResolvedValue({ ...mockUser, isActive: true });
+
+      await expect(service.resendActivation(mockUser.email)).rejects.toThrow(
+        UserAlreadyActiveException,
+      );
+
+      expect(mockUsersService.refreshActivationToken).not.toHaveBeenCalled();
+      expect(mockEmailService.sendActivationEmail).not.toHaveBeenCalled();
+    });
+
+    it('regenerates token and sends activation email for inactive user', async () => {
+      mockUsersService.findByEmail.mockResolvedValue({ ...mockUser, isActive: false });
+      mockUsersService.refreshActivationToken.mockResolvedValue(undefined);
+      mockEmailService.sendActivationEmail.mockResolvedValue(true);
+
+      await service.resendActivation(mockUser.email);
+
+      expect(mockUsersService.refreshActivationToken).toHaveBeenCalledWith(
+        mockUser.id,
+        expect.any(String),
+      );
+      expect(mockEmailService.sendActivationEmail).toHaveBeenCalledWith(
+        mockUser.email,
+        expect.any(String),
+      );
+      // Token passed to refreshActivationToken and sendActivationEmail must be the same
+      const newToken = mockUsersService.refreshActivationToken.mock.calls[0][1] as string;
+      expect(mockEmailService.sendActivationEmail).toHaveBeenCalledWith(mockUser.email, newToken);
+    });
+
+    it('completes without throwing when sendActivationEmail fails', async () => {
+      mockUsersService.findByEmail.mockResolvedValue({ ...mockUser, isActive: false });
+      mockUsersService.refreshActivationToken.mockResolvedValue(undefined);
+      mockEmailService.sendActivationEmail.mockRejectedValue(new Error('SMTP error'));
+
+      await expect(service.resendActivation(mockUser.email)).resolves.not.toThrow();
+      expect(mockUsersService.refreshActivationToken).toHaveBeenCalled();
+    });
+
+    it('does not throw when sendActivationEmail returns false', async () => {
+      mockUsersService.findByEmail.mockResolvedValue({ ...mockUser, isActive: false });
+      mockUsersService.refreshActivationToken.mockResolvedValue(undefined);
+      mockEmailService.sendActivationEmail.mockResolvedValue(false);
+
+      await expect(service.resendActivation(mockUser.email)).resolves.not.toThrow();
     });
   });
 });
