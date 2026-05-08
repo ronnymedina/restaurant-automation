@@ -10,7 +10,7 @@ Las variables `PUBLIC_*` son bakeadas dentro del bundle JS en tiempo de build po
   - Default: `http://localhost:3000`
   - Required: `true` (requerida en producción — el contenedor usa un placeholder que se inyecta en arranque)
   - Ejemplo: `https://api.tudominio.com`
-  - Usada en: `src/lib/api.ts`, `src/lib/kiosk-api.ts`, y páginas que llaman la API directamente (`login.astro`, `activate.astro`, `onboarding.astro`, `orders.astro`, `dash/kitchen.astro`)
+  - Usada en: `src/lib/api.ts`, `src/lib/kiosk-api.ts`, y páginas que llaman la API directamente (`login.astro`, `activate.astro`, `onboarding.astro`, `orders.astro`)
 
 ---
 
