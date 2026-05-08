@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto';
 import { UsersService } from '../users/users.service';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { RefreshTokenRepository } from './refresh-token.repository';
+import { EmailService } from '../email/email.service';
 import { authConfig } from './auth.config';
 import {
   InvalidCredentialsException,
@@ -25,6 +26,7 @@ export class AuthService {
     private readonly refreshTokenRepository: RefreshTokenRepository,
     private readonly usersService: UsersService,
     private readonly restaurantsService: RestaurantsService,
+    private readonly emailService: EmailService,
     @Inject(authConfig.KEY)
     private readonly configService: ConfigType<typeof authConfig>,
   ) { }
@@ -134,6 +136,33 @@ export class AuthService {
   async revokeAllTokens(userId: string): Promise<void> {
     await this.refreshTokenRepository.deleteAllByUserId(userId);
     this.logger.log(`All tokens revoked for user: ${userId}`);
+  }
+
+  async recoverAccount(email: string): Promise<void> {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) return;
+
+    const newToken = randomUUID();
+    await this.usersService.refreshActivationToken(user.id, newToken);
+
+    if (!user.isActive) {
+      try {
+        await this.emailService.sendActivationEmail(user.email, newToken);
+      } catch (error) {
+        this.logger.error(`Failed to send activation email to ${user.email}`, error);
+      }
+    } else {
+      try {
+        await this.emailService.sendPasswordResetEmail(user.email, newToken);
+      } catch (error) {
+        this.logger.error(`Failed to send password reset email to ${user.email}`, error);
+      }
+    }
+  }
+
+  async resetPassword(token: string, password: string): Promise<{ email: string }> {
+    const user = await this.usersService.resetPassword(token, password);
+    return { email: user.email };
   }
 
   private generateAccessToken(user: {

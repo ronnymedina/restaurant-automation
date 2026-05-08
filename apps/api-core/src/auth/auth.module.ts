@@ -9,6 +9,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import { UsersModule } from '../users/users.module';
 import { RestaurantsModule } from '../restaurants/restaurants.module';
+import { EmailModule } from '../email/email.module';
 import { JWT_SECRET } from '../config';
 import { authConfig } from './auth.config';
 
@@ -16,6 +17,7 @@ import { authConfig } from './auth.config';
   imports: [
     UsersModule,
     RestaurantsModule,
+    EmailModule,
     PassportModule,
     ConfigModule.forFeature(authConfig),
     JwtModule.register({
