@@ -2,7 +2,7 @@
 ### Onboarding (onboarding)
 
 Registro de nuevos restaurantes en la plataforma. Ruta pública con rate limiting.
-El flujo crea restaurante + usuario MANAGER + categoría por defecto en una sola transacción, y opcionalmente genera productos vía IA (Gemini) o datos demo.
+El flujo crea restaurante + usuario ADMIN + categoría por defecto en una sola transacción, y opcionalmente genera productos vía IA (Gemini) o datos demo.
 
 ### Respuesta serializada
 
@@ -40,7 +40,7 @@ El flujo crea restaurante + usuario MANAGER + categoría por defecto en una sola
 **Flujo interno:**
 
 1. Valida unicidad de `email` — lanza `EMAIL_ALREADY_EXISTS` (409) si ya existe
-2. Crea restaurante + `RestaurantSettings` + usuario MANAGER + categoría por defecto en una transacción atómica
+2. Crea restaurante + `RestaurantSettings` + usuario ADMIN + categoría por defecto en una transacción atómica
 3. Resuelve productos:
    - Si hay `photo` → extracción con Gemini AI (falla silenciosa → `productsCreated: 0`)
    - Si `createDemoData=true` → 5 productos demo + menú "Menú Principal" con 2 secciones
@@ -50,7 +50,7 @@ El flujo crea restaurante + usuario MANAGER + categoría por defecto en una sola
 **Notas:**
 - El nombre del restaurante **no es único** — dos restaurantes pueden tener el mismo nombre. Solo el `slug` (generado desde el nombre) es único.
 - El slug se genera normalizando el nombre; si colisiona se agrega un sufijo aleatorio de 4 chars.
-- El usuario creado tiene `isActive: false` y `role: MANAGER`; se activa via link en el email.
+- El usuario creado tiene `isActive: false` y `role: ADMIN`; es el administrador del restaurante y se activa via link en el email.
 
 | Caso | Status | Code |
 |---|---|---|

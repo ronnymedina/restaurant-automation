@@ -9,7 +9,6 @@ import { OrderRepository } from '../orders/order.repository';
 import { SseService } from '../events/sse.service';
 import { TimezoneService } from '../restaurants/timezone.service';
 import { KitchenOrderSerializer } from './serializers/kitchen-order.serializer';
-import { KITCHEN_TOKEN_EXPIRY_DAYS } from '../config';
 
 @Injectable()
 export class KitchenService {
@@ -60,35 +59,29 @@ export class KitchenService {
 
   async generateToken(
     restaurantId: string,
-    customExpiresAt?: string,
+    expiresAt: string,
   ): Promise<{ token: string; expiresAt: Date; kitchenUrl: string }> {
     const restaurant = await this.restaurantsService.findById(restaurantId);
     if (!restaurant) throw new UnauthorizedException();
 
     const token = randomBytes(32).toString('hex');
 
-    let expiresAt: Date;
-    if (customExpiresAt) {
-      expiresAt = new Date(customExpiresAt);
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0);
-      if (expiresAt < tomorrow) {
-        throw new BadRequestException('La fecha de vencimiento debe ser al menos mañana');
-      }
-    } else {
-      expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + KITCHEN_TOKEN_EXPIRY_DAYS);
+    const expiresAtDate = new Date(expiresAt);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    if (expiresAtDate < tomorrow) {
+      throw new BadRequestException('La fecha de vencimiento debe ser al menos mañana');
     }
 
     await this.restaurantsService.upsertSettings(restaurantId, {
       kitchenToken: token,
-      kitchenTokenExpiresAt: expiresAt,
+      kitchenTokenExpiresAt: expiresAtDate,
     });
 
     return {
       token,
-      expiresAt,
+      expiresAt: expiresAtDate,
       kitchenUrl: `/kitchen?slug=${restaurant.slug}&token=${token}`,
     };
   }

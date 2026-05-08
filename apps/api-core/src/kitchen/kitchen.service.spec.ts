@@ -107,7 +107,8 @@ describe('KitchenService', () => {
     it('generates a token and returns kitchenUrl', async () => {
       mockRestaurantsService.findById.mockResolvedValue(makeRestaurant());
       mockRestaurantsService.upsertSettings.mockResolvedValue({});
-      const result = await service.generateToken('r1');
+      const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const result = await service.generateToken('r1', futureDate);
       expect(result.token).toHaveLength(64); // 32 bytes hex = 64 chars
       expect(result.kitchenUrl).toContain('/kitchen?slug=test-restaurant&token=');
       expect(result.expiresAt).toBeInstanceOf(Date);
@@ -115,7 +116,8 @@ describe('KitchenService', () => {
 
     it('throws UnauthorizedException if restaurant not found', async () => {
       mockRestaurantsService.findById.mockResolvedValue(null);
-      await expect(service.generateToken('bad-id')).rejects.toThrow(UnauthorizedException);
+      const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      await expect(service.generateToken('bad-id', futureDate)).rejects.toThrow(UnauthorizedException);
     });
   });
 

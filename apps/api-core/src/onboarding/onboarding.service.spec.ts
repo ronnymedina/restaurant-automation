@@ -33,7 +33,7 @@ const mockUser = {
   id: 'user-uuid-1',
   email: 'owner@restaurant.com',
   passwordHash: null,
-  role: Role.MANAGER,
+  role: Role.ADMIN,
   isActive: false,
   activationToken: 'activation-token-uuid',
   restaurantId: 'restaurant-uuid-1',
