@@ -7,6 +7,7 @@ interface Step3SuccessProps {
 export default function Step3Success({ email, restaurantName, productsCreated }: Step3SuccessProps) {
   return (
     <div className="text-center">
+      <style>{`@keyframes scaleIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }`}</style>
       <div className="text-emerald-500 mb-4" style={{ animation: 'scaleIn 0.5s ease' }}>
         <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />

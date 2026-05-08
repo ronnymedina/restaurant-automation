@@ -171,8 +171,9 @@ export default function Step2Upload({ onSubmit, onBack, isLoading, error }: Step
 
       <button
         type="button"
+        disabled={isLoading}
         onClick={onBack}
-        className="flex items-center gap-1 bg-transparent border-none text-slate-400 text-sm cursor-pointer p-0 hover:text-indigo-500 transition-colors"
+        className="flex items-center gap-1 bg-transparent border-none text-slate-400 text-sm cursor-pointer p-0 hover:text-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="m15 18-6-6 6-6" />
