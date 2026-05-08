@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Put, Get, Body, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -6,6 +6,7 @@ import {
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 
 import { AuthService } from './auth.service';
 import {
@@ -14,8 +15,12 @@ import {
   AuthTokensResponseDto,
   ProfileResponseDto,
   LogoutResponseDto,
+  RecoverDto,
+  ResetPasswordDto,
+  ResetPasswordResponseDto,
 } from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { EmailThrottlerGuard } from './guards/email-throttler.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 
 @ApiTags('Auth')
@@ -63,5 +68,29 @@ export class AuthController {
   async logout(@CurrentUser() user: { id: string }): Promise<LogoutResponseDto> {
     await this.authService.revokeAllTokens(user.id);
     return { message: 'Logged out successfully' };
+  }
+
+  @Post('recover')
+  @UseGuards(EmailThrottlerGuard)
+  @Throttle({ default: { ttl: 900_000, limit: 3 } })
+  @ApiOperation({
+    summary: 'Solicitar recuperación de cuenta',
+    description: 'Envía email de activación (cuenta inactiva) o reset de contraseña (cuenta activa). Siempre responde 200 — no revela si el email existe.',
+  })
+  @ApiBody({ type: RecoverDto })
+  @ApiResponse({ status: 200, description: 'Solicitud procesada', schema: { example: { message: 'Si el correo está registrado, recibirás un email en breve.' } } })
+  @ApiResponse({ status: 429, description: 'Demasiadas solicitudes' })
+  async recover(@Body() dto: RecoverDto): Promise<{ message: string }> {
+    await this.authService.recoverAccount(dto.email);
+    return { message: 'Si el correo está registrado, recibirás un email en breve.' };
+  }
+
+  @Put('reset-password')
+  @ApiOperation({ summary: 'Restablecer contraseña con token' })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({ status: 200, description: 'Contraseña actualizada', type: ResetPasswordResponseDto })
+  @ApiResponse({ status: 400, description: 'Token inválido o cuenta inactiva', schema: { example: { code: 'INVALID_ACTIVATION_TOKEN' } } })
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<ResetPasswordResponseDto> {
+    return this.authService.resetPassword(dto.token, dto.password);
   }
 }
