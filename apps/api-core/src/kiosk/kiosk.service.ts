@@ -57,7 +57,7 @@ export class KioskService {
   async getStatus(slug: string) {
     const restaurant = await this.resolveRestaurant(slug);
     const session = await this.registerSessionRepository.findOpen(restaurant.id);
-    return { registerOpen: !!session };
+    return { registerOpen: !!session, restaurantName: restaurant.name };
   }
 
   async createKioskOrder(slug: string, dto: CreateOrderDto) {

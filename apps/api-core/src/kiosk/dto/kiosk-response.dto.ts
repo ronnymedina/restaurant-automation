@@ -3,6 +3,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class KioskStatusDto {
   @ApiProperty({ example: true, description: 'Indica si hay una caja registradora abierta' })
   registerOpen: boolean;
+
+  @ApiProperty({ example: 'La Parrilla del Chef', description: 'Nombre del restaurante' })
+  restaurantName: string;
 }
 
 export class KioskMenuItemEntryDto {
