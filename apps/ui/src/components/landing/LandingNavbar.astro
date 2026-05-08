@@ -1,0 +1,63 @@
+---
+// no props — strings hardcoded in Spanish
+---
+<nav id="landing-navbar" class="fixed top-0 w-full z-50 px-6 py-5">
+  <div class="max-w-6xl mx-auto flex justify-between items-center">
+    <a href="/" class="group">
+      <span class="text-xl font-extrabold tracking-tight" style="color: #111;">
+        Daiku<span style="color: #f97316;">Lab</span>
+      </span>
+      <span class="block text-[10px] font-normal tracking-[0.2em] uppercase mt-0.5" style="color: #888;">
+        para restaurantes
+      </span>
+    </a>
+
+    <div class="hidden md:flex items-center gap-8 text-sm font-medium" style="color: #555;">
+      <a href="#modulos" class="hover:text-orange-500 transition-colors">Módulos</a>
+      <a href="#precios" class="hover:text-orange-500 transition-colors">Precios</a>
+      <a href="#contacto" class="hover:text-orange-500 transition-colors">Contacto</a>
+      <a
+        href="/onboarding"
+        class="px-5 py-2 rounded-full text-sm font-semibold text-white transition-all hover:-translate-y-px"
+        style="background: #f97316; box-shadow: 0 4px 16px rgba(249,115,22,0.35);"
+      >
+        Comenzar ahora
+      </a>
+    </div>
+
+    <a
+      href="/onboarding"
+      class="md:hidden px-4 py-2 rounded-full text-sm font-semibold text-white"
+      style="background: #f97316; box-shadow: 0 4px 16px rgba(249,115,22,0.35);"
+    >
+      Comenzar ahora
+    </a>
+  </div>
+</nav>
+
+<script>
+  const navbar = document.getElementById("landing-navbar");
+  if (navbar) {
+    window.addEventListener("scroll", () => {
+      if (window.scrollY > 20) {
+        navbar.classList.add("scrolled");
+      } else {
+        navbar.classList.remove("scrolled");
+      }
+    }, { passive: true });
+  }
+</script>
+
+<style>
+  #landing-navbar {
+    transition: background 0.3s, backdrop-filter 0.3s, padding 0.3s, border-color 0.3s;
+  }
+  #landing-navbar.scrolled {
+    background: rgba(250, 250, 248, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid #ebebeb;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+</style>
