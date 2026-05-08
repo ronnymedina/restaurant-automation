@@ -26,7 +26,6 @@ import { KitchenService } from './kitchen.service';
 import { KitchenTokenGuard, KITCHEN_RESTAURANT_KEY } from './guards/kitchen-token.guard';
 import { UpdateKitchenStatusDto } from './dto/update-kitchen-status.dto';
 import { CancelKitchenOrderDto } from './dto/cancel-kitchen-order.dto';
-import { GenerateKitchenTokenDto } from './dto/generate-kitchen-token.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -60,12 +59,11 @@ export class KitchenController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Generar o renovar token de acceso para la pantalla de cocina' })
   @ApiResponse({ status: 201, description: 'Token generado', type: KitchenGeneratedTokenSerializer })
-  @ApiResponse({ status: 400, description: 'Fecha de vencimiento inválida' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN)' })
-  async generateToken(@Req() req: Request, @Body() dto: GenerateKitchenTokenDto) {
+  async generateToken(@Req() req: Request) {
     const user = (req as any).user;
-    const data = await this.kitchenService.generateToken(user.restaurantId, dto.expiresAt);
+    const data = await this.kitchenService.generateToken(user.restaurantId);
     return new KitchenGeneratedTokenSerializer(data);
   }
 

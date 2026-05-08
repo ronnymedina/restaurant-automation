@@ -3,10 +3,6 @@ import { ApiProperty } from '@nestjs/swagger';
 
 @Exclude()
 export class KitchenGeneratedTokenSerializer {
-  @ApiProperty()
-  @Expose()
-  token: string;
-
   @ApiProperty({ format: 'date-time' })
   @Expose()
   expiresAt: Date;
