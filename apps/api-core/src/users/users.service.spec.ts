@@ -11,6 +11,7 @@ import {
   InvalidRoleException,
   LastAdminException,
   UserAlreadyActiveException,
+  InactiveAccountException,
 } from './exceptions/users.exceptions';
 import {
   EntityNotFoundException,
@@ -444,6 +445,71 @@ describe('UsersService', () => {
 
       expect(result.meta.page).toBe(1);
       expect(result.meta.limit).toBe(DEFAULT_PAGE_SIZE);
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should reset password and keep user active', async () => {
+      const activeUser = mockUser({ isActive: true, activationToken: 'reset-token-uuid' });
+      mockUserRepository.findByActivationToken.mockResolvedValue(activeUser);
+      mockUserRepository.update.mockImplementation((id, data) =>
+        Promise.resolve(
+          mockUser({
+            id,
+            isActive: true,
+            passwordHash: data.passwordHash,
+            activationToken: null,
+          }),
+        ),
+      );
+
+      const result = await service.resetPassword('reset-token-uuid', 'NewPassword123');
+
+      expect(mockUserRepository.findByActivationToken).toHaveBeenCalledWith('reset-token-uuid');
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        activeUser.id,
+        expect.objectContaining({
+          isActive: true,
+          activationToken: null,
+          passwordHash: expect.any(String),
+        }),
+      );
+      expect(result.activationToken).toBeNull();
+    });
+
+    it('should hash the new password correctly', async () => {
+      const activeUser = mockUser({ isActive: true, activationToken: 'reset-token-uuid' });
+      mockUserRepository.findByActivationToken.mockResolvedValue(activeUser);
+
+      let capturedHash: string | undefined;
+      mockUserRepository.update.mockImplementation((_id, data) => {
+        capturedHash = data.passwordHash;
+        return Promise.resolve(mockUser({ isActive: true }));
+      });
+
+      await service.resetPassword('reset-token-uuid', 'NewPassword123');
+
+      const isValid = await bcrypt.compare('NewPassword123', capturedHash!);
+      expect(isValid).toBe(true);
+    });
+
+    it('should throw InvalidActivationTokenException for unknown token', async () => {
+      mockUserRepository.findByActivationToken.mockResolvedValue(null);
+
+      await expect(
+        service.resetPassword('bad-token', 'Password123'),
+      ).rejects.toThrow(InvalidActivationTokenException);
+    });
+
+    it('should throw InactiveAccountException if user is not active', async () => {
+      const inactiveUser = mockUser({ isActive: false, activationToken: 'some-token' });
+      mockUserRepository.findByActivationToken.mockResolvedValue(inactiveUser);
+
+      await expect(
+        service.resetPassword('some-token', 'Password123'),
+      ).rejects.toThrow(InactiveAccountException);
+
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
     });
   });
 });
