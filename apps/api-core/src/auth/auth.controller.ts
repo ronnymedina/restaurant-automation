@@ -1,4 +1,4 @@
-import { Controller, Post, Put, Get, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Put, Get, Body, UseGuards, HttpCode } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -71,6 +71,7 @@ export class AuthController {
   }
 
   @Post('recover')
+  @HttpCode(200)
   @UseGuards(EmailThrottlerGuard)
   @Throttle({ default: { ttl: 900_000, limit: 3 } })
   @ApiOperation({

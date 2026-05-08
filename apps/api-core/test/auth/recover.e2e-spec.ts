@@ -1,24 +1,19 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, uniqueEmail, registerUser } from './helpers';
 
-const TEST_DB = path.resolve(__dirname, 'test-auth-recover.db');
-
 describe('POST /v1/auth/recover (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
 
   beforeAll(async () => {
-    ({ app, prisma } = await bootstrapApp(TEST_DB));
+    ({ app, prisma } = await bootstrapApp());
   });
 
   afterAll(async () => {
     await app.close();
-    if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
   });
 
   it('200 — usuario inactivo: regenera token y responde mensaje genérico', async () => {

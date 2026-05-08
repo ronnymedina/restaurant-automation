@@ -7,15 +7,13 @@ import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 
-export async function bootstrapApp(dbPath: string): Promise<{
+export async function bootstrapApp(): Promise<{
   moduleFixture: TestingModule;
   app: INestApplication<App>;
   prisma: PrismaService;
 }> {
-  process.env.DATABASE_URL = `file:${dbPath}`;
-
-  execSync('npx prisma db push', {
-    env: { ...process.env, DATABASE_URL: `file:${dbPath}` },
+  execSync('pnpm exec prisma migrate deploy', {
+    env: process.env,
     stdio: 'pipe',
   });
 
