@@ -39,7 +39,7 @@ export class UsersService {
 
     const user = await this.userRepository.create({
       email,
-      role: Role.MANAGER,
+      role: Role.ADMIN,
       isActive: false,
       activationToken,
       restaurantId,
