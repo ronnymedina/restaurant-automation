@@ -60,6 +60,7 @@ export type ConfirmedOrder = {
 export type KioskStore = {
   slug: string
   sessionOpen: boolean
+  restaurantName: string
   isLoading: boolean
   menus: Menu[]
   activeMenuId: string | null
