@@ -404,14 +404,14 @@ describe('KioskService', () => {
       mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(mockRestaurant);
       mockRegisterSessionRepo.findOpen.mockResolvedValue({ id: 's1' });
       const result = await service.getStatus('test-rest');
-      expect(result).toEqual({ registerOpen: true });
+      expect(result).toEqual({ registerOpen: true, restaurantName: 'Test' });
     });
 
     it('returns registerOpen: false when no session is open', async () => {
       mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(mockRestaurant);
       mockRegisterSessionRepo.findOpen.mockResolvedValue(null);
       const result = await service.getStatus('test-rest');
-      expect(result).toEqual({ registerOpen: false });
+      expect(result).toEqual({ registerOpen: false, restaurantName: 'Test' });
     });
   });
 
