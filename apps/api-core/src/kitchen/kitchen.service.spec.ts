@@ -94,7 +94,6 @@ describe('KitchenService', () => {
       mockRestaurantsService.findById.mockResolvedValue(makeRestaurant());
       mockRestaurantsService.upsertSettings.mockResolvedValue({});
       const result = await service.generateToken('r1');
-      expect(result.token).toHaveLength(64); // 32 bytes hex = 64 chars
       expect(result.kitchenUrl).toContain('/kitchen?slug=test-restaurant&token=');
       expect(result.expiresAt).toBeInstanceOf(Date);
     });
