@@ -12,6 +12,28 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       <p class="text-slate-400 text-center">Cargando...</p>
     </div>
 
+    <!-- Modal fecha de vencimiento -->
+    <div id="expiryModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl w-full max-w-sm p-6 space-y-4">
+        <h3 class="text-lg font-bold text-slate-800">Fecha de vencimiento</h3>
+        <p class="text-sm text-slate-500">El acceso dejará de funcionar después de esta fecha.</p>
+        <div class="space-y-1">
+          <label for="expiryDate" class="text-sm font-medium text-slate-700">Vence el</label>
+          <input id="expiryDate" type="date"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div class="flex gap-3 pt-1">
+          <button id="cancelExpiry"
+                  class="flex-1 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 cursor-pointer bg-transparent">
+            Cancelar
+          </button>
+          <button id="confirmExpiry"
+                  class="flex-1 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 cursor-pointer border-none">
+            Generar
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </DashboardLayout>
 
@@ -19,10 +41,45 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   import { apiFetch } from '../../lib/api';
 
   const card = document.getElementById('kitchenCard')!;
+  const expiryModal = document.getElementById('expiryModal')!;
+  const expiryDateInput = document.getElementById('expiryDate') as HTMLInputElement;
+  const cancelExpiryBtn = document.getElementById('cancelExpiry')!;
+  const confirmExpiryBtn = document.getElementById('confirmExpiry')!;
+
+  // Default: 60 days from today
+  function defaultExpiryValue() {
+    const d = new Date();
+    d.setDate(d.getDate() + 60);
+    return d.toISOString().split('T')[0];
+  }
+
+  // Minimum: tomorrow
+  function minExpiryValue() {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  }
 
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString('es', { day: '2-digit', month: 'long', year: 'numeric' });
   }
+
+  function openExpiryModal() {
+    expiryDateInput.min = minExpiryValue();
+    expiryDateInput.value = defaultExpiryValue();
+    expiryModal.classList.remove('hidden');
+  }
+
+  cancelExpiryBtn.addEventListener('click', () => {
+    expiryModal.classList.add('hidden');
+  });
+
+  confirmExpiryBtn.addEventListener('click', async () => {
+    const expiresAt = expiryDateInput.value;
+    if (!expiresAt) return;
+    expiryModal.classList.add('hidden');
+    await doGenerateToken(expiresAt);
+  });
 
   function renderWithToken(kitchenUrl: string, expiresAt: string) {
     const fullUrl = `${window.location.origin}${kitchenUrl}`;
@@ -57,7 +114,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       btn.title = '¡Copiado!';
       setTimeout(() => { btn.title = 'Copiar URL'; }, 2000);
     });
-    document.getElementById('regenerateBtn')!.addEventListener('click', doGenerateToken);
+    document.getElementById('regenerateBtn')!.addEventListener('click', openExpiryModal);
   }
 
   function renderEmpty() {
@@ -72,13 +129,16 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
         </button>
       </div>
     `;
-    document.getElementById('generateBtn')!.addEventListener('click', doGenerateToken);
+    document.getElementById('generateBtn')!.addEventListener('click', openExpiryModal);
   }
 
-  async function doGenerateToken() {
+  async function doGenerateToken(expiresAt: string) {
     card.innerHTML = '<p class="text-slate-400 text-center py-4">Generando...</p>';
     try {
-      const res = await apiFetch('/v1/kitchen/token/generate', { method: 'POST' });
+      const res = await apiFetch('/v1/kitchen/token/generate', {
+        method: 'POST',
+        body: JSON.stringify({ expiresAt }),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         const msg = err?.message || 'Error al generar el acceso. Intenta de nuevo.';
