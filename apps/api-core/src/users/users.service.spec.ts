@@ -60,7 +60,7 @@ describe('UsersService', () => {
   });
 
   describe('createOnboardingUser', () => {
-    it('should create an inactive user with MANAGER role linked to restaurant', async () => {
+    it('should create an inactive user with ADMIN role linked to restaurant', async () => {
       const user = mockUser();
       mockUserRepository.create.mockResolvedValue(user);
 
@@ -72,7 +72,7 @@ describe('UsersService', () => {
       expect(mockUserRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           email: 'test@example.com',
-          role: Role.MANAGER,
+          role: Role.ADMIN,
           isActive: false,
           restaurantId: 'restaurant-uuid-1',
           activationToken: expect.any(String),
