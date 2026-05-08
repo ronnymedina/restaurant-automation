@@ -124,14 +124,6 @@ Las variables marcadas como **Required: `true`** deben estar presentes al inicia
 
 ---
 
-### KITCHEN
-
-* **KITCHEN_TOKEN_EXPIRY_DAYS**: Días de validez del token de cocina.
-  - Default: ninguno
-  - Required: `true`
-
----
-
 ### PAGINACIÓN / PRODUCTOS
 
 * **DEFAULT_PAGE_SIZE**: Cantidad de items por página en listados paginados.
