@@ -32,11 +32,13 @@ const items = [
             style="background: #ffffff; color: #111;"
             data-faq={i}
             aria-expanded="false"
+            aria-controls={"faq-answer-" + i}
           >
             {faq.q}
             <span class="faq-icon text-lg flex-shrink-0 ml-4 transition-transform" style="color: #f97316;">+</span>
           </button>
           <div
+            id={"faq-answer-" + i}
             class="faq-answer hidden px-5 pb-5 text-sm leading-relaxed"
             style="background: #fafaf8; color: #555;"
           >
