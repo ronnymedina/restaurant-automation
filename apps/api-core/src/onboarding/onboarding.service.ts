@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, Restaurant, User } from '@prisma/client';
-import { randomUUID } from 'crypto';
 import { MAX_ONBOARDING_PRODUCTS } from '../config';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -16,9 +15,7 @@ import {
   EmailAlreadyExistsException,
   RestaurantCreationFailedException,
   UserCreationFailedException,
-  UserNotFoundException,
 } from './exceptions/onboarding.exceptions';
-import { UserAlreadyActiveException } from '../users/exceptions/users.exceptions';
 
 type TransactionClient = Prisma.TransactionClient;
 
@@ -232,27 +229,4 @@ export class OnboardingService {
     return totalCreated;
   }
 
-  async resendActivation(email: string): Promise<void> {
-    const user = await this.usersService.findByEmail(email);
-
-    if (!user) {
-      throw new UserNotFoundException(email);
-    }
-
-    if (user.isActive) {
-      throw new UserAlreadyActiveException(email);
-    }
-
-    const newToken = randomUUID();
-    await this.usersService.refreshActivationToken(user.id, newToken);
-
-    try {
-      const sent = await this.emailService.sendActivationEmail(email, newToken);
-      if (!sent) {
-        this.logger.warn(`Activation email could not be resent to ${email}`);
-      }
-    } catch (error) {
-      this.logger.error(`Failed to resend activation email to ${email}`, error);
-    }
-  }
 }
