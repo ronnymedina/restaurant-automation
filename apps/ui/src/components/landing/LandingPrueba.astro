@@ -1,0 +1,66 @@
+---
+const limits = [
+  { icon: "🛒", label: "Productos", value: "20 productos máximo" },
+  { icon: "📋", label: "Menú", value: "1 menú activo" },
+  { icon: "📦", label: "Órdenes", value: "500 órdenes por mes" },
+];
+
+const warningItems = [
+  "Al 80% de cualquier límite recibís un aviso dentro de la app",
+  "Al 100% la acción se bloquea — esperá al mes siguiente o adquirí la licencia local",
+];
+---
+<section class="py-20 px-4" style="background: #fafaf8;">
+  <div class="max-w-4xl mx-auto">
+    <div
+      class="rounded-3xl p-8 md:p-12 border text-center"
+      style="background: #ffffff; border-color: rgba(249,115,22,0.25);"
+    >
+      <p class="text-sm font-bold uppercase tracking-widest mb-4" style="color: #f97316;">Plan gratuito</p>
+      <h2 class="text-3xl md:text-4xl font-extrabold mb-4" style="color: #111;">
+        ¿Qué pasa cuando llegás al límite?
+      </h2>
+      <p class="text-base mb-10" style="color: #555;">
+        El plan gratuito está diseñado para restaurantes pequeños. Cuando tu operación crece, tenés una opción clara.
+      </p>
+
+      <div class="grid md:grid-cols-2 gap-8 text-left mb-10">
+        <div>
+          <h3 class="font-bold mb-4 text-sm uppercase tracking-wider" style="color: #f97316;">
+            Límites del plan gratis:
+          </h3>
+          <ul class="flex flex-col gap-3">
+            {limits.map((limit) => (
+              <li class="flex gap-3 text-sm" style="color: #555;">
+                <span>{limit.icon}</span>
+                <span>
+                  <strong style="color: #111;">{limit.label}</strong> — {limit.value}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h3 class="font-bold mb-4 text-sm uppercase tracking-wider" style="color: #f97316;">
+            Cómo funcionan los avisos:
+          </h3>
+          <ul class="flex flex-col gap-3">
+            {warningItems.map((item) => (
+              <li class="flex gap-2 text-sm" style="color: #555;">
+                <span style="color: #f97316; flex-shrink: 0;">⚠️</span> {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <a
+        href="/onboarding"
+        class="inline-block px-10 py-4 rounded-full font-bold text-white text-base transition-all hover:-translate-y-1"
+        style="background: #f97316; box-shadow: 0 6px 24px rgba(249,115,22,0.4);"
+      >
+        Empezar gratis
+      </a>
+    </div>
+  </div>
+</section>
