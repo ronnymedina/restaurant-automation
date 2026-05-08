@@ -130,6 +130,7 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
+    expect(res.body.length).toBeGreaterThan(0);
     expect(res.body.length).toBeLessThanOrEqual(15);
   });
 });

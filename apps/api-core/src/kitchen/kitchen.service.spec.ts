@@ -68,6 +68,7 @@ describe('KitchenService', () => {
       expect(result.map((o) => o.status)).toEqual([OrderStatus.CREATED, OrderStatus.PROCESSING]);
       expect(mockTimezoneService.getTimezone).toHaveBeenCalledWith('r1');
       expect(result[0]).toHaveProperty('displayTime');
+      expect(result[0].displayTime).toMatch(/^\d{2}:\d{2}$/);
     });
   });
 
@@ -78,7 +79,9 @@ describe('KitchenService', () => {
       const result = await service.advanceStatus(makeRestaurant() as any, 'o1', OrderStatus.PROCESSING);
       expect(mockOrdersService.kitchenAdvanceStatus).toHaveBeenCalledWith('o1', 'r1', OrderStatus.PROCESSING);
       expect(result.status).toBe(OrderStatus.PROCESSING);
+      expect(mockTimezoneService.getTimezone).toHaveBeenCalledWith('r1');
       expect(result).toHaveProperty('displayTime');
+      expect(result.displayTime).toMatch(/^\d{2}:\d{2}$/);
     });
   });
 
@@ -89,7 +92,9 @@ describe('KitchenService', () => {
       const result = await service.cancelOrder(makeRestaurant() as any, 'o1', 'No hay ingredientes');
       expect(mockOrdersService.cancelOrder).toHaveBeenCalledWith('o1', 'r1', 'No hay ingredientes');
       expect(result.status).toBe(OrderStatus.CANCELLED);
+      expect(mockTimezoneService.getTimezone).toHaveBeenCalledWith('r1');
       expect(result).toHaveProperty('displayTime');
+      expect(result.displayTime).toMatch(/^\d{2}:\d{2}$/);
     });
   });
 
