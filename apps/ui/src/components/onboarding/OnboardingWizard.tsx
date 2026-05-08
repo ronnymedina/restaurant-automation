@@ -135,7 +135,7 @@ export default function OnboardingWizard() {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-md w-full max-w-[520px] p-10 relative overflow-hidden">
+    <div className="bg-white rounded-xl shadow-md w-full max-w-[520px] p-6 sm:p-10 relative overflow-hidden">
       <StepIndicator current={step} />
 
       {step === 1 && <Step1Form onSubmit={handleStep1Submit} />}
