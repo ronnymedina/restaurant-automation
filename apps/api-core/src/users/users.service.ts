@@ -135,6 +135,10 @@ export class UsersService {
     return this.userRepository.findByEmail(email);
   }
 
+  async refreshActivationToken(userId: string, token: string): Promise<void> {
+    await this.userRepository.update(userId, { activationToken: token });
+  }
+
   async findById(id: string): Promise<User | null> {
     return this.userRepository.findById(id);
   }
