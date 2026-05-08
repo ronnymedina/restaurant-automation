@@ -109,13 +109,6 @@ class EnvironmentVariables {
   @Max(15)
   BCRYPT_SALT_ROUNDS!: number;
 
-  // --- kitchen ---
-
-  @IsNotEmpty()
-  @IsNumber()
-  @Min(1)
-  KITCHEN_TOKEN_EXPIRY_DAYS!: number;
-
   // --- cache ---
 
   @IsNotEmpty()
@@ -226,9 +219,6 @@ export const PRODUCTS_MAX_PAGE_SIZE = Number(process.env.PRODUCTS_MAX_PAGE_SIZE)
 export const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 export const EMAIL_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev';
 export const BCRYPT_SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS) || 10;
-
-// kitchen
-export const KITCHEN_TOKEN_EXPIRY_DAYS = Number(process.env.KITCHEN_TOKEN_EXPIRY_DAYS) || 60;
 
 // cache
 export const CACHE_DRIVER = (process.env.CACHE_DRIVER || CacheDriver.Memory) as CacheDriver;

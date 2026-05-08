@@ -22,7 +22,7 @@ interface Step1FormProps {
 }
 
 const inputBase =
-  'w-full py-3.5 px-4 border-2 rounded-xl text-base transition-all bg-white text-slate-800 box-border focus:outline-none focus:ring-4 focus:ring-indigo-500/10 placeholder:text-slate-400';
+  'w-full py-3.5 px-4 border-2 rounded-xl text-base transition-all bg-white text-slate-800 box-border focus:outline-none focus:ring-4 focus:ring-[#f97316]/10 placeholder:text-slate-400';
 
 export default function Step1Form({ onSubmit }: Step1FormProps) {
   const [email, setEmail] = useState('');
@@ -43,13 +43,13 @@ export default function Step1Form({ onSubmit }: Step1FormProps) {
     ? 'border-red-500 focus:border-red-500'
     : emailTouched && !emailError
       ? 'border-emerald-500 focus:border-emerald-500'
-      : 'border-slate-200 focus:border-indigo-500';
+      : 'border-slate-200 focus:border-[#f97316]';
 
   const nameBorder = nameError
     ? 'border-red-500 focus:border-red-500'
     : nameTouched && !nameError
       ? 'border-emerald-500 focus:border-emerald-500'
-      : 'border-slate-200 focus:border-indigo-500';
+      : 'border-slate-200 focus:border-[#f97316]';
 
   return (
     <>
@@ -112,7 +112,7 @@ export default function Step1Form({ onSubmit }: Step1FormProps) {
         <button
           type="submit"
           disabled={!isValid}
-          className="w-full py-4 px-6 bg-indigo-500 text-white border-none rounded-xl text-base font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all hover:bg-indigo-600 hover:-translate-y-0.5 disabled:bg-slate-300 disabled:cursor-not-allowed disabled:translate-y-0"
+          className="w-full py-4 px-6 bg-[#f97316] text-white border-none rounded-xl text-base font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all hover:bg-[#ea6c0a] hover:-translate-y-0.5 disabled:bg-slate-300 disabled:cursor-not-allowed disabled:translate-y-0"
         >
           Siguiente
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

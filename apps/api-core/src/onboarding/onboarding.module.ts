@@ -7,6 +7,7 @@ import { MenusModule } from '../menus/menus.module';
 import { AiModule } from '../ai/ai.module';
 import { UsersModule } from '../users/users.module';
 import { EmailModule } from '../email/email.module';
+import { EmailThrottlerGuard } from './guards/email-throttler.guard';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { EmailModule } from '../email/email.module';
     EmailModule,
   ],
   controllers: [OnboardingController],
-  providers: [OnboardingService],
+  providers: [OnboardingService, EmailThrottlerGuard],
   exports: [OnboardingService],
 })
 export class OnboardingModule {}

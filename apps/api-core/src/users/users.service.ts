@@ -39,7 +39,7 @@ export class UsersService {
 
     const user = await this.userRepository.create({
       email,
-      role: Role.MANAGER,
+      role: Role.ADMIN,
       isActive: false,
       activationToken,
       restaurantId,
@@ -133,6 +133,10 @@ export class UsersService {
 
   async findByEmail(email: string): Promise<User | null> {
     return this.userRepository.findByEmail(email);
+  }
+
+  async refreshActivationToken(userId: string, token: string): Promise<void> {
+    await this.userRepository.update(userId, { activationToken: token });
   }
 
   async findById(id: string): Promise<User | null> {

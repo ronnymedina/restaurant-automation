@@ -16,3 +16,4 @@ apps/api-core/dist-binary/
 apps/license-server/keys/
 
 .worktrees/
+.claude/worktrees/

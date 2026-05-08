@@ -35,7 +35,7 @@ function StepIndicator({ current }: { current: Step }) {
                   done
                     ? 'bg-emerald-500 text-white'
                     : active
-                      ? 'bg-indigo-500 text-white'
+                      ? 'bg-[#f97316] text-white'
                       : 'bg-slate-200 text-slate-500'
                 }`}
               >
@@ -43,7 +43,7 @@ function StepIndicator({ current }: { current: Step }) {
               </div>
               <span
                 className={`text-xs font-semibold ${
-                  active ? 'text-indigo-500' : 'text-slate-500'
+                  active ? 'text-[#f97316]' : 'text-slate-500'
                 }`}
               >
                 {s.label}
@@ -52,7 +52,7 @@ function StepIndicator({ current }: { current: Step }) {
             {i < steps.length - 1 && (
               <div
                 className={`h-[3px] w-[60px] mb-6 transition-colors duration-300 rounded-full ${
-                  done ? 'bg-indigo-500' : 'bg-slate-200'
+                  done ? 'bg-[#f97316]' : 'bg-slate-200'
                 }`}
               />
             )}
@@ -118,7 +118,7 @@ export default function OnboardingWizard() {
   }
 
   return (
-    <div className="bg-white/95 rounded-3xl shadow-2xl w-full max-w-[520px] p-10 relative overflow-hidden">
+    <div className="bg-white rounded-xl shadow-md w-full max-w-[520px] p-10 relative overflow-hidden">
       <StepIndicator current={step} />
 
       {step === 1 && <Step1Form onSubmit={handleStep1Submit} />}

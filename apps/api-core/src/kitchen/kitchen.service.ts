@@ -7,7 +7,8 @@ import { RestaurantsService } from '../restaurants/restaurants.service';
 import { OrdersService } from '../orders/orders.service';
 import { OrderRepository } from '../orders/order.repository';
 import { SseService } from '../events/sse.service';
-import { KITCHEN_TOKEN_EXPIRY_DAYS } from '../config';
+import { TimezoneService } from '../restaurants/timezone.service';
+import { KitchenOrderSerializer } from './serializers/kitchen-order.serializer';
 
 @Injectable()
 export class KitchenService {
@@ -16,22 +17,29 @@ export class KitchenService {
     private readonly ordersService: OrdersService,
     private readonly orderRepository: OrderRepository,
     private readonly sseService: SseService,
+    private readonly timezoneService: TimezoneService,
   ) {}
 
   async getActiveOrders(restaurant: Restaurant) {
-    return this.orderRepository.findByRestaurantId(
+    const orders = await this.orderRepository.findByRestaurantId(
       restaurant.id,
       undefined,
       [OrderStatus.CREATED, OrderStatus.PROCESSING],
     );
+    const tz = await this.timezoneService.getTimezone(restaurant.id);
+    return orders.map((o) => new KitchenOrderSerializer(o, tz));
   }
 
   async advanceStatus(restaurant: Restaurant, orderId: string, status: OrderStatus) {
-    return this.ordersService.kitchenAdvanceStatus(orderId, restaurant.id, status);
+    const order = await this.ordersService.kitchenAdvanceStatus(orderId, restaurant.id, status);
+    const tz = await this.timezoneService.getTimezone(restaurant.id);
+    return new KitchenOrderSerializer(order, tz);
   }
 
   async cancelOrder(restaurant: Restaurant, orderId: string, reason: string) {
-    return this.ordersService.cancelOrder(orderId, restaurant.id, reason);
+    const order = await this.ordersService.cancelOrder(orderId, restaurant.id, reason);
+    const tz = await this.timezoneService.getTimezone(restaurant.id);
+    return new KitchenOrderSerializer(order, tz);
   }
 
   async getTokenInfo(restaurantId: string): Promise<{ kitchenUrl: string | null; expiresAt: Date | null }> {
@@ -51,35 +59,29 @@ export class KitchenService {
 
   async generateToken(
     restaurantId: string,
-    customExpiresAt?: string,
+    expiresAt: string,
   ): Promise<{ token: string; expiresAt: Date; kitchenUrl: string }> {
     const restaurant = await this.restaurantsService.findById(restaurantId);
     if (!restaurant) throw new UnauthorizedException();
 
     const token = randomBytes(32).toString('hex');
 
-    let expiresAt: Date;
-    if (customExpiresAt) {
-      expiresAt = new Date(customExpiresAt);
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0);
-      if (expiresAt < tomorrow) {
-        throw new BadRequestException('La fecha de vencimiento debe ser al menos mañana');
-      }
-    } else {
-      expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + KITCHEN_TOKEN_EXPIRY_DAYS);
+    const expiresAtDate = new Date(expiresAt);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    if (expiresAtDate < tomorrow) {
+      throw new BadRequestException('La fecha de vencimiento debe ser al menos mañana');
     }
 
     await this.restaurantsService.upsertSettings(restaurantId, {
       kitchenToken: token,
-      kitchenTokenExpiresAt: expiresAt,
+      kitchenTokenExpiresAt: expiresAtDate,
     });
 
     return {
       token,
-      expiresAt,
+      expiresAt: expiresAtDate,
       kitchenUrl: `/kitchen?slug=${restaurant.slug}&token=${token}`,
     };
   }

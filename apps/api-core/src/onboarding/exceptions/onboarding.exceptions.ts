@@ -56,3 +56,18 @@ export class UserCreationFailedException extends BaseException {
     );
   }
 }
+
+/**
+ * Thrown when resend-activation is called for an email that is not registered.
+ */
+export class UserNotFoundException extends BaseException {
+  constructor(email: string) {
+    super(
+      `No account found for email '${email}'`,
+      HttpStatus.NOT_FOUND,
+      'USER_NOT_FOUND',
+      { email },
+    );
+  }
+}
+
