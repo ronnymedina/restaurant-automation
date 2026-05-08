@@ -2,6 +2,7 @@ import { join } from 'path';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { EventsModule } from './events/events.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -23,9 +24,8 @@ import { validate } from './config';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      validate,
-    }),
+    ConfigModule.forRoot({ validate }),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     CacheModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),

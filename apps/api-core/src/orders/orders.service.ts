@@ -92,8 +92,8 @@ export class OrdersService {
     };
   }
 
-  async findByRestaurantId(restaurantId: string, status?: OrderStatus) {
-    return this.orderRepository.findByRestaurantId(restaurantId, status);
+  async findByRestaurantId(restaurantId: string, status?: OrderStatus, limit?: number) {
+    return this.orderRepository.findByRestaurantId(restaurantId, status, undefined, limit);
   }
 
   async findHistory(
