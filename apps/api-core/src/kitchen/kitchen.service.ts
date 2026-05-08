@@ -7,6 +7,8 @@ import { RestaurantsService } from '../restaurants/restaurants.service';
 import { OrdersService } from '../orders/orders.service';
 import { OrderRepository } from '../orders/order.repository';
 import { SseService } from '../events/sse.service';
+import { TimezoneService } from '../restaurants/timezone.service';
+import { KitchenOrderSerializer } from './serializers/kitchen-order.serializer';
 
 @Injectable()
 export class KitchenService {
@@ -15,22 +17,29 @@ export class KitchenService {
     private readonly ordersService: OrdersService,
     private readonly orderRepository: OrderRepository,
     private readonly sseService: SseService,
+    private readonly timezoneService: TimezoneService,
   ) {}
 
   async getActiveOrders(restaurant: Restaurant) {
-    return this.orderRepository.findByRestaurantId(
+    const orders = await this.orderRepository.findByRestaurantId(
       restaurant.id,
       undefined,
       [OrderStatus.CREATED, OrderStatus.PROCESSING],
     );
+    const tz = await this.timezoneService.getTimezone(restaurant.id);
+    return orders.map((o) => new KitchenOrderSerializer(o, tz));
   }
 
   async advanceStatus(restaurant: Restaurant, orderId: string, status: OrderStatus) {
-    return this.ordersService.kitchenAdvanceStatus(orderId, restaurant.id, status);
+    const order = await this.ordersService.kitchenAdvanceStatus(orderId, restaurant.id, status);
+    const tz = await this.timezoneService.getTimezone(restaurant.id);
+    return new KitchenOrderSerializer(order, tz);
   }
 
   async cancelOrder(restaurant: Restaurant, orderId: string, reason: string) {
-    return this.ordersService.cancelOrder(orderId, restaurant.id, reason);
+    const order = await this.ordersService.cancelOrder(orderId, restaurant.id, reason);
+    const tz = await this.timezoneService.getTimezone(restaurant.id);
+    return new KitchenOrderSerializer(order, tz);
   }
 
   async getTokenInfo(restaurantId: string): Promise<{ kitchenUrl: string | null; expiresAt: Date | null }> {

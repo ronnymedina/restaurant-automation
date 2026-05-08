@@ -23,17 +23,23 @@ export class KitchenOrderSerializer {
   @Transform(({ value }) => fromCents(value as bigint | number))
   totalAmount: number;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'HH:MM en el timezone del restaurante' })
   @Expose()
-  createdAt: Date;
+  displayTime: string;
 
   @ApiProperty({ type: [KitchenOrderItemSerializer] })
   @Expose()
   @Type(() => KitchenOrderItemSerializer)
   items: KitchenOrderItemSerializer[];
 
-  constructor(partial: any) {
+  constructor(partial: any, timezone = 'UTC') {
     Object.assign(this, partial);
+    this.displayTime = new Intl.DateTimeFormat('es', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(new Date(partial.createdAt));
     if (partial.items) {
       this.items = (partial.items as any[]).map((item) => new KitchenOrderItemSerializer(item));
     }

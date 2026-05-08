@@ -12,6 +12,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { OrderDto, OrderWithItemsDto } from './dto/order.dto';
+import { TimezoneService } from '../restaurants/timezone.service';
 
 @ApiTags('orders')
 @ApiBearerAuth()
@@ -19,13 +20,16 @@ import { OrderDto, OrderWithItemsDto } from './dto/order.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN, Role.MANAGER)
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly timezoneService: TimezoneService,
+  ) {}
 
   @Get()
   @Roles(Role.ADMIN, Role.MANAGER, Role.BASIC)
   @ApiOperation({ summary: 'Listar órdenes del restaurante' })
   @ApiQuery({ name: 'status', required: false, enum: OrderStatus, description: 'Filtrar por estado' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Máximo de registros (default 50, max 200)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Máximo de registros (default 15, max 15)' })
   @ApiResponse({ status: 200, description: 'Lista de órdenes', type: [OrderDto] })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos' })
@@ -34,8 +38,15 @@ export class OrdersController {
     @Query('status') status?: OrderStatus,
     @Query('limit') limit?: string,
   ) {
-    const take = limit ? Math.min(200, Math.max(1, parseInt(limit, 10) || 50)) : 50;
-    return this.ordersService.findByRestaurantId(user.restaurantId, status, take);
+    const take = limit ? Math.min(15, Math.max(1, parseInt(limit, 10) || 15)) : 15;
+    const orders = await this.ordersService.findByRestaurantId(user.restaurantId, status, take);
+    const tz = await this.timezoneService.getTimezone(user.restaurantId);
+    return orders.map(o => ({
+      ...o,
+      displayTime: new Intl.DateTimeFormat('es', {
+        timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false,
+      }).format(new Date(o.createdAt)),
+    }));
   }
 
   @Get('history')

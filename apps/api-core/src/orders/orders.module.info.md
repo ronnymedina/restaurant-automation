@@ -18,6 +18,7 @@
   "restaurantId": "string",
   "cashShiftId": "string",
   "createdAt": "ISO8601",
+  "displayTime": "HH:MM",
   "updatedAt": "ISO8601"
 }
 ```
@@ -37,6 +38,7 @@
   "restaurantId": "string",
   "cashShiftId": "string",
   "createdAt": "ISO8601",
+  "displayTime": "HH:MM",
   "updatedAt": "ISO8601",
   "items": [
     {
@@ -87,7 +89,7 @@ E2E: ✅ `test/orders/listOrders.e2e-spec.ts`
 
 Query params:
 - `status` (opcional) — filtra por estado (`CREATED`, `PROCESSING`, `COMPLETED`, `CANCELLED`)
-- `limit` (opcional) — máximo de registros a retornar (default `50`, max `200`); útil para el KDS del dashboard
+- `limit` (opcional) — máximo de registros a retornar (default `15`, max `15`); útil para el KDS del dashboard
 
 | Caso | Status | Detalle |
 |---|---|---|
@@ -98,7 +100,7 @@ Query params:
 | Con `?status=CREATED` | 200 | Filtra por estado |
 | Con `?status=PROCESSING` | 200 | Filtra por estado |
 | Con `?limit=15` | 200 | Retorna máximo 15 pedidos más recientes |
-| Sin `?limit` | 200 | Retorna máximo 50 pedidos (default) |
+| Sin `?limit` | 200 | Retorna máximo 15 pedidos (default) |
 | Solo órdenes del propio restaurante | 200 | Aislamiento por `restaurantId` del JWT |
 | `totalAmount` como number | 200 | BigInt serializado a number |
 
@@ -191,7 +193,8 @@ E2E: ✅ `test/orders/cancelOrder.e2e-spec.ts`
 
 ### Notas de implementación
 
-- `GET /v1/orders` aplica un `limit` de 50 por defecto (máximo 200). El KDS del dashboard usa `?limit=15` para evitar cargar pedidos históricos de golpe. Para reportes históricos completos usar `/history` que tiene paginación
+- `GET /v1/orders` aplica un `limit` de 15 por defecto (máximo 15). Para reportes históricos completos usar `/history` que tiene paginación
+- `displayTime` se formatea en el timezone del restaurante server-side. El campo `createdAt` se mantiene en ISO8601
 - El `restaurantId` viene del JWT — toda operación está aislada por restaurante
 - `totalAmount`, `unitPrice` y `subtotal` se almacenan como `BigInt` en PostgreSQL (centavos). El serializer los convierte a `number` para la respuesta JSON. JSON no soporta `BigInt` nativo
 - Máquina de estados de orden:

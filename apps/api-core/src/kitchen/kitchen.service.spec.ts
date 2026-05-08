@@ -6,6 +6,7 @@ import { RestaurantsService } from '../restaurants/restaurants.service';
 import { OrdersService } from '../orders/orders.service';
 import { OrderRepository } from '../orders/order.repository';
 import { SseService } from '../events/sse.service';
+import { TimezoneService } from '../restaurants/timezone.service';
 
 const mockRestaurantsService = {
   findById: jest.fn(),
@@ -21,6 +22,9 @@ const mockOrderRepository = {
 };
 const mockSseService = {
   emitToRestaurant: jest.fn(),
+};
+const mockTimezoneService = {
+  getTimezone: jest.fn().mockResolvedValue('UTC'),
 };
 
 const makeRestaurant = (overrides = {}) => ({
@@ -46,6 +50,7 @@ describe('KitchenService', () => {
         { provide: OrdersService, useValue: mockOrdersService },
         { provide: OrderRepository, useValue: mockOrderRepository },
         { provide: SseService, useValue: mockSseService },
+        { provide: TimezoneService, useValue: mockTimezoneService },
       ],
     }).compile();
     service = module.get(KitchenService);
@@ -54,8 +59,8 @@ describe('KitchenService', () => {
   describe('getActiveOrders', () => {
     it('returns only CREATED and PROCESSING orders', async () => {
       const orders = [
-        { id: '1', status: OrderStatus.CREATED },
-        { id: '2', status: OrderStatus.PROCESSING },
+        { id: '1', status: OrderStatus.CREATED, createdAt: new Date('2025-01-01T12:00:00Z'), items: [] },
+        { id: '2', status: OrderStatus.PROCESSING, createdAt: new Date('2025-01-01T13:00:00Z'), items: [] },
       ];
       mockOrderRepository.findByRestaurantId.mockResolvedValue(orders);
       const result = await service.getActiveOrders(makeRestaurant() as any);
@@ -66,26 +71,35 @@ describe('KitchenService', () => {
         undefined,
         [OrderStatus.CREATED, OrderStatus.PROCESSING],
       );
+      expect(mockTimezoneService.getTimezone).toHaveBeenCalledWith('r1');
+      expect(result[0]).toHaveProperty('displayTime');
+      expect(result[0].displayTime).toMatch(/^\d{2}:\d{2}$/);
     });
   });
 
   describe('advanceStatus', () => {
     it('delegates to ordersService.kitchenAdvanceStatus', async () => {
-      const updated = { id: 'o1', status: OrderStatus.PROCESSING };
+      const updated = { id: 'o1', status: OrderStatus.PROCESSING, createdAt: new Date(), items: [] };
       mockOrdersService.kitchenAdvanceStatus.mockResolvedValue(updated);
       const result = await service.advanceStatus(makeRestaurant() as any, 'o1', OrderStatus.PROCESSING);
       expect(mockOrdersService.kitchenAdvanceStatus).toHaveBeenCalledWith('o1', 'r1', OrderStatus.PROCESSING);
-      expect(result).toBe(updated);
+      expect(result.status).toBe(OrderStatus.PROCESSING);
+      expect(mockTimezoneService.getTimezone).toHaveBeenCalledWith('r1');
+      expect(result).toHaveProperty('displayTime');
+      expect(result.displayTime).toMatch(/^\d{2}:\d{2}$/);
     });
   });
 
   describe('cancelOrder', () => {
     it('delegates to ordersService.cancelOrder', async () => {
-      const cancelled = { id: 'o1', status: OrderStatus.CANCELLED };
+      const cancelled = { id: 'o1', status: OrderStatus.CANCELLED, createdAt: new Date(), items: [] };
       mockOrdersService.cancelOrder.mockResolvedValue(cancelled);
       const result = await service.cancelOrder(makeRestaurant() as any, 'o1', 'No hay ingredientes');
       expect(mockOrdersService.cancelOrder).toHaveBeenCalledWith('o1', 'r1', 'No hay ingredientes');
-      expect(result).toBe(cancelled);
+      expect(result.status).toBe(OrderStatus.CANCELLED);
+      expect(mockTimezoneService.getTimezone).toHaveBeenCalledWith('r1');
+      expect(result).toHaveProperty('displayTime');
+      expect(result.displayTime).toMatch(/^\d{2}:\d{2}$/);
     });
   });
 
