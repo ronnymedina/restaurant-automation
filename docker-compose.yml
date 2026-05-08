@@ -10,13 +10,14 @@ services:
     volumes:
       - ./apps/api-core/src:/app/src
       - ./apps/api-core/prisma:/app/prisma
+      - ./apps/api-core/test:/app/test
     env_file:
       - ./apps/api-core/.env
     deploy:
       resources:
         limits:
           cpus: '2.0'
-          memory: 1536M
+          memory: 2.5G
     depends_on:
       res-db:
         condition: service_healthy
@@ -52,7 +53,7 @@ services:
       - /app/node_modules
     env_file: ./apps/ui/.env
     environment:
-      PUBLIC_API_URL: http://res-api-core:3000
+      PUBLIC_API_URL: http://localhost:3000
     depends_on:
       - res-api-core
     ports:

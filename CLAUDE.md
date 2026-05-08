@@ -36,6 +36,13 @@ pnpm test:e2e            # e2e tests
 pnpm run cli <command>   # CLI management tool
 ```
 
+> **IMPORTANTE:** Los tests siempre deben ejecutarse **dentro del contenedor Docker**, no en local:
+> ```bash
+> docker compose exec res-api-core pnpm test
+> docker compose exec res-api-core pnpm test:cov
+> docker compose exec res-api-core pnpm test:e2e
+> ```
+
 ### Prisma (run from `apps/api-core/`)
 ```bash
 pnpm exec prisma migrate dev --name <migration_name>   # create and apply migration
@@ -146,6 +153,20 @@ Both apps use multi-stage Dockerfiles. `docker-compose.yml` at root uses the `de
 |-------|----------|----|
 | `dev` | NestJS hot reload | Astro dev server |
 | `prod` | node-slim, runs `node dist/src/main` | nginx + entrypoint injects `PUBLIC_API_URL` |
+
+## Documentation Convention
+
+Each app maintains its own `docs/` folder with a `README.md` index:
+
+```
+apps/api-core/docs/    # api-core documentation
+apps/ui/docs/          # ui documentation
+```
+
+Rules:
+- All documentation goes inside the `docs/` of the corresponding app — never at the repo root unless the user explicitly requests it.
+- Each `docs/` has a `README.md` that lists all files in that folder.
+- Global (cross-app) documentation is only created when the user explicitly asks for it.
 
 ## Skills
 

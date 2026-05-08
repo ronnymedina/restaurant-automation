@@ -8,10 +8,10 @@ Desplegada en Railway (cloud). Cada app tiene su propio Dockerfile con stages pa
 
 ## Apps
 
-| App | Descripción | README |
-|-----|-------------|--------|
-| `apps/api-core` | Backend NestJS + Prisma + PostgreSQL | [README](apps/api-core/README.md) |
-| `apps/ui` | Frontend Astro (kiosco + dashboard) | [README](apps/ui/README.md) |
+| App | Descripción | README | Docs |
+|-----|-------------|--------|------|
+| `apps/api-core` | Backend NestJS + Prisma + PostgreSQL | [README](apps/api-core/README.md) | [docs/](apps/api-core/docs/) |
+| `apps/ui` | Frontend Astro (kiosco + dashboard) | [README](apps/ui/README.md) | [docs/](apps/ui/docs/README.md) |
 
 ### Próximamente (no activos)
 

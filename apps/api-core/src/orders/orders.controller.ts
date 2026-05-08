@@ -25,14 +25,17 @@ export class OrdersController {
   @Roles(Role.ADMIN, Role.MANAGER, Role.BASIC)
   @ApiOperation({ summary: 'Listar órdenes del restaurante' })
   @ApiQuery({ name: 'status', required: false, enum: OrderStatus, description: 'Filtrar por estado' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Máximo de registros (default 50, max 200)' })
   @ApiResponse({ status: 200, description: 'Lista de órdenes', type: [OrderDto] })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos' })
   async findAll(
     @CurrentUser() user: { restaurantId: string },
     @Query('status') status?: OrderStatus,
+    @Query('limit') limit?: string,
   ) {
-    return this.ordersService.findByRestaurantId(user.restaurantId, status);
+    const take = limit ? Math.min(200, Math.max(1, parseInt(limit, 10) || 50)) : 50;
+    return this.ordersService.findByRestaurantId(user.restaurantId, status, take);
   }
 
   @Get('history')

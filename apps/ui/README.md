@@ -45,6 +45,8 @@ Astro bake las variables `PUBLIC_*` dentro del bundle JS en tiempo de build. Est
 
 Se configura como **Service Variable** en Railway. El contenedor no arranca si no está definida.
 
+Ver referencia completa de todas las variables en [`docs/environments.md`](./docs/environments.md). Ver toda la documentación en [`docs/`](./docs/README.md).
+
 ### Dockerfile
 
 El `Dockerfile` tiene 4 stages:

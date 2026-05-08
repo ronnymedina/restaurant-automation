@@ -63,6 +63,7 @@ ENV NODE_ENV=development
 
 WORKDIR /app
 
+COPY --chown=node:node .npmrc              ./.npmrc
 COPY --chown=node:node package.json        ./package.json
 COPY --chown=node:node tsconfig.json       ./tsconfig.json
 COPY --chown=node:node tsconfig.build.json ./tsconfig.build.json
@@ -76,11 +77,11 @@ COPY --chown=node:node commands            ./commands
 RUN ln -s /deps/node_modules /app/node_modules \
     && chown node:node /app
 
-USER node
-
-# Generate Prisma client (types) at build time so TypeScript can resolve them.
+# Generate before switching to non-root user (pnpm store is root-owned).
 # The prisma/ volume mount in docker-compose overlays this at runtime for live schema edits.
 RUN pnpm exec prisma generate --schema=prisma/schema.postgresql.prisma
+
+USER node
 
 # src/ and prisma/ are mounted via docker-compose volumes for hot reload.
 CMD ["sh", "-c", "pnpm run dev"]
@@ -113,4 +114,4 @@ USER node
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "node dist/main"]
+CMD ["sh", "-c", "node dist/src/main"]
