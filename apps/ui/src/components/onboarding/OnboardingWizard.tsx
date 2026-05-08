@@ -85,10 +85,11 @@ export default function OnboardingWizard() {
     const body = new globalThis.FormData();
     body.append('email', formData.email);
     body.append('restaurantName', formData.restaurantName);
+    body.append('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone);
     if (useDemo) {
       body.append('createDemoData', 'true');
     } else if (photo) {
-      body.append('photos', photo);
+      body.append('photo', photo);
     }
 
     try {
