@@ -13,6 +13,7 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { toCents } from '../../common/helpers/money';
 import { IsBigInt, MinBigInt } from '../../common/decorators/is-bigint.decorator';
 
 export class CreateProductDto {
@@ -28,11 +29,10 @@ export class CreateProductDto {
   @MaxLength(500)
   description?: string;
 
-  @ApiProperty({ example: 1250, description: 'Precio en centavos (entero). Ej: 1250 = $12.50' })
+  @ApiProperty({ example: 12.5, description: 'Precio en pesos (decimal). Ej: 12.50 = $12.50' })
   @Transform(({ value }) => {
     if (typeof value === 'number') {
-      if (!Number.isInteger(value)) return value; // float → IsBigInt rejects it → 400
-      return BigInt(value);
+      return toCents(value);
     }
     return value;
   })

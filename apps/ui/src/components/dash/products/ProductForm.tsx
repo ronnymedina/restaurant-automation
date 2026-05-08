@@ -128,7 +128,7 @@ export default function ProductForm({ initialData, categories, onSuccess, onCanc
     const raw = {
       name,
       categoryId,
-      price: Number(price),
+      price: Number(price.replace(',', '.')),
       stock: isEditing ? (stock === '' ? null : Number(stock)) : stock ? Number(stock) : undefined,
       sku: sku || undefined,
       imageUrl: resolvedImageUrl,
@@ -182,10 +182,11 @@ export default function ProductForm({ initialData, categories, onSuccess, onCanc
           </label>
           <input
             id="pf-price"
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
-            step="0.01"
+            placeholder="0.00"
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
