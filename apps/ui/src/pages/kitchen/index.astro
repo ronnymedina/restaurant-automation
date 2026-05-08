@@ -200,7 +200,7 @@
   // ── Render cards ──────────────────────────────────────────────────
 
   function renderCard(order: any): string {
-    const time = new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const time = order.displayTime;
     const items = (order.items || []).map((i: any) => {
       const note = i.notes ? `<p style="color:#fbbf24;font-size:16px;font-style:italic;margin-left:16px;margin-top:4px;">${i.notes}</p>` : '';
       return `<p style="color:white;font-size:22px;font-weight:500;"><span style="font-size:26px;font-weight:900;">${i.quantity}×</span> ${i.product?.name || i.productName || '?'}</p>${note}`;
