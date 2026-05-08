@@ -58,6 +58,7 @@ function findMenuItemStock(
 const initialState: KioskStore = {
   slug: '',
   sessionOpen: false,
+  restaurantName: '',
   isLoading: true,
   menus: [],
   activeMenuId: null,
@@ -84,6 +85,7 @@ export const useKioskStore = create<KioskStore & KioskActions>((set, get) => ({
       if (res.ok) {
         const data = await res.json()
         sessionOpen = data.registerOpen
+        set({ restaurantName: data.restaurantName ?? '' })
       }
     } catch {
       // if status check fails, assume closed for safety

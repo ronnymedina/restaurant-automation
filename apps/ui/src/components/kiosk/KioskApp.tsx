@@ -14,13 +14,13 @@ import { OrderConfirmation } from './OrderConfirmation'
 import { PaymentMethodSelector } from './PaymentMethodSelector'
 
 const defaultTheme: KioskTheme = {
-  primary: '#111827',
-  primaryDark: '#1f2937',
-  accent: '#d97706',
-  background: '#f8fafc',
+  primary: '#f97316',
+  primaryDark: '#ea6c0a',
+  accent: '#f97316',
+  background: '#fafaf8',
   surface: '#ffffff',
-  text: '#0f172a',
-  textMuted: '#94a3b8',
+  text: '#111',
+  textMuted: '#555',
 }
 
 function ErrorToast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
@@ -61,6 +61,7 @@ export function KioskApp({ theme: themeProp }: Props) {
   const selectedPayment = useKioskStore(s => s.selectedPayment)
   const customerEmail = useKioskStore(s => s.customerEmail)
   const isSubmitting = useKioskStore(s => s.isSubmitting)
+  const restaurantName = useKioskStore(s => s.restaurantName)
 
   const init = useKioskStore(s => s.init)
   const selectMenu = useKioskStore(s => s.selectMenu)
@@ -86,7 +87,7 @@ export function KioskApp({ theme: themeProp }: Props) {
 
   if (isLoading) return <LoadingScreen theme={theme} />
 
-  if (!sessionOpen) return <SessionClosedScreen theme={theme} />
+  if (!sessionOpen) return <SessionClosedScreen theme={theme} restaurantName={restaurantName} />
 
   if (view === KioskView.CONFIRMATION && confirmedOrder) {
     return (
@@ -128,7 +129,7 @@ export function KioskApp({ theme: themeProp }: Props) {
     return (
       <div className="h-dvh flex flex-row" style={{ backgroundColor: theme.background, color: theme.text }}>
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <KioskHeader title={headerTitle} theme={theme} />
+          <KioskHeader title={headerTitle} restaurantName={restaurantName} theme={theme} />
           <MenuTabs menus={menus} activeMenuId={activeMenuId} onSelect={selectMenu} theme={theme} />
           <main className="flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain p-4 md:p-6">
             {menuContent}
@@ -151,7 +152,7 @@ export function KioskApp({ theme: themeProp }: Props) {
 
   return (
     <div className="h-dvh flex flex-col" style={{ backgroundColor: theme.background, color: theme.text }}>
-      <KioskHeader title={headerTitle} theme={theme} />
+      <KioskHeader title={headerTitle} restaurantName={restaurantName} theme={theme} />
       <MenuTabs menus={menus} activeMenuId={activeMenuId} onSelect={selectMenu} theme={theme} />
       <main className={`flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain p-4 ${view === KioskView.MENU && cartItemCount > 0 ? 'pb-28' : ''}`}>
         {menuContent}
