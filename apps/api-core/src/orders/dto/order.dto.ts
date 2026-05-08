@@ -25,7 +25,7 @@ export class OrderDto {
   @ApiProperty() restaurantId: string;
   @ApiProperty() cashShiftId: string;
   @ApiProperty() createdAt: Date;
-  @ApiProperty({ description: 'HH:MM en el timezone del restaurante' }) displayTime: string;
+  @ApiPropertyOptional({ description: 'HH:MM en el timezone del restaurante' }) displayTime?: string;
   @ApiProperty() updatedAt: Date;
 }
 

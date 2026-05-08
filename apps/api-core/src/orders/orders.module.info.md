@@ -38,6 +38,7 @@
   "restaurantId": "string",
   "cashShiftId": "string",
   "createdAt": "ISO8601",
+  "displayTime": "HH:MM",
   "updatedAt": "ISO8601",
   "items": [
     {
