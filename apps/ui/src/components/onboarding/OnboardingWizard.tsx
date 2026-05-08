@@ -5,6 +5,7 @@ import Step3Success from './Step3Success';
 import { getErrorMessage } from '../../lib/error-messages';
 
 type Step = 1 | 2 | 3;
+type ResendStatus = 'idle' | 'loading' | 'sent' | 'error';
 
 interface Step1Data {
   email: string;
@@ -69,6 +70,7 @@ export default function OnboardingWizard() {
   const [productsCreated, setProductsCreated] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resendStatus, setResendStatus] = useState<ResendStatus>('idle');
 
   function handleStep1Submit(data: Step1Data) {
     setFormData(data);
@@ -117,8 +119,23 @@ export default function OnboardingWizard() {
     }
   }
 
+  async function handleResend() {
+    if (!formData) return;
+    setResendStatus('loading');
+    try {
+      await fetch(`${API_URL}/v1/auth/recover`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email }),
+      });
+      setResendStatus('sent');
+    } catch {
+      setResendStatus('error');
+    }
+  }
+
   return (
-    <div className="bg-white rounded-xl shadow-md w-full max-w-[520px] p-10 relative overflow-hidden">
+    <div className="bg-white rounded-xl shadow-md w-full max-w-[520px] p-6 sm:p-10 relative overflow-hidden">
       <StepIndicator current={step} />
 
       {step === 1 && <Step1Form onSubmit={handleStep1Submit} />}
@@ -135,6 +152,8 @@ export default function OnboardingWizard() {
           email={formData.email}
           restaurantName={formData.restaurantName}
           productsCreated={productsCreated}
+          onResend={handleResend}
+          resendStatus={resendStatus}
         />
       )}
     </div>

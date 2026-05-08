@@ -19,6 +19,7 @@ import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { RefreshTokenRepository } from './refresh-token.repository';
+import { EmailService } from '../email/email.service';
 import { authConfig } from './auth.config';
 import {
   InvalidCredentialsException,
@@ -62,6 +63,13 @@ const mockRefreshToken = {
 const mockUsersService = {
   findByEmail: jest.fn(),
   findById: jest.fn(),
+  refreshActivationToken: jest.fn().mockResolvedValue(undefined),
+  resetPassword: jest.fn(),
+};
+
+const mockEmailService = {
+  sendActivationEmail: jest.fn().mockResolvedValue(true),
+  sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
 };
 
 const mockRestaurantsService = {
@@ -101,6 +109,7 @@ describe('AuthService', () => {
         { provide: UsersService, useValue: mockUsersService },
         { provide: RestaurantsService, useValue: mockRestaurantsService },
         { provide: RefreshTokenRepository, useValue: mockRefreshTokenRepository },
+        { provide: EmailService, useValue: mockEmailService },
         { provide: authConfig.KEY, useValue: mockAuthConfig },
       ],
     }).compile();
@@ -283,6 +292,72 @@ describe('AuthService', () => {
     });
   });
 
+  // ── recoverAccount ──────────────────────────────────────────────────────────
+
+  describe('recoverAccount', () => {
+    it('resolves silently when user is not found', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(null);
+
+      await expect(service.recoverAccount('ghost@test.com')).resolves.toBeUndefined();
+      expect(mockUsersService.refreshActivationToken).not.toHaveBeenCalled();
+      expect(mockEmailService.sendActivationEmail).not.toHaveBeenCalled();
+      expect(mockEmailService.sendPasswordResetEmail).not.toHaveBeenCalled();
+    });
+
+    it('generates new token and sends activation email for inactive user', async () => {
+      const inactiveUser = { ...mockUser, isActive: false, activationToken: 'old-token' };
+      mockUsersService.findByEmail.mockResolvedValue(inactiveUser);
+
+      await service.recoverAccount(inactiveUser.email);
+
+      expect(mockUsersService.refreshActivationToken).toHaveBeenCalledWith(
+        inactiveUser.id,
+        expect.any(String),
+      );
+      expect(mockEmailService.sendActivationEmail).toHaveBeenCalledWith(
+        inactiveUser.email,
+        expect.any(String),
+      );
+      expect(mockEmailService.sendPasswordResetEmail).not.toHaveBeenCalled();
+    });
+
+    it('generates new token and sends password reset email for active user', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(mockUser); // mockUser.isActive = true
+
+      await service.recoverAccount(mockUser.email);
+
+      expect(mockUsersService.refreshActivationToken).toHaveBeenCalledWith(
+        mockUser.id,
+        expect.any(String),
+      );
+      expect(mockEmailService.sendPasswordResetEmail).toHaveBeenCalledWith(
+        mockUser.email,
+        expect.any(String),
+      );
+      expect(mockEmailService.sendActivationEmail).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── resetPassword ──────────────────────────────────────────────────────────
+
+  describe('resetPassword', () => {
+    it('delegates to usersService.resetPassword and returns email', async () => {
+      mockUsersService.resetPassword.mockResolvedValue({ ...mockUser, email: 'chef@restaurant.com' });
+
+      const result = await service.resetPassword('valid-token', 'NewPassword123');
+
+      expect(mockUsersService.resetPassword).toHaveBeenCalledWith('valid-token', 'NewPassword123');
+      expect(result).toEqual({ email: 'chef@restaurant.com' });
+    });
+
+    it('propagates exceptions from usersService.resetPassword', async () => {
+      const error = new Error('INVALID_ACTIVATION_TOKEN');
+      mockUsersService.resetPassword.mockRejectedValue(error);
+
+      await expect(service.resetPassword('bad-token', 'Password123')).rejects.toThrow(error);
+    });
+  });
+
   // ── parseExpiration (via login) ─────────────────────────────────────────────
 
   describe('parseExpiration (via login)', () => {
@@ -299,6 +374,7 @@ describe('AuthService', () => {
           { provide: UsersService, useValue: mockUsersService },
           { provide: RestaurantsService, useValue: mockRestaurantsService },
           { provide: RefreshTokenRepository, useValue: mockRefreshTokenRepository },
+          { provide: EmailService, useValue: mockEmailService },
           { provide: authConfig.KEY, useValue: { ...mockAuthConfig, jwtRefreshExpiration } },
         ],
       }).compile();

@@ -5,6 +5,7 @@ const errorMessages: Record<string, string> = {
   INVALID_CREDENTIALS: 'Correo o contraseña incorrectos',
   ACCOUNT_INACTIVE: 'Tu cuenta no está activa. Revisa tu correo para activarla.',
   INVALID_REFRESH_TOKEN: 'Tu sesión ha expirado. Inicia sesión nuevamente.',
+  INVALID_ACTIVATION_TOKEN: 'El enlace no es válido o ya fue utilizado.',
 };
 
 const DEFAULT_ERROR = 'Hubo un error inesperado. Intenta nuevamente.';

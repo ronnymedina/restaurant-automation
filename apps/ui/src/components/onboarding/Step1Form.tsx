@@ -120,6 +120,10 @@ export default function Step1Form({ onSubmit }: Step1FormProps) {
           </svg>
         </button>
       </form>
+
+      <a href="/" className="block text-center mt-4 text-sm text-slate-500 hover:text-[#f97316] transition-colors">
+        Volver al inicio
+      </a>
     </>
   );
 }

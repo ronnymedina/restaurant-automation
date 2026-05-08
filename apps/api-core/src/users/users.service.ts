@@ -6,6 +6,7 @@ import * as bcrypt from 'bcryptjs';
 import { UserRepository } from './user.repository';
 import {
   EmailAlreadyExistsException,
+  InactiveAccountException,
   InvalidActivationTokenException,
   InvalidRoleException,
   LastAdminException,
@@ -82,19 +83,32 @@ export class UsersService {
       throw new UserAlreadyActiveException(user.email);
     }
 
-    const passwordHash = await bcrypt.hash(
-      password,
-      this.configService.bcryptSaltRounds,
-    );
+    this.logger.log(`User activated: ${user.email}`);
+    return this.commonActivationOrResetAccount(user.id, password);
+  }
 
-    const activatedUser = await this.userRepository.update(user.id, {
+  async resetPassword(token: string, password: string): Promise<User> {
+    const user = await this.userRepository.findByActivationToken(token);
+
+    if (!user) {
+      throw new InvalidActivationTokenException();
+    }
+
+    if (!user.isActive) {
+      throw new InactiveAccountException();
+    }
+
+    this.logger.log(`Password reset for: ${user.email}`);
+    return this.commonActivationOrResetAccount(user.id, password);
+  }
+
+  private async commonActivationOrResetAccount(userId: string, password: string): Promise<User> {
+    const passwordHash = await bcrypt.hash(password, this.configService.bcryptSaltRounds);
+    return this.userRepository.update(userId, {
       passwordHash,
       isActive: true,
       activationToken: null,
     });
-
-    this.logger.log(`User activated: ${user.email}`);
-    return activatedUser;
   }
 
   async createUser(

@@ -81,8 +81,8 @@ const googleFormUrl = import.meta.env.PUBLIC_SUPPORT_GOOGLE_FORM_URL || '';
     </div>
   </div>
 
-  <!-- ── Botón flotante de ayuda ── -->
-  <button
+  <!-- ── Botón flotante de ayuda (solo si hay al menos una opción de soporte) ── -->
+  {(supportEmail || googleFormUrl) && <button
     id="helpBtn"
     title="Ayuda y soporte"
     class="fixed bottom-6 right-6 z-40 w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors cursor-pointer border-none"
@@ -93,7 +93,7 @@ const googleFormUrl = import.meta.env.PUBLIC_SUPPORT_GOOGLE_FORM_URL || '';
       <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
       <line x1="12" y1="17" x2="12.01" y2="17"/>
     </svg>
-  </button>
+  </button>}
 
   <!-- ── Modal de ayuda y soporte ── -->
   <div id="helpModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -189,11 +189,6 @@ const googleFormUrl = import.meta.env.PUBLIC_SUPPORT_GOOGLE_FORM_URL || '';
             </svg>
             Formulario de Google
           </a>
-        )}
-        {!supportEmail && !googleFormUrl && (
-          <p class="text-sm text-slate-400 text-center w-full py-2">
-            Configura <code>PUBLIC_SUPPORT_EMAIL</code> o <code>PUBLIC_SUPPORT_GOOGLE_FORM_URL</code> en el .env
-          </p>
         )}
       </div>
     </div>

@@ -21,8 +21,7 @@ import {
 } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 import { OnboardingService } from './onboarding.service';
-import { OnboardingRegisterDto, OnboardingRegisterSwaggerDto, ResendActivationDto } from './dto';
-import { EmailThrottlerGuard } from './guards/email-throttler.guard';
+import { OnboardingRegisterDto, OnboardingRegisterSwaggerDto } from './dto';
 import { MAX_FILE_SIZE } from '../config';
 
 export class OnboardingResponse {
@@ -78,20 +77,4 @@ export class OnboardingController {
     return { productsCreated: result.productsCreated };
   }
 
-  @Public()
-  @UseGuards(EmailThrottlerGuard)
-  @Throttle({ default: { ttl: 900_000, limit: 3 } })
-  @Post('resend-activation')
-  @ApiOperation({
-    summary: 'Reenviar email de activación',
-    description: 'Reenvía el email de activación a una cuenta no confirmada. Regenera el token.',
-  })
-  @ApiResponse({ status: 200, description: 'Email de activación enviado' })
-  @ApiResponse({ status: 404, description: 'Email no registrado', schema: { example: { code: 'USER_NOT_FOUND' } } })
-  @ApiResponse({ status: 409, description: 'La cuenta ya está activa', schema: { example: { code: 'USER_ALREADY_ACTIVE' } } })
-  @ApiResponse({ status: 429, description: 'Demasiadas solicitudes — intente más tarde' })
-  async resendActivation(@Body() body: ResendActivationDto): Promise<{ message: string }> {
-    await this.onboardingService.resendActivation(body.email);
-    return { message: 'Activation email sent' };
-  }
 }

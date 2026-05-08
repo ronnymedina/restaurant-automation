@@ -2,9 +2,17 @@ interface Step3SuccessProps {
   email: string;
   restaurantName: string;
   productsCreated: number;
+  onResend: () => void;
+  resendStatus: 'idle' | 'loading' | 'sent' | 'error';
 }
 
-export default function Step3Success({ email, restaurantName, productsCreated }: Step3SuccessProps) {
+export default function Step3Success({
+  email,
+  restaurantName,
+  productsCreated,
+  onResend,
+  resendStatus,
+}: Step3SuccessProps) {
   return (
     <div className="text-center">
       <style>{`@keyframes scaleIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }`}</style>
@@ -34,7 +42,7 @@ export default function Step3Success({ email, restaurantName, productsCreated }:
         </div>
       </div>
 
-      <div className="flex gap-4 p-5 bg-orange-50 rounded-xl border border-orange-200">
+      <div className="flex gap-4 p-5 bg-orange-50 rounded-xl border border-orange-200 mb-6">
         <div className="text-[#f97316] flex-shrink-0 mt-0.5">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect width="20" height="16" x="2" y="4" rx="2" />
@@ -48,6 +56,34 @@ export default function Step3Success({ email, restaurantName, productsCreated }:
             Si no aparece en tu bandeja principal, revisa la carpeta de spam.
           </p>
         </div>
+      </div>
+
+      {resendStatus === 'sent' && (
+        <p className="text-sm text-emerald-600 mb-4">
+          Si el correo está registrado, recibirás un email en breve.
+        </p>
+      )}
+      {resendStatus === 'error' && (
+        <p className="text-sm text-red-500 mb-4">
+          Error de conexión. Intenta nuevamente.
+        </p>
+      )}
+
+      <div className="flex flex-col gap-3">
+        <button
+          type="button"
+          onClick={onResend}
+          disabled={resendStatus === 'loading' || resendStatus === 'sent'}
+          className="w-full py-3 px-6 bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-sm font-medium cursor-pointer transition-all hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {resendStatus === 'loading' ? 'Enviando...' : 'No me llegó el correo'}
+        </button>
+        <a
+          href="/login"
+          className="w-full py-3 px-6 bg-[#f97316] text-white no-underline rounded-xl text-sm font-semibold flex items-center justify-center transition-all hover:bg-orange-600"
+        >
+          Ir al login
+        </a>
       </div>
     </div>
   );

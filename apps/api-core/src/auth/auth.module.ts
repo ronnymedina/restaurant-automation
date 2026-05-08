@@ -1,14 +1,16 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { ConfigModule } from '@nestjs/config'; // Assuming ConfigModule is needed for ConfigModule.forFeature
+import { ConfigModule } from '@nestjs/config';
 
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RefreshTokenRepository } from './refresh-token.repository';
+import { EmailThrottlerGuard } from './guards/email-throttler.guard';
 import { UsersModule } from '../users/users.module';
 import { RestaurantsModule } from '../restaurants/restaurants.module';
+import { EmailModule } from '../email/email.module';
 import { JWT_SECRET } from '../config';
 import { authConfig } from './auth.config';
 
@@ -16,6 +18,7 @@ import { authConfig } from './auth.config';
   imports: [
     UsersModule,
     RestaurantsModule,
+    EmailModule,
     PassportModule,
     ConfigModule.forFeature(authConfig),
     JwtModule.register({
@@ -23,7 +26,7 @@ import { authConfig } from './auth.config';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, RefreshTokenRepository],
+  providers: [AuthService, JwtStrategy, RefreshTokenRepository, EmailThrottlerGuard],
   exports: [AuthService],
 })
 export class AuthModule {}

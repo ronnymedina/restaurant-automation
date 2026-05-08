@@ -20,7 +20,7 @@ export class RefreshTokenRepository {
   }
 
   async deleteByToken(token: string): Promise<void> {
-    await this.prisma.refreshToken.delete({ where: { token } });
+    await this.prisma.refreshToken.deleteMany({ where: { token } });
   }
 
   async deleteAllByUserId(userId: string): Promise<void> {
