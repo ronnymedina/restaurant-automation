@@ -114,4 +114,4 @@ USER node
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "node dist/main"]
+CMD ["sh", "-c", "node dist/src/main"]
