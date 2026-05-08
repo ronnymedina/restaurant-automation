@@ -101,6 +101,38 @@ En el panel de Cloudflare → R2 bucket → Settings → CORS:
 ]
 ```
 
+### Configuración del token R2 en Cloudflare (producción)
+
+**Tipo de token:** Account API Token (no User API Token)
+- Permanece activo aunque el usuario abandone la organización
+- Recomendado por Cloudflare para sistemas en producción
+
+**Permisos:** Object Read & Write
+- Cloudflare no ofrece "Object Write only" como opción
+- Dado que los archivos son públicos vía CDN, el permiso de lectura en el token no representa riesgo adicional
+
+**Scope de buckets:** Apply to specific buckets only → nombre del bucket
+- No aplicar a todos los buckets para limitar el blast radius si el token se compromete
+
+**IP Filter:** vacío
+- Railway no garantiza IPs de salida estáticas; restringir por IP rompería el servicio en cada redeploy
+
+---
+
+### URL pública del bucket (UPLOAD_CF_R2_PUBLIC_URL)
+
+**No usar el subdominio `.r2.dev`** para producción:
+- Está rate-limited
+- No soporta caché ni Cloudflare Access
+
+**Usar un custom domain:**
+1. En el bucket → Settings → Public access → Connect custom domain
+2. Escribir el subdominio deseado (ej: `res-storage.daikulab.com`)
+3. Cloudflare crea el registro DNS y el certificado SSL automáticamente
+4. Usar esa URL como `UPLOAD_CF_R2_PUBLIC_URL`
+
+---
+
 ### Providers
 
 | Clase | Condición | presignedUrl retornada | publicUrl retornada |

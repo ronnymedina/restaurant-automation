@@ -1,6 +1,7 @@
 node_modules
 dist
 .turbo
+.superpowers
 *.log
 
 # api-core public dir — populated by build-tools copy-static at build time
