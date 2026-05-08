@@ -26,13 +26,13 @@ import Layout from '../layouts/Layout.astro';
 
     <!-- Hero: ocupa el espacio disponible entre franja y footer -->
     <section
-      class="flex-1 flex items-center justify-center px-8 py-12"
+      class="flex-1 flex items-center justify-center px-4 sm:px-8 py-8 sm:py-12"
       style="background: #fafaf8;"
     >
-      <div class="flex flex-row items-center gap-16 w-full max-w-5xl">
+      <div class="flex flex-col md:flex-row items-center gap-8 md:gap-16 w-full max-w-5xl">
 
         <!-- Columna izquierda: texto + CTAs -->
-        <div class="flex flex-col gap-5 flex-1">
+        <div class="flex flex-col gap-5 flex-1 items-center md:items-start text-center md:text-left">
           <!-- Eyebrow -->
           <span
             class="text-xs font-bold uppercase tracking-[5px] text-[#f97316]"
@@ -40,20 +40,17 @@ import Layout from '../layouts/Layout.astro';
 
           <!-- Headline -->
           <h1
-            class="font-black text-[#111] leading-[0.92]"
-            style="font-size: 58px; letter-spacing: -3px;"
+            class="font-black text-[#111] text-5xl md:text-[58px] leading-none"
+            style="letter-spacing: -2px;"
           >Daikulab</h1>
 
           <!-- Tagline -->
-          <p
-            class="text-[15px] text-[#555] leading-relaxed"
-            style="max-width: 300px;"
-          >
+          <p class="text-[15px] text-[#555] leading-relaxed max-w-xs md:max-w-[300px]">
             La plataforma que moderniza la gestión de tu restaurante — pedidos, cocina y métricas en un solo lugar.
           </p>
 
           <!-- CTAs -->
-          <div class="flex flex-row gap-3 items-center">
+          <div class="flex flex-row gap-3 items-center justify-center md:justify-start">
             <a
               href="/login"
               class="px-7 py-3 bg-[#f97316] text-white font-bold rounded-lg hover:bg-[#ea6c0a] transition-colors"
@@ -68,8 +65,8 @@ import Layout from '../layouts/Layout.astro';
           <p class="text-xs text-[#aaa]">Sin tarjeta de crédito · Configuración en minutos</p>
         </div>
 
-        <!-- Columna derecha: product preview cards -->
-        <div class="flex flex-col gap-3" style="width: 240px; flex-shrink: 0;">
+        <!-- Columna derecha: product preview cards (solo desktop) -->
+        <div class="hidden md:flex flex-col gap-3" style="width: 240px; flex-shrink: 0;">
 
           <!-- Card 1: Estadísticas del día -->
           <div class="bg-white rounded-xl shadow-md p-4">
@@ -118,7 +115,7 @@ import Layout from '../layouts/Layout.astro';
             <div class="flex flex-col gap-2">
               <!-- Pedido 1 -->
               <div class="flex items-center justify-between">
-                <span class="text-sm text-[#111]">Tacos al pastor</span>
+                <span class="text-sm text-[#111]">Carnes a la parrilla</span>
                 <span
                   class="text-xs font-semibold px-2 py-0.5 rounded-full"
                   style="background: #ffedd5; color: #f97316;"
@@ -126,7 +123,7 @@ import Layout from '../layouts/Layout.astro';
               </div>
               <!-- Pedido 2 -->
               <div class="flex items-center justify-between">
-                <span class="text-sm text-[#111]">Enchiladas verdes</span>
+                <span class="text-sm text-[#111]">Pizza Margherita</span>
                 <span
                   class="text-xs font-semibold px-2 py-0.5 rounded-full"
                   style="background: #d1fae5; color: #059669;"
@@ -134,7 +131,7 @@ import Layout from '../layouts/Layout.astro';
               </div>
               <!-- Pedido 3 -->
               <div class="flex items-center justify-between">
-                <span class="text-sm text-[#111]">Agua de Jamaica</span>
+                <span class="text-sm text-[#111]">Pasta al pesto</span>
                 <span
                   class="text-xs font-semibold px-2 py-0.5 rounded-full"
                   style="background: #ffedd5; color: #f97316;"
