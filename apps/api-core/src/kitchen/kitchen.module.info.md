@@ -32,7 +32,7 @@
   "orderNumber": 42,
   "status": "CREATED | PROCESSING | COMPLETED | CANCELLED",
   "totalAmount": 12.5,
-  "createdAt": "ISO8601",
+  "displayTime": "HH:MM",
   "items": [
     {
       "id": "string",
@@ -160,5 +160,7 @@ Emite el evento SSE `kitchen:offline` al dashboard del restaurante vía `SseServ
 |---|---|---|
 | `KitchenTokenSerializer` | `kitchenUrl`, `expiresAt` (ambos nullable) | GET /token |
 | `KitchenGeneratedTokenSerializer` | `token`, `expiresAt`, `kitchenUrl` | POST /token/generate |
-| `KitchenOrderSerializer` | `id`, `orderNumber`, `status`, `totalAmount` (pesos), `createdAt`, `items[]` | GET orders, PATCH status/cancel |
+| `KitchenOrderSerializer` | `id`, `orderNumber`, `status`, `totalAmount` (pesos), `displayTime`, `items[]` | GET orders, PATCH status/cancel |
 | `KitchenOrderItemSerializer` | `id`, `quantity`, `unitPrice` (pesos), `subtotal` (pesos), `notes`, `product{id,name,imageUrl}` | Anidado en KitchenOrderSerializer |
+
+> `displayTime` se formatea en el timezone del restaurante server-side vía `TimezoneService`. El campo `createdAt` no se expone.

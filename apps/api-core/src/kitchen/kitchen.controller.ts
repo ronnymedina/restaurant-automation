@@ -78,8 +78,7 @@ export class KitchenController {
   @ApiResponse({ status: 200, description: 'Lista de pedidos activos', type: [KitchenOrderSerializer] })
   @ApiResponse({ status: 401, description: 'Token inválido o expirado' })
   async getActiveOrders(@Req() req: Request) {
-    const orders = await this.kitchenService.getActiveOrders((req as any)[KITCHEN_RESTAURANT_KEY]);
-    return orders.map((order) => new KitchenOrderSerializer(order));
+    return this.kitchenService.getActiveOrders((req as any)[KITCHEN_RESTAURANT_KEY]);
   }
 
   @Patch(':slug/orders/:id/status')
@@ -98,12 +97,11 @@ export class KitchenController {
     @Param('id') id: string,
     @Body() dto: UpdateKitchenStatusDto,
   ) {
-    const order = await this.kitchenService.advanceStatus(
+    return this.kitchenService.advanceStatus(
       (req as any)[KITCHEN_RESTAURANT_KEY],
       id,
       dto.status,
     );
-    return new KitchenOrderSerializer(order);
   }
 
   @Patch(':slug/orders/:id/cancel')
@@ -122,12 +120,11 @@ export class KitchenController {
     @Param('id') id: string,
     @Body() dto: CancelKitchenOrderDto,
   ) {
-    const order = await this.kitchenService.cancelOrder(
+    return this.kitchenService.cancelOrder(
       (req as any)[KITCHEN_RESTAURANT_KEY],
       id,
       dto.reason,
     );
-    return new KitchenOrderSerializer(order);
   }
 
   @Post(':slug/notify-offline')
