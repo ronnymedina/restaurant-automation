@@ -1,0 +1,127 @@
+<h2>¿Cómo se ven las tarjetas de producto?</h2>
+<p class="subtitle">Con el estilo minimal + negro carbón. Elegí el layout que más te convence.</p>
+
+<div class="cards">
+
+  <!-- OPTION A: Vertical grid, clean and compact -->
+  <div class="card" data-choice="vertical" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#f8fafc;padding:14px;font-family:system-ui,sans-serif;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <!-- Card 1 -->
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.07),0 4px 12px rgba(0,0,0,0.04);">
+          <div style="background:#f1f5f9;height:64px;display:flex;align-items:center;justify-content:center;font-size:22px;">🍔</div>
+          <div style="padding:8px;">
+            <div style="font-size:9px;font-weight:700;color:#0f172a;line-height:1.2;margin-bottom:3px;">Hamburguesa Clásica</div>
+            <div style="font-size:9px;font-weight:800;color:#111827;margin-bottom:6px;">$1.200</div>
+            <button style="background:#111827;color:#fff;border:none;border-radius:5px;padding:5px 0;width:100%;font-size:8px;font-weight:600;letter-spacing:0.3px;">+ AGREGAR</button>
+          </div>
+        </div>
+        <!-- Card 2 -->
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.07),0 4px 12px rgba(0,0,0,0.04);">
+          <div style="background:#f1f5f9;height:64px;display:flex;align-items:center;justify-content:center;font-size:22px;">🍕</div>
+          <div style="padding:8px;">
+            <div style="font-size:9px;font-weight:700;color:#0f172a;line-height:1.2;margin-bottom:3px;">Pizza Napolitana</div>
+            <div style="font-size:9px;font-weight:800;color:#111827;margin-bottom:6px;">$1.500</div>
+            <button style="background:#111827;color:#fff;border:none;border-radius:5px;padding:5px 0;width:100%;font-size:8px;font-weight:600;letter-spacing:0.3px;">+ AGREGAR</button>
+          </div>
+        </div>
+        <!-- Card 3 -->
+        <div style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.07),0 4px 12px rgba(0,0,0,0.04);">
+          <div style="background:#f1f5f9;height:64px;display:flex;align-items:center;justify-content:center;font-size:22px;">🥗</div>
+          <div style="padding:8px;">
+            <div style="font-size:9px;font-weight:700;color:#0f172a;line-height:1.2;margin-bottom:3px;">Ensalada César</div>
+            <div style="font-size:9px;font-weight:800;color:#111827;margin-bottom:6px;">$950</div>
+            <button style="background:#111827;color:#fff;border:none;border-radius:5px;padding:5px 0;width:100%;font-size:8px;font-weight:600;letter-spacing:0.3px;">+ AGREGAR</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Grid compacto (actual mejorado)</h3>
+      <p>Tarjetas verticales con imagen arriba. Muestra muchos productos. Fácil de escanear visualmente.</p>
+    </div>
+  </div>
+
+  <!-- OPTION B: Horizontal list rows -->
+  <div class="card" data-choice="horizontal" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#f8fafc;padding:14px;font-family:system-ui,sans-serif;">
+      <div style="display:flex;flex-direction:column;gap:7px;">
+        <!-- Row 1 -->
+        <div style="background:#fff;border-radius:10px;display:flex;align-items:center;gap:10px;padding:8px;box-shadow:0 1px 3px rgba(0,0,0,0.07),0 4px 12px rgba(0,0,0,0.04);">
+          <div style="background:#f1f5f9;border-radius:8px;width:52px;height:52px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;">🍔</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:10px;font-weight:700;color:#0f172a;">Hamburguesa Clásica</div>
+            <div style="font-size:9px;color:#64748b;margin-top:1px;">Con lechuga, tomate y cheddar</div>
+            <div style="font-size:11px;font-weight:800;color:#111827;margin-top:3px;">$1.200</div>
+          </div>
+          <button style="background:#111827;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:9px;font-weight:700;flex-shrink:0;">+</button>
+        </div>
+        <!-- Row 2 -->
+        <div style="background:#fff;border-radius:10px;display:flex;align-items:center;gap:10px;padding:8px;box-shadow:0 1px 3px rgba(0,0,0,0.07),0 4px 12px rgba(0,0,0,0.04);">
+          <div style="background:#f1f5f9;border-radius:8px;width:52px;height:52px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;">🍕</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:10px;font-weight:700;color:#0f172a;">Pizza Napolitana</div>
+            <div style="font-size:9px;color:#64748b;margin-top:1px;">Salsa, mozzarella, albahaca</div>
+            <div style="font-size:11px;font-weight:800;color:#111827;margin-top:3px;">$1.500</div>
+          </div>
+          <button style="background:#111827;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:9px;font-weight:700;flex-shrink:0;">+</button>
+        </div>
+        <!-- Row 3 -->
+        <div style="background:#fff;border-radius:10px;display:flex;align-items:center;gap:10px;padding:8px;box-shadow:0 1px 3px rgba(0,0,0,0.07),0 4px 12px rgba(0,0,0,0.04);">
+          <div style="background:#f1f5f9;border-radius:8px;width:52px;height:52px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;">🥗</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:10px;font-weight:700;color:#0f172a;">Ensalada César</div>
+            <div style="font-size:9px;color:#64748b;margin-top:1px;">Crutones, parmesano, aderezo</div>
+            <div style="font-size:11px;font-weight:800;color:#111827;margin-top:3px;">$950</div>
+          </div>
+          <button style="background:#111827;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:9px;font-weight:700;flex-shrink:0;">+</button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Lista horizontal</h3>
+      <p>Imagen pequeña a la izquierda + descripción + precio + botón. Más texto visible, descripción de cada plato.</p>
+    </div>
+  </div>
+
+  <!-- OPTION C: Large editorial cards, 2-col -->
+  <div class="card" data-choice="editorial" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#f8fafc;padding:14px;font-family:system-ui,sans-serif;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <!-- Card 1 -->
+        <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.07),0 8px 24px rgba(0,0,0,0.06);">
+          <div style="background:#f1f5f9;height:80px;display:flex;align-items:center;justify-content:center;font-size:32px;position:relative;">
+            🍔
+          </div>
+          <div style="padding:10px;">
+            <div style="font-size:10px;font-weight:800;color:#0f172a;letter-spacing:-0.2px;margin-bottom:2px;">Hamburguesa Clásica</div>
+            <div style="font-size:8px;color:#94a3b8;margin-bottom:8px;line-height:1.3;">Con lechuga, tomate y cheddar</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:14px;font-weight:900;color:#0f172a;">$1.200</span>
+              <button style="background:#111827;color:#fff;border:none;border-radius:6px;width:26px;height:26px;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;">+</button>
+            </div>
+          </div>
+        </div>
+        <!-- Card 2 -->
+        <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.07),0 8px 24px rgba(0,0,0,0.06);">
+          <div style="background:#f1f5f9;height:80px;display:flex;align-items:center;justify-content:center;font-size:32px;">
+            🍕
+          </div>
+          <div style="padding:10px;">
+            <div style="font-size:10px;font-weight:800;color:#0f172a;letter-spacing:-0.2px;margin-bottom:2px;">Pizza Napolitana</div>
+            <div style="font-size:8px;color:#94a3b8;margin-bottom:8px;line-height:1.3;">Salsa, mozzarella, albahaca</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:14px;font-weight:900;color:#0f172a;">$1.500</span>
+              <button style="background:#111827;color:#fff;border:none;border-radius:6px;width:26px;height:26px;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Editorial 2 columnas</h3>
+      <p>Tarjetas más grandes con imagen prominente. Precio + botón "+" en línea. Más impacto visual por producto.</p>
+    </div>
+  </div>
+
+</div>

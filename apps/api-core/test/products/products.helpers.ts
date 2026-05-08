@@ -47,7 +47,7 @@ export async function seedRestaurant(prisma: PrismaService, suffix: string) {
   });
 
   const category = await prisma.productCategory.create({
-    data: { name: 'General', restaurantId: restaurant.id, isDefault: false },
+    data: { name: 'General', restaurantId: restaurant.id },
   });
 
   const passwordHash = await bcrypt.hash('Admin1234!', 10);

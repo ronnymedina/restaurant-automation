@@ -186,3 +186,29 @@ E2E: ✅ `test/cash-register/cashRegisterSummary.e2e-spec.ts`
 - `GET /current` retorna `{}` (objeto vacío) cuando no hay sesión abierta — no lanza 404
 - El resumen (`GET /summary/:sessionId`) agrega `topProducts` con `orderItem.groupBy` en la BD (eficiente para sesiones con muchas órdenes); excluye órdenes `CANCELLED`
 - La apertura de sesión también inicializa `lastOrderNumber` en 0 para el conteo secuencial de órdenes
+
+---
+
+### `lastOrderNumber` — contador de órdenes por turno
+
+`CashShift.lastOrderNumber` es un contador que se incrementa en 1 con cada orden creada. Su valor tras el increment se asigna como `orderNumber` en la orden. El constraint `@@unique([cashShiftId, orderNumber])` en `Order` garantiza unicidad por turno.
+
+**Uso:** Es solo un número de display para el ticket físico. No se usa como métrica de negocio ni para calcular totales (los totales se calculan directamente desde la tabla `Order`).
+
+**Gaps:** La secuencia puede tener huecos si una orden falla después de que el contador fue incrementado (ej. stock insuficiente detectado en el decremento atómico). Esto es aceptable dado el uso únicamente visual del número.
+
+#### Contención bajo carga concurrente (ERR-05)
+
+Bajo alta concurrencia, el `UPDATE CashShift.lastOrderNumber` dentro de la transacción de creación de órdenes genera un cuello de botella: todas las transacciones compiten por el lock de esta fila durante toda la duración de la transacción (~300–600ms). Esto serializa efectivamente todas las órdenes concurrentes.
+
+**Solución implementada (Opción A):** El increment se extrae a una transacción corta e independiente antes de la transacción principal, liberando el lock en ~2ms.
+
+**Opciones evaluadas:**
+
+| Opción | Descripción | Estado |
+|--------|-------------|--------|
+| **A — Dos transacciones** | Tx1 corta solo para el increment; Tx2 principal para stock + INSERT | ✅ Elegida |
+| **B — PostgreSQL SEQUENCE** | Una sequence por CashShift (`CREATE SEQUENCE cash_shift_seq_<id>`); `nextval()` fuera de cualquier tx; contención prácticamente cero | Reservada para alta escala |
+| **C — Redis INCR** | Contador atómico externo | Descartada (dependencia innecesaria) |
+
+La Opción B sería la solución más correcta a nivel de infraestructura si la carga escala a cientos de VUs concurrentes. Ver spec completo en `docs/superpowers/specs/2026-05-06-cashshift-order-number-design.md`.

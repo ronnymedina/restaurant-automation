@@ -8,6 +8,5 @@ export {
   DuplicateEntityException,
   ExternalServiceException,
   ForbiddenAccessException,
-  DefaultCategoryProtectedException,
   CategoryHasProductsException,
 } from './common.exceptions';

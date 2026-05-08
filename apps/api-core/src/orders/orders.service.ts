@@ -56,35 +56,39 @@ export class OrdersService {
   ) {}
 
   async createOrder(restaurantId: string, cashShiftId: string, dto: CreateOrderDto) {
+    const { lastOrderNumber } = await this.prisma.cashShift.update({
+      where: { id: cashShiftId },
+      data: { lastOrderNumber: { increment: 1 } },
+      select: { lastOrderNumber: true },
+    });
+
     const order = await this.prisma.$transaction(async (tx) => {
       const { orderItems, stockEntries, totalAmount } = await this.validateAndBuildItems(restaurantId, dto, tx);
       this.validateExpectedTotal(totalAmount, dto.expectedTotal);
       await this.decrementAllStock(stockEntries, tx);
-      const created = await this.persistOrder({ restaurantId, cashShiftId, totalAmount, dto, orderItems }, tx);
+      const created = await this.persistOrder({ restaurantId, cashShiftId, totalAmount, dto, orderItems, orderNumber: lastOrderNumber }, tx);
       return created;
     });
 
     this.orderEventsService.emitOrderCreated(restaurantId, order);
 
-    // Fire-and-forget: kitchen ticket — never blocks the response
     void this.printService.printKitchenTicket(order.id).catch((err) =>
       this.logger.warn(`Kitchen print failed for order #${order.orderNumber}: ${err.message}`),
     );
 
-    // Fire-and-forget: customer receipt on creation (opt-in via PRINT_CUSTOMER_ON_CREATE)
     if (PRINT_CUSTOMER_ON_CREATE) {
       void this.printService.printReceipt(order.id).catch((err) =>
         this.logger.warn(`Customer receipt print failed for order #${order.orderNumber}: ${err.message}`),
       );
     }
 
-    // Generate tickets for frontend — null-safe, never blocks
-    const tickets = await this.printService.generateBoth(order.id).catch(() => null);
+    // TODO(print-cloud): generateBoth is disabled — see docs/print-cloud.md
+    // const tickets = await this.printService.generateBoth(order.id).catch(() => null);
 
     return {
       order,
-      receipt: tickets?.receipt ?? null,
-      kitchenTicket: tickets?.kitchenTicket ?? null,
+      receipt: null,
+      kitchenTicket: null,
     };
   }
 
@@ -243,7 +247,21 @@ export class OrdersService {
   }
 
   private async decrementAllStock(stockEntries: StockEntry[], tx: Prisma.TransactionClient): Promise<void> {
-    for (const { product, item } of stockEntries) {
+    // Sort by productId before acquiring row-level locks.
+    //
+    // Each updateMany below takes a row-level lock on the Product row for the duration
+    // of the transaction. Without a consistent lock order, two concurrent transactions
+    // with the same products in different positions can deadlock:
+    //
+    //   Tx A (items: [P2, P1]): lock(P2) → waiting for lock(P1) held by Tx B
+    //   Tx B (items: [P1, P2]): lock(P1) → waiting for lock(P2) held by Tx A  ← deadlock
+    //
+    // Sorting by productId ensures every transaction acquires locks in the same order,
+    // making circular waits impossible. One transaction blocks waiting for the other;
+    // it never holds a lock the other needs while waiting for one the other holds.
+    const sorted = [...stockEntries].sort((a, b) => a.product.id.localeCompare(b.product.id));
+
+    for (const { product, item } of sorted) {
       if (product.stock !== null) {
         const updated = await tx.product.updateMany({
           where: { id: item.productId, stock: { gte: item.quantity } },
@@ -264,17 +282,13 @@ export class OrdersService {
       totalAmount: number;
       dto: CreateOrderDto;
       orderItems: OrderItemEntry[];
+      orderNumber: number;
     },
     tx: Prisma.TransactionClient,
   ) {
-    const session = await tx.cashShift.update({
-      where: { id: params.cashShiftId },
-      data: { lastOrderNumber: { increment: 1 } },
-    });
-
     return this.orderRepository.createWithItems(
       {
-        orderNumber: session.lastOrderNumber,
+        orderNumber: params.orderNumber,
         totalAmount: params.totalAmount,
         restaurantId: params.restaurantId,
         cashShiftId: params.cashShiftId,

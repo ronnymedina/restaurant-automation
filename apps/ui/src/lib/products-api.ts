@@ -21,7 +21,6 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
-  isDefault: boolean;
 }
 
 export interface ProductPayload {

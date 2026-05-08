@@ -7,6 +7,7 @@ import {
   IsEmail,
   Matches,
   MaxLength,
+  IsTimeZone,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, IntersectionType } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
@@ -33,9 +34,16 @@ export class OnboardingRegisterDto {
   })
   restaurantName: string;
 
+  @ApiProperty({
+    description: 'Zona horaria IANA del restaurante, obtenida del navegador.',
+    example: 'America/Argentina/Buenos_Aires',
+  })
+  @IsTimeZone({ message: 'El timezone debe ser una zona horaria IANA válida' })
+  @IsNotEmpty({ message: 'El timezone es requerido' })
+  timezone: string;
+
   @ApiPropertyOptional({
-    description:
-      'Si es true, se crean 3 productos demo en lugar de procesar fotos',
+    description: 'Si es true, se crean 5 productos demo con un menú de ejemplo',
     example: false,
     default: false,
   })
@@ -44,20 +52,19 @@ export class OnboardingRegisterDto {
   @IsBoolean()
   createDemoData?: boolean;
 
-  // Whitelisted to prevent 400 when multipart sends photos as a text field.
-  // Real file validation is handled by ParseFilePipe in the controller.
+  // Whitelisted to prevent 400 when multipart sends photo as a text field.
   @IsOptional()
   @Allow()
-  photos?: unknown;
+  photo?: unknown;
 }
 
 class OnboardingPhotosDto {
   @ApiPropertyOptional({
-    type: 'array',
-    items: { type: 'string', format: 'binary' },
-    description: 'Fotos del menú para extraer productos (máximo 3, solo PNG/JPG)',
+    type: 'string',
+    format: 'binary',
+    description: 'Foto del menú para extraer productos (1 foto, max 5MB, solo PNG/JPG)',
   })
-  photos?: unknown[];
+  photo?: unknown;
 }
 
 export class OnboardingRegisterSwaggerDto extends IntersectionType(

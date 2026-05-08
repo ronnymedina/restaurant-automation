@@ -13,7 +13,6 @@ import {
   OrderNotPaidException,
   StockInsufficientException,
 } from './exceptions/orders.exceptions';
-import { ForbiddenAccessException } from '../common/exceptions';
 import { BadRequestException } from '@nestjs/common';
 import { TimezoneService } from '../restaurants/timezone.service';
 
@@ -80,7 +79,7 @@ describe('OrdersService', () => {
       await expect(service.findById('bad', 'r1')).rejects.toThrow(OrderNotFoundException);
     });
 
-    it('throws OrderNotFoundException when restaurantId mismatches (avoids info leakage)', async () => {
+    it('throws OrderNotFoundException when restaurantId mismatches (prevents cross-tenant enumeration)', async () => {
       mockOrderRepository.findById.mockResolvedValue(makeOrder({ restaurantId: 'other' }));
       await expect(service.findById('o1', 'r1')).rejects.toThrow(OrderNotFoundException);
     });
@@ -316,6 +315,31 @@ describe('OrdersService', () => {
       expect(mockPrisma.product.updateMany).toHaveBeenCalledWith({
         where: { id: 'p1', stock: { gte: 2 } },
         data: { stock: { decrement: 2 } },
+      });
+    });
+
+    it('increments the order counter before the main transaction starts', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue({
+        id: 'p1', restaurantId: 'r1', price: 5, stock: null, name: 'Widget',
+      });
+
+      await service.createOrder('r1', 'session1', baseDto as any);
+
+      expect(mockPrisma.cashShift.update.mock.invocationCallOrder[0])
+        .toBeLessThan(mockPrisma.$transaction.mock.invocationCallOrder[0]);
+    });
+
+    it('increments the counter even when the main transaction fails — gap is acceptable', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue(null);
+
+      await expect(service.createOrder('r1', 'session1', baseDto as any)).rejects.toThrow(
+        StockInsufficientException,
+      );
+
+      expect(mockPrisma.cashShift.update).toHaveBeenCalledWith({
+        where: { id: 'session1' },
+        data: { lastOrderNumber: { increment: 1 } },
+        select: { lastOrderNumber: true },
       });
     });
   });

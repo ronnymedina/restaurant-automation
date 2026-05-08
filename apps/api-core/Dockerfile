@@ -11,9 +11,29 @@ RUN pnpm install --frozen-lockfile
 RUN chown -R node:node /deps
 
 # ============================
+# Stage: prod-deps
+# ============================
+FROM node:24.15.0-bookworm AS prod-deps
+
+WORKDIR /prod-deps
+
+RUN corepack enable && corepack prepare pnpm@10.24.0 --activate
+
+COPY package.json pnpm-lock.yaml ./
+COPY prisma ./prisma
+
+RUN pnpm install --frozen-lockfile
+
+RUN pnpm exec prisma generate --schema=./prisma/schema.postgresql.prisma
+
+RUN pnpm prune --prod
+
+# ============================
 # Stage: build
 # ============================
 FROM node:24.15.0-bookworm AS build
+
+RUN corepack enable && corepack prepare pnpm@10.24.0 --activate
 
 WORKDIR /builder
 
@@ -24,8 +44,9 @@ COPY nest-cli.json \
     tsconfig.build.json \
     ./
 
-COPY prisma ./prisma
-COPY src    ./src
+COPY prisma   ./prisma
+COPY src      ./src
+COPY commands ./commands
 
 COPY --from=deps /deps/node_modules ./node_modules
 
@@ -35,9 +56,6 @@ RUN pnpm exec prisma generate --schema=./prisma/schema.postgresql.prisma
 # Compile NestJS → dist/
 RUN pnpm run build
 
-# Strip devDependencies for the production image
-RUN pnpm prune --prod
-
 
 FROM deps AS dev
 
@@ -45,6 +63,7 @@ ENV NODE_ENV=development
 
 WORKDIR /app
 
+COPY --chown=node:node .npmrc              ./.npmrc
 COPY --chown=node:node package.json        ./package.json
 COPY --chown=node:node tsconfig.json       ./tsconfig.json
 COPY --chown=node:node tsconfig.build.json ./tsconfig.build.json
@@ -58,11 +77,11 @@ COPY --chown=node:node commands            ./commands
 RUN ln -s /deps/node_modules /app/node_modules \
     && chown node:node /app
 
-USER node
-
-# Generate Prisma client (types) at build time so TypeScript can resolve them.
+# Generate before switching to non-root user (pnpm store is root-owned).
 # The prisma/ volume mount in docker-compose overlays this at runtime for live schema edits.
 RUN pnpm exec prisma generate --schema=prisma/schema.postgresql.prisma
+
+USER node
 
 # src/ and prisma/ are mounted via docker-compose volumes for hot reload.
 CMD ["sh", "-c", "pnpm run dev"]
@@ -75,20 +94,24 @@ FROM node:24.15.0-bookworm-slim AS prod
 ENV NODE_ENV=production
 ENV PORT=3000
 
-RUN rm -rf /usr/local/lib/node_modules/npm \
+RUN apt-get update -y && apt-get install -y openssl --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/local/lib/node_modules/npm \
     && rm -f /usr/local/bin/npm \
     && rm -f /usr/local/bin/npx
 
 WORKDIR /app
 
-COPY --from=build --chown=node:node /builder/dist         ./dist
-COPY --from=build --chown=node:node /builder/node_modules ./node_modules
-COPY --from=build --chown=node:node /builder/prisma       ./prisma
-COPY --from=build --chown=node:node /builder/commands       ./commands
+COPY --from=build     --chown=node:node /builder/dist           ./dist
+COPY --from=prod-deps --chown=node:node /prod-deps/node_modules ./node_modules
+COPY --from=build     --chown=node:node /builder/prisma         ./prisma
+COPY --from=build     --chown=node:node /builder/commands       ./commands
+COPY --chown=node:node prisma.config.ts ./prisma.config.ts
+
+RUN chmod +x ./commands/execute-migrations.sh
 
 USER node
 
 EXPOSE 3000
 
-# Run migrations at startup using the Prisma binary directly (no pnpm/npm in prod)
-CMD ["sh", "-c", "node dist/src/main"]
+CMD ["sh", "-c", "node dist/main"]

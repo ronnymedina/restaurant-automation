@@ -14,8 +14,8 @@ const mockCreate = vi.mocked(createProduct);
 const mockUpdate = vi.mocked(updateProduct);
 
 const categories: Category[] = [
-  { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Bebidas', isDefault: false },
-  { id: '550e8400-e29b-41d4-a716-446655440002', name: 'Comida', isDefault: false },
+  { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Bebidas' },
+  { id: '550e8400-e29b-41d4-a716-446655440002', name: 'Comida' },
 ];
 
 const editProduct: Product = {

@@ -206,3 +206,4 @@ E2E: ✅ `test/orders/cancelOrder.e2e-spec.ts`
 - Al crear una orden (kiosk), se emite evento `order:created` por WebSocket; al actualizar estado se emite `order:updated`
 - Al marcar como pagada, se dispara de forma asíncrona la impresión de recibo y el envío de email si `customerEmail` está presente
 - El historial aplica `dateTo` con hora `23:59:59.999` para incluir el día completo
+- La asignación de `orderNumber` usa una transacción corta separada antes de la transacción principal de creación de orden, para evitar contención en `CashShift.lastOrderNumber`. Ver `src/cash-register/cash-register.module.info.md` y `docs/superpowers/specs/2026-05-06-cashshift-order-number-design.md`.

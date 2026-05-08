@@ -8,7 +8,6 @@ type TransactionClient = Prisma.TransactionClient;
 export interface CreateProductCategoryData {
   name: string;
   restaurantId: string;
-  isDefault?: boolean;
 }
 
 @Injectable()
@@ -24,7 +23,6 @@ export class ProductCategoryRepository {
       data: {
         name: data.name,
         restaurantId: data.restaurantId,
-        isDefault: data.isDefault ?? false,
       },
     });
   }
