@@ -4,26 +4,160 @@ import Layout from '../layouts/Layout.astro';
 ---
 
 <Layout>
-  <main class="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#667eea] to-[#764ba2]">
-    <div class="flex flex-col items-center text-center px-4">
-      <img src="/favicon-32.png" alt="" width="40" height="40" class="mb-6" />
-      <h1 class="text-[3.5rem] font-extrabold text-white leading-tight mb-1">Daikulab</h1>
-      <p class="text-sm font-semibold uppercase tracking-widest text-white/60">Restaurant</p>
-      <p class="text-lg text-white/70 mt-6 mb-10">Gestión inteligente para tu restaurante</p>
-      <div class="flex gap-4 justify-center flex-wrap">
-        <a
-          href="/login"
-          class="px-8 py-3 bg-white text-indigo-600 font-semibold rounded-full hover:bg-white/90 transition-colors"
-        >
-          Iniciar sesión
-        </a>
-        <a
-          href="/onboarding"
-          class="px-8 py-3 border-2 border-white text-white font-semibold rounded-full hover:bg-white/10 transition-colors"
-        >
-          Registrarse
-        </a>
+  <!-- Franja de acento superior -->
+  <div class="w-full h-1 bg-[#f97316]"></div>
+
+  <!-- Wrapper principal: ocupa el resto de la pantalla -->
+  <main
+    class="relative overflow-hidden flex flex-col"
+    style="min-height: calc(100vh - 4px);"
+  >
+    <!-- Blob decorativo top-right -->
+    <div
+      class="absolute top-0 right-0 w-80 h-80 rounded-full bg-[#f97316] opacity-5 pointer-events-none"
+      style="transform: translate(30%, -30%);"
+    ></div>
+
+    <!-- Blob decorativo bottom-left -->
+    <div
+      class="absolute bottom-0 left-0 w-52 h-52 rounded-full bg-[#f97316] pointer-events-none"
+      style="opacity: 0.06; transform: translate(-30%, 30%);"
+    ></div>
+
+    <!-- Hero: ocupa el espacio disponible entre franja y footer -->
+    <section
+      class="flex-1 flex items-center justify-center px-8 py-12"
+      style="background: #fafaf8;"
+    >
+      <div class="flex flex-row items-center gap-16 w-full max-w-5xl">
+
+        <!-- Columna izquierda: texto + CTAs -->
+        <div class="flex flex-col gap-5 flex-1">
+          <!-- Eyebrow -->
+          <span
+            class="text-xs font-bold uppercase tracking-[5px] text-[#f97316]"
+          >Software para restaurantes</span>
+
+          <!-- Headline -->
+          <h1
+            class="font-black text-[#111] leading-[0.92]"
+            style="font-size: 58px; letter-spacing: -3px;"
+          >Daikulab</h1>
+
+          <!-- Tagline -->
+          <p
+            class="text-[15px] text-[#555] leading-relaxed"
+            style="max-width: 300px;"
+          >
+            La plataforma que moderniza la gestión de tu restaurante — pedidos, cocina y métricas en un solo lugar.
+          </p>
+
+          <!-- CTAs -->
+          <div class="flex flex-row gap-3 items-center">
+            <a
+              href="/login"
+              class="px-7 py-3 bg-[#f97316] text-white font-bold rounded-lg hover:bg-[#ea6c0a] transition-colors"
+            >Iniciar sesión</a>
+            <a
+              href="/onboarding"
+              class="px-7 py-3 border-2 border-[#111] text-[#111] font-semibold rounded-lg hover:bg-[#f5f5f5] transition-colors"
+            >Registrarse →</a>
+          </div>
+
+          <!-- Trust line -->
+          <p class="text-xs text-[#aaa]">Sin tarjeta de crédito · Configuración en minutos</p>
+        </div>
+
+        <!-- Columna derecha: product preview cards -->
+        <div class="flex flex-col gap-3" style="width: 240px; flex-shrink: 0;">
+
+          <!-- Card 1: Estadísticas del día -->
+          <div class="bg-white rounded-xl shadow-md p-4">
+            <p class="text-xs font-bold uppercase tracking-widest text-[#888] mb-2">Pedidos hoy</p>
+            <p class="text-[28px] font-bold text-[#111] leading-none mb-1">142</p>
+            <p class="text-xs text-[#059669] mb-3">↑ +12% esta semana</p>
+
+            <!-- Barras de progreso -->
+            <div class="flex flex-col gap-2">
+              <!-- Mesa -->
+              <div>
+                <div class="flex justify-between text-xs text-[#888] mb-1">
+                  <span>Mesa</span>
+                  <span>68%</span>
+                </div>
+                <div class="w-full h-1.5 bg-[#f3f3f3] rounded-full overflow-hidden">
+                  <div class="h-full bg-[#f97316] rounded-full" style="width: 68%;"></div>
+                </div>
+              </div>
+              <!-- Kiosk -->
+              <div>
+                <div class="flex justify-between text-xs text-[#888] mb-1">
+                  <span>Kiosk</span>
+                  <span>22%</span>
+                </div>
+                <div class="w-full h-1.5 bg-[#f3f3f3] rounded-full overflow-hidden">
+                  <div class="h-full bg-[#111] rounded-full" style="width: 22%;"></div>
+                </div>
+              </div>
+              <!-- Online -->
+              <div>
+                <div class="flex justify-between text-xs text-[#888] mb-1">
+                  <span>Online</span>
+                  <span>10%</span>
+                </div>
+                <div class="w-full h-1.5 bg-[#f3f3f3] rounded-full overflow-hidden">
+                  <div class="h-full bg-[#ccc] rounded-full" style="width: 10%;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Últimos pedidos -->
+          <div class="bg-white rounded-xl shadow-md p-4">
+            <p class="text-xs font-bold uppercase tracking-widest text-[#888] mb-3">Últimos pedidos</p>
+            <div class="flex flex-col gap-2">
+              <!-- Pedido 1 -->
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-[#111]">Tacos al pastor</span>
+                <span
+                  class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                  style="background: #ffedd5; color: #f97316;"
+                >En cocina</span>
+              </div>
+              <!-- Pedido 2 -->
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-[#111]">Enchiladas verdes</span>
+                <span
+                  class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                  style="background: #d1fae5; color: #059669;"
+                >Listo</span>
+              </div>
+              <!-- Pedido 3 -->
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-[#111]">Agua de Jamaica</span>
+                <span
+                  class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                  style="background: #ffedd5; color: #f97316;"
+                >En cocina</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
-    </div>
+    </section>
+
+    <!-- Footer mínimo -->
+    <footer
+      class="flex flex-row items-center justify-between border-t border-[#ebebeb] px-16 py-3"
+      style="background: #fafaf8;"
+    >
+      <span class="text-xs font-bold text-[#bbb] tracking-widest">DAIKULAB</span>
+      <div class="flex gap-4">
+        <a href="#" class="text-xs text-[#bbb] hover:text-[#888] transition-colors">Política de privacidad</a>
+        <a href="#" class="text-xs text-[#bbb] hover:text-[#888] transition-colors">Términos</a>
+        <a href="#" class="text-xs text-[#bbb] hover:text-[#888] transition-colors">Contacto</a>
+      </div>
+    </footer>
   </main>
 </Layout>
