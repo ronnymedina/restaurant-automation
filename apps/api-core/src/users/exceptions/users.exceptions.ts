@@ -53,3 +53,13 @@ export class LastAdminException extends BaseException {
     );
   }
 }
+
+export class InactiveAccountException extends BaseException {
+  constructor() {
+    super(
+      'Account is not active',
+      HttpStatus.BAD_REQUEST,
+      'ACCOUNT_INACTIVE',
+    );
+  }
+}
