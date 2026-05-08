@@ -71,16 +71,3 @@ export class UserNotFoundException extends BaseException {
   }
 }
 
-/**
- * Thrown when resend-activation is called for a user that is already active.
- */
-export class UserAlreadyActiveException extends BaseException {
-  constructor(email: string) {
-    super(
-      `Account for '${email}' is already active`,
-      HttpStatus.CONFLICT,
-      'USER_ALREADY_ACTIVE',
-      { email },
-    );
-  }
-}

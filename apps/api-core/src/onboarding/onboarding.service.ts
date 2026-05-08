@@ -17,8 +17,8 @@ import {
   RestaurantCreationFailedException,
   UserCreationFailedException,
   UserNotFoundException,
-  UserAlreadyActiveException,
 } from './exceptions/onboarding.exceptions';
+import { UserAlreadyActiveException } from '../users/exceptions/users.exceptions';
 
 type TransactionClient = Prisma.TransactionClient;
 

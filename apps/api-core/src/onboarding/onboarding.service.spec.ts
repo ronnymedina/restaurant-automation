@@ -16,8 +16,8 @@ import {
   UserCreationFailedException,
   OnboardingFailedException,
   UserNotFoundException,
-  UserAlreadyActiveException,
 } from './exceptions/onboarding.exceptions';
+import { UserAlreadyActiveException } from '../users/exceptions/users.exceptions';
 
 const mockRestaurant = {
   id: 'restaurant-uuid-1',
