@@ -66,6 +66,11 @@ describe('KitchenService', () => {
       const result = await service.getActiveOrders(makeRestaurant() as any);
       expect(result).toHaveLength(2);
       expect(result.map((o) => o.status)).toEqual([OrderStatus.CREATED, OrderStatus.PROCESSING]);
+      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith(
+        'r1',
+        undefined,
+        [OrderStatus.CREATED, OrderStatus.PROCESSING],
+      );
       expect(mockTimezoneService.getTimezone).toHaveBeenCalledWith('r1');
       expect(result[0]).toHaveProperty('displayTime');
       expect(result[0].displayTime).toMatch(/^\d{2}:\d{2}$/);
