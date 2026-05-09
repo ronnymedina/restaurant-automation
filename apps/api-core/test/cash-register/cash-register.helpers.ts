@@ -132,6 +132,7 @@ export async function seedOrderOnShift(
   restaurantId: string,
   cashShiftId: string,
   productId: string,
+  status: 'CREATED' | 'PROCESSING' | 'COMPLETED' | 'CANCELLED' = 'COMPLETED',
 ) {
   const updatedShift = await prisma.cashShift.update({
     where: { id: cashShiftId },
@@ -144,6 +145,7 @@ export async function seedOrderOnShift(
       restaurantId,
       cashShiftId,
       totalAmount: BigInt(1000),
+      status,
       items: {
         create: [{ productId, quantity: 1, unitPrice: BigInt(1000), subtotal: BigInt(1000) }],
       },

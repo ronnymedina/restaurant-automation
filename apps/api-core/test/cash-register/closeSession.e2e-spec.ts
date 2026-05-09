@@ -60,12 +60,44 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
     expect(res.body.code).toBe('NO_OPEN_REGISTER');
   });
 
-  it('Cierra sesión → 200 con session y summary', async () => {
+  it('Con pedidos pendientes (CREATED/PROCESSING) → 409 PENDING_ORDERS_ON_SHIFT', async () => {
+    const restP = await seedRestaurant(prisma, 'Pending');
+    const tokenP = await login(app, restP.admin.email);
+    const product = await seedProduct(prisma, restP.restaurant.id, restP.category.id);
+    const shiftId = await openCashShiftViaApi(app, tokenP);
+    await seedOrderOnShift(prisma, restP.restaurant.id, shiftId, product.id, 'CREATED');
+
+    const res = await request(app.getHttpServer())
+      .post('/v1/cash-register/close')
+      .set('Authorization', `Bearer ${tokenP}`)
+      .expect(409);
+
+    expect(res.body.code).toBe('PENDING_ORDERS_ON_SHIFT');
+    expect(res.body.details.pendingCount).toBe(1);
+  });
+
+  it('Con pedidos PROCESSING → 409 PENDING_ORDERS_ON_SHIFT', async () => {
+    const restQ = await seedRestaurant(prisma, 'Processing');
+    const tokenQ = await login(app, restQ.admin.email);
+    const product = await seedProduct(prisma, restQ.restaurant.id, restQ.category.id);
+    const shiftId = await openCashShiftViaApi(app, tokenQ);
+    await seedOrderOnShift(prisma, restQ.restaurant.id, shiftId, product.id, 'PROCESSING');
+
+    const res = await request(app.getHttpServer())
+      .post('/v1/cash-register/close')
+      .set('Authorization', `Bearer ${tokenQ}`)
+      .expect(409);
+
+    expect(res.body.code).toBe('PENDING_ORDERS_ON_SHIFT');
+    expect(res.body.details.pendingCount).toBe(1);
+  });
+
+  it('Cierra sesión con pedidos completados → 200 con session y summary', async () => {
     const restC = await seedRestaurant(prisma, 'C');
     const tokenC = await login(app, restC.admin.email);
     const product = await seedProduct(prisma, restC.restaurant.id, restC.category.id);
     const shiftId = await openCashShiftViaApi(app, tokenC);
-    await seedOrderOnShift(prisma, restC.restaurant.id, shiftId, product.id);
+    await seedOrderOnShift(prisma, restC.restaurant.id, shiftId, product.id, 'COMPLETED');
 
     const res = await request(app.getHttpServer())
       .post('/v1/cash-register/close')

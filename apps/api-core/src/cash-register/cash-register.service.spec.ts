@@ -9,6 +9,7 @@ import {
   CashRegisterAlreadyOpenException,
   CashRegisterNotFoundException,
   NoOpenCashRegisterException,
+  PendingOrdersException,
 } from './exceptions/cash-register.exceptions';
 import { DEFAULT_PAGE_SIZE } from '../config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -56,6 +57,7 @@ const mockTx = {
   order: {
     aggregate: jest.fn(),
     groupBy: jest.fn(),
+    count: jest.fn(),
   },
 };
 
@@ -94,6 +96,8 @@ describe('CashRegisterService', () => {
     // Default empty responses for groupBy/findMany used in getSessionSummary
     mockPrismaService.orderItem.groupBy.mockResolvedValue([]);
     mockPrismaService.product.findMany.mockResolvedValue([]);
+    // Default: no pending orders (allows closeSession to proceed)
+    mockTx.order.count.mockResolvedValue(0);
   });
 
   describe('openSession', () => {
@@ -152,6 +156,18 @@ describe('CashRegisterService', () => {
       await expect(
         service.closeSession('restaurant-uuid-1'),
       ).rejects.toThrow(NoOpenCashRegisterException);
+
+      expect(mockTx.cashShift.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw PendingOrdersException when session has CREATED or PROCESSING orders', async () => {
+      const session = mockSession();
+      mockTx.cashShift.findFirst.mockResolvedValue(session);
+      mockTx.order.count.mockResolvedValue(2);
+
+      await expect(
+        service.closeSession('restaurant-uuid-1'),
+      ).rejects.toThrow(PendingOrdersException);
 
       expect(mockTx.cashShift.update).not.toHaveBeenCalled();
     });
