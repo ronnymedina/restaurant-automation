@@ -114,7 +114,7 @@ E2E: ✅ `test/cash-register/openCashRegister.e2e-spec.ts`
 
 #### Close — `POST /v1/cash-register/close`
 
-E2E: ✅ `test/cash-register/closeCashRegister.e2e-spec.ts`
+E2E: ✅ `test/cash-register/closeSession.e2e-spec.ts`
 
 | Caso | Status | Detalle |
 |---|---|---|

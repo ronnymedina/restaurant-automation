@@ -7,6 +7,7 @@ import {
   CashRegisterAlreadyOpenException,
   CashRegisterNotFoundException,
   NoOpenCashRegisterException,
+  PendingOrdersException,
 } from './exceptions/cash-register.exceptions';
 import { DEFAULT_PAGE_SIZE } from '../config';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
@@ -45,6 +46,14 @@ export class CashRegisterService {
         },
       });
       if (!session) throw new NoOpenCashRegisterException();
+
+      const pendingCount = await tx.order.count({
+        where: {
+          cashShiftId: session.id,
+          status: { in: [OrderStatus.CREATED, OrderStatus.PROCESSING] },
+        },
+      });
+      if (pendingCount > 0) throw new PendingOrdersException(pendingCount);
 
       const [agg, paymentGroups] = await Promise.all([
         tx.order.aggregate({
