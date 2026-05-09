@@ -1,6 +1,7 @@
 ---
 import ProtectedLayout from './ProtectedLayout.astro';
 import Providers from '../components/commons/Providers';
+import { config } from '../config';
 
 const currentPath = Astro.url.pathname;
 
@@ -19,8 +20,8 @@ const navItems = [
   { href: '/dash/orders-history', label: 'Historial Pedidos' },
 ];
 
-const supportEmail = import.meta.env.PUBLIC_SUPPORT_EMAIL || '';
-const googleFormUrl = import.meta.env.PUBLIC_SUPPORT_GOOGLE_FORM_URL || '';
+const supportEmail = config.supportEmail;
+const googleFormUrl = config.supportGoogleFormUrl;
 ---
 
 <ProtectedLayout>
@@ -219,7 +220,7 @@ const googleFormUrl = import.meta.env.PUBLIC_SUPPORT_GOOGLE_FORM_URL || '';
       const copyBtn = document.getElementById('copyKioskUrl')!;
 
       const kioskPath = `/kiosk?slug=${slug}`;
-      const storefrontBase = import.meta.env.PUBLIC_STOREFRONT_URL || window.location.origin;
+      const storefrontBase = config.storefrontUrl || window.location.origin;
       const kioskUrl = `${storefrontBase}${kioskPath}`;
 
       link.href = kioskPath;
@@ -247,7 +248,7 @@ const googleFormUrl = import.meta.env.PUBLIC_SUPPORT_GOOGLE_FORM_URL || '';
   const helpModal     = document.getElementById('helpModal')!;
   const closeHelpBtn  = document.getElementById('closeHelpModal')!;
   const sendEmailBtn  = document.getElementById('sendEmailBtn');
-  const supportEmail  = import.meta.env.PUBLIC_SUPPORT_EMAIL || '';
+  const supportEmail  = config.supportEmail;
 
   const TYPE_LABELS: Record<string, string> = {
     APP_ERROR:    'Error en la app',
