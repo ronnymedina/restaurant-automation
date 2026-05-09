@@ -97,6 +97,7 @@ import Layout from "../layouts/Layout.astro";
 </style>
 
 <script>
+  import { config } from '../config';
   import { setTokens, isAuthenticated, setRestaurantTimezone } from '../lib/auth';
   import { getErrorMessage } from '../lib/error-messages';
 
