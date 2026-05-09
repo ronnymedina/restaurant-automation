@@ -123,6 +123,7 @@ E2E: ✅ `test/cash-register/closeCashRegister.e2e-spec.ts`
 | ADMIN cierra sesión abierta | 200 | Retorna `CloseSessionResponseDto` con resumen |
 | MANAGER cierra sesión abierta | 200 | Retorna `CloseSessionResponseDto` con resumen |
 | No hay sesión abierta | 409 | `NO_OPEN_REGISTER` |
+| Hay pedidos en `CREATED` o `PROCESSING` | 409 | `PENDING_ORDERS_ON_SHIFT` — `details.pendingCount` indica cuántos quedan |
 | `summary.totalSales` como number | 200 | BigInt serializado a number |
 | `paymentBreakdown` refleja métodos usados | 200 | Agrupado por `paymentMethod` |
 
