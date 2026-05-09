@@ -89,8 +89,9 @@
 
 <script>
   import { ORDER_EVENTS } from '../../lib/sse-events';
+  import { config } from '../../config';
 
-  const API_URL = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
+  const API_URL = config.apiUrl;
 
   // Read slug and token from query string (with sessionStorage fallback)
   const params = new URLSearchParams(window.location.search);

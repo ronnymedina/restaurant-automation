@@ -1,27 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
-import { z } from 'zod';
 import Button from '../../commons/Button';
 import type { Category, Product, ProductPayload } from '../../../lib/products-api';
 import { createProduct, updateProduct, uploadImage } from '../../../lib/products-api';
+import { ProductSchema } from "./validationScheme"
 
-const ProductSchema = z.object({
-  name: z.string().min(1, 'El nombre es requerido').max(255, 'Máximo 255 caracteres'),
-  categoryId: z.string().uuid('Debes seleccionar una categoría'),
-  price: z
-    .number({ invalid_type_error: 'El precio debe ser un número' })
-    .positive('El precio debe ser mayor a 0'),
-  stock: z.number().int().nonnegative('El stock no puede ser negativo').nullable().optional(),
-  sku: z.string().max(50, 'Máximo 50 caracteres').optional(),
-  imageUrl: z
-    .string()
-    .regex(/^(https?:\/\/.+|\/.+)/, 'La URL de imagen no es válida')
-    .nullable()
-    .optional(),
-  description: z.string().max(500, 'Máximo 500 caracteres').optional(),
-  active: z.boolean().optional(),
-});
-
-type UploadStatus = 'idle' | 'uploading' | 'done' | 'error';
+const UploadStatus = {
+  IDLE: 'idle',
+  UPLOADING: 'uploading',
+  DONE: 'done',
+  ERROR: 'error',
+} as const;
 
 interface ProductFormProps {
   initialData?: Product;
@@ -82,16 +70,16 @@ export default function ProductForm({ initialData, categories, onSuccess, onCanc
     setPreviewBlobUrl(blob);
     setUploadFileName(file.name);
     setUploadFileSizeMB((file.size / 1024 / 1024).toFixed(1));
-    setUploadStatus('uploading');
+    setUploadStatus(UploadStatus.UPLOADING);
     setUploadedImageUrl(null);
     setCurrentImageUrl(null);
     setImageRemoved(false);
     try {
       const url = await uploadImage(file);
       setUploadedImageUrl(url);
-      setUploadStatus('done');
+      setUploadStatus(UploadStatus.DONE);
     } catch {
-      setUploadStatus('error');
+      setUploadStatus(UploadStatus.ERROR);
     }
   };
 
@@ -99,7 +87,7 @@ export default function ProductForm({ initialData, categories, onSuccess, onCanc
     if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
     setPreviewBlobUrl(null);
     setUploadedImageUrl(null);
-    setUploadStatus('idle');
+    setUploadStatus(UploadStatus.IDLE);
     setUploadFileName('');
     setUploadFileSizeMB('');
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -109,12 +97,12 @@ export default function ProductForm({ initialData, categories, onSuccess, onCanc
     e.preventDefault();
     setErrors([]);
 
-    if (uploadStatus === 'uploading') {
+    if (uploadStatus === UploadStatus.UPLOADING) {
       setErrors(['La imagen aún se está subiendo, espera un momento']);
       return;
     }
 
-    if (uploadStatus === 'error') {
+    if (uploadStatus === UploadStatus.ERROR) {
       setErrors(['La subida de imagen falló. Quita el archivo e intenta de nuevo.']);
       return;
     }
@@ -245,7 +233,7 @@ export default function ProductForm({ initialData, categories, onSuccess, onCanc
             Imagen del producto
           </label>
 
-          {currentImageUrl && uploadStatus === 'idle' && (
+          {currentImageUrl && uploadStatus === UploadStatus.IDLE && (
             <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg p-3 mb-2">
               <img
                 src={currentImageUrl}
@@ -269,7 +257,7 @@ export default function ProductForm({ initialData, categories, onSuccess, onCanc
             </div>
           )}
 
-          {!currentImageUrl && uploadStatus === 'idle' && (
+          {!currentImageUrl && uploadStatus === UploadStatus.IDLE && (
             <div
               className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center cursor-pointer hover:border-indigo-400 transition-colors mb-2"
               onClick={() => fileInputRef.current?.click()}
@@ -300,23 +288,23 @@ export default function ProductForm({ initialData, categories, onSuccess, onCanc
             </div>
           )}
 
-          {uploadStatus !== 'idle' && previewBlobUrl && (
+          {uploadStatus !== UploadStatus.IDLE && previewBlobUrl && (
             <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg p-3 mb-2">
               <img src={previewBlobUrl} alt="preview" className="w-16 h-16 object-cover rounded" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-800 truncate">{uploadFileName}</p>
                 <p
                   className={`text-xs mt-0.5 ${
-                    uploadStatus === 'done'
+                    uploadStatus === UploadStatus.DONE
                       ? 'text-green-600'
-                      : uploadStatus === 'error'
+                      : uploadStatus === UploadStatus.ERROR
                         ? 'text-red-600'
                         : 'text-slate-500'
                   }`}
                 >
-                  {uploadStatus === 'uploading' && `${uploadFileSizeMB} MB — subiendo...`}
-                  {uploadStatus === 'done' && '✓ Subida correctamente'}
-                  {uploadStatus === 'error' && '⚠ Error al subir la imagen'}
+                  {uploadStatus === UploadStatus.UPLOADING && `${uploadFileSizeMB} MB — subiendo...`}
+                  {uploadStatus === UploadStatus.DONE && '✓ Subida correctamente'}
+                  {uploadStatus === UploadStatus.ERROR && '⚠ Error al subir la imagen'}
                 </p>
               </div>
               <button
@@ -329,7 +317,7 @@ export default function ProductForm({ initialData, categories, onSuccess, onCanc
             </div>
           )}
 
-          {uploadStatus === 'idle' && !currentImageUrl && (
+          {uploadStatus === UploadStatus.IDLE && !currentImageUrl && (
             <>
               <p className="text-xs text-blue-600 mb-1">
                 💡 ¿Foto muy pesada?{' '}
@@ -383,7 +371,7 @@ export default function ProductForm({ initialData, categories, onSuccess, onCanc
         <div className="md:col-span-2 flex gap-2">
           <Button
             type="submit"
-            disabled={isSubmitting || uploadStatus === 'uploading'}
+            disabled={isSubmitting || uploadStatus === UploadStatus.UPLOADING}
           >
             {isSubmitting ? 'Guardando...' : 'Guardar'}
           </Button>

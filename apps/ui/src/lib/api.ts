@@ -1,6 +1,7 @@
 import { getAccessToken, getRefreshToken, setTokens, clearTokens } from './auth';
+import { config } from '../config';
 
-const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = config.apiUrl;
 
 export async function apiFetch(
   path: string,
