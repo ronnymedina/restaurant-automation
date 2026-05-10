@@ -12,9 +12,9 @@ export default function RegisterSummaryModal({ open, summary, onClose }: Props) 
   const breakdownEntries = Object.entries(summary.paymentBreakdown);
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div role="dialog" aria-modal="true" aria-labelledby="summary-modal-title" className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl w-full max-w-lg p-6 space-y-4">
-        <h3 className="text-xl font-bold text-slate-800">Resumen de Caja</h3>
+        <h3 id="summary-modal-title" className="text-xl font-bold text-slate-800">Resumen de Caja</h3>
         <div className="space-y-4">
           <div className="bg-emerald-50 rounded-lg p-4 space-y-2">
             <div className="flex justify-between text-lg">
