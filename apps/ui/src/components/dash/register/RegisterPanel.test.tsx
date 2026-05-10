@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import RegisterPanel from './RegisterPanel';
 
 vi.mock('../../../lib/api', () => ({ apiFetch: vi.fn() }));
@@ -65,5 +65,53 @@ test('shows error on network failure', async () => {
   render(<RegisterPanel />);
   await waitFor(() =>
     expect(screen.getByText('Error al cargar el estado de la caja')).toBeInTheDocument(),
+  );
+});
+
+// --- openRegister ---
+
+test('clicking Abrir Caja calls open API endpoint', async () => {
+  mockApiFetch
+    .mockResolvedValueOnce({ ok: true, json: async () => null } as Response) // loadStatus → closed
+    .mockResolvedValueOnce({ ok: true } as Response) // openRegister
+    .mockResolvedValueOnce({ ok: true, json: async () => null } as Response); // loadStatus after open
+
+  render(<RegisterPanel />);
+  await waitFor(() => screen.getByRole('button', { name: 'Abrir Caja' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Abrir Caja' }));
+
+  await waitFor(() =>
+    expect(mockApiFetch).toHaveBeenCalledWith('/v1/cash-register/open', { method: 'POST' }),
+  );
+});
+
+test('shows error Alert when openRegister API fails', async () => {
+  mockApiFetch
+    .mockResolvedValueOnce({ ok: true, json: async () => null } as Response)
+    .mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ message: 'Ya hay una caja abierta' }),
+    } as Response);
+
+  render(<RegisterPanel />);
+  await waitFor(() => screen.getByRole('button', { name: 'Abrir Caja' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Abrir Caja' }));
+
+  await waitFor(() =>
+    expect(screen.getByText('Ya hay una caja abierta')).toBeInTheDocument(),
+  );
+});
+
+test('shows fallback error message when openRegister fails without message', async () => {
+  mockApiFetch
+    .mockResolvedValueOnce({ ok: true, json: async () => null } as Response)
+    .mockResolvedValueOnce({ ok: false, json: async () => ({}) } as Response);
+
+  render(<RegisterPanel />);
+  await waitFor(() => screen.getByRole('button', { name: 'Abrir Caja' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Abrir Caja' }));
+
+  await waitFor(() =>
+    expect(screen.getByText('Error al abrir caja')).toBeInTheDocument(),
   );
 });

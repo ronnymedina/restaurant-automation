@@ -77,7 +77,20 @@ export default function RegisterPanel() {
     }
   }, []);
 
-  async function openRegister() {}
+  async function openRegister() {
+    const res = await apiFetch('/v1/cash-register/open', { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      setAlert({
+        type: 'error',
+        title: 'Error',
+        message: err?.message || 'Error al abrir caja',
+        onConfirm: () => setAlert(null),
+      });
+      return;
+    }
+    loadStatus();
+  }
 
   function handleCloseRegisterClick() {}
 
