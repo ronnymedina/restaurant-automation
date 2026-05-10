@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../../lib/api';
 import Alert from '../../commons/Alert';
 import RegisterSummaryModal from './RegisterSummaryModal';
@@ -48,7 +48,7 @@ export default function RegisterPanel() {
     loadStatus();
   }, []);
 
-  async function loadStatus() {
+  const loadStatus = useCallback(async () => {
     setStatus('loading');
     try {
       const res = await apiFetch('/v1/cash-register/current');
@@ -75,7 +75,7 @@ export default function RegisterPanel() {
       setErrorMessage('Error al cargar el estado de la caja');
       setStatus('error');
     }
-  }
+  }, []);
 
   async function openRegister() {}
 
