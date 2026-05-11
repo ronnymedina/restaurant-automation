@@ -199,7 +199,7 @@ export class CashRegisterService {
     };
   }
 
-  async getTopProducts(sessionId: string) {
+  async getTopProducts(sessionId: string): Promise<{ topProducts: Array<{ id: string; name: string; quantity: number; total: bigint }> }> {
     const session = await this.registerSessionRepository.findById(sessionId);
     if (!session) throw new CashRegisterNotFoundException(sessionId);
 
@@ -217,6 +217,7 @@ export class CashRegisterService {
     });
 
     const productIds = topProductRows.map((r) => r.productId);
+    // findMany returns rows in DB order, but we map over topProductRows to preserve quantity-sorted order
     const products = await this.prisma.product.findMany({
       where: { id: { in: productIds } },
       select: { id: true, name: true },

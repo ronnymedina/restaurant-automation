@@ -572,8 +572,10 @@ describe('CashRegisterService', () => {
 
       expect(mockPrismaService.orderItem.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
+          take: 5,
           where: expect.objectContaining({
             order: expect.objectContaining({
+              cashShiftId: session.id,
               status: { not: OrderStatus.CANCELLED },
             }),
           }),
@@ -592,6 +594,17 @@ describe('CashRegisterService', () => {
       const result = await service.getTopProducts('session-uuid-1');
 
       expect(result.topProducts[0].name).toBe('Producto');
+    });
+
+    it('should return empty topProducts for a session with no orders', async () => {
+      const session = mockSession({ status: 'CLOSED' });
+      mockRegisterSessionRepository.findById.mockResolvedValue(session);
+      mockPrismaService.orderItem.groupBy.mockResolvedValue([]);
+      mockPrismaService.product.findMany.mockResolvedValue([]);
+
+      const result = await service.getTopProducts('session-uuid-1');
+
+      expect(result.topProducts).toEqual([]);
     });
   });
 });
