@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import RegisterSummaryModal from './RegisterSummaryModal';
-import type { CloseSummary } from './types';
+import type { CloseSummary } from './api';
 
 const emptySummary: CloseSummary = { totalOrders: 0, totalSales: 0, paymentBreakdown: {} };
 

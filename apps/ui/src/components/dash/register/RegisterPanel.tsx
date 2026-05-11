@@ -1,100 +1,69 @@
-import { useState, useEffect, useCallback } from 'react';
-import { apiFetch } from '../../../lib/api';
+import { useState, useEffect } from 'react';
+
 import Alert from '../../commons/Alert';
 import RegisterSummaryModal from './RegisterSummaryModal';
-import type { RegisterData, CloseSummary, AlertConfig } from './types';
+import { EyeIcon, EyeOffIcon } from '../../commons/icons';
 
-const EyeOffIcon = () => (
-  <svg
-    className="w-4 h-4 inline"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-    <line x1="1" y1="1" x2="23" y2="23" />
-  </svg>
-);
+import { getCurrentSession, openSession, closeSession } from './api';
 
-const EyeIcon = () => (
-  <svg
-    className="w-4 h-4 inline"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-    <circle cx="12" cy="12" r="3" />
-  </svg>
-);
+import type { CashShiftDto, CloseSummary } from './api';
+import type { RegisterStatus, AlertConfig } from './types';
+
+import { REGISTER_STATUS, ALERT_TYPE } from './types';
 
 export default function RegisterPanel() {
-  const [status, setStatus] = useState<'loading' | 'open' | 'closed' | 'error'>('loading');
+  const [status, setStatus] = useState<RegisterStatus>(REGISTER_STATUS.LOADING);
   const [errorMessage, setErrorMessage] = useState('');
-  const [registerData, setRegisterData] = useState<RegisterData | null>(null);
+  const [registerData, setRegisterData] = useState<CashShiftDto | null>(null);
   const [alert, setAlert] = useState<AlertConfig | null>(null);
   const [summaryData, setSummaryData] = useState<CloseSummary | null>(null);
   const [showSummary, setShowSummary] = useState(false);
-  const [showId, setShowId] = useState(false);
-  const [showEmail, setShowEmail] = useState(false);
-
-  const loadStatus = useCallback(async () => {
-    setStatus('loading');
-    try {
-      const res = await apiFetch('/v1/cash-register/current');
-      if (!res.ok) {
-        const msg =
-          res.status === 403
-            ? 'No tienes permisos para acceder a esta sección'
-            : 'Error al cargar el estado de la caja';
-        setErrorMessage(msg);
-        setStatus('error');
-        return;
-      }
-      const data = await res.json();
-      if (!data || !data.id) {
-        setRegisterData(null);
-        setStatus('closed');
-      } else {
-        setRegisterData(data);
-        setShowId(false);
-        setShowEmail(false);
-        setStatus('open');
-      }
-    } catch {
-      setErrorMessage('Error al cargar el estado de la caja');
-      setStatus('error');
-    }
-  }, []);
+  const [showSensitive, setShowSensitive] = useState(false);
 
   useEffect(() => {
-    loadStatus();
-  }, [loadStatus]);
+    async function load() {
+      setStatus(REGISTER_STATUS.LOADING);
+      const result = await getCurrentSession();
+      if (!result.ok) {
+        setErrorMessage(
+          result.httpStatus === 403
+            ? 'No tienes permisos para acceder a esta sección'
+            : 'Error al cargar el estado de la caja',
+        );
+        setStatus(REGISTER_STATUS.ERROR);
+        return;
+      }
+      if (!result.data) {
+        setStatus(REGISTER_STATUS.CLOSED);
+        return;
+      }
+      setRegisterData(result.data);
+      setShowSensitive(false);
+      setStatus(REGISTER_STATUS.OPEN);
+    }
+    load();
+  }, []);
 
   async function openRegister() {
-    const res = await apiFetch('/v1/cash-register/open', { method: 'POST' });
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
+    const result = await openSession();
+    if (!result.ok) {
       setAlert({
-        type: 'error',
+        type: ALERT_TYPE.ERROR,
         title: 'Error',
-        message: err?.message || 'Error al abrir caja',
+        message: result.error.message || 'Error al abrir caja',
         onConfirm: () => setAlert(null),
       });
       return;
     }
-    loadStatus();
+    setRegisterData(result.data);
+    setShowId(false);
+    setShowEmail(false);
+    setStatus(REGISTER_STATUS.OPEN);
   }
 
   function handleCloseRegisterClick() {
     setAlert({
-      type: 'warning',
+      type: ALERT_TYPE.WARNING,
       title: 'Cerrar caja',
       message: '¿Estás seguro de cerrar la caja?',
       onConfirm: performClose,
@@ -104,41 +73,40 @@ export default function RegisterPanel() {
 
   async function performClose() {
     setAlert(null);
-    const res = await apiFetch('/v1/cash-register/close', { method: 'POST' });
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      if (err?.code === 'PENDING_ORDERS_ON_SHIFT') {
-        const count = err.details?.pendingCount ?? 'algunos';
+    const result = await closeSession();
+    if (!result.ok) {
+      if (result.error.code === 'PENDING_ORDERS_ON_SHIFT') {
+        const count = (result.error.details?.pendingCount as number) ?? 'algunos';
         setAlert({
-          type: 'error',
+          type: ALERT_TYPE.ERROR,
           title: 'No se puede cerrar',
           message: `Hay ${count} pedido(s) pendiente(s). Completa o cancela los pedidos antes de cerrar.`,
           onConfirm: () => setAlert(null),
         });
       } else {
         setAlert({
-          type: 'error',
+          type: ALERT_TYPE.ERROR,
           title: 'Error',
-          message: err?.message || 'Error al cerrar caja',
+          message: result.error.message || 'Error al cerrar caja',
           onConfirm: () => setAlert(null),
         });
       }
       return;
     }
-    const data = await res.json();
-    setSummaryData(data.summary);
+    setSummaryData(result.data.summary);
     setShowSummary(true);
-    loadStatus();
+    setRegisterData(null);
+    setStatus(REGISTER_STATUS.CLOSED);
   }
 
   function renderContent() {
-    if (status === 'loading') {
+    if (status === REGISTER_STATUS.LOADING) {
       return <p className="text-slate-400 text-center">Cargando...</p>;
     }
-    if (status === 'error') {
+    if (status === REGISTER_STATUS.ERROR) {
       return <p className="text-red-400 text-center">{errorMessage}</p>;
     }
-    if (status === 'closed') {
+    if (status === REGISTER_STATUS.CLOSED) {
       return (
         <div className="text-center space-y-4">
           <div className="text-5xl">🔒</div>
@@ -162,36 +130,26 @@ export default function RegisterPanel() {
         <div className="flex items-center gap-3">
           <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse" />
           <h3 className="text-xl font-semibold text-emerald-700">Caja Abierta</h3>
+          <button
+            type="button"
+            onClick={() => setShowSensitive((v) => !v)}
+            className="ml-auto text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
+            title="Mostrar/ocultar datos sensibles"
+          >
+            {showSensitive ? <EyeIcon /> : <EyeOffIcon />}
+          </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-slate-50 rounded-lg p-4">
             <p className="text-sm text-slate-500">ID de sesión</p>
-            <p className="text-sm font-mono text-slate-700 break-all flex items-center gap-1">
-              <span className="font-mono text-sm">{showId ? d.id : '••••••••'}</span>
-              <button
-                type="button"
-                onClick={() => setShowId((v) => !v)}
-                className="ml-1.5 text-slate-400 hover:text-slate-600 cursor-pointer align-middle p-0.5"
-                title="Mostrar/ocultar"
-              >
-                {showId ? <EyeIcon /> : <EyeOffIcon />}
-              </button>
+            <p className="text-sm font-mono text-slate-700 break-all">
+              {showSensitive ? d.id : '••••••••'}
             </p>
           </div>
           <div className="bg-slate-50 rounded-lg p-4">
             <p className="text-sm text-slate-500">Abierta por</p>
-            <p className="text-lg font-semibold flex items-center gap-1">
-              <span className="text-base font-semibold">
-                {showEmail ? (d.user?.email ?? '-') : '••••••••'}
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowEmail((v) => !v)}
-                className="ml-1.5 text-slate-400 hover:text-slate-600 cursor-pointer align-middle p-0.5"
-                title="Mostrar/ocultar"
-              >
-                {showEmail ? <EyeIcon /> : <EyeOffIcon />}
-              </button>
+            <p className="text-base font-semibold">
+              {showSensitive ? (d.user?.email ?? '-') : '••••••••'}
             </p>
           </div>
         </div>

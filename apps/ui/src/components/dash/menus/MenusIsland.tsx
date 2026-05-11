@@ -4,7 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { queryClient } from '../../commons/Providers';
 import TableWithFetch from '../../commons/TableWithFetch';
 import Button from '../../commons/Button';
-import IconButton from '../../commons/IconButton';
+import IconButton from '../../commons/icons/IconButton';
 import MenuForm from './MenuForm';
 import { deleteMenu, MENUS_QUERY_KEY } from '../../../lib/menus-api';
 import type { Menu } from '../../../lib/menus-api';

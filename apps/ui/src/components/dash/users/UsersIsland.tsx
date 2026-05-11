@@ -4,7 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { queryClient } from '../../commons/Providers';
 import TableWithFetch from '../../commons/TableWithFetch';
 import Button from '../../commons/Button';
-import IconButton from '../../commons/IconButton';
+import IconButton from '../../commons/icons/IconButton';
 import { apiFetch } from '../../../lib/api';
 
 const USERS_QUERY_KEY = '/v1/users';

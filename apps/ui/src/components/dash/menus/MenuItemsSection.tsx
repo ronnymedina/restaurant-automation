@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import IconButton from '../../commons/IconButton';
+import IconButton from '../../commons/icons/IconButton';
 import Button from '../../commons/Button';
 import type { MenuItem } from '../../../lib/menus-api';
 import { deleteMenuItem, updateMenuItem } from '../../../lib/menus-api';

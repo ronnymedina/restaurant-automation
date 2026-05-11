@@ -1,6 +1,15 @@
+import React from 'react';
+import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 
-type AlertType = 'error' | 'warning' | 'success' | 'info';
+export const ALERT_TYPE = {
+  ERROR: 'error',
+  WARNING: 'warning',
+  SUCCESS: 'success',
+  INFO: 'info',
+} as const;
+
+export type AlertType = (typeof ALERT_TYPE)[keyof typeof ALERT_TYPE];
 
 interface AlertProps {
   open: boolean;
@@ -86,7 +95,7 @@ export default function Alert({
   const { iconBg, iconColor, btnColor, defaultConfirm, iconPath } = config[type];
   const resolvedConfirm = confirmLabel ?? defaultConfirm;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div
         className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 animate-modal-in"
@@ -112,7 +121,7 @@ export default function Alert({
         </div>
 
         <div className="mt-6 flex gap-3 justify-center">
-          {type === 'warning' && (
+          {type === ALERT_TYPE.WARNING && (
             <button
               type="button"
               onClick={onCancel}
@@ -132,6 +141,7 @@ export default function Alert({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

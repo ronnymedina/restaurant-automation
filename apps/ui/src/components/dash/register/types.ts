@@ -1,24 +1,19 @@
-export interface RegisterData {
-  id: string;
-  openedAt: string;
-  lastOrderNumber: number;
-  user?: { email: string };
-  _count?: { orders: number };
-}
+import type { AlertType } from '../../commons/Alert';
 
-export interface PaymentMethodInfo {
-  count: number;
-  total: number;
-}
+export { ALERT_TYPE } from '../../commons/Alert';
+export type { AlertType };
 
-export interface CloseSummary {
-  totalOrders: number;
-  totalSales: number;
-  paymentBreakdown: Record<string, PaymentMethodInfo>;
-}
+export const REGISTER_STATUS = {
+  LOADING: 'loading',
+  OPEN: 'open',
+  CLOSED: 'closed',
+  ERROR: 'error',
+} as const;
+
+export type RegisterStatus = (typeof REGISTER_STATUS)[keyof typeof REGISTER_STATUS];
 
 export interface AlertConfig {
-  type: 'error' | 'warning' | 'success' | 'info';
+  type: AlertType;
   title: string;
   message: string;
   onConfirm: () => void;
