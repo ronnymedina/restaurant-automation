@@ -79,7 +79,23 @@ async topProducts(@Param('sessionId') sessionId: string) { ... }
 }
 ```
 
-### 4. Frontend types — `apps/ui/src/components/dash/register/api.ts`
+### 4. Serializers para las respuestas de summary
+
+El módulo `cash-register` ya tiene `cash-shift.serializer.ts` para la sesión, pero las respuestas de summary (`closeSession` y `getSessionSummary`) se devuelven como objetos planos sin serializer — diferente al patrón del resto del proyecto (ver `apps/api-core/src/products/serializers/`).
+
+**Crear `serializers/session-summary.serializer.ts`** con clases que usen `@Expose`, `@Exclude`, `@Transform` como los demás módulos.
+
+**Conversión de dinero:** Todos los campos monetarios deben usar `fromCents()` de `src/common/helpers/money.ts`, no `Number()` directo. Los valores en DB están en centavos (BigInt); el frontend espera pesos decimales.
+
+Campos afectados:
+- `summary.totalSales` → `fromCents(bigint)`
+- `summary.ordersByStatus.*.total` → `fromCents(bigint)` por cada grupo
+- `summary.paymentBreakdown.*.total` → `fromCents(bigint)` por cada método
+- `topProducts[].total` → `fromCents(bigint)`
+
+El serializer existente `CashShiftSerializer` ya convierte `totalSales` y `openingBalance` con `Number()` directo — **corregir** para usar `fromCents()`.
+
+### 5. Frontend types — `apps/ui/src/components/dash/register/api.ts`
 
 Update `SessionDetailSummary` to match the new API response:
 
@@ -116,8 +132,33 @@ Add a new `getTopProducts(sessionId: string)` API function that calls `GET /v1/c
 | `cash-register.controller.ts` | Add `GET top-products/:sessionId` route |
 | `cash-register-session.repository.ts` | No changes needed |
 | `order.repository.ts` | No changes needed |
-| `dto/cash-register-response.dto.ts` | Update `SessionSummaryResponseDto` to reflect new shape |
+| `dto/cash-register-response.dto.ts` | Update DTOs para `SessionSummaryResponseDto` y nuevo `TopProductsResponseDto` |
+| `serializers/session-summary.serializer.ts` | Nuevo — serializer para respuestas de summary con `fromCents()` |
+| `serializers/cash-shift.serializer.ts` | Corregir `totalSales` y `openingBalance` para usar `fromCents()` |
 | `apps/ui/.../register/api.ts` | Update `SessionDetailSummary`; add `getTopProducts` function |
+
+---
+
+## E2E Tests
+
+### `POST /cash-register/close`
+- **200** — sesión cerrada; `summary.totalSales` refleja solo `COMPLETED`; `summary.paymentBreakdown` solo métodos de `COMPLETED`
+- **409 `NO_OPEN_CASH_REGISTER`** — no hay sesión abierta
+- **409 `PENDING_ORDERS_ON_SHIFT`** — hay órdenes en `CREATED` o `PROCESSING`; respuesta incluye `details.pendingCount`
+
+### `GET /cash-register/summary/:sessionId`
+- **200** — respuesta contiene:
+  - `summary.ordersByStatus` con las cuatro claves (`CREATED`, `PROCESSING`, `COMPLETED`, `CANCELLED`), cada una con `count` (número) y `total` (pesos decimales)
+  - `summary.totalSales` = suma de `CREATED + PROCESSING + COMPLETED` en pesos decimales
+  - `summary.totalOrders` = total de órdenes en sesión
+  - `summary.paymentBreakdown` = solo métodos de `COMPLETED`
+  - `orders` = array de órdenes completas
+  - Claves `completedOrders` y `cancelledOrders` ya NO presentes
+- **404 `CASH_REGISTER_NOT_FOUND`** — sessionId inválido
+
+### `GET /cash-register/top-products/:sessionId`
+- **200** — `topProducts` array, máx 5 elementos, cada uno con `id`, `name`, `quantity`, `total` (pesos decimales); excluye ítems de órdenes `CANCELLED`
+- **404 `CASH_REGISTER_NOT_FOUND`** — sessionId inválido
 
 ---
 
