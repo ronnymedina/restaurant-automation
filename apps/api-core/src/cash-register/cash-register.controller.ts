@@ -28,7 +28,15 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { CashShiftSerializer } from './serializers/cash-shift.serializer';
 import { PaginatedCashShiftsSerializer } from './serializers/paginated-cash-shifts.serializer';
-import { CloseSessionResponseDto, SessionSummaryResponseDto } from './dto/cash-register-response.dto';
+import {
+  CloseSessionResponseDto,
+  SessionSummaryResponseDto,
+  TopProductsResponseDto,
+} from './dto/cash-register-response.dto';
+import {
+  serializeSessionSummary,
+  serializeTopProducts,
+} from './serializers/session-summary.serializer';
 
 @ApiTags('Cash Register')
 @ApiBearerAuth()
@@ -62,15 +70,19 @@ export class CashRegisterController {
     const result = await this.registerService.closeSession(user.restaurantId, user.id);
     return {
       session: new CashShiftSerializer(result.session),
-      summary: result.summary,
+      summary: {
+        totalOrders: result.summary.totalOrders,
+        totalSales: result.summary.totalSales,
+        paymentBreakdown: result.summary.paymentBreakdown,
+      },
     };
   }
 
   @Get('history')
   @ApiOperation({ summary: 'Historial paginado de sesiones de caja' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Número de página (default: 1)' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Elementos por página (default: 10)' })
-  @ApiResponse({ status: 200, description: 'Lista paginada de sesiones', type: PaginatedCashShiftsSerializer })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiResponse({ status: 200, type: PaginatedCashShiftsSerializer })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async history(
@@ -83,27 +95,26 @@ export class CashRegisterController {
       query.limit,
     );
     return new PaginatedCashShiftsSerializer({
-      data: result.data.map(s => new CashShiftSerializer(s)),
+      data: result.data.map((s) => new CashShiftSerializer(s)),
       meta: result.meta,
     });
   }
 
   @Get('current')
   @ApiOperation({ summary: 'Sesión de caja actualmente abierta' })
-  @ApiResponse({ status: 200, description: 'Sesión activa con conteo de órdenes, o {} si no hay sesión abierta', type: CashShiftSerializer })
+  @ApiResponse({ status: 200, type: CashShiftSerializer })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async current(@CurrentUser() user: { restaurantId: string }) {
     const session = await this.registerService.getCurrentSession(user.restaurantId);
     if (!('id' in session)) return {};
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return new CashShiftSerializer(session as any);
   }
 
   @Get('summary/:sessionId')
   @ApiOperation({ summary: 'Resumen detallado de una sesión de caja' })
-  @ApiParam({ name: 'sessionId', description: 'ID de la sesión de caja', type: String })
-  @ApiResponse({ status: 200, description: 'Resumen completo con órdenes y productos más vendidos', type: SessionSummaryResponseDto })
+  @ApiParam({ name: 'sessionId', type: String })
+  @ApiResponse({ status: 200, type: SessionSummaryResponseDto })
   @ApiResponse({ status: 404, description: 'Sesión no encontrada (CASH_REGISTER_NOT_FOUND)' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
@@ -111,8 +122,20 @@ export class CashRegisterController {
     const result = await this.registerService.getSessionSummary(sessionId);
     return {
       session: new CashShiftSerializer(result.session),
-      summary: result.summary,
+      summary: serializeSessionSummary(result.summary),
       orders: result.orders,
     };
+  }
+
+  @Get('top-products/:sessionId')
+  @ApiOperation({ summary: 'Top 5 productos más vendidos de una sesión' })
+  @ApiParam({ name: 'sessionId', type: String })
+  @ApiResponse({ status: 200, type: TopProductsResponseDto })
+  @ApiResponse({ status: 404, description: 'Sesión no encontrada (CASH_REGISTER_NOT_FOUND)' })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
+  async topProducts(@Param('sessionId') sessionId: string) {
+    const result = await this.registerService.getTopProducts(sessionId);
+    return { topProducts: serializeTopProducts(result.topProducts) };
   }
 }
