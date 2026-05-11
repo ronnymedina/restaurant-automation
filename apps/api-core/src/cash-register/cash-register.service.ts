@@ -74,7 +74,7 @@ export class CashRegisterService {
 
       const paymentBreakdown: Record<string, { count: number; total: number }> = {};
       for (const group of paymentGroups) {
-        const method = group.paymentMethod ?? 'UNKNOWN';
+        const method = group.paymentMethod ?? 'SIN_METODO';
         paymentBreakdown[method] = {
           count: group._count.id,
           total: Number(group._sum.totalAmount ?? 0n),
@@ -147,7 +147,7 @@ export class CashRegisterService {
     let cancelledOrders = 0;
 
     for (const order of orders) {
-      const method = order.paymentMethod || 'UNKNOWN';
+      const method = order.paymentMethod ?? 'SIN_METODO';
       if (!paymentBreakdown[method]) {
         paymentBreakdown[method] = { count: 0, total: 0 };
       }
@@ -169,7 +169,7 @@ export class CashRegisterService {
       },
       _sum: { quantity: true, subtotal: true },
       orderBy: { _sum: { quantity: 'desc' } },
-      take: 10,
+      take: 5,
     });
 
     const productIds = topProductRows.map((r) => r.productId);

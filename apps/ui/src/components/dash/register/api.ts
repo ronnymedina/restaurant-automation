@@ -77,3 +77,52 @@ export async function closeSession(): Promise<ApiResult<CloseSessionResult>> {
   const data = await res.json();
   return { ok: true, data: data as CloseSessionResult };
 }
+
+export interface SessionHistoryMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface TopProduct {
+  id: string;
+  name: string;
+  quantity: number;
+  total: number;
+}
+
+export interface SessionDetailSummary {
+  totalOrders: number;
+  totalSales: number;
+  completedOrders: number | null;
+  cancelledOrders: number | null;
+  paymentBreakdown: Record<string, { count: number; total: number }>;
+  topProducts: TopProduct[];
+}
+
+export interface SessionDetail {
+  session: CashShiftDto;
+  summary: SessionDetailSummary;
+}
+
+export async function getSessionHistory(
+  page: number,
+  limit = 10,
+): Promise<ApiResult<{ data: CashShiftDto[]; meta: SessionHistoryMeta }>> {
+  const res = await apiFetch(`/v1/cash-register/history?page=${page}&limit=${limit}`);
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    return { ok: false, error, httpStatus: res.status };
+  }
+  return { ok: true, data: await res.json() };
+}
+
+export async function getSessionDetail(sessionId: string): Promise<ApiResult<SessionDetail>> {
+  const res = await apiFetch(`/v1/cash-register/summary/${sessionId}`);
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    return { ok: false, error, httpStatus: res.status };
+  }
+  return { ok: true, data: await res.json() };
+}
