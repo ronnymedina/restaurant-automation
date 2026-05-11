@@ -44,10 +44,6 @@ export default function RegisterPanel() {
   const [showId, setShowId] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
 
-  useEffect(() => {
-    loadStatus();
-  }, []);
-
   const loadStatus = useCallback(async () => {
     setStatus('loading');
     try {
@@ -76,6 +72,10 @@ export default function RegisterPanel() {
       setStatus('error');
     }
   }, []);
+
+  useEffect(() => {
+    loadStatus();
+  }, [loadStatus]);
 
   async function openRegister() {
     const res = await apiFetch('/v1/cash-register/open', { method: 'POST' });
