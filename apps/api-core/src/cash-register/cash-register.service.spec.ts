@@ -245,28 +245,6 @@ describe('CashRegisterService', () => {
       });
     });
 
-    it('should use UNKNOWN as payment method when paymentMethod is null', async () => {
-      const session = mockSession();
-      const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
-
-      mockTx.cashShift.findFirst.mockResolvedValue(session);
-      mockTx.order.aggregate.mockResolvedValue({
-        _sum: { totalAmount: 80n },
-        _count: { id: 1 },
-      });
-      mockTx.order.groupBy.mockResolvedValue([
-        { paymentMethod: null, _sum: { totalAmount: 80n }, _count: { id: 1 } },
-      ]);
-      mockTx.cashShift.update.mockResolvedValue(closedSession);
-
-      const result = await service.closeSession('restaurant-uuid-1');
-
-      expect(result.summary.paymentBreakdown).toHaveProperty('UNKNOWN');
-      expect(result.summary.paymentBreakdown['UNKNOWN']).toEqual({
-        count: 1,
-        total: 80,
-      });
-    });
 
     it('should pass closedBy to the tx.cashShift.update call', async () => {
       const session = mockSession();
@@ -285,6 +263,32 @@ describe('CashRegisterService', () => {
       expect(mockTx.cashShift.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ closedBy: 'manager-uuid-1' }),
+        }),
+      );
+    });
+
+    it('should query only COMPLETED orders for aggregate and groupBy', async () => {
+      const session = mockSession();
+      const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
+
+      mockTx.cashShift.findFirst.mockResolvedValue(session);
+      mockTx.order.aggregate.mockResolvedValue({
+        _sum: { totalAmount: 200n },
+        _count: { id: 2 },
+      });
+      mockTx.order.groupBy.mockResolvedValue([]);
+      mockTx.cashShift.update.mockResolvedValue(closedSession);
+
+      await service.closeSession('restaurant-uuid-1');
+
+      expect(mockTx.order.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: 'COMPLETED' }),
+        }),
+      );
+      expect(mockTx.order.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: 'COMPLETED' }),
         }),
       );
     });

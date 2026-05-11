@@ -57,13 +57,13 @@ export class CashRegisterService {
 
       const [agg, paymentGroups] = await Promise.all([
         tx.order.aggregate({
-          where: { cashShiftId: session.id },
+          where: { cashShiftId: session.id, status: OrderStatus.COMPLETED },
           _sum: { totalAmount: true },
           _count: { id: true },
         }),
         tx.order.groupBy({
           by: ['paymentMethod'],
-          where: { cashShiftId: session.id },
+          where: { cashShiftId: session.id, status: OrderStatus.COMPLETED },
           _sum: { totalAmount: true },
           _count: { id: true },
         }),
@@ -74,7 +74,7 @@ export class CashRegisterService {
 
       const paymentBreakdown: Record<string, { count: number; total: number }> = {};
       for (const group of paymentGroups) {
-        const method = group.paymentMethod ?? 'SIN_METODO';
+        const method = group.paymentMethod ?? 'UNKNOWN';
         paymentBreakdown[method] = {
           count: group._count.id,
           total: Number(group._sum.totalAmount ?? 0n),
