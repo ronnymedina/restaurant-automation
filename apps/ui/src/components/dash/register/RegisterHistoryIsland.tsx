@@ -9,8 +9,10 @@ import { formatDate } from '../../../lib/date';
 import {
   getSessionHistory,
   getSessionDetail,
+  getTopProducts,
   type CashShiftDto,
   type SessionDetail,
+  type TopProduct,
 } from './api';
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -37,6 +39,7 @@ export default function RegisterHistoryIsland() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detail, setDetail] = useState<SessionDetail | null>(null);
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [detailError, setDetailError] = useState('');
 
   const loadHistory = useCallback(async (p: number) => {
@@ -64,16 +67,21 @@ export default function RegisterHistoryIsland() {
 
   async function openDetail(sessionId: string) {
     setDetail(null);
+    setTopProducts([]);
     setDetailError('');
     setDetailLoading(true);
     setDetailOpen(true);
-    const result = await getSessionDetail(sessionId);
+    const [detailResult, topResult] = await Promise.all([
+      getSessionDetail(sessionId),
+      getTopProducts(sessionId),
+    ]);
     setDetailLoading(false);
-    if (!result.ok) {
+    if (!detailResult.ok) {
       setDetailError('Error al cargar el detalle');
       return;
     }
-    setDetail(result.data);
+    setDetail(detailResult.data);
+    if (topResult.ok) setTopProducts(topResult.data.topProducts);
   }
 
   const columns = useMemo<ColumnDef<CashShiftDto>[]>(
@@ -170,11 +178,11 @@ export default function RegisterHistoryIsland() {
             <p className="text-xs text-slate-500 mt-1">Total pedidos</p>
           </div>
           <div className="bg-blue-50 rounded-lg p-4 text-center">
-            <p className="text-lg font-bold text-blue-700">{summary.completedOrders ?? '—'}</p>
+            <p className="text-lg font-bold text-blue-700">{summary.ordersByStatus?.COMPLETED?.count ?? '—'}</p>
             <p className="text-xs text-blue-600 mt-1">Completados</p>
           </div>
           <div className="bg-red-50 rounded-lg p-4 text-center">
-            <p className="text-lg font-bold text-red-600">{summary.cancelledOrders ?? '—'}</p>
+            <p className="text-lg font-bold text-red-600">{summary.ordersByStatus?.CANCELLED?.count ?? '—'}</p>
             <p className="text-xs text-red-500 mt-1">Cancelados</p>
           </div>
         </div>
@@ -203,10 +211,10 @@ export default function RegisterHistoryIsland() {
         <div>
           <h4 className="font-semibold text-slate-700 mb-2">Platillos más vendidos</h4>
           <div className="bg-slate-50 rounded-lg px-4 py-2">
-            {summary.topProducts.length === 0 ? (
+            {topProducts.length === 0 ? (
               <p className="text-slate-400 text-sm py-1">Sin datos de productos</p>
             ) : (
-              summary.topProducts.map((p, i) => (
+              topProducts.map((p, i) => (
                 <div
                   key={p.id}
                   className="flex items-center gap-3 py-1.5 border-b border-slate-100 last:border-0"
