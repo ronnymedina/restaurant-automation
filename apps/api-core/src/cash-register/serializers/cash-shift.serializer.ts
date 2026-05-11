@@ -2,6 +2,8 @@ import { CashShift, CashShiftStatus } from '@prisma/client';
 import { Exclude, Expose, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { fromCents } from '../../common/helpers/money';
+
 import { CashShiftWithUser } from '../cash-register-session.repository';
 
 @Exclude()
@@ -26,12 +28,12 @@ export class CashShiftSerializer implements Omit<CashShift, 'openingBalance' | '
   @Expose()
   lastOrderNumber: number;
 
-  @Transform(({ value }: { value: bigint | null | undefined }) => (value != null ? Number(value) : 0))
+  @Transform(({ value }: { value: bigint | null | undefined }) => (value != null ? fromCents(value) : 0))
   @ApiProperty()
   @Expose()
   openingBalance: number;
 
-  @Transform(({ value }: { value: bigint | null | undefined }) => (value != null ? Number(value) : null))
+  @Transform(({ value }: { value: bigint | null | undefined }) => (value != null ? fromCents(value) : null))
   @ApiPropertyOptional({ nullable: true })
   @Expose()
   totalSales: number | null;
