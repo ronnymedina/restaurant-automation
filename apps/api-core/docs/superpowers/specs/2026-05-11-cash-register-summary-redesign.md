@@ -162,6 +162,21 @@ Add a new `getTopProducts(sessionId: string)` API function that calls `GET /v1/c
 
 ---
 
+### 6. Actualizar `cash-register.module.info.md`
+
+Después de implementar los cambios, actualizar `apps/api-core/src/cash-register/cash-register.module.info.md`:
+
+- **`CloseSessionResponseDto`** — `summary.totalSales` y `summary.paymentBreakdown` ahora reflejan solo `COMPLETED`. Actualizar el JSON de ejemplo.
+- **`SessionSummaryResponseDto`** — reemplazar el JSON de ejemplo con la nueva forma: `ordersByStatus`, quitar `completedOrders`/`cancelledOrders`/`topProducts`.
+- **Nuevo `TopProductsResponseDto`** — agregar JSON de ejemplo para `GET /top-products/:sessionId`.
+- **Tabla de endpoints** — agregar la nueva ruta `GET /v1/cash-register/top-products/:sessionId`.
+- **Sección E2E de `summary`** — actualizar los casos de prueba para reflejar la nueva estructura de respuesta (quitar `completedOrders`, `cancelledOrders`, `topProducts`; agregar `ordersByStatus`).
+- **Sección E2E de `close`** — agregar caso: `summary.totalSales` refleja solo `COMPLETED`.
+- **Nueva sección E2E para `top-products`** — casos: 200 con array, 404 sesión no encontrada, órdenes `CANCELLED` excluidas.
+- **Notas de implementación** — corregir la nota sobre `Number()` para mencionar `fromCents()`.
+
+---
+
 ## Out of Scope
 
 - Changes to `GET /cash-register/current` — used only to check open/closed state, no summary needed.
