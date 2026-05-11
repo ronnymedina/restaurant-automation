@@ -106,4 +106,23 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
     expect(typeof res.body.summary.totalSales).toBe('number');
     expect(res.body.summary.totalOrders).toBe(1);
   });
+
+  it('summary.totalSales refleja solo órdenes COMPLETED (excluye CANCELLED)', async () => {
+    const restMixed = await seedRestaurant(prisma, 'Mixed');
+    const tokenMixed = await login(app, restMixed.admin.email);
+    const product = await seedProduct(prisma, restMixed.restaurant.id, restMixed.category.id);
+    const shiftMixed = await openCashShiftViaApi(app, tokenMixed);
+    // 1 COMPLETED order (1000 centavos = 10 pesos) + 1 CANCELLED (should be excluded)
+    await seedOrderOnShift(prisma, restMixed.restaurant.id, shiftMixed, product.id, 'COMPLETED');
+    await seedOrderOnShift(prisma, restMixed.restaurant.id, shiftMixed, product.id, 'CANCELLED');
+
+    const res = await request(app.getHttpServer())
+      .post('/v1/cash-register/close')
+      .set('Authorization', `Bearer ${tokenMixed}`)
+      .expect(200);
+
+    // Only the COMPLETED order counts (1000 centavos = 10 pesos via fromCents)
+    expect(res.body.summary.totalSales).toBeCloseTo(10, 2);
+    expect(res.body.summary.totalOrders).toBe(1);
+  });
 });
