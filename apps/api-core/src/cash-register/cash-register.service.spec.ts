@@ -246,6 +246,27 @@ describe('CashRegisterService', () => {
     });
 
 
+    it('should use UNKNOWN as payment method when paymentMethod is null', async () => {
+      const session = mockSession();
+      const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
+
+      mockTx.cashShift.findFirst.mockResolvedValue(session);
+      mockTx.order.aggregate.mockResolvedValue({
+        _sum: { totalAmount: 100n },
+        _count: { id: 1 },
+      });
+      mockTx.order.groupBy.mockResolvedValue([
+        { paymentMethod: null, _sum: { totalAmount: 100n }, _count: { id: 1 } },
+      ]);
+      mockTx.cashShift.update.mockResolvedValue(closedSession);
+
+      const result = await service.closeSession('restaurant-uuid-1');
+
+      expect(result.summary.paymentBreakdown).toHaveProperty('UNKNOWN');
+      expect(result.summary.paymentBreakdown['UNKNOWN']).toEqual({ count: 1, total: 100 });
+      expect(result.summary.paymentBreakdown).not.toHaveProperty('null');
+    });
+
     it('should pass closedBy to the tx.cashShift.update call', async () => {
       const session = mockSession();
       const closedSession = mockSession({ status: CashShiftStatus.CLOSED, closedBy: 'manager-uuid-1' });
