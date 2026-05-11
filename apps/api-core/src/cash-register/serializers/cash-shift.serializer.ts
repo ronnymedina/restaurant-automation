@@ -16,9 +16,7 @@ export class CashShiftSerializer implements Omit<CashShift, 'openingBalance' | '
   @Expose()
   restaurantId: string;
 
-  @ApiProperty()
-  @Expose()
-  userId: string;
+  userId: string; // not exposed
 
   @ApiProperty({ enum: CashShiftStatus })
   @Expose()
@@ -58,9 +56,10 @@ export class CashShiftSerializer implements Omit<CashShift, 'openingBalance' | '
   @Expose()
   _count?: { orders: number };
 
-  @ApiPropertyOptional({ type: Object, nullable: true })
+  @Transform(({ obj }: { obj: { user?: { email: string } | null } }) => obj.user?.email ?? null)
+  @ApiPropertyOptional({ nullable: true })
   @Expose()
-  user?: { id: string; email: string } | null;
+  openedByEmail: string | null;
 
   constructor(partial: Partial<CashShiftWithUser & { _count?: { orders: number }; user?: { id: string; email: string } | null }>) {
     Object.assign(this, partial);

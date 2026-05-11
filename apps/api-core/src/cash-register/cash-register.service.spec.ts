@@ -489,7 +489,7 @@ describe('CashRegisterService', () => {
       expect(result.summary.totalOrders).toBe(5);
     });
 
-    it('should compute paymentBreakdown from COMPLETED orders only via second groupBy', async () => {
+    it('should compute paymentBreakdown from non-CANCELLED orders via second groupBy', async () => {
       const session = mockSession({ status: 'CLOSED', totalOrders: null, totalSales: null });
       mockRegisterSessionRepository.findById.mockResolvedValue(session);
       (mockPrismaService.order as any).groupBy
@@ -500,7 +500,6 @@ describe('CashRegisterService', () => {
           { paymentMethod: 'CASH', _sum: { totalAmount: 150n }, _count: { id: 1 } },
           { paymentMethod: 'CARD', _sum: { totalAmount: 50n },  _count: { id: 1 } },
         ]);
-      mockOrderRepository.findBySessionId.mockResolvedValue([]);
 
       const result = await service.getSessionSummary('session-uuid-1');
 
@@ -510,12 +509,11 @@ describe('CashRegisterService', () => {
       });
 
       const groupByCalls = (mockPrismaService.order as any).groupBy.mock.calls;
-      // Find the paymentMethod groupBy call by its 'by' argument
       const paymentCall = groupByCalls.find(
         ([arg]: [any]) => Array.isArray(arg.by) && arg.by.includes('paymentMethod'),
       );
       expect(paymentCall?.[0]).toMatchObject({
-        where: expect.objectContaining({ status: OrderStatus.COMPLETED }),
+        where: expect.objectContaining({ status: { not: OrderStatus.CANCELLED } }),
       });
     });
 

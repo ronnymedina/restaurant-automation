@@ -151,7 +151,7 @@ export class CashRegisterService {
       }),
       this.prisma.order.groupBy({
         by: ['paymentMethod'],
-        where: { cashShiftId: session.id, status: OrderStatus.COMPLETED },
+        where: { cashShiftId: session.id, status: { not: OrderStatus.CANCELLED } },
         _sum: { totalAmount: true },
         _count: { id: true },
       }),
