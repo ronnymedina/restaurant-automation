@@ -438,20 +438,19 @@ describe('CashRegisterService', () => {
       expect(mockOrderRepository.findBySessionId).not.toHaveBeenCalled();
     });
 
-    it('should return session, summary, and orders', async () => {
+    it('should return session and summary', async () => {
       const session = mockSession({ status: 'CLOSED', totalOrders: null, totalSales: null });
       mockRegisterSessionRepository.findById.mockResolvedValue(session);
       (mockPrismaService.order as any).groupBy.mockResolvedValue([
         { status: 'COMPLETED', _sum: { totalAmount: 200n }, _count: { id: 2 } },
         { status: 'CANCELLED', _sum: { totalAmount: 50n }, _count: { id: 1 } },
       ]);
-      mockOrderRepository.findBySessionId.mockResolvedValue([]);
 
       const result = await service.getSessionSummary('session-uuid-1');
 
       expect(result.session).toEqual(session);
-      expect(Array.isArray(result.orders)).toBe(true);
       expect(result.summary).toBeDefined();
+      expect((result as any).orders).toBeUndefined();
     });
 
     it('should build ordersByStatus with count and total for each status', async () => {

@@ -55,7 +55,7 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     expect(res.body.code).toBe('REGISTER_NOT_FOUND');
   });
 
-  it('Retorna session, summary y orders', async () => {
+  it('Retorna session y summary (sin orders)', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
@@ -64,7 +64,7 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     expect(res.body.session).toBeDefined();
     expect(res.body.session.id).toBe(shiftId);
     expect(res.body.summary).toBeDefined();
-    expect(Array.isArray(res.body.orders)).toBe(true);
+    expect(res.body.orders).toBeUndefined();
   });
 
   it('summary contiene ordersByStatus con las cuatro claves', async () => {

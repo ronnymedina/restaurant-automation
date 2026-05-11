@@ -68,5 +68,4 @@ export class TopProductsResponseDto {
 export class SessionSummaryResponseDto {
   @ApiProperty({ type: CashShiftDto }) session: CashShiftDto;
   @ApiProperty({ type: NewSessionSummaryDto }) summary: NewSessionSummaryDto;
-  @ApiProperty({ type: [Object] }) orders: any[];
 }

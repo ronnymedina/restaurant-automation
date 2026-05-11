@@ -123,7 +123,6 @@ export class CashRegisterController {
     return {
       session: new CashShiftSerializer(result.session),
       summary: serializeSessionSummary(result.summary),
-      orders: result.orders,
     };
   }
 

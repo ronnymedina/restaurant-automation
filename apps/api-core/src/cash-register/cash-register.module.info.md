@@ -66,8 +66,7 @@ Note: `_count` is only present in responses from `GET /current` and `GET /histor
     "paymentBreakdown": {
       "CASH": { "count": 2, "total": 20.0 }
     }
-  },
-  "orders": []
+  }
 }
 ```
 

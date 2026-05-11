@@ -142,7 +142,7 @@ export class CashRegisterService {
     const session = await this.registerSessionRepository.findById(sessionId);
     if (!session) throw new CashRegisterNotFoundException(sessionId);
 
-    const [statusGroups, paymentGroups, orders] = await Promise.all([
+    const [statusGroups, paymentGroups] = await Promise.all([
       this.prisma.order.groupBy({
         by: ['status'],
         where: { cashShiftId: session.id },
@@ -155,7 +155,6 @@ export class CashRegisterService {
         _sum: { totalAmount: true },
         _count: { id: true },
       }),
-      this.orderRepository.findBySessionId(sessionId, session.restaurantId),
     ]);
 
     const allStatuses: OrderStatus[] = [
@@ -197,7 +196,6 @@ export class CashRegisterService {
         totalOrders,
         paymentBreakdown,
       },
-      orders,
     };
   }
 

@@ -116,7 +116,6 @@ export interface TopProductsResult {
 export interface SessionDetail {
   session: CashShiftDto;
   summary: SessionDetailSummary;
-  orders: unknown[];
 }
 
 export async function getSessionHistory(
