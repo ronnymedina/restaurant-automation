@@ -533,4 +533,65 @@ describe('CashRegisterService', () => {
       expect((result.summary as any).cancelledOrders).toBeUndefined();
     });
   });
+
+  describe('getTopProducts', () => {
+    it('should throw CashRegisterNotFoundException when session not found', async () => {
+      mockRegisterSessionRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.getTopProducts('nonexistent-id'),
+      ).rejects.toThrow(CashRegisterNotFoundException);
+    });
+
+    it('should return top 5 products sorted by quantity, excluding CANCELLED orders', async () => {
+      const session = mockSession({ status: 'CLOSED' });
+      mockRegisterSessionRepository.findById.mockResolvedValue(session);
+      mockPrismaService.orderItem.groupBy.mockResolvedValue([
+        { productId: 'prod-1', _sum: { quantity: 10, subtotal: 1000n } },
+        { productId: 'prod-2', _sum: { quantity: 5,  subtotal: 500n  } },
+      ]);
+      mockPrismaService.product.findMany.mockResolvedValue([
+        { id: 'prod-1', name: 'Burger' },
+        { id: 'prod-2', name: 'Fries'  },
+      ]);
+
+      const result = await service.getTopProducts('session-uuid-1');
+
+      expect(result.topProducts).toHaveLength(2);
+      expect(result.topProducts[0]).toEqual({ id: 'prod-1', name: 'Burger', quantity: 10, total: 1000n });
+      expect(result.topProducts[1]).toEqual({ id: 'prod-2', name: 'Fries',  quantity: 5,  total: 500n  });
+    });
+
+    it('should call orderItem.groupBy with status { not: CANCELLED } filter', async () => {
+      const session = mockSession({ status: 'CLOSED' });
+      mockRegisterSessionRepository.findById.mockResolvedValue(session);
+      mockPrismaService.orderItem.groupBy.mockResolvedValue([]);
+      mockPrismaService.product.findMany.mockResolvedValue([]);
+
+      await service.getTopProducts('session-uuid-1');
+
+      expect(mockPrismaService.orderItem.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            order: expect.objectContaining({
+              status: { not: OrderStatus.CANCELLED },
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should use fallback name "Producto" when product not found', async () => {
+      const session = mockSession({ status: 'CLOSED' });
+      mockRegisterSessionRepository.findById.mockResolvedValue(session);
+      mockPrismaService.orderItem.groupBy.mockResolvedValue([
+        { productId: 'orphan-id', _sum: { quantity: 1, subtotal: 100n } },
+      ]);
+      mockPrismaService.product.findMany.mockResolvedValue([]);
+
+      const result = await service.getTopProducts('session-uuid-1');
+
+      expect(result.topProducts[0].name).toBe('Producto');
+    });
+  });
 });

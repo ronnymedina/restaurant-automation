@@ -198,4 +198,38 @@ export class CashRegisterService {
       orders,
     };
   }
+
+  async getTopProducts(sessionId: string) {
+    const session = await this.registerSessionRepository.findById(sessionId);
+    if (!session) throw new CashRegisterNotFoundException(sessionId);
+
+    const topProductRows = await this.prisma.orderItem.groupBy({
+      by: ['productId'],
+      where: {
+        order: {
+          cashShiftId: session.id,
+          status: { not: OrderStatus.CANCELLED },
+        },
+      },
+      _sum: { quantity: true, subtotal: true },
+      orderBy: { _sum: { quantity: 'desc' } },
+      take: 5,
+    });
+
+    const productIds = topProductRows.map((r) => r.productId);
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, name: true },
+    });
+    const productNameMap = Object.fromEntries(products.map((p) => [p.id, p.name]));
+
+    return {
+      topProducts: topProductRows.map((r) => ({
+        id: r.productId,
+        name: productNameMap[r.productId] ?? 'Producto',
+        quantity: r._sum.quantity ?? 0,
+        total: r._sum.subtotal ?? 0n,
+      })),
+    };
+  }
 }
