@@ -140,63 +140,59 @@ export class CashRegisterService {
     const session = await this.registerSessionRepository.findById(sessionId);
     if (!session) throw new CashRegisterNotFoundException(sessionId);
 
-    const orders = await this.orderRepository.findBySessionId(sessionId, session.restaurantId);
+    const [statusGroups, paymentGroups, orders] = await Promise.all([
+      this.prisma.order.groupBy({
+        by: ['status'],
+        where: { cashShiftId: session.id },
+        _sum: { totalAmount: true },
+        _count: { id: true },
+      }),
+      this.prisma.order.groupBy({
+        by: ['paymentMethod'],
+        where: { cashShiftId: session.id, status: OrderStatus.COMPLETED },
+        _sum: { totalAmount: true },
+        _count: { id: true },
+      }),
+      this.orderRepository.findBySessionId(sessionId, session.restaurantId),
+    ]);
 
-    const paymentBreakdown: Record<string, { count: number; total: number }> = {};
-    let completedOrders = 0;
-    let cancelledOrders = 0;
+    const allStatuses: OrderStatus[] = [
+      OrderStatus.CREATED,
+      OrderStatus.PROCESSING,
+      OrderStatus.COMPLETED,
+      OrderStatus.CANCELLED,
+    ];
 
-    for (const order of orders) {
-      const method = order.paymentMethod ?? 'SIN_METODO';
-      if (!paymentBreakdown[method]) {
-        paymentBreakdown[method] = { count: 0, total: 0 };
-      }
-      paymentBreakdown[method].count++;
-      paymentBreakdown[method].total += Number(order.totalAmount);
+    const ordersByStatus = Object.fromEntries(
+      allStatuses.map((s) => {
+        const g = statusGroups.find((r) => r.status === s);
+        return [s, { count: g?._count.id ?? 0, total: g?._sum.totalAmount ?? 0n }];
+      }),
+    ) as Record<OrderStatus, { count: number; total: bigint }>;
 
-      if (order.status === 'COMPLETED') completedOrders++;
-      else if (order.status === 'CANCELLED') cancelledOrders++;
+    const totalSales =
+      (ordersByStatus[OrderStatus.CREATED].total ?? 0n) +
+      (ordersByStatus[OrderStatus.PROCESSING].total ?? 0n) +
+      (ordersByStatus[OrderStatus.COMPLETED].total ?? 0n);
+
+    const totalOrders = statusGroups.reduce((sum, g) => sum + g._count.id, 0);
+
+    const paymentBreakdown: Record<string, { count: number; total: bigint }> = {};
+    for (const g of paymentGroups) {
+      const method = g.paymentMethod ?? 'UNKNOWN';
+      paymentBreakdown[method] = {
+        count: g._count.id,
+        total: g._sum.totalAmount ?? 0n,
+      };
     }
-
-    // Top-selling products aggregated via DB groupBy (performant for large sessions)
-    const topProductRows = await this.prisma.orderItem.groupBy({
-      by: ['productId'],
-      where: {
-        order: {
-          cashShiftId: session.id,
-          status: { not: OrderStatus.CANCELLED },
-        },
-      },
-      _sum: { quantity: true, subtotal: true },
-      orderBy: { _sum: { quantity: 'desc' } },
-      take: 5,
-    });
-
-    const productIds = topProductRows.map((r) => r.productId);
-    const products = await this.prisma.product.findMany({
-      where: { id: { in: productIds } },
-      select: { id: true, name: true },
-    });
-    const productNameMap = Object.fromEntries(products.map((p) => [p.id, p.name]));
-
-    const topProducts = topProductRows.map((r) => ({
-      id: r.productId,
-      name: productNameMap[r.productId] ?? 'Producto',
-      quantity: r._sum.quantity ?? 0,
-      total: Number(r._sum.subtotal ?? 0n),
-    }));
 
     return {
       session,
       summary: {
-        totalOrders: Number(session.totalOrders) || orders.length,
-        totalSales:
-          Number(session.totalSales) ||
-          orders.reduce((s, o) => s + Number(o.totalAmount), 0),
-        completedOrders,
-        cancelledOrders,
+        ordersByStatus,
+        totalSales,
+        totalOrders,
         paymentBreakdown,
-        topProducts,
       },
       orders,
     };
