@@ -85,6 +85,23 @@ export interface SessionHistoryMeta {
   totalPages: number;
 }
 
+export interface OrderStatusGroup {
+  count: number;
+  total: number;
+}
+
+export interface SessionDetailSummary {
+  ordersByStatus: {
+    CREATED: OrderStatusGroup;
+    PROCESSING: OrderStatusGroup;
+    COMPLETED: OrderStatusGroup;
+    CANCELLED: OrderStatusGroup;
+  };
+  totalSales: number;
+  totalOrders: number;
+  paymentBreakdown: Record<string, { count: number; total: number }>;
+}
+
 export interface TopProduct {
   id: string;
   name: string;
@@ -92,18 +109,14 @@ export interface TopProduct {
   total: number;
 }
 
-export interface SessionDetailSummary {
-  totalOrders: number;
-  totalSales: number;
-  completedOrders: number | null;
-  cancelledOrders: number | null;
-  paymentBreakdown: Record<string, { count: number; total: number }>;
+export interface TopProductsResult {
   topProducts: TopProduct[];
 }
 
 export interface SessionDetail {
   session: CashShiftDto;
   summary: SessionDetailSummary;
+  orders: unknown[];
 }
 
 export async function getSessionHistory(
@@ -120,6 +133,15 @@ export async function getSessionHistory(
 
 export async function getSessionDetail(sessionId: string): Promise<ApiResult<SessionDetail>> {
   const res = await apiFetch(`/v1/cash-register/summary/${sessionId}`);
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    return { ok: false, error, httpStatus: res.status };
+  }
+  return { ok: true, data: await res.json() };
+}
+
+export async function getTopProducts(sessionId: string): Promise<ApiResult<TopProductsResult>> {
+  const res = await apiFetch(`/v1/cash-register/top-products/${sessionId}`);
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
     return { ok: false, error, httpStatus: res.status };
