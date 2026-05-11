@@ -92,7 +92,44 @@ export default function RegisterPanel() {
     loadStatus();
   }
 
-  function handleCloseRegisterClick() {}
+  function handleCloseRegisterClick() {
+    setAlert({
+      type: 'warning',
+      title: 'Cerrar caja',
+      message: '¿Estás seguro de cerrar la caja?',
+      onConfirm: performClose,
+      onCancel: () => setAlert(null),
+    });
+  }
+
+  async function performClose() {
+    setAlert(null);
+    const res = await apiFetch('/v1/cash-register/close', { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      if (err?.code === 'PENDING_ORDERS_ON_SHIFT') {
+        const count = err.details?.pendingCount ?? 'algunos';
+        setAlert({
+          type: 'error',
+          title: 'No se puede cerrar',
+          message: `Hay ${count} pedido(s) pendiente(s). Completa o cancela los pedidos antes de cerrar.`,
+          onConfirm: () => setAlert(null),
+        });
+      } else {
+        setAlert({
+          type: 'error',
+          title: 'Error',
+          message: err?.message || 'Error al cerrar caja',
+          onConfirm: () => setAlert(null),
+        });
+      }
+      return;
+    }
+    const data = await res.json();
+    setSummaryData(data.summary);
+    setShowSummary(true);
+    loadStatus();
+  }
 
   function renderContent() {
     if (status === 'loading') {

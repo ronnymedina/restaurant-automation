@@ -115,3 +115,104 @@ test('shows fallback error message when openRegister fails without message', asy
     expect(screen.getByText('Error al abrir caja')).toBeInTheDocument(),
   );
 });
+
+// --- closeRegister ---
+
+const openData = {
+  id: 'shift-abc',
+  openedAt: '2026-01-01T10:00:00.000Z',
+  lastOrderNumber: 3,
+  user: { email: 'admin@test.com' },
+  _count: { orders: 2 },
+};
+
+test('clicking Cerrar Caja shows warning Alert', async () => {
+  mockApiFetch.mockResolvedValue({ ok: true, json: async () => openData } as Response);
+  render(<RegisterPanel />);
+  await waitFor(() => screen.getByRole('button', { name: 'Cerrar Caja' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cerrar Caja' }));
+  expect(screen.getByText('¿Estás seguro de cerrar la caja?')).toBeInTheDocument();
+});
+
+test('canceling close Alert hides it', async () => {
+  mockApiFetch.mockResolvedValue({ ok: true, json: async () => openData } as Response);
+  render(<RegisterPanel />);
+  await waitFor(() => screen.getByRole('button', { name: 'Cerrar Caja' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cerrar Caja' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+  expect(screen.queryByText('¿Estás seguro de cerrar la caja?')).not.toBeInTheDocument();
+});
+
+test('confirming close calls close API endpoint', async () => {
+  const summary = { totalOrders: 2, totalSales: 100, paymentBreakdown: {} };
+  mockApiFetch
+    .mockResolvedValueOnce({ ok: true, json: async () => openData } as Response)
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ summary }) } as Response)
+    .mockResolvedValueOnce({ ok: true, json: async () => null } as Response);
+
+  render(<RegisterPanel />);
+  await waitFor(() => screen.getByRole('button', { name: 'Cerrar Caja' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cerrar Caja' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+  await waitFor(() =>
+    expect(mockApiFetch).toHaveBeenCalledWith('/v1/cash-register/close', { method: 'POST' }),
+  );
+});
+
+test('shows RegisterSummaryModal on successful close', async () => {
+  const summary = { totalOrders: 5, totalSales: 250, paymentBreakdown: {} };
+  mockApiFetch
+    .mockResolvedValueOnce({ ok: true, json: async () => openData } as Response)
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ summary }) } as Response)
+    .mockResolvedValueOnce({ ok: true, json: async () => null } as Response);
+
+  render(<RegisterPanel />);
+  await waitFor(() => screen.getByRole('button', { name: 'Cerrar Caja' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cerrar Caja' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+  await waitFor(() => expect(screen.getByText('Resumen de Caja')).toBeInTheDocument());
+  expect(screen.getByText('$250.00')).toBeInTheDocument();
+});
+
+test('shows error Alert on PENDING_ORDERS_ON_SHIFT', async () => {
+  mockApiFetch
+    .mockResolvedValueOnce({ ok: true, json: async () => openData } as Response)
+    .mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({
+        code: 'PENDING_ORDERS_ON_SHIFT',
+        details: { pendingCount: 3 },
+      }),
+    } as Response);
+
+  render(<RegisterPanel />);
+  await waitFor(() => screen.getByRole('button', { name: 'Cerrar Caja' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cerrar Caja' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+  await waitFor(() =>
+    expect(
+      screen.getByText(/Hay 3 pedido\(s\) pendiente\(s\)/),
+    ).toBeInTheDocument(),
+  );
+});
+
+test('shows error Alert on generic close failure', async () => {
+  mockApiFetch
+    .mockResolvedValueOnce({ ok: true, json: async () => openData } as Response)
+    .mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ message: 'Error interno' }),
+    } as Response);
+
+  render(<RegisterPanel />);
+  await waitFor(() => screen.getByRole('button', { name: 'Cerrar Caja' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cerrar Caja' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+  await waitFor(() =>
+    expect(screen.getByText('Error interno')).toBeInTheDocument(),
+  );
+});
