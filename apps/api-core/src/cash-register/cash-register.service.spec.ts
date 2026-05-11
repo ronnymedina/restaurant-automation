@@ -511,8 +511,11 @@ describe('CashRegisterService', () => {
       });
 
       const groupByCalls = (mockPrismaService.order as any).groupBy.mock.calls;
-      // The second groupBy call should have status: OrderStatus.COMPLETED in the where clause
-      expect(groupByCalls[1][0]).toMatchObject({
+      // Find the paymentMethod groupBy call by its 'by' argument
+      const paymentCall = groupByCalls.find(
+        ([arg]: [any]) => Array.isArray(arg.by) && arg.by.includes('paymentMethod'),
+      );
+      expect(paymentCall?.[0]).toMatchObject({
         where: expect.objectContaining({ status: OrderStatus.COMPLETED }),
       });
     });

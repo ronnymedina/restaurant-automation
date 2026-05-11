@@ -175,6 +175,7 @@ export class CashRegisterService {
       (ordersByStatus[OrderStatus.PROCESSING].total ?? 0n) +
       (ordersByStatus[OrderStatus.COMPLETED].total ?? 0n);
 
+    // counts all statuses including CANCELLED (totalSales excludes it)
     const totalOrders = statusGroups.reduce((sum, g) => sum + g._count.id, 0);
 
     const paymentBreakdown: Record<string, { count: number; total: bigint }> = {};
