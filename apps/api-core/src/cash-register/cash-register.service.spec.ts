@@ -205,7 +205,7 @@ describe('CashRegisterService', () => {
       });
       expect(result.session).toEqual(closedSession);
       expect(result.summary.totalOrders).toBe(2);
-      expect(result.summary.totalSales).toBe(350);
+      expect(result.summary.totalSales).toBe(3.5);
     });
 
     it('should calculate totalSales and totalOrders from aggregate', async () => {
@@ -222,7 +222,7 @@ describe('CashRegisterService', () => {
 
       const result = await service.closeSession('restaurant-uuid-1');
 
-      expect(result.summary.totalSales).toBe(150);
+      expect(result.summary.totalSales).toBe(1.5);
       expect(result.summary.totalOrders).toBe(3);
     });
 
@@ -244,8 +244,8 @@ describe('CashRegisterService', () => {
       const result = await service.closeSession('restaurant-uuid-1');
 
       expect(result.summary.paymentBreakdown).toEqual({
-        CASH: { count: 2, total: 300 },
-        CARD: { count: 1, total: 150 },
+        CASH: { count: 2, total: 3 },
+        CARD: { count: 1, total: 1.5 },
       });
     });
 
@@ -267,7 +267,7 @@ describe('CashRegisterService', () => {
       const result = await service.closeSession('restaurant-uuid-1');
 
       expect(result.summary.paymentBreakdown).toHaveProperty('UNKNOWN');
-      expect(result.summary.paymentBreakdown['UNKNOWN']).toEqual({ count: 1, total: 100 });
+      expect(result.summary.paymentBreakdown['UNKNOWN']).toEqual({ count: 1, total: 1 });
       expect(result.summary.paymentBreakdown).not.toHaveProperty('null');
     });
 

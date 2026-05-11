@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { CashShiftStatus, OrderStatus, Prisma } from '@prisma/client';
 
+import { fromCents } from '../common/helpers/money';
+
 import { CashShiftRepository, CashShiftWithUser, CashShiftWithCount } from './cash-register-session.repository';
 import { OrderRepository } from '../orders/order.repository';
 import {
@@ -69,7 +71,7 @@ export class CashRegisterService {
         }),
       ]);
 
-      const totalSales = Number(agg._sum.totalAmount ?? 0n);
+      const totalSales = fromCents(agg._sum.totalAmount ?? 0n);
       const totalOrders = agg._count.id;
 
       const paymentBreakdown: Record<string, { count: number; total: number }> = {};
@@ -77,7 +79,7 @@ export class CashRegisterService {
         const method = group.paymentMethod ?? 'UNKNOWN';
         paymentBreakdown[method] = {
           count: group._count.id,
-          total: Number(group._sum.totalAmount ?? 0n),
+          total: fromCents(group._sum.totalAmount ?? 0n),
         };
       }
 
