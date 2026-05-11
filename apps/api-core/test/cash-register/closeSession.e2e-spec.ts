@@ -1,6 +1,4 @@
 // test/cash-register/closeSession.e2e-spec.ts
-import * as fs from 'fs';
-import * as path from 'path';
 import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
@@ -11,8 +9,6 @@ import {
   seedProduct, openCashShiftViaApi, seedOrderOnShift,
 } from './cash-register.helpers';
 
-const TEST_DB = path.resolve(__dirname, 'test-close-session.db');
-
 describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
@@ -22,7 +18,7 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
   let basicToken: string;
 
   beforeAll(async () => {
-    ({ app, prisma } = await bootstrapApp(TEST_DB));
+    ({ app, prisma } = await bootstrapApp());
 
     const restA = await seedRestaurant(prisma, 'A');
     restaurantId = restA.restaurant.id;
@@ -33,7 +29,6 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
-    if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
   });
 
   it('Sin token recibe 401', async () => {
