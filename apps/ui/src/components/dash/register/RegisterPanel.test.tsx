@@ -216,3 +216,31 @@ test('shows error Alert on generic close failure', async () => {
     expect(screen.getByText('Error interno')).toBeInTheDocument(),
   );
 });
+
+// --- obfuscated fields ---
+
+test('id field is obfuscated by default and toggles on click', async () => {
+  mockApiFetch.mockResolvedValue({ ok: true, json: async () => openData } as Response);
+  render(<RegisterPanel />);
+  await waitFor(() => screen.getByText('Caja Abierta'));
+
+  expect(screen.queryByText('shift-abc')).not.toBeInTheDocument();
+
+  const toggleButtons = screen.getAllByTitle('Mostrar/ocultar');
+  fireEvent.click(toggleButtons[0]); // primer toggle = id
+
+  expect(screen.getByText('shift-abc')).toBeInTheDocument();
+});
+
+test('email field is obfuscated by default and toggles on click', async () => {
+  mockApiFetch.mockResolvedValue({ ok: true, json: async () => openData } as Response);
+  render(<RegisterPanel />);
+  await waitFor(() => screen.getByText('Caja Abierta'));
+
+  expect(screen.queryByText('admin@test.com')).not.toBeInTheDocument();
+
+  const toggleButtons = screen.getAllByTitle('Mostrar/ocultar');
+  fireEvent.click(toggleButtons[1]); // segundo toggle = email
+
+  expect(screen.getByText('admin@test.com')).toBeInTheDocument();
+});
