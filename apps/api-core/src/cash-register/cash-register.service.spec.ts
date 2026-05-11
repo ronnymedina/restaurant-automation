@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { Test, TestingModule } from '@nestjs/testing';
-import { CashShiftStatus, Prisma } from '@prisma/client';
+import { CashShiftStatus, OrderStatus, Prisma } from '@prisma/client';
 
 import { CashRegisterService } from './cash-register.service';
 import { CashShiftRepository } from './cash-register-session.repository';
@@ -99,7 +99,7 @@ describe('CashRegisterService', () => {
     // Default empty responses for groupBy/findMany used in getSessionSummary
     mockPrismaService.orderItem.groupBy.mockResolvedValue([]);
     mockPrismaService.product.findMany.mockResolvedValue([]);
-    mockPrismaService.order = { groupBy: jest.fn().mockResolvedValue([]) };
+    (mockPrismaService.order as any).groupBy.mockResolvedValue([]);
     // Default: no pending orders (allows closeSession to proceed)
     mockTx.order.count.mockResolvedValue(0);
   });
@@ -441,12 +441,10 @@ describe('CashRegisterService', () => {
     it('should return session, summary, and orders', async () => {
       const session = mockSession({ status: 'CLOSED', totalOrders: null, totalSales: null });
       mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      mockPrismaService.order = {
-        groupBy: jest.fn().mockResolvedValue([
-          { status: 'COMPLETED', _sum: { totalAmount: 200n }, _count: { id: 2 } },
-          { status: 'CANCELLED', _sum: { totalAmount: 50n }, _count: { id: 1 } },
-        ]),
-      } as any;
+      (mockPrismaService.order as any).groupBy.mockResolvedValue([
+        { status: 'COMPLETED', _sum: { totalAmount: 200n }, _count: { id: 2 } },
+        { status: 'CANCELLED', _sum: { totalAmount: 50n }, _count: { id: 1 } },
+      ]);
       mockOrderRepository.findBySessionId.mockResolvedValue([]);
 
       const result = await service.getSessionSummary('session-uuid-1');
@@ -459,13 +457,11 @@ describe('CashRegisterService', () => {
     it('should build ordersByStatus with count and total for each status', async () => {
       const session = mockSession({ status: 'CLOSED', totalOrders: null, totalSales: null });
       mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      mockPrismaService.order = {
-        groupBy: jest.fn().mockResolvedValue([
-          { status: 'COMPLETED', _sum: { totalAmount: 200n }, _count: { id: 2 } },
-          { status: 'CANCELLED', _sum: { totalAmount: 50n }, _count: { id: 1 } },
-          { status: 'CREATED',   _sum: { totalAmount: 30n },  _count: { id: 1 } },
-        ]),
-      } as any;
+      (mockPrismaService.order as any).groupBy.mockResolvedValue([
+        { status: 'COMPLETED', _sum: { totalAmount: 200n }, _count: { id: 2 } },
+        { status: 'CANCELLED', _sum: { totalAmount: 50n }, _count: { id: 1 } },
+        { status: 'CREATED',   _sum: { totalAmount: 30n },  _count: { id: 1 } },
+      ]);
       mockOrderRepository.findBySessionId.mockResolvedValue([]);
 
       const result = await service.getSessionSummary('session-uuid-1');
@@ -479,14 +475,12 @@ describe('CashRegisterService', () => {
     it('should compute totalSales as sum of CREATED + PROCESSING + COMPLETED (excludes CANCELLED)', async () => {
       const session = mockSession({ status: 'CLOSED', totalOrders: null, totalSales: null });
       mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      mockPrismaService.order = {
-        groupBy: jest.fn().mockResolvedValue([
-          { status: 'COMPLETED',  _sum: { totalAmount: 200n }, _count: { id: 2 } },
-          { status: 'CANCELLED',  _sum: { totalAmount: 50n },  _count: { id: 1 } },
-          { status: 'CREATED',    _sum: { totalAmount: 30n },  _count: { id: 1 } },
-          { status: 'PROCESSING', _sum: { totalAmount: 10n },  _count: { id: 1 } },
-        ]),
-      } as any;
+      (mockPrismaService.order as any).groupBy.mockResolvedValue([
+        { status: 'COMPLETED',  _sum: { totalAmount: 200n }, _count: { id: 2 } },
+        { status: 'CANCELLED',  _sum: { totalAmount: 50n },  _count: { id: 1 } },
+        { status: 'CREATED',    _sum: { totalAmount: 30n },  _count: { id: 1 } },
+        { status: 'PROCESSING', _sum: { totalAmount: 10n },  _count: { id: 1 } },
+      ]);
       mockOrderRepository.findBySessionId.mockResolvedValue([]);
 
       const result = await service.getSessionSummary('session-uuid-1');
@@ -499,16 +493,14 @@ describe('CashRegisterService', () => {
     it('should compute paymentBreakdown from COMPLETED orders only via second groupBy', async () => {
       const session = mockSession({ status: 'CLOSED', totalOrders: null, totalSales: null });
       mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      mockPrismaService.order = {
-        groupBy: jest.fn()
-          .mockResolvedValueOnce([
-            { status: 'COMPLETED', _sum: { totalAmount: 200n }, _count: { id: 2 } },
-          ])
-          .mockResolvedValueOnce([
-            { paymentMethod: 'CASH', _sum: { totalAmount: 150n }, _count: { id: 1 } },
-            { paymentMethod: 'CARD', _sum: { totalAmount: 50n },  _count: { id: 1 } },
-          ]),
-      } as any;
+      (mockPrismaService.order as any).groupBy
+        .mockResolvedValueOnce([
+          { status: 'COMPLETED', _sum: { totalAmount: 200n }, _count: { id: 2 } },
+        ])
+        .mockResolvedValueOnce([
+          { paymentMethod: 'CASH', _sum: { totalAmount: 150n }, _count: { id: 1 } },
+          { paymentMethod: 'CARD', _sum: { totalAmount: 50n },  _count: { id: 1 } },
+        ]);
       mockOrderRepository.findBySessionId.mockResolvedValue([]);
 
       const result = await service.getSessionSummary('session-uuid-1');
@@ -517,14 +509,18 @@ describe('CashRegisterService', () => {
         CASH: { count: 1, total: 150n },
         CARD: { count: 1, total: 50n  },
       });
+
+      const groupByCalls = (mockPrismaService.order as any).groupBy.mock.calls;
+      // The second groupBy call should have status: OrderStatus.COMPLETED in the where clause
+      expect(groupByCalls[1][0]).toMatchObject({
+        where: expect.objectContaining({ status: OrderStatus.COMPLETED }),
+      });
     });
 
     it('should not include topProducts in summary', async () => {
       const session = mockSession({ status: 'CLOSED', totalOrders: null, totalSales: null });
       mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      mockPrismaService.order = {
-        groupBy: jest.fn().mockResolvedValue([]),
-      } as any;
+      // groupBy already defaults to [] via beforeEach; no override needed
       mockOrderRepository.findBySessionId.mockResolvedValue([]);
 
       const result = await service.getSessionSummary('session-uuid-1');
