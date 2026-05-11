@@ -5,11 +5,32 @@ export class PaymentBreakdownDto {
   @ApiProperty() total: number;
 }
 
+export class OrderStatusGroupDto {
+  @ApiProperty() count: number;
+  @ApiProperty() total: number;
+}
+
 export class SessionSummaryDto {
   @ApiProperty() totalOrders: number;
   @ApiProperty() totalSales: number;
-  @ApiProperty({ required: false }) completedOrders?: number;
-  @ApiProperty({ required: false }) cancelledOrders?: number;
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { $ref: '#/components/schemas/PaymentBreakdownDto' },
+  })
+  paymentBreakdown: Record<string, PaymentBreakdownDto>;
+}
+
+export class OrdersByStatusDto {
+  @ApiProperty({ type: OrderStatusGroupDto }) CREATED: OrderStatusGroupDto;
+  @ApiProperty({ type: OrderStatusGroupDto }) PROCESSING: OrderStatusGroupDto;
+  @ApiProperty({ type: OrderStatusGroupDto }) COMPLETED: OrderStatusGroupDto;
+  @ApiProperty({ type: OrderStatusGroupDto }) CANCELLED: OrderStatusGroupDto;
+}
+
+export class NewSessionSummaryDto {
+  @ApiProperty({ type: OrdersByStatusDto }) ordersByStatus: OrdersByStatusDto;
+  @ApiProperty() totalSales: number;
+  @ApiProperty() totalOrders: number;
   @ApiProperty({
     type: 'object',
     additionalProperties: { $ref: '#/components/schemas/PaymentBreakdownDto' },
@@ -40,12 +61,12 @@ export class TopProductDto {
   @ApiProperty() total: number;
 }
 
-export class SessionSummaryFullDto extends SessionSummaryDto {
+export class TopProductsResponseDto {
   @ApiProperty({ type: [TopProductDto] }) topProducts: TopProductDto[];
 }
 
 export class SessionSummaryResponseDto {
   @ApiProperty({ type: CashShiftDto }) session: CashShiftDto;
-  @ApiProperty({ type: SessionSummaryFullDto }) summary: SessionSummaryFullDto;
+  @ApiProperty({ type: NewSessionSummaryDto }) summary: NewSessionSummaryDto;
   @ApiProperty({ type: [Object] }) orders: any[];
 }
