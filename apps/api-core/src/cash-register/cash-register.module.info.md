@@ -40,11 +40,10 @@ Note: `_count` is only present in responses from `GET /current` and `GET /histor
     "closedBy": "string"
   },
   "summary": {
-    "totalOrders": 12,
-    "totalSales": 150.0,
+    "totalOrders": 2,
+    "totalSales": 20.0,
     "paymentBreakdown": {
-      "CASH": { "count": 8, "total": 100.0 },
-      "CARD": { "count": 4, "total": 50.0 }
+      "CASH": { "count": 2, "total": 20.0 }
     }
   }
 }
@@ -54,20 +53,31 @@ Note: `_count` is only present in responses from `GET /current` and `GET /histor
 
 ```json
 {
-  "session": { /* CashShiftDto */ },
+  "session": { "...": "CashShiftDto" },
   "summary": {
-    "totalOrders": 12,
-    "totalSales": 150.0,
-    "completedOrders": 10,
-    "cancelledOrders": 2,
-    "paymentBreakdown": {
-      "CASH": { "count": 8, "total": 100.0 }
+    "ordersByStatus": {
+      "CREATED":    { "count": 1, "total": 10.0 },
+      "PROCESSING": { "count": 0, "total": 0.0 },
+      "COMPLETED":  { "count": 2, "total": 20.0 },
+      "CANCELLED":  { "count": 1, "total": 10.0 }
     },
-    "topProducts": [
-      { "id": "string", "name": "string", "quantity": 15, "total": 75.0 }
-    ]
+    "totalSales": 30.0,
+    "totalOrders": 4,
+    "paymentBreakdown": {
+      "CASH": { "count": 2, "total": 20.0 }
+    }
   },
-  "orders": [ /* Order[] */ ]
+  "orders": []
+}
+```
+
+**TopProductsResponseDto** — usado en GET /top-products/:sessionId:
+
+```json
+{
+  "topProducts": [
+    { "id": "string", "name": "Burger", "quantity": 15, "total": 75.0 }
+  ]
 }
 ```
 
@@ -94,6 +104,7 @@ Note: `_count` is only present in responses from `GET /current` and `GET /histor
 | `GET` | `/v1/cash-register/current` | ADMIN, MANAGER | `CashShiftDto` o `{}` | Sesión actualmente abierta |
 | `GET` | `/v1/cash-register/history` | ADMIN, MANAGER | `{ data: CashShiftDto[], meta }` | Historial paginado de sesiones |
 | `GET` | `/v1/cash-register/summary/:sessionId` | ADMIN, MANAGER | `SessionSummaryResponseDto` | Resumen detallado de una sesión |
+| `GET` | `/v1/cash-register/top-products/:sessionId` | ADMIN, MANAGER | `TopProductsResponseDto` | Top 5 productos más vendidos de una sesión |
 
 ---
 
@@ -126,6 +137,7 @@ E2E: ✅ `test/cash-register/closeSession.e2e-spec.ts`
 | Hay pedidos en `CREATED` o `PROCESSING` | 409 | `PENDING_ORDERS_ON_SHIFT` — `details.pendingCount` indica cuántos quedan |
 | `summary.totalSales` como number | 200 | BigInt serializado a number |
 | `paymentBreakdown` refleja métodos usados | 200 | Agrupado por `paymentMethod` |
+| `summary.totalSales` solo refleja COMPLETED | 200 | CANCELLED excluidas del total |
 
 ---
 
@@ -168,9 +180,22 @@ E2E: ✅ `test/cash-register/cashRegisterSummary.e2e-spec.ts`
 | BASIC intenta consultar | 403 | Solo ADMIN o MANAGER |
 | ADMIN consulta resumen de sesión cerrada | 200 | Retorna `SessionSummaryResponseDto` |
 | MANAGER consulta resumen de sesión cerrada | 200 | Retorna `SessionSummaryResponseDto` |
-| `topProducts` agrupados por ventas | 200 | Máximo 10 productos, ordenados por cantidad |
-| Órdenes CANCELLED excluidas de `topProducts` | 200 | Solo se agregan productos de órdenes no canceladas |
-| `completedOrders` y `cancelledOrders` en summary | 200 | Contadores separados |
+| `ordersByStatus` en summary | 200 | Contadores separados por estado (CREATED, PROCESSING, COMPLETED, CANCELLED) |
+| `totalSales` solo refleja COMPLETED | 200 | CANCELLED excluidas del total |
+| Sesión no encontrada | 404 | `REGISTER_NOT_FOUND` |
+
+---
+
+#### Top-products — `GET /v1/cash-register/top-products/:sessionId`
+
+E2E: ✅ `test/cash-register/topProducts.e2e-spec.ts`
+
+| Caso | Status | Detalle |
+|---|---|---|
+| Sin token | 401 | Unauthenticated |
+| BASIC intenta consultar | 403 | Solo ADMIN o MANAGER |
+| Sesión válida | 200 | `topProducts` array, máx 5 elementos |
+| Órdenes CANCELLED excluidas | 200 | Solo items de órdenes no canceladas |
 | Sesión no encontrada | 404 | `REGISTER_NOT_FOUND` |
 
 ---
@@ -183,9 +208,9 @@ E2E: ✅ `test/cash-register/cashRegisterSummary.e2e-spec.ts`
 - `userId` y `user.email` se incluyen en las respuestas de `POST /open`, `GET /current` y `GET /summary/:sessionId`. La respuesta de `POST /close` no incluye `user` (omitido de la transacción de cierre).
 - El endpoint `POST /close` usa `@HttpCode(HttpStatus.OK)` explícito — devuelve 200 aunque sea un `POST`
 - El cierre de sesión (`closeSession`) es atómico via `$transaction` de Prisma: calcula totales, actualiza la sesión y retorna el resumen en una sola transacción
-- `totalSales` se almacena como `BigInt` en la BD (centavos). El servicio lo convierte con `Number()` antes de devolver el resumen
+- `totalSales` se almacena como `BigInt` en la BD (centavos). El servicio lo convierte con `fromCents()` antes de devolver el resumen
 - `GET /current` retorna `{}` (objeto vacío) cuando no hay sesión abierta — no lanza 404
-- El resumen (`GET /summary/:sessionId`) agrega `topProducts` con `orderItem.groupBy` en la BD (eficiente para sesiones con muchas órdenes); excluye órdenes `CANCELLED`
+- El endpoint `GET /top-products/:sessionId` agrega productos con `orderItem.groupBy` en la BD (eficiente para sesiones con muchas órdenes); excluye órdenes `CANCELLED`; retorna máx. 5 productos ordenados por cantidad
 - La apertura de sesión también inicializa `lastOrderNumber` en 0 para el conteo secuencial de órdenes
 
 ---
