@@ -21,6 +21,7 @@ import {
 import { Role } from '@prisma/client';
 
 import { CashRegisterService } from './cash-register.service';
+import { TimezoneService } from '../restaurants/timezone.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -45,7 +46,10 @@ import {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN, Role.MANAGER)
 export class CashRegisterController {
-  constructor(private readonly registerService: CashRegisterService) { }
+  constructor(
+    private readonly registerService: CashRegisterService,
+    private readonly timezoneService: TimezoneService,
+  ) {}
 
   @Post('open')
   @HttpCode(HttpStatus.CREATED)
@@ -55,8 +59,11 @@ export class CashRegisterController {
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async open(@CurrentUser() user: { restaurantId: string; id: string }) {
-    const session = await this.registerService.openSession(user.restaurantId, user.id);
-    return new CashShiftSerializer(session);
+    const [session, tz] = await Promise.all([
+      this.registerService.openSession(user.restaurantId, user.id),
+      this.timezoneService.getTimezone(user.restaurantId),
+    ]);
+    return new CashShiftSerializer(session, tz);
   }
 
   @Post('close')
@@ -67,9 +74,12 @@ export class CashRegisterController {
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async close(@CurrentUser() user: { restaurantId: string; id: string }) {
-    const result = await this.registerService.closeSession(user.restaurantId, user.id);
+    const [result, tz] = await Promise.all([
+      this.registerService.closeSession(user.restaurantId, user.id),
+      this.timezoneService.getTimezone(user.restaurantId),
+    ]);
     return {
-      session: new CashShiftSerializer(result.session),
+      session: new CashShiftSerializer(result.session, tz),
       summary: {
         totalOrders: result.summary.totalOrders,
         totalSales: result.summary.totalSales,
@@ -89,13 +99,12 @@ export class CashRegisterController {
     @CurrentUser() user: { restaurantId: string },
     @Query() query: PaginationDto,
   ) {
-    const result = await this.registerService.getSessionHistory(
-      user.restaurantId,
-      query.page,
-      query.limit,
-    );
+    const [result, tz] = await Promise.all([
+      this.registerService.getSessionHistory(user.restaurantId, query.page, query.limit),
+      this.timezoneService.getTimezone(user.restaurantId),
+    ]);
     return new PaginatedCashShiftsSerializer({
-      data: result.data.map((s) => new CashShiftSerializer(s)),
+      data: result.data.map((s) => new CashShiftSerializer(s, tz)),
       meta: result.meta,
     });
   }
@@ -106,9 +115,12 @@ export class CashRegisterController {
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async current(@CurrentUser() user: { restaurantId: string }) {
-    const session = await this.registerService.getCurrentSession(user.restaurantId);
+    const [session, tz] = await Promise.all([
+      this.registerService.getCurrentSession(user.restaurantId),
+      this.timezoneService.getTimezone(user.restaurantId),
+    ]);
     if (!('id' in session)) return {};
-    return new CashShiftSerializer(session as any);
+    return new CashShiftSerializer(session as any, tz);
   }
 
   @Get('summary/:sessionId')
@@ -118,10 +130,16 @@ export class CashRegisterController {
   @ApiResponse({ status: 404, description: 'Sesión no encontrada (CASH_REGISTER_NOT_FOUND)' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
-  async summary(@Param('sessionId') sessionId: string) {
-    const result = await this.registerService.getSessionSummary(sessionId);
+  async summary(
+    @CurrentUser() user: { restaurantId: string },
+    @Param('sessionId') sessionId: string,
+  ) {
+    const [result, tz] = await Promise.all([
+      this.registerService.getSessionSummary(sessionId),
+      this.timezoneService.getTimezone(user.restaurantId),
+    ]);
     return {
-      session: new CashShiftSerializer(result.session),
+      session: new CashShiftSerializer(result.session, tz),
       summary: serializeSessionSummary(result.summary),
     };
   }
