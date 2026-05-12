@@ -4,9 +4,10 @@ import { CashRegisterService } from './cash-register.service';
 import { CashRegisterController } from './cash-register.controller';
 import { CashShiftRepository } from './cash-register-session.repository';
 import { OrdersModule } from '../orders/orders.module';
+import { RestaurantsModule } from '../restaurants/restaurants.module';
 
 @Module({
-  imports: [OrdersModule],
+  imports: [OrdersModule, RestaurantsModule],
   controllers: [CashRegisterController],
   providers: [CashRegisterService, CashShiftRepository],
   exports: [CashRegisterService, CashShiftRepository],

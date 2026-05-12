@@ -1,10 +1,11 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
+
 import { queryClient } from '../../commons/Providers';
 import TableWithFetch from '../../commons/TableWithFetch';
 import Button from '../../commons/Button';
-import IconButton from '../../commons/IconButton';
+import IconButton from '../../commons/icons/IconButton';
 import ProductForm from './ProductForm';
 import { useDebounce } from '../../../hooks/useDebounce';
 import {

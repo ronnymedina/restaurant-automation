@@ -9,15 +9,13 @@ import { execSync } from 'child_process';
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 
-export async function bootstrapApp(dbPath: string): Promise<{
+export async function bootstrapApp(): Promise<{
   moduleFixture: TestingModule;
   app: INestApplication<App>;
   prisma: PrismaService;
 }> {
-  process.env.DATABASE_URL = `file:${dbPath}`;
-
-  execSync('npx prisma db push', {
-    env: { ...process.env, DATABASE_URL: `file:${dbPath}` },
+  execSync('pnpm exec prisma migrate deploy', {
+    env: process.env,
     stdio: 'pipe',
   });
 
@@ -132,6 +130,7 @@ export async function seedOrderOnShift(
   restaurantId: string,
   cashShiftId: string,
   productId: string,
+  status: 'CREATED' | 'PROCESSING' | 'COMPLETED' | 'CANCELLED' = 'COMPLETED',
 ) {
   const updatedShift = await prisma.cashShift.update({
     where: { id: cashShiftId },
@@ -144,6 +143,7 @@ export async function seedOrderOnShift(
       restaurantId,
       cashShiftId,
       totalAmount: BigInt(1000),
+      status,
       items: {
         create: [{ productId, quantity: 1, unitPrice: BigInt(1000), subtotal: BigInt(1000) }],
       },

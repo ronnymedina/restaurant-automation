@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class PaymentBreakdownDto {
+export class PaymentBreakdownItemDto {
+  @ApiProperty() method: string;
   @ApiProperty() count: number;
   @ApiProperty() total: number;
 }
@@ -8,24 +9,31 @@ export class PaymentBreakdownDto {
 export class SessionSummaryDto {
   @ApiProperty() totalOrders: number;
   @ApiProperty() totalSales: number;
-  @ApiProperty({ required: false }) completedOrders?: number;
-  @ApiProperty({ required: false }) cancelledOrders?: number;
-  @ApiProperty({
-    type: 'object',
-    additionalProperties: { $ref: '#/components/schemas/PaymentBreakdownDto' },
-  })
-  paymentBreakdown: Record<string, PaymentBreakdownDto>;
+  @ApiProperty({ type: [PaymentBreakdownItemDto] }) paymentBreakdown: PaymentBreakdownItemDto[];
+}
+
+export class CompletedGroupDto {
+  @ApiProperty() count: number;
+  @ApiProperty() total: number;
+}
+
+export class CancelledGroupDto {
+  @ApiProperty() count: number;
+}
+
+export class NewSessionSummaryDto {
+  @ApiProperty({ type: CompletedGroupDto }) completed: CompletedGroupDto;
+  @ApiProperty({ type: CancelledGroupDto }) cancelled: CancelledGroupDto;
+  @ApiProperty({ type: [PaymentBreakdownItemDto] }) paymentBreakdown: PaymentBreakdownItemDto[];
 }
 
 export class CashShiftDto {
   @ApiProperty() id: string;
-  @ApiProperty() restaurantId: string;
   @ApiProperty() status: string;
-  @ApiProperty() openedAt: Date;
-  @ApiProperty({ required: false, nullable: true }) closedAt: Date | null;
-  @ApiProperty({ required: false, nullable: true }) totalSales: number | null;
-  @ApiProperty({ required: false, nullable: true }) totalOrders: number | null;
+  @ApiProperty() displayOpenedAt: string;
+  @ApiProperty({ required: false, nullable: true }) displayClosedAt: string | null;
   @ApiProperty({ required: false, nullable: true }) closedBy: string | null;
+  @ApiProperty({ required: false, nullable: true }) openedByEmail: string | null;
 }
 
 export class CloseSessionResponseDto {
@@ -40,12 +48,11 @@ export class TopProductDto {
   @ApiProperty() total: number;
 }
 
-export class SessionSummaryFullDto extends SessionSummaryDto {
+export class TopProductsResponseDto {
   @ApiProperty({ type: [TopProductDto] }) topProducts: TopProductDto[];
 }
 
 export class SessionSummaryResponseDto {
   @ApiProperty({ type: CashShiftDto }) session: CashShiftDto;
-  @ApiProperty({ type: SessionSummaryFullDto }) summary: SessionSummaryFullDto;
-  @ApiProperty({ type: [Object] }) orders: any[];
+  @ApiProperty({ type: NewSessionSummaryDto }) summary: NewSessionSummaryDto;
 }

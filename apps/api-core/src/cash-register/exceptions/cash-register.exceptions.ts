@@ -31,3 +31,14 @@ export class NoOpenCashRegisterException extends BaseException {
     );
   }
 }
+
+export class PendingOrdersException extends BaseException {
+  constructor(pendingCount: number) {
+    super(
+      `Cannot close register: ${pendingCount} pending order(s) must be completed or cancelled first`,
+      HttpStatus.CONFLICT,
+      'PENDING_ORDERS_ON_SHIFT',
+      { pendingCount },
+    );
+  }
+}

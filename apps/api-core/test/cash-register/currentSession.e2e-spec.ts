@@ -1,6 +1,4 @@
 // test/cash-register/currentSession.e2e-spec.ts
-import * as fs from 'fs';
-import * as path from 'path';
 import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
@@ -8,19 +6,16 @@ import { App } from 'supertest/types';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login, openCashShiftViaApi } from './cash-register.helpers';
 
-const TEST_DB = path.resolve(__dirname, 'test-current-session.db');
-
 describe('GET /v1/cash-register/current - currentSession (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
 
   beforeAll(async () => {
-    ({ app, prisma } = await bootstrapApp(TEST_DB));
+    ({ app, prisma } = await bootstrapApp());
   });
 
   afterAll(async () => {
     await app.close();
-    if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
   });
 
   it('Sin token recibe 401', async () => {
@@ -63,8 +58,8 @@ describe('GET /v1/cash-register/current - currentSession (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    expect(res.body.userId).toBeDefined();
-    expect(res.body.user).toBeDefined();
-    expect(res.body.user.email).toBe(restC.admin.email);
+    expect(res.body.userId).toBeUndefined();
+    expect(res.body.user).toBeUndefined();
+    expect(res.body.openedByEmail).toBe(restC.admin.email);
   });
 });

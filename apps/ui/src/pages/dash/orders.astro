@@ -119,6 +119,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 </DashboardLayout>
 
 <script>
+  import { config } from '../../config';
   import { apiFetch } from '../../lib/api';
   import { getAccessToken } from '../../lib/auth';
   import { ORDER_EVENTS } from '../../lib/sse-events';
@@ -435,7 +436,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 
   const token = getAccessToken();
   if (token) {
-    const API_URL = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
+    const API_URL = config.apiUrl;
     const es = new EventSource(`${API_URL}/v1/events/dashboard?token=${token}`);
     es.addEventListener(ORDER_EVENTS.NEW, () => { loadOrders(); loadShiftInfo(); });
     es.addEventListener(ORDER_EVENTS.UPDATED, () => { loadOrders(); loadShiftInfo(); });

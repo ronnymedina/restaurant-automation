@@ -1,14 +1,10 @@
 // test/cash-register/openSession.e2e-spec.ts
-import * as fs from 'fs';
-import * as path from 'path';
 import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login } from './cash-register.helpers';
-
-const TEST_DB = path.resolve(__dirname, 'test-open-session.db');
 
 describe('POST /v1/cash-register/open - openSession (e2e)', () => {
   let app: INestApplication<App>;
@@ -18,7 +14,7 @@ describe('POST /v1/cash-register/open - openSession (e2e)', () => {
   let basicToken: string;
 
   beforeAll(async () => {
-    ({ app, prisma } = await bootstrapApp(TEST_DB));
+    ({ app, prisma } = await bootstrapApp());
 
     const restA = await seedRestaurant(prisma, 'A');
     adminToken = await login(app, restA.admin.email);
@@ -28,7 +24,6 @@ describe('POST /v1/cash-register/open - openSession (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
-    if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
   });
 
   it('Sin token recibe 401', async () => {
@@ -50,8 +45,9 @@ describe('POST /v1/cash-register/open - openSession (e2e)', () => {
 
     expect(res.body.id).toBeDefined();
     expect(res.body.status).toBe('OPEN');
-    expect(res.body.restaurantId).toBeDefined();
-    expect(res.body.openedAt).toBeDefined();
+    expect(typeof res.body.displayOpenedAt).toBe('string');
+    expect(res.body.restaurantId).toBeUndefined();
+    expect(res.body.openedAt).toBeUndefined();
   });
 
   it('Sesión ya abierta → 409 REGISTER_ALREADY_OPEN', async () => {

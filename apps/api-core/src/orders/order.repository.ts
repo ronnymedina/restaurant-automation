@@ -186,9 +186,10 @@ export class OrderRepository {
   }
 
   async findBySessionId(sessionId: string, restaurantId: string) {
-    return this.prisma.order.findMany({
+    const orders = await this.prisma.order.findMany({
       where: { cashShiftId: sessionId, restaurantId },
       include: ORDER_WITH_ITEMS,
     });
+    return orders.map(serializeOrder);
   }
 }

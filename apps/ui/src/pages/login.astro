@@ -97,6 +97,7 @@ import Layout from "../layouts/Layout.astro";
 </style>
 
 <script>
+  import { config } from '../config';
   import { setTokens, isAuthenticated, setRestaurantTimezone } from '../lib/auth';
   import { getErrorMessage } from '../lib/error-messages';
 
@@ -105,7 +106,7 @@ import Layout from "../layouts/Layout.astro";
     window.location.href = '/dash';
   }
 
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
+  const API_URL = config.apiUrl;
 
   const loginForm = document.getElementById('loginForm') as HTMLFormElement;
   const loadingOverlay = document.getElementById('loadingOverlay') as HTMLDivElement;

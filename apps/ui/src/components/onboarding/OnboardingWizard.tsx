@@ -12,7 +12,9 @@ interface Step1Data {
   restaurantName: string;
 }
 
-const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
+import { config } from '../../config';
+
+const API_URL = config.apiUrl;
 
 function StepIndicator({ current }: { current: Step }) {
   const steps: { n: Step; label: string }[] = [
