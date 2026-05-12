@@ -1,42 +1,29 @@
 import { fromCents } from '../../common/helpers/money';
-import { OrderStatus } from '@prisma/client';
 
-export interface OrderStatusGroup {
+export interface PaymentBreakdownItem {
+  method: string;
   count: number;
   total: number;
 }
 
-function serializeStatusGroups(
-  ordersByStatus: Record<string, { count: number; total: bigint }>,
-): Record<OrderStatus, OrderStatusGroup> {
-  const result = {} as Record<OrderStatus, OrderStatusGroup>;
-  for (const status of Object.values(OrderStatus)) {
-    const g = ordersByStatus[status] ?? { count: 0, total: 0n };
-    result[status] = { count: g.count, total: fromCents(g.total) };
-  }
-  return result;
-}
-
 function serializePaymentBreakdown(
   breakdown: Record<string, { count: number; total: bigint }>,
-): Record<string, { count: number; total: number }> {
-  const result: Record<string, { count: number; total: number }> = {};
-  for (const [method, val] of Object.entries(breakdown)) {
-    result[method] = { count: val.count, total: fromCents(val.total) };
-  }
-  return result;
+): PaymentBreakdownItem[] {
+  return Object.entries(breakdown).map(([method, val]) => ({
+    method,
+    count: val.count,
+    total: fromCents(val.total),
+  }));
 }
 
 export function serializeSessionSummary(summary: {
-  ordersByStatus: Record<string, { count: number; total: bigint }>;
-  totalSales: bigint;
-  totalOrders: number;
+  completed: { count: number; total: bigint };
+  cancelled: { count: number };
   paymentBreakdown: Record<string, { count: number; total: bigint }>;
 }) {
   return {
-    ordersByStatus: serializeStatusGroups(summary.ordersByStatus),
-    totalSales: fromCents(summary.totalSales),
-    totalOrders: summary.totalOrders,
+    completed: { count: summary.completed.count, total: fromCents(summary.completed.total) },
+    cancelled: { count: summary.cancelled.count },
     paymentBreakdown: serializePaymentBreakdown(summary.paymentBreakdown),
   };
 }
