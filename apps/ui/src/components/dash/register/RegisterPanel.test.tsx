@@ -30,16 +30,14 @@ test('shows open state with register data', async () => {
     ok: true,
     json: async () => ({
       id: 'abc-123',
-      openedAt: '2026-01-01T10:00:00.000Z',
-      lastOrderNumber: 7,
-      user: { email: 'staff@test.com' },
+      displayOpenedAt: '1 ene 2026, 10:00',
+      openedByEmail: 'staff@test.com',
       _count: { orders: 4 },
     }),
   } as Response);
   render(<RegisterPanel />);
   await waitFor(() => expect(screen.getByText('Caja Abierta')).toBeInTheDocument());
   expect(screen.getByText('4')).toBeInTheDocument();
-  expect(screen.getByText('7')).toBeInTheDocument();
 });
 
 test('shows permission error on 403', async () => {
@@ -120,9 +118,8 @@ test('shows fallback error message when openRegister fails without message', asy
 
 const openData = {
   id: 'shift-abc',
-  openedAt: '2026-01-01T10:00:00.000Z',
-  lastOrderNumber: 3,
-  user: { email: 'admin@test.com' },
+  displayOpenedAt: '1 ene 2026, 10:00',
+  openedByEmail: 'admin@test.com',
   _count: { orders: 2 },
 };
 
@@ -144,7 +141,7 @@ test('canceling close Alert hides it', async () => {
 });
 
 test('confirming close calls close API endpoint', async () => {
-  const summary = { totalOrders: 2, totalSales: 100, paymentBreakdown: {} };
+  const summary = { totalOrders: 2, totalSales: 100, paymentBreakdown: [] };
   mockApiFetch
     .mockResolvedValueOnce({ ok: true, json: async () => openData } as Response)
     .mockResolvedValueOnce({ ok: true, json: async () => ({ summary }) } as Response)
@@ -161,7 +158,7 @@ test('confirming close calls close API endpoint', async () => {
 });
 
 test('shows RegisterSummaryModal on successful close', async () => {
-  const summary = { totalOrders: 5, totalSales: 250, paymentBreakdown: {} };
+  const summary = { totalOrders: 5, totalSales: 250, paymentBreakdown: [] };
   mockApiFetch
     .mockResolvedValueOnce({ ok: true, json: async () => openData } as Response)
     .mockResolvedValueOnce({ ok: true, json: async () => ({ summary }) } as Response)
@@ -226,8 +223,7 @@ test('id field is obfuscated by default and toggles on click', async () => {
 
   expect(screen.queryByText('shift-abc')).not.toBeInTheDocument();
 
-  const toggleButtons = screen.getAllByTitle('Mostrar/ocultar');
-  fireEvent.click(toggleButtons[0]); // primer toggle = id
+  fireEvent.click(screen.getByTitle('Mostrar/ocultar datos sensibles'));
 
   expect(screen.getByText('shift-abc')).toBeInTheDocument();
 });
@@ -239,8 +235,7 @@ test('email field is obfuscated by default and toggles on click', async () => {
 
   expect(screen.queryByText('admin@test.com')).not.toBeInTheDocument();
 
-  const toggleButtons = screen.getAllByTitle('Mostrar/ocultar');
-  fireEvent.click(toggleButtons[1]); // segundo toggle = email
+  fireEvent.click(screen.getByTitle('Mostrar/ocultar datos sensibles'));
 
   expect(screen.getByText('admin@test.com')).toBeInTheDocument();
 });
