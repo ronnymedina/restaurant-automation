@@ -25,8 +25,8 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     const product = await seedProduct(prisma, restA.restaurant.id, restA.category.id);
     shiftId = await openCashShiftViaApi(app, adminToken);
     await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'COMPLETED');
+    await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'COMPLETED');
     await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'CANCELLED');
-    await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'CREATED');
   });
 
   afterAll(async () => {
@@ -55,7 +55,7 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     expect(res.body.code).toBe('REGISTER_NOT_FOUND');
   });
 
-  it('Retorna session y summary (sin orders)', async () => {
+  it('Retorna session y summary', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
@@ -67,76 +67,71 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     expect(res.body.orders).toBeUndefined();
   });
 
-  it('summary contiene ordersByStatus con las cuatro claves', async () => {
+  it('session expone displayOpenedAt como string, no expone restaurantId ni userId', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    const { ordersByStatus } = res.body.summary;
-    expect(ordersByStatus).toBeDefined();
-    for (const key of ['CREATED', 'PROCESSING', 'COMPLETED', 'CANCELLED']) {
-      expect(ordersByStatus[key]).toBeDefined();
-      expect(typeof ordersByStatus[key].count).toBe('number');
-      expect(typeof ordersByStatus[key].total).toBe('number');
-    }
+    const { session } = res.body;
+    expect(typeof session.displayOpenedAt).toBe('string');
+    expect(session.openedAt).toBeUndefined();
+    expect(session.restaurantId).toBeUndefined();
+    expect(session.userId).toBeUndefined();
+    expect(session.lastOrderNumber).toBeUndefined();
+    expect(session.openingBalance).toBeUndefined();
+    expect(session.totalSales).toBeUndefined();
+    expect(session.totalOrders).toBeUndefined();
   });
 
-  it('totalSales excluye CANCELLED (suma CREATED + PROCESSING + COMPLETED en pesos)', async () => {
+  it('summary.completed refleja las órdenes COMPLETED', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    const { summary } = res.body;
-    expect(typeof summary.totalSales).toBe('number');
-    // 1 COMPLETED (1000 centavos) + 1 CREATED (1000 centavos) = 2000 centavos = 20 pesos
-    expect(summary.totalSales).toBeCloseTo(20, 2);
+    const { completed } = res.body.summary;
+    expect(completed).toBeDefined();
+    expect(completed.count).toBe(2);
+    // 2 orders × 1000 centavos = 2000 centavos = 20 pesos
+    expect(completed.total).toBeCloseTo(20, 2);
   });
 
-  it('totalOrders cuenta todas las órdenes de la sesión', async () => {
+  it('summary.cancelled refleja las órdenes CANCELLED (sin total)', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    expect(res.body.summary.totalOrders).toBe(3);
+    const { cancelled } = res.body.summary;
+    expect(cancelled).toBeDefined();
+    expect(cancelled.count).toBe(1);
+    expect(cancelled.total).toBeUndefined();
   });
 
-  it('paymentBreakdown solo incluye métodos de órdenes COMPLETED, con totales en pesos', async () => {
+  it('summary.paymentBreakdown es un array con {method, count, total}', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
     const { paymentBreakdown } = res.body.summary;
-    expect(paymentBreakdown).toBeDefined();
-    for (const val of Object.values(paymentBreakdown) as any[]) {
-      expect(typeof val.count).toBe('number');
-      expect(typeof val.total).toBe('number');
+    expect(Array.isArray(paymentBreakdown)).toBe(true);
+    for (const item of paymentBreakdown) {
+      expect(typeof item.method).toBe('string');
+      expect(typeof item.count).toBe('number');
+      expect(typeof item.total).toBe('number');
     }
   });
 
-  it('summary NO contiene completedOrders, cancelledOrders ni topProducts', async () => {
+  it('summary NO contiene ordersByStatus, totalSales ni totalOrders', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    expect(res.body.summary.completedOrders).toBeUndefined();
-    expect(res.body.summary.cancelledOrders).toBeUndefined();
-    expect(res.body.summary.topProducts).toBeUndefined();
-  });
-
-  it('ordersByStatus.CANCELLED count refleja las órdenes canceladas', async () => {
-    const res = await request(app.getHttpServer())
-      .get(`/v1/cash-register/summary/${shiftId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
-
-    expect(res.body.summary.ordersByStatus.CANCELLED.count).toBe(1);
-    expect(res.body.summary.ordersByStatus.COMPLETED.count).toBe(1);
-    expect(res.body.summary.ordersByStatus.CREATED.count).toBe(1);
-    expect(res.body.summary.ordersByStatus.PROCESSING.count).toBe(0);
+    expect(res.body.summary.ordersByStatus).toBeUndefined();
+    expect(res.body.summary.totalSales).toBeUndefined();
+    expect(res.body.summary.totalOrders).toBeUndefined();
   });
 });
