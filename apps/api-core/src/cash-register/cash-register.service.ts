@@ -151,33 +151,22 @@ export class CashRegisterService {
       }),
       this.prisma.order.groupBy({
         by: ['paymentMethod'],
-        where: { cashShiftId: session.id, status: { not: OrderStatus.CANCELLED } },
+        where: { cashShiftId: session.id, status: OrderStatus.COMPLETED },
         _sum: { totalAmount: true },
         _count: { id: true },
       }),
     ]);
 
-    const allStatuses: OrderStatus[] = [
-      OrderStatus.CREATED,
-      OrderStatus.PROCESSING,
-      OrderStatus.COMPLETED,
-      OrderStatus.CANCELLED,
-    ];
+    const completedGroup = statusGroups.find((g) => g.status === OrderStatus.COMPLETED);
+    const cancelledGroup = statusGroups.find((g) => g.status === OrderStatus.CANCELLED);
 
-    const ordersByStatus = Object.fromEntries(
-      allStatuses.map((s) => {
-        const g = statusGroups.find((r) => r.status === s);
-        return [s, { count: g?._count.id ?? 0, total: g?._sum.totalAmount ?? 0n }];
-      }),
-    ) as Record<OrderStatus, { count: number; total: bigint }>;
-
-    const totalSales =
-      (ordersByStatus[OrderStatus.CREATED].total ?? 0n) +
-      (ordersByStatus[OrderStatus.PROCESSING].total ?? 0n) +
-      (ordersByStatus[OrderStatus.COMPLETED].total ?? 0n);
-
-    // counts all statuses including CANCELLED (totalSales excludes it)
-    const totalOrders = statusGroups.reduce((sum, g) => sum + g._count.id, 0);
+    const completed = {
+      count: completedGroup?._count.id ?? 0,
+      total: completedGroup?._sum.totalAmount ?? 0n,
+    };
+    const cancelled = {
+      count: cancelledGroup?._count.id ?? 0,
+    };
 
     const paymentBreakdown: Record<string, { count: number; total: bigint }> = {};
     for (const g of paymentGroups) {
@@ -190,12 +179,7 @@ export class CashRegisterService {
 
     return {
       session,
-      summary: {
-        ordersByStatus,
-        totalSales,
-        totalOrders,
-        paymentBreakdown,
-      },
+      summary: { completed, cancelled, paymentBreakdown },
     };
   }
 
