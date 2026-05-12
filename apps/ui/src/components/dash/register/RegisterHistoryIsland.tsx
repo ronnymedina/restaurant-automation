@@ -4,8 +4,6 @@ import type { ColumnDef } from '@tanstack/react-table';
 import Table from '../../commons/Table';
 import Modal from '../../commons/Modal';
 import IconButton from '../../commons/icons/IconButton';
-import { getRestaurantTimezone } from '../../../lib/auth';
-import { formatDate } from '../../../lib/date';
 import {
   getSessionHistory,
   getSessionDetail,
@@ -28,8 +26,6 @@ function formatCurrency(value: number | null | undefined): string {
 }
 
 export default function RegisterHistoryIsland() {
-  const [timezone, setTimezone] = useState('UTC');
-
   const [sessions, setSessions] = useState<CashShiftDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -61,7 +57,6 @@ export default function RegisterHistoryIsland() {
   }, []);
 
   useEffect(() => {
-    setTimezone(getRestaurantTimezone());
     loadHistory(1);
   }, [loadHistory]);
 
@@ -87,17 +82,17 @@ export default function RegisterHistoryIsland() {
   const columns = useMemo<ColumnDef<CashShiftDto>[]>(
     () => [
       {
-        accessorKey: 'openedAt',
+        accessorKey: 'displayOpenedAt',
         header: 'Fecha apertura',
         cell: ({ getValue }) => (
-          <span className="whitespace-nowrap">{formatDate(getValue<string>(), timezone)}</span>
+          <span className="whitespace-nowrap">{getValue<string>()}</span>
         ),
       },
       {
-        accessorKey: 'closedAt',
+        accessorKey: 'displayClosedAt',
         header: 'Fecha cierre',
         cell: ({ getValue }) => (
-          <span className="whitespace-nowrap">{formatDate(getValue<string | null>(), timezone)}</span>
+          <span className="whitespace-nowrap">{getValue<string | null>() ?? '—'}</span>
         ),
       },
       {
@@ -117,16 +112,7 @@ export default function RegisterHistoryIsland() {
       {
         id: 'orders',
         header: 'Pedidos',
-        cell: ({ row }) => row.original._count?.orders ?? row.original.totalOrders ?? 0,
-      },
-      {
-        accessorKey: 'totalSales',
-        header: () => <span className="block text-right">Total ventas</span>,
-        cell: ({ getValue }) => (
-          <span className="block text-right font-medium">
-            {formatCurrency(getValue<number | null>())}
-          </span>
-        ),
+        cell: ({ row }) => row.original._count?.orders ?? 0,
       },
       {
         id: 'actions',
@@ -141,7 +127,7 @@ export default function RegisterHistoryIsland() {
         ),
       },
     ],
-    [timezone],
+    [],
   );
 
   function renderDetailContent() {
@@ -160,29 +146,21 @@ export default function RegisterHistoryIsland() {
         <div className="text-sm text-slate-500 space-y-0.5">
           <p>
             Apertura:{' '}
-            <span className="text-slate-700 font-medium">{formatDate(session.openedAt, timezone)}</span>
+            <span className="text-slate-700 font-medium">{session.displayOpenedAt}</span>
           </p>
           <p>
             Cierre:{' '}
-            <span className="text-slate-700 font-medium">{formatDate(session.closedAt, timezone)}</span>
+            <span className="text-slate-700 font-medium">{session.displayClosedAt ?? '—'}</span>
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-emerald-50 rounded-lg p-4 text-center">
-            <p className="text-lg font-bold text-emerald-700">{formatCurrency(summary.totalSales)}</p>
-            <p className="text-xs text-emerald-600 mt-1">Total ventas</p>
-          </div>
-          <div className="bg-slate-50 rounded-lg p-4 text-center">
-            <p className="text-lg font-bold text-slate-800">{summary.totalOrders}</p>
-            <p className="text-xs text-slate-500 mt-1">Total pedidos</p>
-          </div>
           <div className="bg-blue-50 rounded-lg p-4 text-center">
-            <p className="text-lg font-bold text-blue-700">{summary.ordersByStatus?.COMPLETED?.count ?? '—'}</p>
-            <p className="text-xs text-blue-600 mt-1">Completados</p>
+            <p className="text-lg font-bold text-blue-700">{summary.completed.count}</p>
+            <p className="text-xs text-blue-600 mt-1">{formatCurrency(summary.completed.total)} — Completados</p>
           </div>
           <div className="bg-red-50 rounded-lg p-4 text-center">
-            <p className="text-lg font-bold text-red-600">{summary.ordersByStatus?.CANCELLED?.count ?? '—'}</p>
+            <p className="text-lg font-bold text-red-600">{summary.cancelled.count}</p>
             <p className="text-xs text-red-500 mt-1">Cancelados</p>
           </div>
         </div>
@@ -190,17 +168,17 @@ export default function RegisterHistoryIsland() {
         <div>
           <h4 className="font-semibold text-slate-700 mb-2">Desglose por método de pago</h4>
           <div className="bg-slate-50 rounded-lg px-4 py-2">
-            {Object.entries(summary.paymentBreakdown).length === 0 ? (
+            {summary.paymentBreakdown.length === 0 ? (
               <p className="text-slate-400 text-sm py-1">Sin pedidos</p>
             ) : (
-              Object.entries(summary.paymentBreakdown).map(([method, info]) => (
+              summary.paymentBreakdown.map((item) => (
                 <div
-                  key={method}
+                  key={item.method}
                   className="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0"
                 >
-                  <span className="text-slate-600">{PAYMENT_LABELS[method] ?? method}</span>
+                  <span className="text-slate-600">{PAYMENT_LABELS[item.method] ?? item.method}</span>
                   <span className="text-slate-800 font-medium">
-                    {info.count} pedidos &mdash; {formatCurrency(info.total)}
+                    {item.count} pedidos &mdash; {formatCurrency(item.total)}
                   </span>
                 </div>
               ))

@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import RegisterSummaryModal from './RegisterSummaryModal';
 import type { CloseSummary } from './api';
 
-const emptySummary: CloseSummary = { totalOrders: 0, totalSales: 0, paymentBreakdown: {} };
+const emptySummary: CloseSummary = { totalOrders: 0, totalSales: 0, paymentBreakdown: [] };
 
 test('renders nothing when closed', () => {
   const { container } = render(
@@ -17,7 +17,7 @@ test('renders summary title when open', () => {
 });
 
 test('renders totalOrders and totalSales', () => {
-  const summary: CloseSummary = { totalOrders: 12, totalSales: 480.5, paymentBreakdown: {} };
+  const summary: CloseSummary = { totalOrders: 12, totalSales: 480.5, paymentBreakdown: [] };
   render(<RegisterSummaryModal open={true} summary={summary} onClose={vi.fn()} />);
   expect(screen.getByText('12')).toBeInTheDocument();
   expect(screen.getByText('$480.50')).toBeInTheDocument();
@@ -32,10 +32,10 @@ test('renders payment breakdown entries', () => {
   const summary: CloseSummary = {
     totalOrders: 2,
     totalSales: 100,
-    paymentBreakdown: {
-      CASH: { count: 1, total: 50 },
-      CARD: { count: 1, total: 50 },
-    },
+    paymentBreakdown: [
+      { method: 'CASH', count: 1, total: 50 },
+      { method: 'CARD', count: 1, total: 50 },
+    ],
   };
   render(<RegisterSummaryModal open={true} summary={summary} onClose={vi.fn()} />);
   expect(screen.getByText('CASH')).toBeInTheDocument();

@@ -56,8 +56,7 @@ export default function RegisterPanel() {
       return;
     }
     setRegisterData(result.data);
-    setShowId(false);
-    setShowEmail(false);
+    setShowSensitive(false);
     setStatus(REGISTER_STATUS.OPEN);
   }
 
@@ -123,7 +122,7 @@ export default function RegisterPanel() {
       );
     }
     const d = registerData!;
-    const openedAt = new Date(d.openedAt).toLocaleString();
+    const openedAt = d.displayOpenedAt;
     const orderCount = d._count?.orders ?? 0;
     return (
       <div className="space-y-4">
@@ -149,11 +148,11 @@ export default function RegisterPanel() {
           <div className="bg-slate-50 rounded-lg p-4">
             <p className="text-sm text-slate-500">Abierta por</p>
             <p className="text-base font-semibold">
-              {showSensitive ? (d.user?.email ?? '-') : '••••••••'}
+              {showSensitive ? (d.openedByEmail ?? '-') : '••••••••'}
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-slate-50 rounded-lg p-4">
             <p className="text-sm text-slate-500">Abierta desde</p>
             <p className="text-lg font-semibold">{openedAt}</p>
@@ -161,10 +160,6 @@ export default function RegisterPanel() {
           <div className="bg-slate-50 rounded-lg p-4">
             <p className="text-sm text-slate-500">Pedidos</p>
             <p className="text-lg font-semibold">{orderCount}</p>
-          </div>
-          <div className="bg-slate-50 rounded-lg p-4">
-            <p className="text-sm text-slate-500">Último # de orden</p>
-            <p className="text-lg font-semibold">{d.lastOrderNumber}</p>
           </div>
         </div>
         <button
