@@ -1,44 +1,28 @@
 import { CashShift, CashShiftStatus } from '@prisma/client';
-import { Exclude, Expose, Transform } from 'class-transformer';
+import { Exclude, Expose } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-
-import { fromCents } from '../../common/helpers/money';
 
 import { CashShiftWithUser } from '../cash-register-session.repository';
 
 @Exclude()
-export class CashShiftSerializer implements Omit<CashShift, 'openingBalance' | 'totalSales'> {
+export class CashShiftSerializer implements Pick<CashShift, 'id' | 'status'> {
   @ApiProperty()
   @Expose()
   id: string;
 
-  @ApiProperty()
-  @Expose()
+  // not exposed: restaurantId, userId, lastOrderNumber, openingBalance, totalSales, totalOrders
   restaurantId: string;
-
-  userId: string; // not exposed
+  userId: string;
+  lastOrderNumber: number;
+  openingBalance: bigint;
+  totalSales: bigint | null;
+  totalOrders: number | null;
+  openedAt: Date;
+  closedAt: Date | null;
 
   @ApiProperty({ enum: CashShiftStatus })
   @Expose()
   status: CashShiftStatus;
-
-  @ApiProperty()
-  @Expose()
-  lastOrderNumber: number;
-
-  @Transform(({ value }: { value: bigint | null | undefined }) => (value != null ? fromCents(value) : 0))
-  @ApiProperty()
-  @Expose()
-  openingBalance: number;
-
-  @Transform(({ value }: { value: bigint | null | undefined }) => (value != null ? fromCents(value) : null))
-  @ApiPropertyOptional({ nullable: true })
-  @Expose()
-  totalSales: number | null;
-
-  @ApiPropertyOptional({ nullable: true })
-  @Expose()
-  totalOrders: number | null;
 
   @ApiPropertyOptional({ nullable: true })
   @Expose()
@@ -46,22 +30,36 @@ export class CashShiftSerializer implements Omit<CashShift, 'openingBalance' | '
 
   @ApiProperty()
   @Expose()
-  openedAt: Date;
+  displayOpenedAt: string;
 
   @ApiPropertyOptional({ nullable: true })
   @Expose()
-  closedAt: Date | null;
+  displayClosedAt: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @Expose()
+  openedByEmail: string | null;
 
   @ApiPropertyOptional({ type: Object })
   @Expose()
   _count?: { orders: number };
 
-  @Transform(({ obj }: { obj: { user?: { email: string } | null } }) => obj.user?.email ?? null)
-  @ApiPropertyOptional({ nullable: true })
-  @Expose()
-  openedByEmail: string | null;
-
-  constructor(partial: Partial<CashShiftWithUser & { _count?: { orders: number }; user?: { id: string; email: string } | null }>) {
+  constructor(
+    partial: Partial<CashShiftWithUser & { _count?: { orders: number } }>,
+    timezone = 'UTC',
+  ) {
     Object.assign(this, partial);
+    const fmt = new Intl.DateTimeFormat('es', {
+      timeZone: timezone,
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    this.displayOpenedAt = fmt.format(new Date(partial.openedAt!));
+    this.displayClosedAt = partial.closedAt ? fmt.format(new Date(partial.closedAt)) : null;
+    this.openedByEmail = (partial as any).user?.email ?? null;
   }
 }
