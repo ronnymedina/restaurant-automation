@@ -99,12 +99,33 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
       .set('Authorization', `Bearer ${tokenC}`)
       .expect(200);
 
+    // session shape — new serializer
     expect(res.body.session).toBeDefined();
     expect(res.body.session.status).toBe('CLOSED');
+    expect(typeof res.body.session.displayOpenedAt).toBe('string');
+    expect(res.body.session.openedAt).toBeUndefined();
+    expect(res.body.session.closedAt).toBeUndefined();
+    expect(res.body.session.restaurantId).toBeUndefined();
+    expect(res.body.session.userId).toBeUndefined();
+    expect(res.body.session.lastOrderNumber).toBeUndefined();
+    expect(res.body.session.openingBalance).toBeUndefined();
+    expect(res.body.session.totalSales).toBeUndefined();
+    expect(res.body.session.totalOrders).toBeUndefined();
+
+    // summary shape
     expect(res.body.summary).toBeDefined();
     expect(typeof res.body.summary.totalOrders).toBe('number');
     expect(typeof res.body.summary.totalSales).toBe('number');
     expect(res.body.summary.totalOrders).toBe(1);
+
+    // paymentBreakdown is an array
+    expect(Array.isArray(res.body.summary.paymentBreakdown)).toBe(true);
+    if (res.body.summary.paymentBreakdown.length > 0) {
+      const item = res.body.summary.paymentBreakdown[0];
+      expect(typeof item.method).toBe('string');
+      expect(typeof item.count).toBe('number');
+      expect(typeof item.total).toBe('number');
+    }
   });
 
   it('summary.totalSales refleja solo órdenes COMPLETED (excluye CANCELLED)', async () => {

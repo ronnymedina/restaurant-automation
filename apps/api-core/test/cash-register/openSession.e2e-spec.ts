@@ -45,8 +45,9 @@ describe('POST /v1/cash-register/open - openSession (e2e)', () => {
 
     expect(res.body.id).toBeDefined();
     expect(res.body.status).toBe('OPEN');
-    expect(res.body.restaurantId).toBeDefined();
-    expect(res.body.openedAt).toBeDefined();
+    expect(typeof res.body.displayOpenedAt).toBe('string');
+    expect(res.body.restaurantId).toBeUndefined();
+    expect(res.body.openedAt).toBeUndefined();
   });
 
   it('Sesión ya abierta → 409 REGISTER_ALREADY_OPEN', async () => {

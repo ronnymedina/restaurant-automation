@@ -58,8 +58,8 @@ describe('GET /v1/cash-register/current - currentSession (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    expect(res.body.userId).toBeDefined();
-    expect(res.body.user).toBeDefined();
-    expect(res.body.user.email).toBe(restC.admin.email);
+    expect(res.body.userId).toBeUndefined();
+    expect(res.body.user).toBeUndefined();
+    expect(res.body.openedByEmail).toBe(restC.admin.email);
   });
 });

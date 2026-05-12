@@ -78,12 +78,15 @@ export class CashRegisterController {
       this.registerService.closeSession(user.restaurantId, user.id),
       this.timezoneService.getTimezone(user.restaurantId),
     ]);
+    const paymentBreakdown = Object.entries(result.summary.paymentBreakdown).map(
+      ([method, val]) => ({ method, count: val.count, total: val.total }),
+    );
     return {
       session: new CashShiftSerializer(result.session, tz),
       summary: {
         totalOrders: result.summary.totalOrders,
         totalSales: result.summary.totalSales,
-        paymentBreakdown: result.summary.paymentBreakdown,
+        paymentBreakdown,
       },
     };
   }
