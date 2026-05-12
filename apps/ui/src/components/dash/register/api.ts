@@ -9,21 +9,18 @@ export type CashShiftStatus = (typeof CASH_SHIFT_STATUS)[keyof typeof CASH_SHIFT
 
 export interface CashShiftDto {
   id: string;
-  restaurantId: string;
-  userId: string;
   status: CashShiftStatus;
-  lastOrderNumber: number;
-  openingBalance: number;
-  totalSales: number | null;
-  totalOrders: number | null;
+  displayOpenedAt: string;
+  displayClosedAt: string | null;
   closedBy: string | null;
-  openedAt: string;
-  closedAt: string | null;
+  openedByEmail: string | null;
   _count?: { orders: number };
-  user?: { id: string; email: string } | null;
+  // removed: restaurantId, userId, lastOrderNumber, openingBalance,
+  //          totalSales, totalOrders, openedAt, closedAt
 }
 
-export interface PaymentMethodInfo {
+export interface PaymentBreakdownItem {
+  method: string;
   count: number;
   total: number;
 }
@@ -31,7 +28,7 @@ export interface PaymentMethodInfo {
 export interface CloseSummary {
   totalOrders: number;
   totalSales: number;
-  paymentBreakdown: Record<string, PaymentMethodInfo>;
+  paymentBreakdown: PaymentBreakdownItem[];
 }
 
 export interface CloseSessionResult {
@@ -85,21 +82,10 @@ export interface SessionHistoryMeta {
   totalPages: number;
 }
 
-export interface OrderStatusGroup {
-  count: number;
-  total: number;
-}
-
 export interface SessionDetailSummary {
-  ordersByStatus: {
-    CREATED: OrderStatusGroup;
-    PROCESSING: OrderStatusGroup;
-    COMPLETED: OrderStatusGroup;
-    CANCELLED: OrderStatusGroup;
-  };
-  totalSales: number;
-  totalOrders: number;
-  paymentBreakdown: Record<string, { count: number; total: number }>;
+  completed: { count: number; total: number };
+  cancelled: { count: number };
+  paymentBreakdown: PaymentBreakdownItem[];
 }
 
 export interface TopProduct {
