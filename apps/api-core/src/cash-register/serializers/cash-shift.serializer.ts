@@ -51,15 +51,21 @@ export class CashShiftSerializer implements Pick<CashShift, 'id' | 'status'> {
     Object.assign(this, partial);
     const fmt = new Intl.DateTimeFormat('es', {
       timeZone: timezone,
-      day: 'numeric',
-      month: 'short',
+      day: '2-digit',
+      month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
       hour12: false,
     });
-    this.displayOpenedAt = fmt.format(new Date(partial.openedAt!));
-    this.displayClosedAt = partial.closedAt ? fmt.format(new Date(partial.closedAt)) : null;
+    const formatDate = (date: Date): string => {
+      const p = fmt.formatToParts(date);
+      const get = (type: string) => p.find((x) => x.type === type)?.value ?? '00';
+      return `${get('day')}-${get('month')}-${get('year')} ${get('hour')}:${get('minute')}:${get('second')}`;
+    };
+    this.displayOpenedAt = formatDate(new Date(partial.openedAt!));
+    this.displayClosedAt = partial.closedAt ? formatDate(new Date(partial.closedAt)) : null;
     this.openedByEmail = (partial as any).user?.email ?? null;
   }
 }
