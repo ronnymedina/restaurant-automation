@@ -1,3 +1,5 @@
+import React from 'react';
+
 type IconName = 'pencil' | 'trash' | 'list-bullet' | 'eye';
 type Variant = 'default' | 'danger' | 'primary';
 type Size = 'sm' | 'md' | 'lg';
