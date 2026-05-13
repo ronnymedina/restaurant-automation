@@ -41,7 +41,7 @@ Add two optional query parameters:
 
 **Files touched:**
 
-- `src/orders/orders.controller.ts` — add `@Query('cashShiftId')` and `@Query('orderNumber')`; update Swagger `@ApiQuery` annotations.
+- `src/orders/orders.controller.ts` — add `@Query('cashShiftId')` and `@Query('orderNumber')`; add enum validation for `status`; update Swagger `@ApiQuery` annotations.
 - `src/orders/orders.service.ts` — pass `cashShiftId` and `orderNumber` to the repository.
 - `src/orders/order.repository.ts` — extend `findByRestaurantId` `where` clause:
 
@@ -51,6 +51,30 @@ Add two optional query parameters:
 ```
 
 No new endpoints, no schema changes.
+
+### Input validation
+
+`status` currently accepts any string at runtime — `?status=BANANA` reaches the database without rejection. Fix by adding `ParseEnumPipe` so invalid values return 400 immediately:
+
+```ts
+@Query('status', new ParseEnumPipe(OrderStatus, { optional: true }))
+status?: OrderStatus,
+```
+
+`orderNumber` must be a positive integer. Use `ParseIntPipe` with `optional: true`:
+
+```ts
+@Query('orderNumber', new ParseIntPipe({ optional: true }))
+orderNumber?: number,
+```
+
+Both pipes are built into NestJS — no extra dependencies.
+
+Add one e2e case to `listOrders.e2e-spec.ts`:
+
+| # | Test | Assertion |
+|---|---|---|
+| 7 | `?status=INVALID_VALUE` | Returns 400 |
 
 ### Permission fix — `GET /v1/cash-register/current`
 
