@@ -1,0 +1,77 @@
+import { render, screen, waitFor } from '@testing-library/react';
+import OrdersPanel from './OrdersPanel';
+
+vi.mock('./api', () => ({
+  getCurrentSession: vi.fn(),
+  getOrders: vi.fn(),
+  updateOrderStatus: vi.fn(),
+  markOrderPaid: vi.fn(),
+  cancelOrder: vi.fn(),
+}));
+
+vi.mock('../../../lib/auth', () => ({ getAccessToken: vi.fn(() => null) }));
+vi.mock('../../../config', () => ({ config: { apiUrl: 'http://localhost:3000' } }));
+
+import { getCurrentSession, getOrders } from './api';
+const mockGetCurrentSession = vi.mocked(getCurrentSession);
+const mockGetOrders = vi.mocked(getOrders);
+
+afterEach(() => vi.clearAllMocks());
+
+test('shows loading state initially', () => {
+  mockGetCurrentSession.mockReturnValue(new Promise(() => {}));
+  render(<OrdersPanel />);
+  expect(screen.getByText('Cargando...')).toBeInTheDocument();
+});
+
+test('shows closed message when no session is active', async () => {
+  mockGetCurrentSession.mockResolvedValue({ ok: true, data: null });
+  render(<OrdersPanel />);
+  await waitFor(() =>
+    expect(screen.getByText(/La caja está cerrada/)).toBeInTheDocument(),
+  );
+});
+
+test('shows error state on API failure', async () => {
+  mockGetCurrentSession.mockResolvedValue({ ok: false, error: {}, httpStatus: 403 });
+  render(<OrdersPanel />);
+  await waitFor(() =>
+    expect(screen.getByText('Error al cargar')).toBeInTheDocument(),
+  );
+});
+
+test('shows error state on network exception', async () => {
+  mockGetCurrentSession.mockRejectedValue(new Error('Network error'));
+  render(<OrdersPanel />);
+  await waitFor(() =>
+    expect(screen.getByText('Error al cargar')).toBeInTheDocument(),
+  );
+});
+
+test('when session is open, fetches orders with cashShiftId and limit=30', async () => {
+  mockGetCurrentSession.mockResolvedValue({
+    ok: true,
+    data: { id: 'shift-xyz', openedByEmail: 'staff@test.com' },
+  });
+  mockGetOrders.mockResolvedValue({ ok: true, data: [] });
+
+  render(<OrdersPanel />);
+
+  await waitFor(() =>
+    expect(mockGetOrders).toHaveBeenCalledWith({ cashShiftId: 'shift-xyz', limit: 30 }),
+  );
+});
+
+test('when session is open, shows session banner with máx note', async () => {
+  mockGetCurrentSession.mockResolvedValue({
+    ok: true,
+    data: { id: 'shift-xyz', openedByEmail: 'staff@test.com' },
+  });
+  mockGetOrders.mockResolvedValue({ ok: true, data: [] });
+
+  render(<OrdersPanel />);
+
+  await waitFor(() =>
+    expect(screen.getByText('máx. 30 pedidos')).toBeInTheDocument(),
+  );
+});
