@@ -355,13 +355,17 @@ describe('OrdersService', () => {
     it('passes status filter and limit to repository', async () => {
       mockOrderRepository.findByRestaurantId.mockResolvedValue([]);
       await service.findByRestaurantId('r1', OrderStatus.CREATED, 15);
-      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith('r1', OrderStatus.CREATED, undefined, 15);
+      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith(
+        'r1', OrderStatus.CREATED, undefined, 15, undefined, undefined,
+      );
     });
 
     it('passes undefined limit when not provided', async () => {
       mockOrderRepository.findByRestaurantId.mockResolvedValue([]);
       await service.findByRestaurantId('r1', OrderStatus.PROCESSING);
-      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith('r1', OrderStatus.PROCESSING, undefined, undefined);
+      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith(
+        'r1', OrderStatus.PROCESSING, undefined, undefined, undefined, undefined,
+      );
     });
   });
 
