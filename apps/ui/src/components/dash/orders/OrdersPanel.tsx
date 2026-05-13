@@ -38,7 +38,12 @@ export default function OrdersPanel() {
     if (filter?.orderNumber) params.orderNumber = filter.orderNumber;
     if (filter?.statuses.length === 1) params.status = filter.statuses[0];
     const result = await getOrders(params);
-    if (result.ok) setOrders(result.data);
+    if (result.ok) {
+      const data = filter?.statuses.length && filter.statuses.length > 1
+        ? result.data.filter((o) => filter.statuses.includes(o.status as any))
+        : result.data;
+      setOrders(data);
+    }
   }
 
   async function loadSession() {
@@ -80,6 +85,7 @@ export default function OrdersPanel() {
   }, [status, session, activeFilter]);
 
   async function handleAdvance(id: string, nextStatus: string) {
+    if (!session) return;
     const order = orders.find((o) => o.id === id);
     if (nextStatus === 'COMPLETED' && !order?.isPaid) {
       showToast('El pedido debe estar pagado antes de completarse', true);
@@ -94,6 +100,7 @@ export default function OrdersPanel() {
   }
 
   async function handlePay(id: string) {
+    if (!session) return;
     const result = await markOrderPaid(id);
     if (!result.ok) {
       showToast(result.error.message ?? 'Error al marcar pagado', true);
@@ -104,6 +111,7 @@ export default function OrdersPanel() {
   }
 
   async function handleCancelConfirm(id: string, reason: string) {
+    if (!session) return;
     const result = await cancelOrder(id, reason);
     if (!result.ok) {
       showToast(result.error.message ?? 'Error al cancelar', true);
