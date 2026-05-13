@@ -1,6 +1,4 @@
 // test/orders/markOrderAsPaid.e2e-spec.ts
-import * as fs from 'fs';
-import * as path from 'path';
 import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
@@ -11,7 +9,6 @@ import {
   seedProduct, openCashShift, seedOrder,
 } from './orders.helpers';
 
-const TEST_DB = path.resolve(__dirname, 'test-mark-paid.db');
 
 describe('PATCH /v1/orders/:id/pay - markOrderAsPaid (e2e)', () => {
   let app: INestApplication<App>;
@@ -24,7 +21,7 @@ describe('PATCH /v1/orders/:id/pay - markOrderAsPaid (e2e)', () => {
   let orderIdFromB: string;
 
   beforeAll(async () => {
-    ({ app, prisma } = await bootstrapApp(TEST_DB));
+    ({ app, prisma } = await bootstrapApp());
 
     const restA = await seedRestaurant(prisma, 'A');
     adminToken = await login(app, restA.admin.email);
@@ -42,7 +39,6 @@ describe('PATCH /v1/orders/:id/pay - markOrderAsPaid (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
-    if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
   });
 
   it('Sin token recibe 401', async () => {
