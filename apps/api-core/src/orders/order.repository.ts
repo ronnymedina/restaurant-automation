@@ -94,11 +94,20 @@ export class OrderRepository {
     return order ? serializeOrder(order) : null;
   }
 
-  async findByRestaurantId(restaurantId: string, status?: OrderStatus, statuses?: OrderStatus[], limit?: number) {
+  async findByRestaurantId(
+    restaurantId: string,
+    status?: OrderStatus,
+    statuses?: OrderStatus[],
+    limit?: number,
+    cashShiftId?: string,
+    orderNumber?: number,
+  ) {
     const orders = await this.prisma.order.findMany({
       where: {
         restaurantId,
         ...(statuses?.length ? { status: { in: statuses } } : status ? { status } : {}),
+        ...(cashShiftId ? { cashShiftId } : {}),
+        ...(orderNumber ? { orderNumber } : {}),
       },
       include: ORDER_WITH_ITEMS,
       orderBy: { createdAt: 'desc' },
