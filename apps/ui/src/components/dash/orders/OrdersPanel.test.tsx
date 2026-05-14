@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import OrdersPanel from './OrdersPanel';
 
 vi.mock('./api', () => ({
@@ -61,6 +61,36 @@ test('when session is open, fetches active orders with statuses and limit=100', 
     expect(mockGetOrders).toHaveBeenCalledWith({
       cashShiftId: 'shift-xyz',
       statuses: ['CREATED', 'PROCESSING'],
+      limit: 100,
+    }),
+  );
+});
+
+test('when filter is applied with statuses, fetches orders with filter statuses', async () => {
+  mockGetCurrentSession.mockResolvedValue({
+    ok: true,
+    data: { id: 'shift-xyz', openedByEmail: 'staff@test.com' },
+  });
+  mockGetOrders.mockResolvedValue({ ok: true, data: [] });
+
+  render(<OrdersPanel />);
+
+  // Wait for initial load
+  await waitFor(() => expect(mockGetOrders).toHaveBeenCalledTimes(1));
+
+  // Open the filter panel
+  fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
+
+  // Select the COMPLETED status checkbox
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Completado' }));
+
+  // Apply the filter
+  fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
+
+  await waitFor(() =>
+    expect(mockGetOrders).toHaveBeenLastCalledWith({
+      cashShiftId: 'shift-xyz',
+      statuses: ['COMPLETED'],
       limit: 100,
     }),
   );
