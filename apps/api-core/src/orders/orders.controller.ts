@@ -30,7 +30,7 @@ export class OrdersController {
   @ApiOperation({ summary: 'Listar órdenes del restaurante' })
   @ApiQuery({ name: 'cashShiftId', required: false, type: String, description: 'Filtrar por sesión de caja' })
   @ApiQuery({ name: 'orderNumber', required: false, type: Number, description: 'Filtrar por número de orden (coincidencia exacta)' })
-  @ApiQuery({ name: 'status', required: false, enum: OrderStatus, description: 'Filtrar por estado' })
+  @ApiQuery({ name: 'status', required: false, enum: OrderStatus, description: 'Filtrar por estado (deprecated: prefer statuses[]). Merged with statuses[] without duplication.' })
   @ApiQuery({ name: 'statuses', required: false, enum: OrderStatus, isArray: true, description: 'Filtrar por múltiples estados. Repetir param: statuses[]=CREATED&statuses[]=PROCESSING' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Máximo de registros (default 100, max 100)' })
   @ApiResponse({ status: 200, description: 'Lista de órdenes', type: [OrderDto] })
@@ -53,7 +53,9 @@ export class OrdersController {
       if (!Object.values(OrderStatus).includes(s as OrderStatus)) {
         throw new BadRequestException(`Valor de status inválido: ${s}`);
       }
-      mergedStatuses.push(s as OrderStatus);
+      if (!mergedStatuses.includes(s as OrderStatus)) {
+        mergedStatuses.push(s as OrderStatus);
+      }
     }
     if (status && !mergedStatuses.includes(status)) {
       mergedStatuses.push(status);
