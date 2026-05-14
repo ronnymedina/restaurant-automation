@@ -34,16 +34,11 @@ export default function OrdersPanel() {
   }
 
   async function fetchOrders(cashShiftId: string, filter: ActiveFilter | null) {
-    const params: Parameters<typeof getOrders>[0] = { cashShiftId, limit: 30 };
+    const statuses = filter?.statuses.length ? filter.statuses : ['CREATED', 'PROCESSING'];
+    const params: Parameters<typeof getOrders>[0] = { cashShiftId, limit: 100, statuses };
     if (filter?.orderNumber) params.orderNumber = filter.orderNumber;
-    if (filter?.statuses.length === 1) params.status = filter.statuses[0];
     const result = await getOrders(params);
-    if (result.ok) {
-      const data = filter?.statuses.length && filter.statuses.length > 1
-        ? result.data.filter((o) => filter.statuses.includes(o.status as any))
-        : result.data;
-      setOrders(data);
-    }
+    if (result.ok) setOrders(result.data);
   }
 
   async function loadSession() {
@@ -206,7 +201,7 @@ export default function OrdersPanel() {
         <span className="font-medium text-slate-700">
           {showSensitive ? (session!.openedByEmail ?? '-') : '••••••••'}
         </span>
-        <span className="text-slate-400 text-xs">máx. 30 pedidos</span>
+        <span className="text-slate-400 text-xs">máx. 100 pedidos</span>
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"

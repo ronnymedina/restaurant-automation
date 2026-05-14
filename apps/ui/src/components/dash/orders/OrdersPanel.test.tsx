@@ -48,7 +48,7 @@ test('shows error state on network exception', async () => {
   );
 });
 
-test('when session is open, fetches orders with cashShiftId and limit=30', async () => {
+test('when session is open, fetches active orders with statuses and limit=100', async () => {
   mockGetCurrentSession.mockResolvedValue({
     ok: true,
     data: { id: 'shift-xyz', openedByEmail: 'staff@test.com' },
@@ -58,11 +58,15 @@ test('when session is open, fetches orders with cashShiftId and limit=30', async
   render(<OrdersPanel />);
 
   await waitFor(() =>
-    expect(mockGetOrders).toHaveBeenCalledWith({ cashShiftId: 'shift-xyz', limit: 30 }),
+    expect(mockGetOrders).toHaveBeenCalledWith({
+      cashShiftId: 'shift-xyz',
+      statuses: ['CREATED', 'PROCESSING'],
+      limit: 100,
+    }),
   );
 });
 
-test('when session is open, shows session banner with máx note', async () => {
+test('when session is open, shows session banner with máx 100 note', async () => {
   mockGetCurrentSession.mockResolvedValue({
     ok: true,
     data: { id: 'shift-xyz', openedByEmail: 'staff@test.com' },
@@ -72,6 +76,6 @@ test('when session is open, shows session banner with máx note', async () => {
   render(<OrdersPanel />);
 
   await waitFor(() =>
-    expect(screen.getByText('máx. 30 pedidos')).toBeInTheDocument(),
+    expect(screen.getByText('máx. 100 pedidos')).toBeInTheDocument(),
   );
 });
