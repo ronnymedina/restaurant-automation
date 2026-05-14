@@ -51,14 +51,18 @@ export async function getCurrentSession(): Promise<ApiResult<CurrentSession | nu
 export async function getOrders(params: {
   cashShiftId?: string;
   orderNumber?: number;
-  status?: string;
+  statuses?: string[];
   limit?: number;
 }): Promise<ApiResult<Order[]>> {
   const query = new URLSearchParams();
   if (params.cashShiftId) query.set('cashShiftId', params.cashShiftId);
   if (params.orderNumber !== undefined) query.set('orderNumber', String(params.orderNumber));
-  if (params.status) query.set('status', params.status);
   if (params.limit !== undefined) query.set('limit', String(params.limit));
+  if (params.statuses?.length) {
+    for (const s of params.statuses) {
+      query.append('statuses[]', s);
+    }
+  }
   const res = await apiFetch(`/v1/orders?${query}`);
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
