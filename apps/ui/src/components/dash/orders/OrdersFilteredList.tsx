@@ -51,6 +51,14 @@ export default function OrdersFilteredList({
           ))}
         </div>
       )}
+      {orders.length === 100 && (
+        <p className="text-xs text-slate-400 text-center py-2">
+          Se muestran los primeros 100 pedidos. Para ver el historial completo,{' '}
+          <a href="/dash/orders-history" className="underline hover:text-slate-600">
+            ve al historial de pedidos →
+          </a>
+        </p>
+      )}
     </div>
   );
 }
