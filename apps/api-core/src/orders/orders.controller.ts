@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Patch, Param, Query, Body, UseGuards, ParseIntPipe, ParseEnumPipe,
+  Controller, Get, Patch, Param, Query, Body, UseGuards, ParseIntPipe, ParseEnumPipe, BadRequestException,
 } from '@nestjs/common';
 import { Role, OrderStatus } from '@prisma/client';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
@@ -31,7 +31,8 @@ export class OrdersController {
   @ApiQuery({ name: 'cashShiftId', required: false, type: String, description: 'Filtrar por sesión de caja' })
   @ApiQuery({ name: 'orderNumber', required: false, type: Number, description: 'Filtrar por número de orden (coincidencia exacta)' })
   @ApiQuery({ name: 'status', required: false, enum: OrderStatus, description: 'Filtrar por estado' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Máximo de registros (default 30, max 30)' })
+  @ApiQuery({ name: 'statuses', required: false, enum: OrderStatus, isArray: true, description: 'Filtrar por múltiples estados. Repetir param: statuses[]=CREATED&statuses[]=PROCESSING' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Máximo de registros (default 100, max 100)' })
   @ApiResponse({ status: 200, description: 'Lista de órdenes', type: [OrderDto] })
   @ApiResponse({ status: 400, description: 'Parámetro inválido (status o orderNumber)' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
@@ -42,10 +43,29 @@ export class OrdersController {
     @Query('orderNumber', new ParseIntPipe({ optional: true })) orderNumber?: number,
     @Query('status', new ParseEnumPipe(OrderStatus, { optional: true })) status?: OrderStatus,
     @Query('limit') limit?: string,
+    @Query('statuses') rawStatuses?: string | string[],
   ) {
-    const take = limit ? Math.min(30, Math.max(1, parseInt(limit, 10) || 30)) : 30;
+    const rawArray = rawStatuses
+      ? (Array.isArray(rawStatuses) ? rawStatuses : [rawStatuses])
+      : [];
+    const mergedStatuses: OrderStatus[] = [];
+    for (const s of rawArray) {
+      if (!Object.values(OrderStatus).includes(s as OrderStatus)) {
+        throw new BadRequestException(`Valor de status inválido: ${s}`);
+      }
+      mergedStatuses.push(s as OrderStatus);
+    }
+    if (status && !mergedStatuses.includes(status)) {
+      mergedStatuses.push(status);
+    }
+
+    const take = limit ? Math.min(100, Math.max(1, parseInt(limit, 10) || 100)) : 100;
     const orders = await this.ordersService.findByRestaurantId(
-      user.restaurantId, status, take, cashShiftId, orderNumber,
+      user.restaurantId,
+      mergedStatuses.length ? mergedStatuses : undefined,
+      take,
+      cashShiftId,
+      orderNumber,
     );
     const tz = await this.timezoneService.getTimezone(user.restaurantId);
     return orders.map(o => ({
