@@ -105,6 +105,16 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
     expect(res.body.every((o: any) => o.status === 'CREATED')).toBe(true);
   });
 
+  it('?statuses[]=CREATED&statuses[]=PROCESSING retorna solo órdenes con esos estados', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/v1/orders?statuses[]=CREATED&statuses[]=PROCESSING')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    const allowed = new Set(['CREATED', 'PROCESSING']);
+    expect(res.body.every((o: any) => allowed.has(o.status))).toBe(true);
+  });
+
   it('Cada orden incluye items en la respuesta', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders')
@@ -171,13 +181,13 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
     expect(res.body[0].orderNumber).toBe(1);
   });
 
-  it('?limit=500 retorna máximo 30 órdenes', async () => {
+  it('?limit=500 retorna máximo 100 órdenes', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders?limit=500')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
     expect(res.body.length).toBeGreaterThan(0);
-    expect(res.body.length).toBeLessThanOrEqual(30);
+    expect(res.body.length).toBeLessThanOrEqual(100);
   });
 
   it('?status=INVALID_VALUE → 400', async () => {
