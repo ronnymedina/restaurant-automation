@@ -17,38 +17,35 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
   let managerToken: string;
   let basicToken: string;
   let adminTokenB: string;
+  let adminTokenNoShift: string;
 
-  let shiftAId: string;
-  let shiftBId: string;
-  let restBShiftId: string;
+  let shiftId: string;
 
   beforeAll(async () => {
     ({ app, prisma } = await bootstrapApp());
 
+    // restA: un turno abierto con 2 órdenes (CREATED y PROCESSING)
     const restA = await seedRestaurant(prisma, 'A');
     adminToken = await login(app, restA.admin.email);
     managerToken = await login(app, restA.manager.email);
     basicToken = await login(app, restA.basic.email);
 
     const product = await seedProduct(prisma, restA.restaurant.id, restA.category.id);
+    const shift = await openCashShift(prisma, restA.restaurant.id, restA.admin.id);
+    shiftId = shift.id;
+    await seedOrder(prisma, restA.restaurant.id, shiftId, product.id);
+    await seedOrder(prisma, restA.restaurant.id, shiftId, product.id, { status: 'PROCESSING' });
 
-    // shiftA: 2 orders (orderNumber 1 = CREATED, orderNumber 2 = PROCESSING)
-    const shiftA = await openCashShift(prisma, restA.restaurant.id, restA.admin.id);
-    shiftAId = shiftA.id;
-    await seedOrder(prisma, restA.restaurant.id, shiftA.id, product.id);
-    await seedOrder(prisma, restA.restaurant.id, shiftA.id, product.id, { status: 'PROCESSING' });
-
-    // shiftB: 1 order (orderNumber 1 = CREATED)
-    const shiftB = await openCashShift(prisma, restA.restaurant.id, restA.admin.id);
-    shiftBId = shiftB.id;
-    await seedOrder(prisma, restA.restaurant.id, shiftB.id, product.id);
-
+    // restB: un turno abierto con 1 orden → para probar aislamiento
     const restB = await seedRestaurant(prisma, 'B');
     adminTokenB = await login(app, restB.admin.email);
     const productB = await seedProduct(prisma, restB.restaurant.id, restB.category.id);
-    const shiftRestB = await openCashShift(prisma, restB.restaurant.id, restB.admin.id);
-    restBShiftId = shiftRestB.id;
-    await seedOrder(prisma, restB.restaurant.id, shiftRestB.id, productB.id);
+    const shiftB = await openCashShift(prisma, restB.restaurant.id, restB.admin.id);
+    await seedOrder(prisma, restB.restaurant.id, shiftB.id, productB.id);
+
+    // restC: sin turno abierto → para probar 409
+    const restC = await seedRestaurant(prisma, 'C');
+    adminTokenNoShift = await login(app, restC.admin.email);
   });
 
   afterAll(async () => {
@@ -57,6 +54,14 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
 
   it('Sin token recibe 401', async () => {
     await request(app.getHttpServer()).get('/v1/orders').expect(401);
+  });
+
+  it('Sin caja abierta recibe 409 con code REGISTER_NOT_OPEN', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/v1/orders')
+      .set('Authorization', `Bearer ${adminTokenNoShift}`)
+      .expect(409);
+    expect(res.body.code).toBe('REGISTER_NOT_OPEN');
   });
 
   it('ADMIN puede listar órdenes → 200 array', async () => {
@@ -97,17 +102,17 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
     expect(idsA.some((id: string) => idsB.includes(id))).toBe(false);
   });
 
-  it('Filtro por ?status=CREATED retorna solo órdenes CREATED', async () => {
+  it('?statuses=CREATED retorna solo órdenes CREATED', async () => {
     const res = await request(app.getHttpServer())
-      .get('/v1/orders?status=CREATED')
+      .get('/v1/orders?statuses=CREATED')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
     expect(res.body.every((o: any) => o.status === 'CREATED')).toBe(true);
   });
 
-  it('?statuses[]=CREATED&statuses[]=PROCESSING retorna solo órdenes con esos estados', async () => {
+  it('?statuses=CREATED&statuses=PROCESSING retorna solo órdenes con esos estados', async () => {
     const res = await request(app.getHttpServer())
-      .get('/v1/orders?statuses[]=CREATED&statuses[]=PROCESSING')
+      .get('/v1/orders?statuses=CREATED&statuses=PROCESSING')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
     expect(Array.isArray(res.body)).toBe(true);
@@ -134,32 +139,13 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
     expect(res.body[0].displayTime).toMatch(/^\d{2}:\d{2}$/);
   });
 
-  // --- new tests ---
-
-  it('?cashShiftId=shiftA → solo retorna órdenes de shiftA', async () => {
+  it('Retorna órdenes del turno activo (cashShiftId coincide con el turno abierto)', async () => {
     const res = await request(app.getHttpServer())
-      .get(`/v1/orders?cashShiftId=${shiftAId}`)
+      .get('/v1/orders')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
     expect(res.body.length).toBeGreaterThan(0);
-    expect(res.body.every((o: any) => o.cashShiftId === shiftAId)).toBe(true);
-  });
-
-  it('?cashShiftId=shiftB → solo retorna órdenes de shiftB', async () => {
-    const res = await request(app.getHttpServer())
-      .get(`/v1/orders?cashShiftId=${shiftBId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
-    expect(res.body.length).toBeGreaterThan(0);
-    expect(res.body.every((o: any) => o.cashShiftId === shiftBId)).toBe(true);
-  });
-
-  it('?cashShiftId=<turno de restB> con token de restA → array vacío (aislamiento cross-restaurant)', async () => {
-    const res = await request(app.getHttpServer())
-      .get(`/v1/orders?cashShiftId=${restBShiftId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
-    expect(res.body).toEqual([]);
+    expect(res.body.every((o: any) => o.cashShiftId === shiftId)).toBe(true);
   });
 
   it('?orderNumber=1 → solo retorna órdenes con orderNumber=1', async () => {
@@ -171,16 +157,6 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
     expect(res.body.every((o: any) => o.orderNumber === 1)).toBe(true);
   });
 
-  it('?cashShiftId=shiftA&orderNumber=1 → retorna exactamente 1 orden', async () => {
-    const res = await request(app.getHttpServer())
-      .get(`/v1/orders?cashShiftId=${shiftAId}&orderNumber=1`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
-    expect(res.body.length).toBe(1);
-    expect(res.body[0].cashShiftId).toBe(shiftAId);
-    expect(res.body[0].orderNumber).toBe(1);
-  });
-
   it('?limit=500 retorna máximo 100 órdenes', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders?limit=500')
@@ -190,9 +166,9 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
     expect(res.body.length).toBeLessThanOrEqual(100);
   });
 
-  it('?status=INVALID_VALUE → 400', async () => {
+  it('?statuses=INVALID_VALUE → 400', async () => {
     await request(app.getHttpServer())
-      .get('/v1/orders?status=INVALID_VALUE')
+      .get('/v1/orders?statuses=INVALID_VALUE')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(400);
   });
