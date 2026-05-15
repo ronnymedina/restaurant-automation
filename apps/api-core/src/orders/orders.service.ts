@@ -12,6 +12,7 @@ import {
   InvalidStatusTransitionException,
   OrderAlreadyCancelledException,
   OrderNotPaidException,
+  RegisterNotOpenException,
 } from './exceptions/orders.exceptions';
 import { ForbiddenAccessException } from '../common/exceptions';
 import { EmailService } from '../email/email.service';
@@ -21,7 +22,6 @@ import { PRINT_CUSTOMER_ON_CREATE } from '../config';
 import { TimezoneService } from '../restaurants/timezone.service';
 import { toUtcBoundary } from '../common/date.utils';
 import { CashShiftRepository } from '../cash-shift/cash-shift.repository';
-import { RegisterNotOpenException } from './exceptions/orders.exceptions';
 
 const STATUS_ORDER: OrderStatus[] = [
   OrderStatus.CREATED,
