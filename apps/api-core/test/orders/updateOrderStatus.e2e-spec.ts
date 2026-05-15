@@ -1,6 +1,4 @@
 // test/orders/updateOrderStatus.e2e-spec.ts
-import * as fs from 'fs';
-import * as path from 'path';
 import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
@@ -11,7 +9,6 @@ import {
   seedProduct, openCashShift, seedOrder,
 } from './orders.helpers';
 
-const TEST_DB = path.resolve(__dirname, 'test-update-order-status.db');
 
 describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
   let app: INestApplication<App>;
@@ -23,7 +20,7 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
   let adminId: string;
 
   beforeAll(async () => {
-    ({ app, prisma } = await bootstrapApp(TEST_DB));
+    ({ app, prisma } = await bootstrapApp());
 
     const restA = await seedRestaurant(prisma, 'A');
     adminToken = await login(app, restA.admin.email);
@@ -35,7 +32,6 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
-    if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
   });
 
   it('Sin token recibe 401', async () => {

@@ -345,23 +345,35 @@ describe('OrdersService', () => {
   });
 
   describe('findByRestaurantId', () => {
-    it('returns orders filtered by restaurantId', async () => {
+    it('returns orders for a restaurantId', async () => {
       const orders = [makeOrder()];
       mockOrderRepository.findByRestaurantId.mockResolvedValue(orders);
       const result = await service.findByRestaurantId('r1');
       expect(result).toEqual(orders);
     });
 
-    it('passes status filter and limit to repository', async () => {
+    it('passes statuses array and limit to repository', async () => {
       mockOrderRepository.findByRestaurantId.mockResolvedValue([]);
-      await service.findByRestaurantId('r1', OrderStatus.CREATED, 15);
-      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith('r1', OrderStatus.CREATED, undefined, 15);
+      await service.findByRestaurantId('r1', [OrderStatus.CREATED], 15);
+      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith(
+        'r1', undefined, [OrderStatus.CREATED], 15, undefined, undefined,
+      );
     });
 
-    it('passes undefined limit when not provided', async () => {
+    it('passes multiple statuses to repository', async () => {
       mockOrderRepository.findByRestaurantId.mockResolvedValue([]);
-      await service.findByRestaurantId('r1', OrderStatus.PROCESSING);
-      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith('r1', OrderStatus.PROCESSING, undefined, undefined);
+      await service.findByRestaurantId('r1', [OrderStatus.CREATED, OrderStatus.PROCESSING], 100);
+      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith(
+        'r1', undefined, [OrderStatus.CREATED, OrderStatus.PROCESSING], 100, undefined, undefined,
+      );
+    });
+
+    it('passes undefined statuses and limit when called with no args', async () => {
+      mockOrderRepository.findByRestaurantId.mockResolvedValue([]);
+      await service.findByRestaurantId('r1');
+      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith(
+        'r1', undefined, undefined, undefined, undefined, undefined,
+      );
     });
   });
 

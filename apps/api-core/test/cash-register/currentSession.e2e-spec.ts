@@ -62,4 +62,17 @@ describe('GET /v1/cash-register/current - currentSession (e2e)', () => {
     expect(res.body.user).toBeUndefined();
     expect(res.body.openedByEmail).toBe(restC.admin.email);
   });
+
+  it('BASIC puede acceder a la sesión actual → 200 (no 403)', async () => {
+    const restD = await seedRestaurant(prisma, 'D');
+    const basicToken = await login(app, restD.basic.email);
+
+    const res = await request(app.getHttpServer())
+      .get('/v1/cash-register/current')
+      .set('Authorization', `Bearer ${basicToken}`)
+      .expect(200);
+
+    // No active session → empty object
+    expect(Object.keys(res.body)).toHaveLength(0);
+  });
 });

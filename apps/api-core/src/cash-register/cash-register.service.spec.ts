@@ -453,40 +453,40 @@ describe('CashRegisterService', () => {
       expect((result as any).orders).toBeUndefined();
     });
 
-    it('should build ordersByStatus with count and total for each status', async () => {
+    it('should build completed and cancelled from status groupBy', async () => {
       const session = mockSession({ status: 'CLOSED', totalOrders: null, totalSales: null });
       mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      (mockPrismaService.order as any).groupBy.mockResolvedValue([
-        { status: 'COMPLETED', _sum: { totalAmount: 200n }, _count: { id: 2 } },
-        { status: 'CANCELLED', _sum: { totalAmount: 50n }, _count: { id: 1 } },
-        { status: 'CREATED',   _sum: { totalAmount: 30n },  _count: { id: 1 } },
-      ]);
-      mockOrderRepository.findBySessionId.mockResolvedValue([]);
+      (mockPrismaService.order as any).groupBy
+        .mockResolvedValueOnce([
+          { status: 'COMPLETED', _sum: { totalAmount: 200n }, _count: { id: 2 } },
+          { status: 'CANCELLED', _sum: { totalAmount: 50n },  _count: { id: 1 } },
+          { status: 'CREATED',   _sum: { totalAmount: 30n },  _count: { id: 1 } },
+        ])
+        .mockResolvedValueOnce([]);
 
       const result = await service.getSessionSummary('session-uuid-1');
 
-      expect(result.summary.ordersByStatus.COMPLETED).toEqual({ count: 2, total: 200n });
-      expect(result.summary.ordersByStatus.CANCELLED).toEqual({ count: 1, total: 50n });
-      expect(result.summary.ordersByStatus.CREATED).toEqual({ count: 1, total: 30n });
-      expect(result.summary.ordersByStatus.PROCESSING).toEqual({ count: 0, total: 0n });
+      expect(result.summary.completed).toEqual({ count: 2, total: 200n });
+      expect(result.summary.cancelled).toEqual({ count: 1 });
     });
 
-    it('should compute totalSales as sum of CREATED + PROCESSING + COMPLETED (excludes CANCELLED)', async () => {
+    it('should return completed total only for COMPLETED orders (CANCELLED excluded from total)', async () => {
       const session = mockSession({ status: 'CLOSED', totalOrders: null, totalSales: null });
       mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      (mockPrismaService.order as any).groupBy.mockResolvedValue([
-        { status: 'COMPLETED',  _sum: { totalAmount: 200n }, _count: { id: 2 } },
-        { status: 'CANCELLED',  _sum: { totalAmount: 50n },  _count: { id: 1 } },
-        { status: 'CREATED',    _sum: { totalAmount: 30n },  _count: { id: 1 } },
-        { status: 'PROCESSING', _sum: { totalAmount: 10n },  _count: { id: 1 } },
-      ]);
-      mockOrderRepository.findBySessionId.mockResolvedValue([]);
+      (mockPrismaService.order as any).groupBy
+        .mockResolvedValueOnce([
+          { status: 'COMPLETED',  _sum: { totalAmount: 200n }, _count: { id: 2 } },
+          { status: 'CANCELLED',  _sum: { totalAmount: 50n },  _count: { id: 1 } },
+          { status: 'CREATED',    _sum: { totalAmount: 30n },  _count: { id: 1 } },
+          { status: 'PROCESSING', _sum: { totalAmount: 10n },  _count: { id: 1 } },
+        ])
+        .mockResolvedValueOnce([]);
 
       const result = await service.getSessionSummary('session-uuid-1');
 
-      // 200 + 30 + 10 = 240 (centavos BigInt)
-      expect(result.summary.totalSales).toBe(240n);
-      expect(result.summary.totalOrders).toBe(5);
+      // summary exposes completed total (200n) and cancelled count only
+      expect(result.summary.completed).toEqual({ count: 2, total: 200n });
+      expect(result.summary.cancelled).toEqual({ count: 1 });
     });
 
     it('should compute paymentBreakdown from non-CANCELLED orders via second groupBy', async () => {
@@ -513,7 +513,7 @@ describe('CashRegisterService', () => {
         ([arg]: [any]) => Array.isArray(arg.by) && arg.by.includes('paymentMethod'),
       );
       expect(paymentCall?.[0]).toMatchObject({
-        where: expect.objectContaining({ status: { not: OrderStatus.CANCELLED } }),
+        where: expect.objectContaining({ status: OrderStatus.COMPLETED }),
       });
     });
 
