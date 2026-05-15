@@ -34,7 +34,7 @@ Sin `cashShiftId`. El servidor resuelve el turno abierto del restaurante usando 
 | Caso | Status | Detalle |
 |---|---|---|
 | Hay caja abierta | 200 | `OrderDto[]` del turno activo |
-| No hay caja abierta | 404 | `{ code: "NO_OPEN_CASH_SHIFT" }` |
+| No hay caja abierta | 409 | `{ code: "REGISTER_NOT_OPEN" }` |
 | Demás filtros (`statuses`, `limit`, `orderNumber`) | sin cambio | igual que antes |
 
 ---
@@ -85,10 +85,12 @@ Sin `forwardRef`. Sin ciclo.
 ```typescript
 async listOrders(restaurantId, statuses?, limit?, orderNumber?) {
   const shift = await this.cashShiftRepository.findOpen(restaurantId);
-  if (!shift) throw new NotFoundException('NO_OPEN_CASH_SHIFT');
+  if (!shift) throw new RegisterNotOpenException();
   return this.orderRepository.listOrders(restaurantId, shift.id, statuses, limit, orderNumber);
 }
 ```
+
+`RegisterNotOpenException` ya existe en `orders/exceptions/orders.exceptions.ts` — responde con `HttpStatus.CONFLICT` (409) y código `REGISTER_NOT_OPEN`. No se crea excepción nueva.
 
 `OrderRepository.listOrders()` no cambia su firma — sigue recibiendo `cashShiftId`.
 
@@ -122,9 +124,9 @@ Casos a agregar o modificar:
 
 | Caso | Status | Detalle |
 |---|---|---|
-| Sin caja abierta | 404 | `{ code: "NO_OPEN_CASH_SHIFT" }` |
+| Sin caja abierta | 409 | `{ code: "REGISTER_NOT_OPEN" }` |
 | Con caja abierta, sin params | 200 | Retorna órdenes del turno activo |
-| Con caja abierta, `?statuses=CREATED` | 200 | Filtra por estado |
+| Con caja abierta, `?statuses=CREATED&statuses=PROCESSING` | 200 | Filtra por múltiples estados |
 | Sin token | 401 | Sin cambio |
 
 Eliminar todos los casos que construyen la URL con `?cashShiftId=`.
@@ -132,14 +134,18 @@ Eliminar todos los casos que construyen la URL con `?cashShiftId=`.
 ### Unit — `orders.service.spec.ts`
 
 - Mock de `CashShiftRepository` con método `findOpen()`
-- Caso: `findOpen` retorna `null` → `listOrders` lanza `NotFoundException`
+- Caso: `findOpen` retorna `null` → `listOrders` lanza `RegisterNotOpenException`
 - Caso: `findOpen` retorna shift → `listOrders` pasa `shift.id` al repositorio
 
 ---
 
 ## Frontend
 
-`api.ts` — quitar `cashShiftId` del payload de `getOrders()`. El componente `OrdersPanel` ya llama a `getCurrentSession()` antes de `getOrders()`, por lo que no hay cambio en la lógica de flujo ni en el manejo del estado "caja cerrada".
+`api.ts` — quitar `cashShiftId` del payload de `getOrders()`.
+
+El componente `OrdersPanel` ya llama a `getCurrentSession()` antes de `getOrders()`, por lo que el caso normal "sin caja abierta" está cubierto. Sin embargo, existe una condición de carrera: la caja puede cerrarse entre el check de sesión y el llamado a `getOrders()`. Actualmente ese error falla en silencio (lista vacía sin mensaje).
+
+**Cambio requerido en `OrdersPanel`:** cuando `getOrders()` retorna `{ ok: false }` con `httpStatus === 409` y `error.code === 'REGISTER_NOT_OPEN'`, setear el estado a `ORDERS_STATUS.CLOSED` en lugar de ignorar el error. Esto garantiza que el usuario vea el mensaje "caja cerrada" en lugar de una lista vacía sin explicación.
 
 ---
 
