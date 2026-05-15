@@ -59,7 +59,6 @@ test('when session is open, fetches active orders with statuses and limit=100', 
 
   await waitFor(() =>
     expect(mockGetOrders).toHaveBeenCalledWith({
-      cashShiftId: 'shift-xyz',
       statuses: ['CREATED', 'PROCESSING'],
       limit: 100,
     }),
@@ -89,7 +88,6 @@ test('when filter is applied with statuses, fetches orders with filter statuses'
 
   await waitFor(() =>
     expect(mockGetOrders).toHaveBeenLastCalledWith({
-      cashShiftId: 'shift-xyz',
       statuses: ['COMPLETED'],
       limit: 100,
     }),
