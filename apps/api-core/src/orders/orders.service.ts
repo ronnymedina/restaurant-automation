@@ -20,6 +20,8 @@ import { OrderEventsService } from '../events/orders.events';
 import { PRINT_CUSTOMER_ON_CREATE } from '../config';
 import { TimezoneService } from '../restaurants/timezone.service';
 import { toUtcBoundary } from '../common/date.utils';
+import { CashShiftRepository } from '../cash-shift/cash-shift.repository';
+import { RegisterNotOpenException } from './exceptions/orders.exceptions';
 
 const STATUS_ORDER: OrderStatus[] = [
   OrderStatus.CREATED,
@@ -53,6 +55,7 @@ export class OrdersService {
     @Inject(forwardRef(() => PrintService))
     private readonly printService: PrintService,
     private readonly timezoneService: TimezoneService,
+    private readonly cashShiftRepository: CashShiftRepository,
   ) {}
 
   async createOrder(restaurantId: string, cashShiftId: string, dto: CreateOrderDto) {
@@ -92,14 +95,15 @@ export class OrdersService {
     };
   }
 
-  async findByRestaurantId(
+  async listOrders(
     restaurantId: string,
     statuses?: OrderStatus[],
     limit?: number,
-    cashShiftId?: string,
     orderNumber?: number,
   ) {
-    return this.orderRepository.findByRestaurantId(restaurantId, undefined, statuses, limit, cashShiftId, orderNumber);
+    const shift = await this.cashShiftRepository.findOpen(restaurantId);
+    if (!shift) throw new RegisterNotOpenException();
+    return this.orderRepository.listOrders(restaurantId, shift.id, statuses, limit, orderNumber);
   }
 
   async findHistory(
