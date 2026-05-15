@@ -3,7 +3,7 @@ import { KioskService } from './kiosk.service';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { MenuRepository } from '../menus/menu.repository';
 import { OrdersService } from '../orders/orders.service';
-import { CashShiftRepository } from '../cash-register/cash-register-session.repository';
+import { CashShiftRepository } from '../cash-shift/cash-shift.repository';
 import { EntityNotFoundException } from '../common/exceptions';
 import { STOCK_STATUS } from '../events/kiosk.events';
 import { RegisterNotOpenException } from '../orders/exceptions/orders.exceptions';

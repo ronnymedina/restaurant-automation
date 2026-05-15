@@ -4,7 +4,7 @@ import { RestaurantsService } from '../restaurants/restaurants.service';
 import { RestaurantWithSettings } from '../restaurants/restaurant.repository';
 import { MenuRepository } from '../menus/menu.repository';
 import { OrdersService } from '../orders/orders.service';
-import { CashShiftRepository } from '../cash-register/cash-register-session.repository';
+import { CashShiftRepository } from '../cash-shift/cash-shift.repository';
 import { CreateOrderDto } from '../orders/dto/create-order.dto';
 import { EntityNotFoundException } from '../common/exceptions';
 import { RegisterNotOpenException } from '../orders/exceptions/orders.exceptions';
