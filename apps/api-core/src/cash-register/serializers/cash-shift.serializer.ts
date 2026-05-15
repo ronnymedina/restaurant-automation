@@ -2,7 +2,7 @@ import { CashShift, CashShiftStatus } from '@prisma/client';
 import { Exclude, Expose } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { CashShiftWithUser } from '../cash-register-session.repository';
+import { CashShiftWithUser } from '../../cash-shift/cash-shift.repository';
 
 @Exclude()
 export class CashShiftSerializer implements Pick<CashShift, 'id' | 'status'> {
