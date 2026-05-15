@@ -49,18 +49,16 @@ export async function getCurrentSession(): Promise<ApiResult<CurrentSession | nu
 }
 
 export async function getOrders(params: {
-  cashShiftId?: string;
   orderNumber?: number;
   statuses?: string[];
   limit?: number;
 }): Promise<ApiResult<Order[]>> {
   const query = new URLSearchParams();
-  if (params.cashShiftId) query.set('cashShiftId', params.cashShiftId);
   if (params.orderNumber !== undefined) query.set('orderNumber', String(params.orderNumber));
   if (params.limit !== undefined) query.set('limit', String(params.limit));
   if (params.statuses?.length) {
     for (const s of params.statuses) {
-      query.append('statuses[]', s);
+      query.append('statuses', s);
     }
   }
   const res = await apiFetch(`/v1/orders?${query}`);
