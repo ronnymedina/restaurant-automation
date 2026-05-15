@@ -88,8 +88,9 @@
 E2E: ✅ `test/orders/listOrders.e2e-spec.ts`
 
 Query params:
-- `status` (opcional) — filtra por estado (`CREATED`, `PROCESSING`, `COMPLETED`, `CANCELLED`)
-- `limit` (opcional) — máximo de registros a retornar (default `15`, max `15`); útil para el KDS del dashboard
+- `statuses` (opcional, repetible) — filtra por uno o más estados. Ejemplo: `statuses=CREATED&statuses=PROCESSING`
+- `orderNumber` (opcional) — filtra por número de orden (coincidencia exacta)
+- `limit` (opcional) — máximo de registros a retornar (default `100`, max `100`)
 
 | Caso | Status | Detalle |
 |---|---|---|
@@ -97,10 +98,12 @@ Query params:
 | ADMIN puede listar | 200 | Retorna array de `OrderDto` |
 | MANAGER puede listar | 200 | Retorna array de `OrderDto` |
 | BASIC puede listar | 200 | Retorna array de `OrderDto` |
-| Con `?status=CREATED` | 200 | Filtra por estado |
-| Con `?status=PROCESSING` | 200 | Filtra por estado |
-| Con `?limit=15` | 200 | Retorna máximo 15 pedidos más recientes |
-| Sin `?limit` | 200 | Retorna máximo 15 pedidos (default) |
+| Con `?statuses=CREATED` | 200 | Filtra por un estado |
+| Con `?statuses=CREATED&statuses=PROCESSING` | 200 | Filtra por múltiples estados |
+| Con `?limit=100` | 200 | Retorna máximo 100 pedidos más recientes |
+| Sin `?limit` | 200 | Retorna máximo 100 pedidos (default) |
+| Con `?statuses=INVALID` | 400 | Valor de estado inválido |
+| Sin caja abierta | 409 | `{ code: "REGISTER_NOT_OPEN" }` |
 | Solo órdenes del propio restaurante | 200 | Aislamiento por `restaurantId` del JWT |
 | `totalAmount` como number | 200 | BigInt serializado a number |
 
@@ -193,7 +196,7 @@ E2E: ✅ `test/orders/cancelOrder.e2e-spec.ts`
 
 ### Notas de implementación
 
-- `GET /v1/orders` aplica un `limit` de 15 por defecto (máximo 15). Para reportes históricos completos usar `/history` que tiene paginación
+- `GET /v1/orders` resuelve el turno activo internamente desde el `restaurantId` del JWT. Si no hay caja abierta devuelve 409 `REGISTER_NOT_OPEN`. Aplica `limit` de 100 por defecto (máximo 100). Para reportes históricos completos usar `/history`
 - `displayTime` se formatea en el timezone del restaurante server-side. El campo `createdAt` se mantiene en ISO8601
 - El `restaurantId` viene del JWT — toda operación está aislada por restaurante
 - `totalAmount`, `unitPrice` y `subtotal` se almacenan como `BigInt` en PostgreSQL (centavos). El serializer los convierte a `number` para la respuesta JSON. JSON no soporta `BigInt` nativo
