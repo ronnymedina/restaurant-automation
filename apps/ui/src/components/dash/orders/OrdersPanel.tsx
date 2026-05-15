@@ -33,12 +33,18 @@ export default function OrdersPanel() {
     setTimeout(() => setToast(null), 3000);
   }
 
-  async function fetchOrders(cashShiftId: string, filter: ActiveFilter | null) {
+  async function fetchOrders(filter: ActiveFilter | null) {
     const statuses = filter?.statuses.length ? filter.statuses : ['CREATED', 'PROCESSING'];
-    const params: Parameters<typeof getOrders>[0] = { cashShiftId, limit: 100, statuses };
+    const params: Parameters<typeof getOrders>[0] = { limit: 100, statuses };
     if (filter?.orderNumber) params.orderNumber = filter.orderNumber;
     const result = await getOrders(params);
-    if (result.ok) setOrders(result.data);
+    if (!result.ok) {
+      if (result.httpStatus === 409 && result.error?.code === 'REGISTER_NOT_OPEN') {
+        setStatus(ORDERS_STATUS.CLOSED);
+      }
+      return;
+    }
+    setOrders(result.data);
   }
 
   async function loadSession() {
@@ -55,7 +61,7 @@ export default function OrdersPanel() {
       }
       setSession(result.data);
       setStatus(ORDERS_STATUS.OPEN);
-      await fetchOrders(result.data.id, null);
+      await fetchOrders(null);
     } catch {
       setStatus(ORDERS_STATUS.ERROR);
     }
@@ -72,7 +78,7 @@ export default function OrdersPanel() {
     if (!token) return;
     const es = new EventSource(`${config.apiUrl}/v1/events/dashboard?token=${token}`);
     const reload = () => {
-      if (!activeFilter) fetchOrders(session.id, null);
+      if (!activeFilter) fetchOrders(null);
     };
     es.addEventListener(ORDER_EVENTS.NEW, reload);
     es.addEventListener(ORDER_EVENTS.UPDATED, reload);
@@ -91,7 +97,7 @@ export default function OrdersPanel() {
       showToast(result.error.message ?? 'Error al actualizar', true);
       return;
     }
-    await fetchOrders(session!.id, activeFilter);
+    await fetchOrders(activeFilter);
   }
 
   async function handlePay(id: string) {
@@ -102,7 +108,7 @@ export default function OrdersPanel() {
       return;
     }
     showToast('Marcado como pagado');
-    await fetchOrders(session!.id, activeFilter);
+    await fetchOrders(activeFilter);
   }
 
   async function handleCancelConfirm(id: string, reason: string) {
@@ -114,7 +120,7 @@ export default function OrdersPanel() {
     }
     setCancelOrderId(null);
     showToast('Pedido cancelado');
-    await fetchOrders(session!.id, activeFilter);
+    await fetchOrders(activeFilter);
   }
 
   async function handleReceipt(id: string) {
@@ -150,7 +156,7 @@ export default function OrdersPanel() {
     if (!hasFilter) {
       setActiveFilter(null);
       setShowFilterPanel(false);
-      if (session) await fetchOrders(session.id, null);
+      await fetchOrders(null);
       return;
     }
     const parts: string[] = [];
@@ -159,7 +165,7 @@ export default function OrdersPanel() {
     const filter: ActiveFilter = { ...filters, label: parts.join(' + ') };
     setActiveFilter(filter);
     setShowFilterPanel(false);
-    if (session) await fetchOrders(session.id, filter);
+    await fetchOrders(filter);
   }
 
   const cardCallbacks = {

@@ -12,9 +12,11 @@ import {
   InvalidStatusTransitionException,
   OrderNotPaidException,
   StockInsufficientException,
+  RegisterNotOpenException,
 } from './exceptions/orders.exceptions';
 import { BadRequestException } from '@nestjs/common';
 import { TimezoneService } from '../restaurants/timezone.service';
+import { CashShiftRepository } from '../cash-shift/cash-shift.repository';
 
 const mockOrderRepository = {
   findById: jest.fn(),
@@ -22,8 +24,11 @@ const mockOrderRepository = {
   updateStatus: jest.fn(),
   cancelOrder: jest.fn(),
   markAsPaid: jest.fn(),
-  findByRestaurantId: jest.fn(),
+  listOrders: jest.fn(),
   findHistory: jest.fn(),
+};
+const mockCashShiftRepository = {
+  findOpen: jest.fn(),
 };
 const mockPrisma: Record<string, any> = {
   $transaction: jest.fn((cb: (tx: any) => any) => cb(mockPrisma)),
@@ -66,6 +71,7 @@ describe('OrdersService', () => {
         { provide: EmailService, useValue: mockEmail },
         { provide: PrintService, useValue: mockPrint },
         { provide: TimezoneService, useValue: mockTimezoneService },
+        { provide: CashShiftRepository, useValue: mockCashShiftRepository },
       ],
     }).compile();
 
@@ -344,35 +350,39 @@ describe('OrdersService', () => {
     });
   });
 
-  describe('findByRestaurantId', () => {
-    it('returns orders for a restaurantId', async () => {
-      const orders = [makeOrder()];
-      mockOrderRepository.findByRestaurantId.mockResolvedValue(orders);
-      const result = await service.findByRestaurantId('r1');
-      expect(result).toEqual(orders);
+  describe('listOrders', () => {
+    it('throws RegisterNotOpenException when no shift is open', async () => {
+      mockCashShiftRepository.findOpen.mockResolvedValue(null);
+      await expect(service.listOrders('r1')).rejects.toThrow(RegisterNotOpenException);
     });
 
-    it('passes statuses array and limit to repository', async () => {
-      mockOrderRepository.findByRestaurantId.mockResolvedValue([]);
-      await service.findByRestaurantId('r1', [OrderStatus.CREATED], 15);
-      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith(
-        'r1', undefined, [OrderStatus.CREATED], 15, undefined, undefined,
+    it('calls orderRepository with the open shift id', async () => {
+      const shift = { id: 'shift-1' };
+      mockCashShiftRepository.findOpen.mockResolvedValue(shift);
+      mockOrderRepository.listOrders.mockResolvedValue([]);
+      await service.listOrders('r1');
+      expect(mockOrderRepository.listOrders).toHaveBeenCalledWith(
+        'r1', 'shift-1', undefined, undefined, undefined,
+      );
+    });
+
+    it('passes statuses and limit to repository', async () => {
+      const shift = { id: 'shift-1' };
+      mockCashShiftRepository.findOpen.mockResolvedValue(shift);
+      mockOrderRepository.listOrders.mockResolvedValue([]);
+      await service.listOrders('r1', [OrderStatus.CREATED], 15);
+      expect(mockOrderRepository.listOrders).toHaveBeenCalledWith(
+        'r1', 'shift-1', [OrderStatus.CREATED], 15, undefined,
       );
     });
 
     it('passes multiple statuses to repository', async () => {
-      mockOrderRepository.findByRestaurantId.mockResolvedValue([]);
-      await service.findByRestaurantId('r1', [OrderStatus.CREATED, OrderStatus.PROCESSING], 100);
-      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith(
-        'r1', undefined, [OrderStatus.CREATED, OrderStatus.PROCESSING], 100, undefined, undefined,
-      );
-    });
-
-    it('passes undefined statuses and limit when called with no args', async () => {
-      mockOrderRepository.findByRestaurantId.mockResolvedValue([]);
-      await service.findByRestaurantId('r1');
-      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith(
-        'r1', undefined, undefined, undefined, undefined, undefined,
+      const shift = { id: 'shift-1' };
+      mockCashShiftRepository.findOpen.mockResolvedValue(shift);
+      mockOrderRepository.listOrders.mockResolvedValue([]);
+      await service.listOrders('r1', [OrderStatus.CREATED, OrderStatus.PROCESSING], 100);
+      expect(mockOrderRepository.listOrders).toHaveBeenCalledWith(
+        'r1', 'shift-1', [OrderStatus.CREATED, OrderStatus.PROCESSING], 100, undefined,
       );
     });
   });

@@ -59,7 +59,6 @@ test('when session is open, fetches active orders with statuses and limit=100', 
 
   await waitFor(() =>
     expect(mockGetOrders).toHaveBeenCalledWith({
-      cashShiftId: 'shift-xyz',
       statuses: ['CREATED', 'PROCESSING'],
       limit: 100,
     }),
@@ -89,10 +88,27 @@ test('when filter is applied with statuses, fetches orders with filter statuses'
 
   await waitFor(() =>
     expect(mockGetOrders).toHaveBeenLastCalledWith({
-      cashShiftId: 'shift-xyz',
       statuses: ['COMPLETED'],
       limit: 100,
     }),
+  );
+});
+
+test('when getOrders returns 409 REGISTER_NOT_OPEN, sets status to CLOSED', async () => {
+  mockGetCurrentSession.mockResolvedValue({
+    ok: true,
+    data: { id: 'shift-xyz', openedByEmail: 'staff@test.com' },
+  });
+  mockGetOrders.mockResolvedValue({
+    ok: false,
+    httpStatus: 409,
+    error: { code: 'REGISTER_NOT_OPEN' },
+  });
+
+  render(<OrdersPanel />);
+
+  await waitFor(() =>
+    expect(screen.getByText(/La caja está cerrada/)).toBeInTheDocument(),
   );
 });
 

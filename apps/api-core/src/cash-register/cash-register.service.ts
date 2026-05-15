@@ -3,7 +3,7 @@ import { CashShiftStatus, OrderStatus, Prisma } from '@prisma/client';
 
 import { fromCents } from '../common/helpers/money';
 
-import { CashShiftRepository, CashShiftWithUser, CashShiftWithCount } from './cash-register-session.repository';
+import { CashShiftRepository, CashShiftWithUser, CashShiftWithCount } from '../cash-shift/cash-shift.repository';
 import { OrderRepository } from '../orders/order.repository';
 import {
   CashRegisterAlreadyOpenException,
