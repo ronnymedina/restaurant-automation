@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Patch, Param, Query, Body, UseGuards, ParseIntPipe, ParseEnumPipe, BadRequestException,
+  Controller, Get, Patch, Param, Query, Body, UseGuards, ParseIntPipe, DefaultValuePipe,
 } from '@nestjs/common';
 import { Role, OrderStatus } from '@prisma/client';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
@@ -13,6 +13,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { OrderDto, OrderWithItemsDto } from './dto/order.dto';
 import { TimezoneService } from '../restaurants/timezone.service';
+import { ParseEnumArrayPipe } from '../common/pipes/parse-enum-array.pipe';
+import { ClampIntPipe } from '../common/pipes/clamp-int.pipe';
 
 @ApiTags('orders')
 @ApiBearerAuth()
@@ -27,46 +29,25 @@ export class OrdersController {
 
   @Get()
   @Roles(Role.ADMIN, Role.MANAGER, Role.BASIC)
-  @ApiOperation({ summary: 'Listar órdenes del restaurante' })
-  @ApiQuery({ name: 'cashShiftId', required: false, type: String, description: 'Filtrar por sesión de caja' })
+  @ApiOperation({ summary: 'Listar órdenes del turno activo. Visible para ADMIN | MANAGER | BASIC' })
+  @ApiQuery({ name: 'statuses', required: false, enum: OrderStatus, isArray: true, description: 'Filtrar por estados. Repetir param: statuses=CREATED&statuses=PROCESSING' })
   @ApiQuery({ name: 'orderNumber', required: false, type: Number, description: 'Filtrar por número de orden (coincidencia exacta)' })
-  @ApiQuery({ name: 'status', required: false, enum: OrderStatus, description: 'Filtrar por estado (deprecated: prefer statuses[]). Merged with statuses[] without duplication.' })
-  @ApiQuery({ name: 'statuses', required: false, enum: OrderStatus, isArray: true, description: 'Filtrar por múltiples estados. Repetir param: statuses[]=CREATED&statuses[]=PROCESSING' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Máximo de registros (default 100, max 100)' })
   @ApiResponse({ status: 200, description: 'Lista de órdenes', type: [OrderDto] })
-  @ApiResponse({ status: 400, description: 'Parámetro inválido (status o orderNumber)' })
+  @ApiResponse({ status: 400, description: 'Parámetro inválido' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos' })
+  @ApiResponse({ status: 409, description: 'No hay caja abierta', schema: { example: { code: 'REGISTER_NOT_OPEN' } } })
   async findAll(
     @CurrentUser() user: { restaurantId: string },
-    @Query('cashShiftId') cashShiftId?: string,
+    @Query('statuses', new ParseEnumArrayPipe(OrderStatus)) statuses?: OrderStatus[],
     @Query('orderNumber', new ParseIntPipe({ optional: true })) orderNumber?: number,
-    @Query('status', new ParseEnumPipe(OrderStatus, { optional: true })) status?: OrderStatus,
-    @Query('limit') limit?: string,
-    @Query('statuses') rawStatuses?: string | string[],
+    @Query('limit', new DefaultValuePipe(100), ParseIntPipe, new ClampIntPipe(1, 100)) limit = 100,
   ) {
-    const rawArray = rawStatuses
-      ? (Array.isArray(rawStatuses) ? rawStatuses : [rawStatuses])
-      : [];
-    const mergedStatuses: OrderStatus[] = [];
-    for (const s of rawArray) {
-      if (!Object.values(OrderStatus).includes(s as OrderStatus)) {
-        throw new BadRequestException(`Valor de status inválido: ${s}`);
-      }
-      if (!mergedStatuses.includes(s as OrderStatus)) {
-        mergedStatuses.push(s as OrderStatus);
-      }
-    }
-    if (status && !mergedStatuses.includes(status)) {
-      mergedStatuses.push(status);
-    }
-
-    const take = limit ? Math.min(100, Math.max(1, parseInt(limit, 10) || 100)) : 100;
-    const orders = await this.ordersService.findByRestaurantId(
+    const orders = await this.ordersService.listOrders(
       user.restaurantId,
-      mergedStatuses.length ? mergedStatuses : undefined,
-      take,
-      cashShiftId,
+      statuses,
+      limit,
       orderNumber,
     );
     const tz = await this.timezoneService.getTimezone(user.restaurantId);
