@@ -1,5 +1,5 @@
 import { Exclude, Expose, Transform, Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderStatus } from '@prisma/client';
 import { fromCents } from '../../common/helpers/money';
 import { KitchenOrderItemSerializer } from './kitchen-order-item.serializer';
@@ -31,6 +31,14 @@ export class KitchenOrderSerializer {
   @Expose()
   @Type(() => KitchenOrderItemSerializer)
   items: KitchenOrderItemSerializer[];
+
+  @ApiPropertyOptional({ nullable: true })
+  @Expose()
+  orderType: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @Expose()
+  tableNumber: string | null;
 
   constructor(partial: any, timezone = 'UTC') {
     Object.assign(this, partial);

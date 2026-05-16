@@ -25,7 +25,6 @@ import {
 import { KitchenService } from './kitchen.service';
 import { KitchenTokenGuard, KITCHEN_RESTAURANT_KEY } from './guards/kitchen-token.guard';
 import { UpdateKitchenStatusDto } from './dto/update-kitchen-status.dto';
-import { CancelKitchenOrderDto } from './dto/cancel-kitchen-order.dto';
 import { GenerateKitchenTokenDto } from './dto/generate-kitchen-token.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -101,29 +100,6 @@ export class KitchenController {
       (req as any)[KITCHEN_RESTAURANT_KEY],
       id,
       dto.status,
-    );
-  }
-
-  @Patch(':slug/orders/:id/cancel')
-  @UseGuards(KitchenTokenGuard)
-  @ApiSecurity('kitchen-token')
-  @ApiOperation({ summary: 'Cancelar un pedido desde la pantalla de cocina' })
-  @ApiParam({ name: 'slug', description: 'Slug del restaurante', type: String })
-  @ApiParam({ name: 'id', description: 'ID del pedido', type: String })
-  @ApiQuery({ name: 'token', required: true, description: 'Token de acceso de cocina' })
-  @ApiResponse({ status: 200, description: 'Pedido cancelado', type: KitchenOrderSerializer })
-  @ApiResponse({ status: 400, description: 'El pedido no puede cancelarse en su estado actual' })
-  @ApiResponse({ status: 401, description: 'Token inválido o expirado' })
-  @ApiResponse({ status: 404, description: 'Pedido no encontrado' })
-  async cancelOrder(
-    @Req() req: Request,
-    @Param('id') id: string,
-    @Body() dto: CancelKitchenOrderDto,
-  ) {
-    return this.kitchenService.cancelOrder(
-      (req as any)[KITCHEN_RESTAURANT_KEY],
-      id,
-      dto.reason,
     );
   }
 
