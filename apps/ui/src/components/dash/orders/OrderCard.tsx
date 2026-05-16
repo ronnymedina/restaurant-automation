@@ -8,15 +8,21 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 const BORDER_COLORS: Record<string, string> = {
   CREATED: 'border-l-yellow-400',
+  CONFIRMED: 'border-l-purple-400',
   PROCESSING: 'border-l-blue-400',
   COMPLETED: 'border-l-green-400',
   CANCELLED: 'border-l-red-400',
 };
 
+const ACTIVE_STATUSES = new Set(['CREATED', 'CONFIRMED', 'PROCESSING']);
+
 export interface OrderCardCallbacks {
+  onConfirm: (id: string) => void;
   onAdvance: (id: string, nextStatus: string) => void;
   onPay: (id: string) => void;
+  onUnpay: (id: string) => void;
   onCancel: (id: string) => void;
+  onCancelBlocked: (id: string) => void;
   onReceipt: (id: string) => void;
 }
 
@@ -24,8 +30,11 @@ interface OrderCardProps extends OrderCardCallbacks {
   order: Order;
 }
 
-export default function OrderCard({ order, onAdvance, onPay, onCancel, onReceipt }: OrderCardProps) {
+export default function OrderCard({
+  order, onConfirm, onAdvance, onPay, onUnpay, onCancel, onCancelBlocked, onReceipt,
+}: OrderCardProps) {
   const border = BORDER_COLORS[order.status] ?? 'border-l-slate-300';
+  const isActive = ACTIVE_STATUSES.has(order.status);
 
   return (
     <div className={`bg-white rounded-xl border border-slate-200 border-l-4 ${border} shadow-sm`}>
@@ -72,6 +81,15 @@ export default function OrderCard({ order, onAdvance, onPay, onCancel, onReceipt
           {order.status === 'CREATED' && (
             <button
               type="button"
+              onClick={() => onConfirm(order.id)}
+              className="flex-1 py-1.5 text-xs font-medium bg-blue-500 text-white rounded-lg cursor-pointer border-none hover:bg-blue-600"
+            >
+              Confirmar
+            </button>
+          )}
+          {order.status === 'CONFIRMED' && (
+            <button
+              type="button"
               onClick={() => onAdvance(order.id, 'PROCESSING')}
               className="flex-1 py-1.5 text-xs font-medium bg-blue-500 text-white rounded-lg cursor-pointer border-none hover:bg-blue-600"
             >
@@ -87,7 +105,16 @@ export default function OrderCard({ order, onAdvance, onPay, onCancel, onReceipt
               Completar
             </button>
           )}
-          {!order.isPaid && order.status !== 'CANCELLED' && (
+          {isActive && order.isPaid && (
+            <button
+              type="button"
+              onClick={() => onUnpay(order.id)}
+              className="py-1.5 px-2 text-xs font-medium bg-amber-100 text-amber-700 rounded-lg cursor-pointer border-none hover:bg-amber-200"
+            >
+              Desmarcar Pago
+            </button>
+          )}
+          {isActive && !order.isPaid && (
             <button
               type="button"
               onClick={() => onPay(order.id)}
@@ -96,11 +123,21 @@ export default function OrderCard({ order, onAdvance, onPay, onCancel, onReceipt
               Marcar Pagado
             </button>
           )}
-          {(order.status === 'CREATED' || order.status === 'PROCESSING') && (
+          {isActive && !order.isPaid && (
             <button
               type="button"
               onClick={() => onCancel(order.id)}
               className="py-1.5 px-2 text-xs font-medium bg-red-100 text-red-700 rounded-lg cursor-pointer border-none hover:bg-red-200"
+            >
+              Cancelar
+            </button>
+          )}
+          {isActive && order.isPaid && (
+            <button
+              type="button"
+              onClick={() => onCancelBlocked(order.id)}
+              className="py-1.5 px-2 text-xs font-medium bg-slate-100 text-slate-400 rounded-lg cursor-pointer border-none"
+              title="Desmarca el pago antes de cancelar"
             >
               Cancelar
             </button>
