@@ -1,4 +1,4 @@
-import { getOrders } from './api';
+import { getOrders, confirmOrder, unmarkOrderPaid } from './api';
 import { apiFetch } from '../../../lib/api';
 
 vi.mock('../../../lib/api', () => ({
@@ -43,5 +43,35 @@ describe('getOrders', () => {
     await getOrders({ orderNumber: 1 });
     const url = mockApiFetch.mock.calls[0][0] as string;
     expect(url).not.toContain('cashShiftId');
+  });
+});
+
+describe('confirmOrder', () => {
+  it('calls PATCH /v1/orders/:id/confirm', async () => {
+    mockApiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 'o1', status: 'CONFIRMED' }),
+    });
+    const result = await confirmOrder('o1');
+    expect(result.ok).toBe(true);
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/orders/o1/confirm'),
+      expect.objectContaining({ method: 'PATCH' }),
+    );
+  });
+});
+
+describe('unmarkOrderPaid', () => {
+  it('calls PATCH /v1/orders/:id/unpay', async () => {
+    mockApiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 'o1', isPaid: false }),
+    });
+    const result = await unmarkOrderPaid('o1');
+    expect(result.ok).toBe(true);
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/orders/o1/unpay'),
+      expect.objectContaining({ method: 'PATCH' }),
+    );
   });
 });

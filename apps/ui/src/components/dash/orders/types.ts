@@ -9,6 +9,7 @@ export type OrdersStatus = (typeof ORDERS_STATUS)[keyof typeof ORDERS_STATUS];
 
 export const ORDER_STATUS = {
   CREATED: 'CREATED',
+  CONFIRMED: 'CONFIRMED',
   PROCESSING: 'PROCESSING',
   COMPLETED: 'COMPLETED',
   CANCELLED: 'CANCELLED',

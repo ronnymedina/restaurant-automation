@@ -101,3 +101,21 @@ export async function cancelOrder(id: string, reason: string): Promise<ApiResult
   }
   return { ok: true, data: await res.json() };
 }
+
+export async function confirmOrder(id: string): Promise<ApiResult<Order>> {
+  const res = await apiFetch(`/v1/orders/${id}/confirm`, { method: 'PATCH' });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    return { ok: false, error, httpStatus: res.status };
+  }
+  return { ok: true, data: await res.json() };
+}
+
+export async function unmarkOrderPaid(id: string): Promise<ApiResult<Order>> {
+  const res = await apiFetch(`/v1/orders/${id}/unpay`, { method: 'PATCH' });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    return { ok: false, error, httpStatus: res.status };
+  }
+  return { ok: true, data: await res.json() };
+}
