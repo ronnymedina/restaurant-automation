@@ -210,7 +210,7 @@ describe('OrdersService', () => {
       expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith('o1', OrderStatus.CONFIRMED);
     });
 
-    it('does NOT call updateStatus when already CONFIRMED or PROCESSING', async () => {
+    it('does NOT call updateStatus when already CONFIRMED', async () => {
       const paid = makeOrder({ isPaid: true, status: OrderStatus.CONFIRMED });
       mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CONFIRMED }));
       mockOrderRepository.markAsPaid.mockResolvedValue(paid);
@@ -247,7 +247,7 @@ describe('OrdersService', () => {
     it('calls markAsUnpaid and emits event', async () => {
       const unpaid = makeOrder({ isPaid: false });
       mockOrderRepository.findById.mockResolvedValue(makeOrder({ isPaid: true }));
-      mockOrderRepository.markAsUnpaid = jest.fn().mockResolvedValue(unpaid);
+      mockOrderRepository.markAsUnpaid.mockResolvedValue(unpaid);
       const result = await service.unmarkAsPaid('o1', 'r1');
       expect(mockOrderRepository.markAsUnpaid).toHaveBeenCalledWith('o1');
       expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', unpaid);

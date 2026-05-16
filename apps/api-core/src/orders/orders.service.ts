@@ -329,6 +329,7 @@ export class OrdersService {
         paymentMethod: params.dto.paymentMethod,
         customerEmail: params.dto.customerEmail,
         initialStatus: (params.dto as any).orderSource === 'STAFF' ? OrderStatus.CONFIRMED : undefined,
+        // Task 5 adds these fields to CreateOrderDto — casts removed then
         orderSource: (params.dto as any).orderSource,
         orderType: (params.dto as any).orderType,
         tableNumber: (params.dto as any).tableNumber,
