@@ -83,7 +83,7 @@ export class KitchenController {
   @Patch(':slug/orders/:id/status')
   @UseGuards(KitchenTokenGuard)
   @ApiSecurity('kitchen-token')
-  @ApiOperation({ summary: 'Avanzar estado de un pedido (CREATED → PROCESSING → COMPLETED)' })
+  @ApiOperation({ summary: 'Avanzar estado de un pedido (CONFIRMED → PROCESSING → COMPLETED)' })
   @ApiParam({ name: 'slug', description: 'Slug del restaurante', type: String })
   @ApiParam({ name: 'id', description: 'ID del pedido', type: String })
   @ApiQuery({ name: 'token', required: true, description: 'Token de acceso de cocina' })

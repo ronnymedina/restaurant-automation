@@ -64,7 +64,7 @@ export class KioskService {
     const restaurant = await this.resolveRestaurant(slug);
     const session = await this.registerSessionRepository.findOpen(restaurant.id);
     if (!session) throw new RegisterNotOpenException();
-    return this.ordersService.createOrder(restaurant.id, session.id, dto);
+    return this.ordersService.createOrder(restaurant.id, session.id, { ...dto, orderSource: 'KIOSK' });
   }
 
   getCurrentDayAndTime(

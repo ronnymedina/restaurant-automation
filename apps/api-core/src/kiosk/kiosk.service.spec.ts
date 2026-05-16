@@ -435,7 +435,7 @@ describe('KioskService', () => {
       mockOrdersService.createOrder.mockResolvedValue(mockOrder);
 
       const result = await service.createKioskOrder('test-rest', mockDto);
-      expect(mockOrdersService.createOrder).toHaveBeenCalledWith('r1', 's1', mockDto);
+      expect(mockOrdersService.createOrder).toHaveBeenCalledWith('r1', 's1', { ...mockDto, orderSource: 'KIOSK' });
       expect(result).toEqual(mockOrder);
     });
   });
