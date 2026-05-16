@@ -5,6 +5,7 @@ import { ORDER_EVENTS } from '../../../lib/sse-events';
 import { EyeIcon, EyeOffIcon } from '../../commons/icons';
 import {
   getCurrentSession, getOrders, updateOrderStatus, markOrderPaid, cancelOrder,
+  confirmOrder, unmarkOrderPaid,
 } from './api';
 import type { Order, CurrentSession } from './api';
 import type { FilterValues } from './OrderFilterPanel';
@@ -34,9 +35,16 @@ export default function OrdersPanel() {
   }
 
   async function fetchOrders(filter: ActiveFilter | null) {
-    const statuses = filter?.statuses.length ? filter.statuses : ['CREATED', 'PROCESSING'];
-    const params: Parameters<typeof getOrders>[0] = { limit: 100, statuses };
-    if (filter?.orderNumber) params.orderNumber = filter.orderNumber;
+    const params: Parameters<typeof getOrders>[0] = { limit: 100 };
+
+    if (filter?.orderNumber) {
+      params.orderNumber = filter.orderNumber;
+      if (filter.statuses.length) params.statuses = filter.statuses;
+      // When searching by orderNumber, no default statuses — find in any state
+    } else {
+      params.statuses = filter?.statuses.length ? filter.statuses : ['CREATED', 'CONFIRMED', 'PROCESSING'];
+    }
+
     const result = await getOrders(params);
     if (!result.ok) {
       if (result.httpStatus === 409 && result.error?.code === 'REGISTER_NOT_OPEN') {
@@ -100,6 +108,17 @@ export default function OrdersPanel() {
     await fetchOrders(activeFilter);
   }
 
+  async function handleConfirm(id: string) {
+    if (!session) return;
+    const result = await confirmOrder(id);
+    if (!result.ok) {
+      showToast(result.error.message ?? 'Error al confirmar', true);
+      return;
+    }
+    showToast('Pedido confirmado');
+    await fetchOrders(activeFilter);
+  }
+
   async function handlePay(id: string) {
     if (!session) return;
     const result = await markOrderPaid(id);
@@ -111,16 +130,36 @@ export default function OrdersPanel() {
     await fetchOrders(activeFilter);
   }
 
+  async function handleUnpay(id: string) {
+    if (!session) return;
+    const result = await unmarkOrderPaid(id);
+    if (!result.ok) {
+      showToast(result.error.message ?? 'Error al desmarcar pago', true);
+      return;
+    }
+    showToast('Pago desmarcado');
+    await fetchOrders(activeFilter);
+  }
+
   async function handleCancelConfirm(id: string, reason: string) {
     if (!session) return;
+    const order = orders.find((o) => o.id === id);
     const result = await cancelOrder(id, reason);
     if (!result.ok) {
       showToast(result.error.message ?? 'Error al cancelar', true);
       return;
     }
     setCancelOrderId(null);
-    showToast('Pedido cancelado');
+    if (order?.status === 'PROCESSING') {
+      showToast('⚠️ Pedido cancelado. Recuerda notificar a tu cocina.', false);
+    } else {
+      showToast('Pedido cancelado');
+    }
     await fetchOrders(activeFilter);
+  }
+
+  function handleCancelBlocked(_id: string) {
+    showToast('Este pedido está marcado como pagado. Desmarca el pago antes de cancelarlo.', true);
   }
 
   async function handleReceipt(id: string) {
@@ -169,9 +208,12 @@ export default function OrdersPanel() {
   }
 
   const cardCallbacks = {
+    onConfirm: handleConfirm,
     onAdvance: handleAdvance,
     onPay: handlePay,
+    onUnpay: handleUnpay,
     onCancel: (id: string) => setCancelOrderId(id),
+    onCancelBlocked: handleCancelBlocked,
     onReceipt: handleReceipt,
   };
 
