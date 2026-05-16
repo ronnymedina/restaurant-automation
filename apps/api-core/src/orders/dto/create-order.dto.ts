@@ -1,6 +1,7 @@
 import {
   IsArray,
   IsInt,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -54,4 +55,21 @@ export class CreateOrderDto {
   @IsNumber()
   @IsOptional()
   expectedTotal?: number;
+
+  @ApiPropertyOptional({ example: 'STAFF', description: 'Origen del pedido: KIOSK | WEB | STAFF' })
+  @IsString()
+  @IsIn(['KIOSK', 'WEB', 'STAFF'])
+  @IsOptional()
+  orderSource?: string;
+
+  @ApiPropertyOptional({ example: 'PICKUP', description: 'Tipo de entrega: PICKUP | DELIVERY | DINE_IN' })
+  @IsString()
+  @IsIn(['PICKUP', 'DELIVERY', 'DINE_IN'])
+  @IsOptional()
+  orderType?: string;
+
+  @ApiPropertyOptional({ example: '5', description: 'Número de mesa. Requerido si orderType = DINE_IN' })
+  @IsString()
+  @IsOptional()
+  tableNumber?: string;
 }
