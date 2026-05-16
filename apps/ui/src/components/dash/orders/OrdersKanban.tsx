@@ -12,6 +12,14 @@ const COLUMNS = [
     badgeBg: 'bg-yellow-200',
   },
   {
+    status: 'CONFIRMED',
+    label: 'Confirmado',
+    bg: 'bg-purple-50',
+    border: 'border-purple-200',
+    text: 'text-purple-800',
+    badgeBg: 'bg-purple-200',
+  },
+  {
     status: 'PROCESSING',
     label: 'En Proceso',
     bg: 'bg-blue-50',
@@ -25,12 +33,12 @@ interface OrdersKanbanProps extends OrderCardCallbacks {
   orders: Order[];
 }
 
-export default function OrdersKanban({ orders, onAdvance, onPay, onCancel, onReceipt }: OrdersKanbanProps) {
+export default function OrdersKanban({ orders, onConfirm, onAdvance, onPay, onUnpay, onCancel, onCancelBlocked, onReceipt }: OrdersKanbanProps) {
   const byStatus = (status: string) => orders.filter((o) => o.status === status);
-  const cardCallbacks = { onAdvance, onPay, onCancel, onReceipt };
+  const cardCallbacks = { onConfirm, onAdvance, onPay, onUnpay, onCancel, onCancelBlocked, onReceipt };
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-3 gap-4">
       {COLUMNS.map(({ status, label, bg, border, text, badgeBg }) => {
         const col = byStatus(status);
         return (

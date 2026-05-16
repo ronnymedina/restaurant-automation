@@ -12,9 +12,12 @@ export default function OrdersFilteredList({
   orders,
   filterLabel,
   onClearFilter,
+  onConfirm,
   onAdvance,
   onPay,
+  onUnpay,
   onCancel,
+  onCancelBlocked,
   onReceipt,
 }: OrdersFilteredListProps) {
   return (
@@ -43,9 +46,12 @@ export default function OrdersFilteredList({
             <OrderCard
               key={order.id}
               order={order}
+              onConfirm={onConfirm}
               onAdvance={onAdvance}
               onPay={onPay}
+              onUnpay={onUnpay}
               onCancel={onCancel}
+              onCancelBlocked={onCancelBlocked}
               onReceipt={onReceipt}
             />
           ))}

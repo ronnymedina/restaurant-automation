@@ -3,6 +3,7 @@ import { ORDER_STATUS, type OrderStatus } from './types';
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   CREATED: 'Creado',
+  CONFIRMED: 'Confirmado',
   PROCESSING: 'En Proceso',
   COMPLETED: 'Completado',
   CANCELLED: 'Cancelado',
