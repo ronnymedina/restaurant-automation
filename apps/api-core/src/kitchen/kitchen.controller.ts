@@ -71,7 +71,7 @@ export class KitchenController {
   @Get(':slug/orders')
   @UseGuards(KitchenTokenGuard)
   @ApiSecurity('kitchen-token')
-  @ApiOperation({ summary: 'Listar pedidos activos (CREATED y PROCESSING) para la pantalla de cocina' })
+  @ApiOperation({ summary: 'Listar pedidos activos (CONFIRMED y PROCESSING) para la pantalla de cocina' })
   @ApiParam({ name: 'slug', description: 'Slug del restaurante', type: String })
   @ApiQuery({ name: 'token', required: true, description: 'Token de acceso de cocina' })
   @ApiResponse({ status: 200, description: 'Lista de pedidos activos', type: [KitchenOrderSerializer] })
