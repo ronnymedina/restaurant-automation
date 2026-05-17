@@ -28,6 +28,7 @@ const STATUS_ORDER: OrderStatus[] = [
   OrderStatus.CREATED,
   OrderStatus.CONFIRMED,
   OrderStatus.PROCESSING,
+  OrderStatus.SERVED,
   OrderStatus.COMPLETED,
 ];
 
@@ -143,7 +144,7 @@ export class OrdersService {
 
     const currentIdx = STATUS_ORDER.indexOf(order.status);
     const targetIdx = STATUS_ORDER.indexOf(newStatus);
-    if (targetIdx <= currentIdx || targetIdx === -1) {
+    if (targetIdx === -1 || targetIdx !== currentIdx + 1) {
       throw new InvalidStatusTransitionException(order.status, newStatus);
     }
 
@@ -177,11 +178,12 @@ export class OrdersService {
 
     const currentIdx = STATUS_ORDER.indexOf(order.status);
     const targetIdx = STATUS_ORDER.indexOf(newStatus);
-    if (targetIdx === -1 || targetIdx !== currentIdx + 1) {
+    const KITCHEN_MAX_IDX = STATUS_ORDER.indexOf(OrderStatus.SERVED);
+    if (targetIdx === -1 || targetIdx !== currentIdx + 1 || targetIdx > KITCHEN_MAX_IDX) {
       throw new InvalidStatusTransitionException(order.status, newStatus);
     }
 
-    // Kitchen can complete without payment check — payment is handled by the cashier
+    // Kitchen can advance without payment check — payment is handled by the cashier
     const updated = await this.orderRepository.updateStatus(id, newStatus);
     this.orderEventsService.emitOrderUpdated(restaurantId, updated);
     return updated;
@@ -192,6 +194,9 @@ export class OrdersService {
 
     if (order.status === OrderStatus.CREATED) {
       await this.orderRepository.updateStatus(id, OrderStatus.CONFIRMED);
+    }
+    if (order.status === OrderStatus.SERVED) {
+      await this.orderRepository.updateStatus(id, OrderStatus.COMPLETED);
     }
 
     const updatedOrder = await this.orderRepository.markAsPaid(id);

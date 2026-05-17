@@ -111,16 +111,23 @@ describe('OrdersService', () => {
     });
 
     it('throws OrderNotPaidException when completing unpaid order', async () => {
-      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.PROCESSING, isPaid: false }));
-      await expect(service.updateOrderStatus('o1', 'r1', OrderStatus.COMPLETED)).rejects.toThrow(OrderNotPaidException);
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.SERVED, isPaid: false }));
+      await expect(service.updateOrderStatus('o1', 'r1', OrderStatus.COMPLETED))
+        .rejects.toThrow(OrderNotPaidException);
     });
 
     it('emits updated event on success', async () => {
-      const updated = makeOrder({ status: OrderStatus.PROCESSING });
+      const updated = makeOrder({ status: OrderStatus.CONFIRMED });
       mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CREATED }));
       mockOrderRepository.updateStatus.mockResolvedValue(updated);
-      await service.updateOrderStatus('o1', 'r1', OrderStatus.PROCESSING);
+      await service.updateOrderStatus('o1', 'r1', OrderStatus.CONFIRMED);
       expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', updated);
+    });
+
+    it('throws InvalidStatusTransitionException when skipping CREATED → PROCESSING (strict +1 required)', async () => {
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CREATED }));
+      await expect(service.updateOrderStatus('o1', 'r1', OrderStatus.PROCESSING))
+        .rejects.toThrow(InvalidStatusTransitionException);
     });
   });
 
@@ -216,6 +223,16 @@ describe('OrdersService', () => {
       mockOrderRepository.markAsPaid.mockResolvedValue(paid);
       await service.markAsPaid('o1', 'r1');
       expect(mockOrderRepository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('auto-advances to COMPLETED when marking a SERVED order as paid', async () => {
+      const servedOrder = makeOrder({ status: OrderStatus.SERVED, isPaid: false });
+      const completedPaid = makeOrder({ status: OrderStatus.COMPLETED, isPaid: true });
+      mockOrderRepository.findById.mockResolvedValue(servedOrder);
+      mockOrderRepository.updateStatus.mockResolvedValue(completedPaid);
+      mockOrderRepository.markAsPaid.mockResolvedValue(completedPaid);
+      await service.markAsPaid('o1', 'r1');
+      expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith('o1', OrderStatus.COMPLETED);
     });
   });
 
@@ -487,11 +504,11 @@ describe('OrdersService', () => {
         .rejects.toThrow(InvalidStatusTransitionException);
     });
 
-    it('advances PROCESSING → COMPLETED without isPaid check', async () => {
+    it('advances PROCESSING → SERVED without isPaid check', async () => {
       mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.PROCESSING, isPaid: false }));
-      mockOrderRepository.updateStatus.mockResolvedValue(makeOrder({ status: OrderStatus.COMPLETED }));
-      const result = await service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.COMPLETED);
-      expect(result.status).toBe(OrderStatus.COMPLETED);
+      mockOrderRepository.updateStatus.mockResolvedValue(makeOrder({ status: OrderStatus.SERVED }));
+      const result = await service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.SERVED);
+      expect(result.status).toBe(OrderStatus.SERVED);
     });
 
     it('throws on skip attempt (CREATED → COMPLETED)', async () => {
@@ -504,6 +521,12 @@ describe('OrdersService', () => {
       mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CANCELLED }));
       await expect(service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.PROCESSING))
         .rejects.toThrow(OrderAlreadyCancelledException);
+    });
+
+    it('throws InvalidStatusTransitionException when SERVED → COMPLETED via kitchen (cap exceeded)', async () => {
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.SERVED, isPaid: false }));
+      await expect(service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.COMPLETED))
+        .rejects.toThrow(InvalidStatusTransitionException);
     });
   });
 
