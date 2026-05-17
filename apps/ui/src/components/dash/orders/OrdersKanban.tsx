@@ -27,6 +27,14 @@ const COLUMNS = [
     text: 'text-blue-800',
     badgeBg: 'bg-blue-200',
   },
+  {
+    status: 'SERVED',
+    label: 'Entregado',
+    bg: 'bg-orange-50',
+    border: 'border-orange-200',
+    text: 'text-orange-800',
+    badgeBg: 'bg-orange-200',
+  },
 ];
 
 interface OrdersKanbanProps extends OrderCardCallbacks {
@@ -38,7 +46,7 @@ export default function OrdersKanban({ orders, onConfirm, onAdvance, onPay, onUn
   const cardCallbacks = { onConfirm, onAdvance, onPay, onUnpay, onCancel, onCancelBlocked, onReceipt };
 
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-4 gap-4">
       {COLUMNS.map(({ status, label, bg, border, text, badgeBg }) => {
         const col = byStatus(status);
         return (
