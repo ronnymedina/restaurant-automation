@@ -113,6 +113,65 @@ Pedido (isPaid=false)
 
 ---
 
+## Principio de diseño — separación de responsabilidades
+
+Cada función pública de `orders.service.ts` debe orquestar, no implementar. La lógica de validación, verificación de pago y aplicación de transiciones va en métodos privados pequeños con una sola responsabilidad.
+
+### Helpers privados propuestos para `orders.service.ts`
+
+```ts
+// Valida que la transición sea exactamente +1 paso en STATUS_ORDER.
+// Lanza InvalidStatusTransitionException si no lo es.
+private assertSequentialTransition(current: OrderStatus, next: OrderStatus): void
+
+// Valida que el estado destino no supere el tope máximo permitido para cocina (SERVED).
+// Lanza InvalidStatusTransitionException si lo supera.
+private assertKitchenMaxStatus(targetStatus: OrderStatus): void
+
+// Valida que el pedido esté pagado cuando el destino es COMPLETED.
+// Lanza OrderNotPaidException si no lo está.
+private assertPaidIfCompleting(order: Order, targetStatus: OrderStatus): void
+
+// Valida que el pedido no esté pagado antes de cancelar.
+// Lanza CannotCancelPaidOrderException si lo está.
+private assertNotPaidForCancel(order: Order): void
+
+// Aplica el cambio de estado en el repositorio y emite el evento SSE.
+private async applyStatusChange(orderId: string, restaurantId: string, status: OrderStatus): Promise<Order>
+```
+
+### Cómo quedan las funciones públicas tras la refactorización
+
+```ts
+async updateOrderStatus(id, restaurantId, newStatus) {
+  const order = await this.findById(id, restaurantId);
+  this.assertNotCancelled(order);
+  this.assertSequentialTransition(order.status, newStatus);
+  this.assertPaidIfCompleting(order, newStatus);
+  return this.applyStatusChange(id, restaurantId, newStatus);
+}
+
+async kitchenAdvanceStatus(id, restaurantId, newStatus) {
+  const order = await this.findById(id, restaurantId);
+  this.assertNotCancelled(order);
+  this.assertSequentialTransition(order.status, newStatus);
+  this.assertKitchenMaxStatus(newStatus);
+  return this.applyStatusChange(id, restaurantId, newStatus);
+}
+
+async cancelOrder(id, restaurantId, reason) {
+  const order = await this.findById(id, restaurantId);
+  this.assertNotCancelled(order);
+  this.assertNotCompleted(order);
+  this.assertNotPaidForCancel(order);
+  // ... persist + emit
+}
+```
+
+Cada helper lanza su propia excepción tipada — las funciones públicas no tienen lógica de validación inline.
+
+---
+
 ## Cambios requeridos
 
 ### Backend — `apps/api-core/`
