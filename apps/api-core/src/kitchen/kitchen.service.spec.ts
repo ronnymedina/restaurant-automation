@@ -82,6 +82,14 @@ describe('KitchenService', () => {
       expect(result).toHaveProperty('displayTime');
       expect(result.displayTime).toMatch(/^\d{2}:\d{2}$/);
     });
+
+    it('delegates PROCESSING → SERVED to kitchenAdvanceStatus', async () => {
+      const served = { id: 'o1', status: OrderStatus.SERVED, createdAt: new Date(), items: [] };
+      mockOrdersService.kitchenAdvanceStatus.mockResolvedValue(served);
+      const result = await service.advanceStatus(makeRestaurant() as any, 'o1', OrderStatus.SERVED);
+      expect(mockOrdersService.kitchenAdvanceStatus).toHaveBeenCalledWith('o1', 'r1', OrderStatus.SERVED);
+      expect(result.status).toBe(OrderStatus.SERVED);
+    });
   });
 
   describe('generateToken', () => {
