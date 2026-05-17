@@ -9,7 +9,7 @@
 {
   "id": "string",
   "orderNumber": 1,
-  "status": "CREATED | PROCESSING | COMPLETED | CANCELLED",
+  "status": "CREATED | PROCESSING | SERVED | COMPLETED | CANCELLED",
   "paymentMethod": "CASH | CARD | null",
   "customerEmail": "string | null",
   "totalAmount": 12.5,
@@ -29,7 +29,7 @@
 {
   "id": "string",
   "orderNumber": 1,
-  "status": "CREATED | PROCESSING | COMPLETED | CANCELLED",
+  "status": "CREATED | PROCESSING | SERVED | COMPLETED | CANCELLED",
   "paymentMethod": "CASH | CARD | null",
   "customerEmail": "string | null",
   "totalAmount": 12.5,
@@ -152,8 +152,9 @@ E2E: ✅ `test/orders/updateOrderStatus.e2e-spec.ts`
 | Sin token | 401 | Unauthenticated |
 | BASIC intenta actualizar | 403 | Solo ADMIN o MANAGER |
 | ADMIN avanza CREATED → PROCESSING | 200 | Retorna `OrderDto` actualizado |
-| MANAGER avanza PROCESSING → COMPLETED (isPaid = true) | 200 | Requiere `isPaid = true` para COMPLETED |
-| Avanzar PROCESSING → COMPLETED sin pagar | 400 | `ORDER_NOT_PAID` |
+| MANAGER avanza PROCESSING → SERVED | 200 | Sin requerir pago |
+| MANAGER avanza SERVED → COMPLETED (isPaid = true) | 200 | Requiere `isPaid = true` para COMPLETED |
+| Avanzar SERVED → COMPLETED sin pagar | 400 | `ORDER_NOT_PAID` |
 | Retroceder estado | 400 | `INVALID_STATUS_TRANSITION` |
 | Orden CANCELLED no puede avanzar | 400 | `ORDER_ALREADY_CANCELLED` |
 | Orden no existe | 404 | `ORDER_NOT_FOUND` |
@@ -201,13 +202,17 @@ E2E: ✅ `test/orders/cancelOrder.e2e-spec.ts`
 - El `restaurantId` viene del JWT — toda operación está aislada por restaurante
 - `totalAmount`, `unitPrice` y `subtotal` se almacenan como `BigInt` en PostgreSQL (centavos). El serializer los convierte a `number` para la respuesta JSON. JSON no soporta `BigInt` nativo
 - Máquina de estados de orden:
-  - Flujo normal: `CREATED → PROCESSING → COMPLETED`
+  - Flujo normal: `CREATED → PROCESSING → SERVED → COMPLETED`
   - Cancelación: `CREATED` o `PROCESSING → CANCELLED`
   - `COMPLETED` no puede cancelarse
   - `CANCELLED` no puede avanzar
   - Retroceder el estado lanza `INVALID_STATUS_TRANSITION`
-- Para avanzar a `COMPLETED` la orden debe tener `isPaid = true`, de lo contrario lanza `ORDER_NOT_PAID`
+  - Dashboard transiciones:
+    - `PROCESSING → SERVED` sin requerir pago
+    - `SERVED → COMPLETED` requiere `isPaid = true`, de lo contrario lanza `ORDER_NOT_PAID`
+  - Kitchen máximo: `PROCESSING → SERVED` (no puede avanzar a `COMPLETED`)
 - El endpoint `PATCH /:id/pay` es independiente del flujo de estado — se puede marcar como pagada en cualquier estado
+- Al marcar como pagada (`PATCH /:id/pay`), si la orden está en estado `SERVED`, se auto-avanza automáticamente a `COMPLETED`
 - La creación de órdenes la realiza el módulo `kiosk` vía `POST /v1/kiosk/:slug/orders` — el controller de `orders` no expone `POST`
 - Al crear una orden (kiosk), se emite evento `order:created` por WebSocket; al actualizar estado se emite `order:updated`
 - Al marcar como pagada, se dispara de forma asíncrona la impresión de recibo y el envío de email si `customerEmail` está presente
