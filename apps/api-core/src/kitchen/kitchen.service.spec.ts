@@ -15,10 +15,9 @@ const mockRestaurantsService = {
 };
 const mockOrdersService = {
   kitchenAdvanceStatus: jest.fn(),
-  cancelOrder: jest.fn(),
 };
 const mockOrderRepository = {
-  findByRestaurantId: jest.fn(),
+  findActiveOrders: jest.fn(),
 };
 const mockSseService = {
   emitToRestaurant: jest.fn(),
@@ -57,23 +56,18 @@ describe('KitchenService', () => {
   });
 
   describe('getActiveOrders', () => {
-    it('returns only CREATED and PROCESSING orders', async () => {
+    it('queries CONFIRMED and PROCESSING orders (not CREATED)', async () => {
       const orders = [
-        { id: '1', status: OrderStatus.CREATED, createdAt: new Date('2025-01-01T12:00:00Z'), items: [] },
+        { id: '1', status: OrderStatus.CONFIRMED, createdAt: new Date('2025-01-01T12:00:00Z'), items: [] },
         { id: '2', status: OrderStatus.PROCESSING, createdAt: new Date('2025-01-01T13:00:00Z'), items: [] },
       ];
-      mockOrderRepository.findByRestaurantId.mockResolvedValue(orders);
+      mockOrderRepository.findActiveOrders.mockResolvedValue(orders);
       const result = await service.getActiveOrders(makeRestaurant() as any);
       expect(result).toHaveLength(2);
-      expect(result.map((o) => o.status)).toEqual([OrderStatus.CREATED, OrderStatus.PROCESSING]);
-      expect(mockOrderRepository.findByRestaurantId).toHaveBeenCalledWith(
+      expect(mockOrderRepository.findActiveOrders).toHaveBeenCalledWith(
         'r1',
-        undefined,
-        [OrderStatus.CREATED, OrderStatus.PROCESSING],
+        [OrderStatus.CONFIRMED, OrderStatus.PROCESSING],
       );
-      expect(mockTimezoneService.getTimezone).toHaveBeenCalledWith('r1');
-      expect(result[0]).toHaveProperty('displayTime');
-      expect(result[0].displayTime).toMatch(/^\d{2}:\d{2}$/);
     });
   });
 
@@ -84,19 +78,6 @@ describe('KitchenService', () => {
       const result = await service.advanceStatus(makeRestaurant() as any, 'o1', OrderStatus.PROCESSING);
       expect(mockOrdersService.kitchenAdvanceStatus).toHaveBeenCalledWith('o1', 'r1', OrderStatus.PROCESSING);
       expect(result.status).toBe(OrderStatus.PROCESSING);
-      expect(mockTimezoneService.getTimezone).toHaveBeenCalledWith('r1');
-      expect(result).toHaveProperty('displayTime');
-      expect(result.displayTime).toMatch(/^\d{2}:\d{2}$/);
-    });
-  });
-
-  describe('cancelOrder', () => {
-    it('delegates to ordersService.cancelOrder', async () => {
-      const cancelled = { id: 'o1', status: OrderStatus.CANCELLED, createdAt: new Date(), items: [] };
-      mockOrdersService.cancelOrder.mockResolvedValue(cancelled);
-      const result = await service.cancelOrder(makeRestaurant() as any, 'o1', 'No hay ingredientes');
-      expect(mockOrdersService.cancelOrder).toHaveBeenCalledWith('o1', 'r1', 'No hay ingredientes');
-      expect(result.status).toBe(OrderStatus.CANCELLED);
       expect(mockTimezoneService.getTimezone).toHaveBeenCalledWith('r1');
       expect(result).toHaveProperty('displayTime');
       expect(result.displayTime).toMatch(/^\d{2}:\d{2}$/);

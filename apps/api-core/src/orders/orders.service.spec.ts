@@ -13,6 +13,7 @@ import {
   OrderNotPaidException,
   StockInsufficientException,
   RegisterNotOpenException,
+  CannotCancelPaidOrderException,
 } from './exceptions/orders.exceptions';
 import { BadRequestException } from '@nestjs/common';
 import { TimezoneService } from '../restaurants/timezone.service';
@@ -24,6 +25,7 @@ const mockOrderRepository = {
   updateStatus: jest.fn(),
   cancelOrder: jest.fn(),
   markAsPaid: jest.fn(),
+  markAsUnpaid: jest.fn(),
   listOrders: jest.fn(),
   findHistory: jest.fn(),
 };
@@ -140,6 +142,31 @@ describe('OrdersService', () => {
       await service.cancelOrder('o1', 'r1', 'reason');
       expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', cancelled);
     });
+
+    it('throws CannotCancelPaidOrderException when order is paid', async () => {
+      mockOrderRepository.findById.mockResolvedValue(
+        makeOrder({ status: OrderStatus.CREATED, isPaid: true }),
+      );
+      await expect(service.cancelOrder('o1', 'r1', 'reason'))
+        .rejects.toThrow(CannotCancelPaidOrderException);
+    });
+
+    it('throws CannotCancelPaidOrderException when CONFIRMED and paid', async () => {
+      mockOrderRepository.findById.mockResolvedValue(
+        makeOrder({ status: OrderStatus.CONFIRMED, isPaid: true }),
+      );
+      await expect(service.cancelOrder('o1', 'r1', 'reason'))
+        .rejects.toThrow(CannotCancelPaidOrderException);
+    });
+
+    it('allows cancellation of CONFIRMED order when not paid', async () => {
+      const cancelled = makeOrder({ status: OrderStatus.CANCELLED });
+      mockOrderRepository.findById.mockResolvedValue(
+        makeOrder({ status: OrderStatus.CONFIRMED, isPaid: false }),
+      );
+      mockOrderRepository.cancelOrder.mockResolvedValue(cancelled);
+      await expect(service.cancelOrder('o1', 'r1', 'reason')).resolves.toEqual(cancelled);
+    });
   });
 
   describe('markAsPaid', () => {
@@ -172,6 +199,64 @@ describe('OrdersService', () => {
       mockPrint.generateReceipt.mockRejectedValue(new Error('Print failed'));
 
       await expect(service.markAsPaid('o1', 'r1')).resolves.toEqual(paid);
+    });
+
+    it('auto-confirms CREATED order when marking as paid', async () => {
+      const paid = makeOrder({ isPaid: true, status: OrderStatus.CONFIRMED });
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CREATED }));
+      mockOrderRepository.updateStatus.mockResolvedValue(makeOrder({ status: OrderStatus.CONFIRMED }));
+      mockOrderRepository.markAsPaid.mockResolvedValue(paid);
+      await service.markAsPaid('o1', 'r1');
+      expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith('o1', OrderStatus.CONFIRMED);
+    });
+
+    it('does NOT call updateStatus when already CONFIRMED', async () => {
+      const paid = makeOrder({ isPaid: true, status: OrderStatus.CONFIRMED });
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CONFIRMED }));
+      mockOrderRepository.markAsPaid.mockResolvedValue(paid);
+      await service.markAsPaid('o1', 'r1');
+      expect(mockOrderRepository.updateStatus).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('confirmOrder', () => {
+    it('throws InvalidStatusTransitionException when not in CREATED', async () => {
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CONFIRMED }));
+      await expect(service.confirmOrder('o1', 'r1'))
+        .rejects.toThrow(InvalidStatusTransitionException);
+    });
+
+    it('throws InvalidStatusTransitionException when PROCESSING', async () => {
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.PROCESSING }));
+      await expect(service.confirmOrder('o1', 'r1'))
+        .rejects.toThrow(InvalidStatusTransitionException);
+    });
+
+    it('updates status to CONFIRMED and emits event', async () => {
+      const confirmed = makeOrder({ status: OrderStatus.CONFIRMED });
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CREATED }));
+      mockOrderRepository.updateStatus.mockResolvedValue(confirmed);
+      const result = await service.confirmOrder('o1', 'r1');
+      expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith('o1', OrderStatus.CONFIRMED);
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', confirmed);
+      expect(result.status).toBe(OrderStatus.CONFIRMED);
+    });
+  });
+
+  describe('unmarkAsPaid', () => {
+    it('calls markAsUnpaid and emits event', async () => {
+      const unpaid = makeOrder({ isPaid: false });
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ isPaid: true }));
+      mockOrderRepository.markAsUnpaid.mockResolvedValue(unpaid);
+      const result = await service.unmarkAsPaid('o1', 'r1');
+      expect(mockOrderRepository.markAsUnpaid).toHaveBeenCalledWith('o1');
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', unpaid);
+      expect(result.isPaid).toBe(false);
+    });
+
+    it('throws OrderNotFoundException when order not found', async () => {
+      mockOrderRepository.findById.mockResolvedValue(null);
+      await expect(service.unmarkAsPaid('o1', 'r1')).rejects.toThrow(OrderNotFoundException);
     });
   });
 
@@ -388,12 +473,18 @@ describe('OrdersService', () => {
   });
 
   describe('kitchenAdvanceStatus', () => {
-    it('advances CREATED → PROCESSING without isPaid check', async () => {
-      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CREATED }));
+    it('advances CONFIRMED → PROCESSING without isPaid check', async () => {
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CONFIRMED }));
       mockOrderRepository.updateStatus.mockResolvedValue(makeOrder({ status: OrderStatus.PROCESSING }));
       const result = await service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.PROCESSING);
       expect(result.status).toBe(OrderStatus.PROCESSING);
       expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalled();
+    });
+
+    it('throws InvalidStatusTransitionException when CREATED → PROCESSING (must confirm first)', async () => {
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CREATED }));
+      await expect(service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.PROCESSING))
+        .rejects.toThrow(InvalidStatusTransitionException);
     });
 
     it('advances PROCESSING → COMPLETED without isPaid check', async () => {

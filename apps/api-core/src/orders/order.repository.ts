@@ -42,6 +42,10 @@ export interface CreateOrderData {
   cashShiftId: string;
   paymentMethod?: string;
   customerEmail?: string;
+  initialStatus?: OrderStatus;
+  orderSource?: string;
+  orderType?: string;
+  tableNumber?: string;
   items: {
     productId: string;
     menuItemId?: string;
@@ -66,6 +70,10 @@ export class OrderRepository {
         cashShiftId: data.cashShiftId,
         paymentMethod: data.paymentMethod as PaymentMethod,
         customerEmail: data.customerEmail,
+        ...(data.initialStatus ? { status: data.initialStatus } : {}),
+        orderSource: data.orderSource,
+        orderType: data.orderType,
+        tableNumber: data.tableNumber,
         items: {
           create: data.items.map((item) => ({
             productId: item.productId,
@@ -94,19 +102,27 @@ export class OrderRepository {
     return order ? serializeOrder(order) : null;
   }
 
-  async findByRestaurantId(
+  async findActiveOrders(restaurantId: string, statuses: OrderStatus[]) {
+    const orders = await this.prisma.order.findMany({
+      where: { restaurantId, status: { in: statuses } },
+      include: ORDER_WITH_ITEMS,
+      orderBy: { createdAt: 'desc' },
+    });
+    return orders.map(serializeOrder);
+  }
+
+  async listOrders(
     restaurantId: string,
-    status?: OrderStatus,
+    cashShiftId: string,
     statuses?: OrderStatus[],
     limit?: number,
-    cashShiftId?: string,
     orderNumber?: number,
   ) {
     const orders = await this.prisma.order.findMany({
       where: {
         restaurantId,
-        ...(statuses?.length ? { status: { in: statuses } } : status ? { status } : {}),
-        ...(cashShiftId ? { cashShiftId } : {}),
+        cashShiftId,
+        ...(statuses?.length ? { status: { in: statuses } } : {}),
         ...(orderNumber ? { orderNumber } : {}),
       },
       include: ORDER_WITH_ITEMS,
@@ -129,6 +145,15 @@ export class OrderRepository {
     const order = await this.prisma.order.update({
       where: { id },
       data: { isPaid: true },
+      include: ORDER_WITH_ITEMS,
+    });
+    return serializeOrder(order);
+  }
+
+  async markAsUnpaid(id: string) {
+    const order = await this.prisma.order.update({
+      where: { id },
+      data: { isPaid: false },
       include: ORDER_WITH_ITEMS,
     });
     return serializeOrder(order);

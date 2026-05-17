@@ -21,10 +21,9 @@ export class KitchenService {
   ) {}
 
   async getActiveOrders(restaurant: Restaurant) {
-    const orders = await this.orderRepository.findByRestaurantId(
+    const orders = await this.orderRepository.findActiveOrders(
       restaurant.id,
-      undefined,
-      [OrderStatus.CREATED, OrderStatus.PROCESSING],
+      [OrderStatus.CONFIRMED, OrderStatus.PROCESSING],
     );
     const tz = await this.timezoneService.getTimezone(restaurant.id);
     return orders.map((o) => new KitchenOrderSerializer(o, tz));
@@ -32,12 +31,6 @@ export class KitchenService {
 
   async advanceStatus(restaurant: Restaurant, orderId: string, status: OrderStatus) {
     const order = await this.ordersService.kitchenAdvanceStatus(orderId, restaurant.id, status);
-    const tz = await this.timezoneService.getTimezone(restaurant.id);
-    return new KitchenOrderSerializer(order, tz);
-  }
-
-  async cancelOrder(restaurant: Restaurant, orderId: string, reason: string) {
-    const order = await this.ordersService.cancelOrder(orderId, restaurant.id, reason);
     const tz = await this.timezoneService.getTimezone(restaurant.id);
     return new KitchenOrderSerializer(order, tz);
   }

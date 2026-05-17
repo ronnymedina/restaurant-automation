@@ -13,6 +13,7 @@ import {
   OrderAlreadyCancelledException,
   OrderNotPaidException,
   RegisterNotOpenException,
+  CannotCancelPaidOrderException,
 } from './exceptions/orders.exceptions';
 import { ForbiddenAccessException } from '../common/exceptions';
 import { EmailService } from '../email/email.service';
@@ -25,6 +26,7 @@ import { CashShiftRepository } from '../cash-shift/cash-shift.repository';
 
 const STATUS_ORDER: OrderStatus[] = [
   OrderStatus.CREATED,
+  OrderStatus.CONFIRMED,
   OrderStatus.PROCESSING,
   OrderStatus.COMPLETED,
 ];
@@ -158,9 +160,10 @@ export class OrdersService {
     const order = await this.findById(id, restaurantId);
 
     if (order.status === OrderStatus.CANCELLED) throw new OrderAlreadyCancelledException(id);
-    if (order.status !== OrderStatus.CREATED && order.status !== OrderStatus.PROCESSING) {
+    if (order.status === OrderStatus.COMPLETED) {
       throw new InvalidStatusTransitionException(order.status, OrderStatus.CANCELLED);
     }
+    if (order.isPaid) throw new CannotCancelPaidOrderException(id);
 
     const cancelled = await this.orderRepository.cancelOrder(id, reason);
     this.orderEventsService.emitOrderUpdated(restaurantId, cancelled);
@@ -185,11 +188,15 @@ export class OrdersService {
   }
 
   async markAsPaid(id: string, restaurantId: string) {
-    await this.findById(id, restaurantId);
+    const order = await this.findById(id, restaurantId);
+
+    if (order.status === OrderStatus.CREATED) {
+      await this.orderRepository.updateStatus(id, OrderStatus.CONFIRMED);
+    }
+
     const updatedOrder = await this.orderRepository.markAsPaid(id);
     this.orderEventsService.emitOrderUpdated(restaurantId, updatedOrder);
 
-    // Fire-and-forget: physical receipt print on payment
     void this.printService.printReceipt(id).catch((err) =>
       this.logger.warn(`Receipt print failed for order ${id}: ${err.message}`),
     );
@@ -203,6 +210,23 @@ export class OrdersService {
       }
     }
 
+    return updatedOrder;
+  }
+
+  async confirmOrder(id: string, restaurantId: string) {
+    const order = await this.findById(id, restaurantId);
+    if (order.status !== OrderStatus.CREATED) {
+      throw new InvalidStatusTransitionException(order.status, OrderStatus.CONFIRMED);
+    }
+    const updated = await this.orderRepository.updateStatus(id, OrderStatus.CONFIRMED);
+    this.orderEventsService.emitOrderUpdated(restaurantId, updated);
+    return updated;
+  }
+
+  async unmarkAsPaid(id: string, restaurantId: string) {
+    await this.findById(id, restaurantId);
+    const updatedOrder = await this.orderRepository.markAsUnpaid(id);
+    this.orderEventsService.emitOrderUpdated(restaurantId, updatedOrder);
     return updatedOrder;
   }
 
@@ -304,6 +328,10 @@ export class OrdersService {
         cashShiftId: params.cashShiftId,
         paymentMethod: params.dto.paymentMethod,
         customerEmail: params.dto.customerEmail,
+        initialStatus: params.dto.orderSource === 'STAFF' ? OrderStatus.CONFIRMED : undefined,
+        orderSource: params.dto.orderSource,
+        orderType: params.dto.orderType,
+        tableNumber: params.dto.tableNumber,
         items: params.orderItems,
       },
       tx,

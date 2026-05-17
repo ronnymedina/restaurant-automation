@@ -15,9 +15,12 @@ const makeOrder = (i: number): Order => ({
 
 const noop = () => {};
 const callbacks = {
+  onConfirm: noop,
   onAdvance: noop,
   onPay: noop,
+  onUnpay: noop,
   onCancel: noop,
+  onCancelBlocked: noop,
   onReceipt: noop,
 };
 

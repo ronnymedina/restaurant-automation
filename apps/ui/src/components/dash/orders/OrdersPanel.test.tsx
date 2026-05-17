@@ -6,7 +6,9 @@ vi.mock('./api', () => ({
   getOrders: vi.fn(),
   updateOrderStatus: vi.fn(),
   markOrderPaid: vi.fn(),
+  unmarkOrderPaid: vi.fn(),
   cancelOrder: vi.fn(),
+  confirmOrder: vi.fn(),
 }));
 
 vi.mock('../../../lib/auth', () => ({ getAccessToken: vi.fn(() => null) }));
@@ -59,7 +61,7 @@ test('when session is open, fetches active orders with statuses and limit=100', 
 
   await waitFor(() =>
     expect(mockGetOrders).toHaveBeenCalledWith({
-      statuses: ['CREATED', 'PROCESSING'],
+      statuses: ['CREATED', 'CONFIRMED', 'PROCESSING'],
       limit: 100,
     }),
   );

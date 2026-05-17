@@ -50,6 +50,7 @@ model RefreshToken {
 
 enum OrderStatus {
   CREATED
+  CONFIRMED
   PROCESSING
   COMPLETED
   CANCELLED
@@ -196,6 +197,9 @@ model Order {
   totalAmount        BigInt
   isPaid             Boolean       @default(false)
   cancellationReason String?
+  orderSource        String?
+  orderType          String?
+  tableNumber        String?
 
   restaurantId String
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])

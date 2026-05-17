@@ -128,6 +128,31 @@ export class OrdersController {
     return this.ordersService.markAsPaid(id, user.restaurantId);
   }
 
+  @Patch(':id/confirm')
+  @ApiOperation({ summary: 'Confirmar pedido: CREATED → CONFIRMED (solo cajero)' })
+  @ApiParam({ name: 'id', description: 'ID de la orden', type: String })
+  @ApiResponse({ status: 200, description: 'Pedido confirmado', type: OrderDto })
+  @ApiResponse({ status: 400, description: 'Transición de estado inválida' })
+  @ApiResponse({ status: 404, description: 'Pedido no encontrado' })
+  async confirmOrder(
+    @Param('id') id: string,
+    @CurrentUser() user: { restaurantId: string },
+  ) {
+    return this.ordersService.confirmOrder(id, user.restaurantId);
+  }
+
+  @Patch(':id/unpay')
+  @ApiOperation({ summary: 'Desmarcar pago de una orden (paso previo para cancelar un pedido pagado)' })
+  @ApiParam({ name: 'id', description: 'ID de la orden', type: String })
+  @ApiResponse({ status: 200, description: 'Pago desmarcado', type: OrderDto })
+  @ApiResponse({ status: 404, description: 'Pedido no encontrado' })
+  async unmarkAsPaid(
+    @Param('id') id: string,
+    @CurrentUser() user: { restaurantId: string },
+  ) {
+    return this.ordersService.unmarkAsPaid(id, user.restaurantId);
+  }
+
   @Patch(':id/cancel')
   @ApiOperation({ summary: 'Cancelar una orden' })
   @ApiParam({ name: 'id', description: 'ID de la orden', type: String })

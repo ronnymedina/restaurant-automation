@@ -65,3 +65,14 @@ export class OrderAlreadyCancelledException extends BaseException {
     );
   }
 }
+
+export class CannotCancelPaidOrderException extends BaseException {
+  constructor(orderId: string) {
+    super(
+      `Order '${orderId}' cannot be cancelled because it is already paid. Call PATCH /:id/unpay first.`,
+      HttpStatus.CONFLICT,
+      'CANNOT_CANCEL_PAID_ORDER',
+      { orderId },
+    );
+  }
+}

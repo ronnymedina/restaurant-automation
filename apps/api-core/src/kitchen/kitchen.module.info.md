@@ -24,13 +24,13 @@
 }
 ```
 
-**KitchenOrderSerializer** — usado en `GET /:slug/orders`, `PATCH /:slug/orders/:id/status`, `PATCH /:slug/orders/:id/cancel`:
+**KitchenOrderSerializer** — usado en `GET /:slug/orders`, `PATCH /:slug/orders/:id/status`:
 
 ```json
 {
   "id": "string",
   "orderNumber": 42,
-  "status": "CREATED | PROCESSING | COMPLETED | CANCELLED",
+  "status": "CONFIRMED | PROCESSING | COMPLETED | CANCELLED",
   "totalAmount": 12.5,
   "displayTime": "HH:MM",
   "items": [
@@ -58,9 +58,8 @@
 |---|---|---|---|---|---|
 | `GET` | `/v1/kitchen/token` | JWT | ADMIN | `KitchenTokenSerializer` | Token activo del restaurante |
 | `POST` | `/v1/kitchen/token/generate` | JWT | ADMIN | `KitchenGeneratedTokenSerializer` | Genera o renueva el token |
-| `GET` | `/v1/kitchen/:slug/orders` | Kitchen token (query param) | — | `KitchenOrderSerializer[]` | Pedidos CREATED y PROCESSING |
+| `GET` | `/v1/kitchen/:slug/orders` | Kitchen token (query param) | — | `KitchenOrderSerializer[]` | Pedidos CONFIRMED y PROCESSING |
 | `PATCH` | `/v1/kitchen/:slug/orders/:id/status` | Kitchen token (query param) | — | `KitchenOrderSerializer` | Avanza estado del pedido |
-| `PATCH` | `/v1/kitchen/:slug/orders/:id/cancel` | Kitchen token (query param) | — | `KitchenOrderSerializer` | Cancela un pedido |
 | `POST` | `/v1/kitchen/:slug/notify-offline` | Kitchen token (query param) | — | `{ notified: true }` | Notifica que la pantalla está offline |
 
 ---
@@ -102,13 +101,13 @@ Autenticado mediante `KitchenTokenGuard`: el `token` se pasa como query param y 
 | Sin token | 401 | Kitchen token required |
 | Token inválido | 401 | Invalid kitchen token |
 | Token expirado | 401 | Kitchen token expired |
-| OK | 200 | Array de órdenes CREATED + PROCESSING, ordenadas por `createdAt desc` |
+| OK | 200 | Array de órdenes CONFIRMED + PROCESSING, ordenadas por `createdAt desc` |
 
 ---
 
 #### Advance Status — `PATCH /v1/kitchen/:slug/orders/:id/status?token=...`
 
-Transiciones permitidas: `CREATED → PROCESSING`, `PROCESSING → COMPLETED`. No salta estados.
+Transiciones permitidas: `CONFIRMED → PROCESSING`, `PROCESSING → COMPLETED`. No salta estados.
 
 | Caso | Status | Detalle |
 |---|---|---|
@@ -117,21 +116,6 @@ Transiciones permitidas: `CREATED → PROCESSING`, `PROCESSING → COMPLETED`. N
 | Estado ya CANCELLED | 400 | `OrderAlreadyCancelledException` |
 | Transición inválida | 400 | `InvalidStatusTransitionException` |
 | OK | 200 | `KitchenOrderSerializer` con nuevo status |
-
----
-
-#### Cancel Order — `PATCH /v1/kitchen/:slug/orders/:id/cancel?token=...`
-
-Solo se puede cancelar si el pedido está en CREATED o PROCESSING.
-
-| Caso | Status | Detalle |
-|---|---|---|
-| Token inválido/expirado | 401 | KitchenTokenGuard |
-| Pedido no encontrado | 404 | Aislamiento por restaurante |
-| Ya CANCELLED | 400 | `OrderAlreadyCancelledException` |
-| Estado no cancelable (ej. PAID) | 400 | `InvalidStatusTransitionException` |
-| `reason` < 3 chars | 400 | `@MinLength(3)` en DTO |
-| OK | 200 | `KitchenOrderSerializer` con status CANCELLED |
 
 ---
 
@@ -160,7 +144,7 @@ Emite el evento SSE `kitchen:offline` al dashboard del restaurante vía `SseServ
 |---|---|---|
 | `KitchenTokenSerializer` | `kitchenUrl`, `expiresAt` (ambos nullable) | GET /token |
 | `KitchenGeneratedTokenSerializer` | `token`, `expiresAt`, `kitchenUrl` | POST /token/generate |
-| `KitchenOrderSerializer` | `id`, `orderNumber`, `status`, `totalAmount` (pesos), `displayTime`, `items[]` | GET orders, PATCH status/cancel |
+| `KitchenOrderSerializer` | `id`, `orderNumber`, `status`, `totalAmount` (pesos), `displayTime`, `items[]` | GET orders, PATCH status |
 | `KitchenOrderItemSerializer` | `id`, `quantity`, `unitPrice` (pesos), `subtotal` (pesos), `notes`, `product{id,name,imageUrl}` | Anidado en KitchenOrderSerializer |
 
 > `displayTime` se formatea en el timezone del restaurante server-side vía `TimezoneService`. El campo `createdAt` no se expone.
