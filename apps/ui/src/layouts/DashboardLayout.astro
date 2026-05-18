@@ -1,6 +1,7 @@
 ---
 import ProtectedLayout from './ProtectedLayout.astro';
 import Providers from '../components/commons/Providers';
+import KioskQrButton from '../components/dash/KioskQrButton';
 import { config } from '../config';
 
 const currentPath = Astro.url.pathname;
@@ -46,13 +47,10 @@ const googleFormUrl = config.supportGoogleFormUrl;
           </a>
         ))}
       </nav>
-      <div id="kioskLinkContainer" class="hidden px-4 mt-6 pt-4 border-t border-slate-200">
+      <div class="px-4 mt-6 pt-4 border-t border-slate-200">
         <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 mb-2">Kiosko público</p>
-        <div class="flex items-center gap-2 px-4">
-          <a id="kioskLink" href="#" target="_blank" class="text-sm text-indigo-600 hover:text-indigo-800 truncate"></a>
-          <button id="copyKioskUrl" title="Copiar URL" class="shrink-0 p-1 text-slate-400 hover:text-indigo-600 bg-transparent border-none cursor-pointer">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          </button>
+        <div class="px-4">
+          <KioskQrButton client:load />
         </div>
       </div>
     </aside>
@@ -207,42 +205,14 @@ const googleFormUrl = config.supportGoogleFormUrl;
     window.location.href = '/login';
   });
 
-  // ── Kiosk link ──────────────────────────────────────────────────
-  async function loadKioskLink() {
-    try {
-      const res = await apiFetch('/v1/auth/me');
-      if (!res.ok) return;
-      const data = await res.json();
-      const slug = data?.restaurant?.slug;
-      if (!slug) return;
-
-      const container = document.getElementById('kioskLinkContainer')!;
-      const link = document.getElementById('kioskLink') as HTMLAnchorElement;
-      const copyBtn = document.getElementById('copyKioskUrl')!;
-
-      const kioskPath = `/kiosk?slug=${slug}`;
-      const storefrontBase = config.storefrontUrl || window.location.origin;
-      const kioskUrl = `${storefrontBase}${kioskPath}`;
-
-      link.href = kioskPath;
-      link.textContent = kioskPath;
-      container.classList.remove('hidden');
-
-      copyBtn.addEventListener('click', () => {
-        navigator.clipboard.writeText(kioskUrl);
-        copyBtn.title = '¡Copiado!';
-        setTimeout(() => { copyBtn.title = 'Copiar URL'; }, 2000);
-      });
-
-      // Pre-fill support email from user data
+  // ── Support email prefill ──────────────────────────────────────
+  apiFetch('/v1/auth/me')
+    .then((res) => (res.ok ? res.json() : null))
+    .then((data) => {
       const emailInput = document.getElementById('supportEmail') as HTMLInputElement;
       if (emailInput && data?.email) emailInput.value = data.email;
-    } catch {
-      // silently ignore — kiosk link is non-critical
-    }
-  }
-
-  loadKioskLink();
+    })
+    .catch(() => {});
 
   // ── Help modal ──────────────────────────────────────────────────
   const helpBtn       = document.getElementById('helpBtn')!;
