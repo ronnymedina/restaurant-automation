@@ -273,7 +273,7 @@ export const useKioskStore = create<KioskStore & KioskActions>((set, get) => ({
     }
 
     try {
-      const res = await kioskFetch(`/v1/kiosk/${slug}/orders`, {
+      const res = await kioskFetch(`/v1/kiosk/${slug}/orders?source=WEB`, {
         method: 'POST',
         body: JSON.stringify(body),
       })

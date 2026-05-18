@@ -133,13 +133,22 @@ export default function OrderCard({
               Desmarcar Pago
             </button>
           )}
+          {order.status === 'SERVED' && order.isPaid && (
+            <button
+              type="button"
+              onClick={() => onAdvance(order.id, 'COMPLETED')}
+              className="flex-1 py-1.5 text-xs font-medium bg-green-500 text-white rounded-lg cursor-pointer border-none hover:bg-green-600"
+            >
+              Completar
+            </button>
+          )}
           {isActive && !order.isPaid && (
             <button
               type="button"
               onClick={() => onPay(order.id)}
               className="py-1.5 px-2 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-lg cursor-pointer border-none hover:bg-emerald-200"
             >
-              Marcar Pagado
+              {order.status === 'SERVED' ? 'Cobrar y Completar' : 'Marcar Pagado'}
             </button>
           )}
           {isActive && !order.isPaid && (
@@ -161,13 +170,6 @@ export default function OrderCard({
               Cancelar
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => onReceipt(order.id)}
-            className="py-1.5 px-2 text-xs font-medium bg-slate-100 text-slate-600 rounded-lg cursor-pointer border-none hover:bg-slate-200"
-          >
-            Recibo
-          </button>
         </div>
       </div>
     </div>

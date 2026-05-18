@@ -4,6 +4,7 @@ import { RestaurantsService } from '../restaurants/restaurants.service';
 import { MenuRepository } from '../menus/menu.repository';
 import { OrdersService } from '../orders/orders.service';
 import { CashShiftRepository } from '../cash-shift/cash-shift.repository';
+import { BadRequestException } from '@nestjs/common';
 import { EntityNotFoundException } from '../common/exceptions';
 import { STOCK_STATUS } from '../events/kiosk.events';
 import { RegisterNotOpenException } from '../orders/exceptions/orders.exceptions';
@@ -428,6 +429,18 @@ describe('KioskService', () => {
       );
     });
 
+    it('uses WEB as default source when source is not provided', async () => {
+      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(mockRestaurant);
+      mockRegisterSessionRepo.findOpen.mockResolvedValue({ id: 's1' });
+      mockOrdersService.createOrder.mockResolvedValue({ id: 'o1' });
+
+      await service.createKioskOrder('test-rest', mockDto);
+      expect(mockOrdersService.createOrder).toHaveBeenCalledWith('r1', 's1', {
+        ...mockDto,
+        orderSource: 'WEB',
+      });
+    });
+
     it('delegates to ordersService.createOrder when session is open', async () => {
       mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(mockRestaurant);
       mockRegisterSessionRepo.findOpen.mockResolvedValue({ id: 's1' });
@@ -435,8 +448,37 @@ describe('KioskService', () => {
       mockOrdersService.createOrder.mockResolvedValue(mockOrder);
 
       const result = await service.createKioskOrder('test-rest', mockDto);
-      expect(mockOrdersService.createOrder).toHaveBeenCalledWith('r1', 's1', { ...mockDto, orderSource: 'KIOSK' });
+      expect(mockOrdersService.createOrder).toHaveBeenCalledWith('r1', 's1', {
+        ...mockDto,
+        orderSource: 'WEB',
+      });
       expect(result).toEqual(mockOrder);
+    });
+
+    it('passes WEB as orderSource when source=WEB', async () => {
+      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(mockRestaurant);
+      mockRegisterSessionRepo.findOpen.mockResolvedValue({ id: 's1' });
+      mockOrdersService.createOrder.mockResolvedValue({ id: 'o1' });
+
+      await service.createKioskOrder('test-rest', mockDto, 'WEB');
+      expect(mockOrdersService.createOrder).toHaveBeenCalledWith('r1', 's1', {
+        ...mockDto,
+        orderSource: 'WEB',
+      });
+    });
+
+    it('throws BadRequestException when source=STAFF is provided', async () => {
+      await expect(service.createKioskOrder('test-rest', mockDto, 'STAFF')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockOrdersService.createOrder).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when source is an unknown value', async () => {
+      await expect(service.createKioskOrder('test-rest', mockDto, 'INVALID')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockOrdersService.createOrder).not.toHaveBeenCalled();
     });
   });
 });
