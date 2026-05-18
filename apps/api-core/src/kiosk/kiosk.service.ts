@@ -23,6 +23,8 @@ export interface MenuItemEntry {
 
 @Injectable()
 export class KioskService {
+  private static readonly ALLOWED_SOURCES = ['KIOSK', 'WEB'] as const;
+
   constructor(
     private readonly restaurantsService: RestaurantsService,
     private readonly menuRepository: MenuRepository,
@@ -61,9 +63,8 @@ export class KioskService {
   }
 
   async createKioskOrder(slug: string, dto: CreateOrderDto, source?: string) {
-    const ALLOWED_SOURCES = ['KIOSK', 'WEB'];
     const resolvedSource = source ?? 'KIOSK';
-    if (!ALLOWED_SOURCES.includes(resolvedSource)) {
+    if (!KioskService.ALLOWED_SOURCES.includes(resolvedSource as any)) {
       throw new BadRequestException(`Invalid order source: ${resolvedSource}`);
     }
     const restaurant = await this.resolveRestaurant(slug);

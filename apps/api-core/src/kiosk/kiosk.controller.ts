@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Param, Body, Query } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiParam, ApiResponse, ApiQuery } from '@nestjs/swagger';
 
 import { KioskService } from './kiosk.service';
 import { CreateOrderDto } from '../orders/dto/create-order.dto';
@@ -56,6 +56,7 @@ export class KioskController {
   @Post(':slug/orders')
   @ApiOperation({ summary: 'Crear una orden desde el kiosk' })
   @ApiParam({ name: 'slug', description: 'Slug del restaurante', type: String })
+  @ApiQuery({ name: 'source', required: false, enum: ['KIOSK', 'WEB'], description: 'Origen del pedido (default: KIOSK)' })
   @ApiResponse({ status: 201, description: 'Orden creada exitosamente', type: OrderWithItemsDto })
   @ApiResponse({ status: 400, description: 'Origen de pedido inválido' })
   @ApiResponse({ status: 404, description: 'Restaurante no encontrado' })
