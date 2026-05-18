@@ -187,9 +187,7 @@
             ORDER_ALREADY_CANCELLED: 'El pedido ya fue cancelado',
             ORDER_NOT_FOUND: 'Pedido no encontrado',
           };
-          let msg = res.status >= 500
-            ? 'Error del servidor, intente nuevamente'
-            : 'No se pudo actualizar el estado del pedido';
+          let msg = 'Error del servidor, intente nuevamente';
           try {
             const body = await res.json();
             if (body?.code && ERROR_MESSAGES[body.code]) msg = ERROR_MESSAGES[body.code];
