@@ -429,7 +429,7 @@ describe('KioskService', () => {
       );
     });
 
-    it('uses KIOSK as default source when source is not provided', async () => {
+    it('uses WEB as default source when source is not provided', async () => {
       mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(mockRestaurant);
       mockRegisterSessionRepo.findOpen.mockResolvedValue({ id: 's1' });
       mockOrdersService.createOrder.mockResolvedValue({ id: 'o1' });
@@ -437,7 +437,7 @@ describe('KioskService', () => {
       await service.createKioskOrder('test-rest', mockDto);
       expect(mockOrdersService.createOrder).toHaveBeenCalledWith('r1', 's1', {
         ...mockDto,
-        orderSource: 'KIOSK',
+        orderSource: 'WEB',
       });
     });
 
@@ -450,7 +450,7 @@ describe('KioskService', () => {
       const result = await service.createKioskOrder('test-rest', mockDto);
       expect(mockOrdersService.createOrder).toHaveBeenCalledWith('r1', 's1', {
         ...mockDto,
-        orderSource: 'KIOSK',
+        orderSource: 'WEB',
       });
       expect(result).toEqual(mockOrder);
     });

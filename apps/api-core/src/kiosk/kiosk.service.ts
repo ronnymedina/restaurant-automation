@@ -63,7 +63,7 @@ export class KioskService {
   }
 
   async createKioskOrder(slug: string, dto: CreateOrderDto, source?: string) {
-    const resolvedSource = source ?? 'KIOSK';
+    const resolvedSource = source ?? 'WEB';
     if (!(KioskService.ALLOWED_SOURCES as readonly string[]).includes(resolvedSource)) {
       throw new BadRequestException(`Invalid order source: ${resolvedSource}`);
     }
