@@ -78,4 +78,13 @@ describe('KioskQrButton', () => {
     fireEvent.click(screen.getByRole('button', { name: /cerrar/i }));
     expect(screen.queryByRole('dialog')).toBeNull();
   });
+
+  it('closes modal when backdrop is clicked', async () => {
+    mockMe('mi-resto');
+    render(<KioskQrButton />);
+    fireEvent.click(await screen.findByRole('button', { name: /ver qr y enlace/i }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(dialog); // click the backdrop (the dialog div itself)
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../../lib/api';
 import { getOrGenerateQR } from '../../lib/kiosk-qr';
 import { config } from '../../config';
@@ -9,6 +9,12 @@ export default function KioskQrButton() {
   const [open, setOpen] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [copied, setCopied] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (open) closeButtonRef.current?.focus();
+  }, [open]);
 
   useEffect(() => {
     apiFetch('/v1/auth/me')
@@ -31,18 +37,31 @@ export default function KioskQrButton() {
   if (!kioskUrl) return null;
 
   function handleCopy() {
-    navigator.clipboard.writeText(kioskUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard.writeText(kioskUrl)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {});
+  }
+
+  function handleClose() {
+    setOpen(false);
+    setTimeout(() => triggerRef.current?.focus(), 0);
   }
 
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) setOpen(false);
+    if (e.target === e.currentTarget) handleClose();
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Escape') handleClose();
   }
 
   return (
     <>
       <button
+        ref={triggerRef}
         onClick={() => setOpen(true)}
         className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer bg-transparent border-none p-0"
       >
@@ -58,20 +77,23 @@ export default function KioskQrButton() {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Kiosko público"
+          aria-labelledby="kiosk-qr-dialog-title"
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
           onClick={handleBackdrop}
+          onKeyDown={handleKeyDown}
+          tabIndex={-1}
         >
           <div className="bg-white rounded-xl w-full max-w-sm shadow-xl">
             {/* Header */}
             <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
               <div>
-                <h2 className="text-lg font-bold text-slate-800">Kiosko público</h2>
+                <h2 id="kiosk-qr-dialog-title" className="text-lg font-bold text-slate-800">Kiosko público</h2>
                 <p className="text-xs text-slate-400 mt-0.5">Enlace y código QR para tus clientes</p>
               </div>
               <button
+                ref={closeButtonRef}
                 aria-label="Cerrar"
-                onClick={() => setOpen(false)}
+                onClick={handleClose}
                 className="text-slate-400 hover:text-slate-600 cursor-pointer border-none bg-transparent text-2xl leading-none"
               >
                 &times;
@@ -85,6 +107,7 @@ export default function KioskQrButton() {
                 <span className="flex-1 text-sm text-slate-700 truncate font-mono">{kioskUrl}</span>
                 <button
                   title={copied ? '¡Copiado!' : 'Copiar'}
+                  aria-label={copied ? '¡Copiado!' : 'Copiar'}
                   onClick={handleCopy}
                   className="shrink-0 p-1 text-slate-400 hover:text-indigo-600 bg-transparent border-none cursor-pointer"
                 >
@@ -99,6 +122,7 @@ export default function KioskQrButton() {
                   target="_blank"
                   rel="noreferrer"
                   title="Abrir en nueva pestaña"
+                  aria-label="Abrir kiosko en nueva pestaña"
                   className="shrink-0 p-1 text-slate-400 hover:text-indigo-600"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
