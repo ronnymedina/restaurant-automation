@@ -170,13 +170,6 @@ export default function OrderCard({
               Cancelar
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => onReceipt(order.id)}
-            className="py-1.5 px-2 text-xs font-medium bg-slate-100 text-slate-600 rounded-lg cursor-pointer border-none hover:bg-slate-200"
-          >
-            Recibo
-          </button>
         </div>
       </div>
     </div>
