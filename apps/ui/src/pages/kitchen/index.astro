@@ -17,6 +17,9 @@
   <!-- Connection status banner -->
   <div id="connBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:50;text-align:center;padding:8px;font-size:14px;font-weight:600;"></div>
 
+  <!-- Action error toast -->
+  <div id="errorToast" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:60;background:#dc2626;color:white;padding:14px 24px;border-radius:12px;font-size:16px;font-weight:600;box-shadow:0 4px 24px rgba(0,0,0,0.5);max-width:480px;text-align:center;"></div>
+
   <!-- Offline overlay -->
   <div id="offlineOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:50;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px;">
     <div style="font-size:64px;">📡</div>
@@ -88,6 +91,7 @@
   const connBanner = document.getElementById('connBanner')!;
   const connDot = document.getElementById('connDot')!;
   const offlineOverlay = document.getElementById('offlineOverlay')!;
+  const errorToast = document.getElementById('errorToast')!;
 
   let notifiedOffline = false;
 
@@ -124,6 +128,14 @@
       notifiedOffline = true;
       kitchenFetch(`/v1/kitchen/${slug}/notify-offline`, { method: 'POST' }).catch(() => {});
     }
+  }
+
+  let errorToastTimer: ReturnType<typeof setTimeout> | null = null;
+  function showErrorToast(msg: string) {
+    errorToast.textContent = msg;
+    errorToast.style.display = 'block';
+    if (errorToastTimer) clearTimeout(errorToastTimer);
+    errorToastTimer = setTimeout(() => { errorToast.style.display = 'none'; }, 4000);
   }
 
   // ── Render cards ──────────────────────────────────────────────────
@@ -167,7 +179,16 @@
           body: JSON.stringify({ status: el.dataset.next }),
         });
         (btn as HTMLButtonElement).disabled = false;
-        if (res.ok) loadOrders();
+        if (res.ok) {
+          loadOrders();
+        } else {
+          let msg = 'No se pudo actualizar el estado del pedido';
+          try {
+            const body = await res.json();
+            if (body?.message) msg = Array.isArray(body.message) ? body.message[0] : body.message;
+          } catch { /* ignore parse errors */ }
+          showErrorToast(msg);
+        }
       });
     });
   }
