@@ -64,7 +64,7 @@ export class KioskService {
 
   async createKioskOrder(slug: string, dto: CreateOrderDto, source?: string) {
     const resolvedSource = source ?? 'KIOSK';
-    if (!KioskService.ALLOWED_SOURCES.includes(resolvedSource as any)) {
+    if (!(KioskService.ALLOWED_SOURCES as readonly string[]).includes(resolvedSource)) {
       throw new BadRequestException(`Invalid order source: ${resolvedSource}`);
     }
     const restaurant = await this.resolveRestaurant(slug);
