@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { RestaurantWithSettings } from '../restaurants/restaurant.repository';
@@ -60,11 +60,16 @@ export class KioskService {
     return { registerOpen: !!session, restaurantName: restaurant.name };
   }
 
-  async createKioskOrder(slug: string, dto: CreateOrderDto) {
+  async createKioskOrder(slug: string, dto: CreateOrderDto, source?: string) {
+    const ALLOWED_SOURCES = ['KIOSK', 'WEB'];
+    const resolvedSource = source ?? 'KIOSK';
+    if (!ALLOWED_SOURCES.includes(resolvedSource)) {
+      throw new BadRequestException(`Invalid order source: ${resolvedSource}`);
+    }
     const restaurant = await this.resolveRestaurant(slug);
     const session = await this.registerSessionRepository.findOpen(restaurant.id);
     if (!session) throw new RegisterNotOpenException();
-    return this.ordersService.createOrder(restaurant.id, session.id, { ...dto, orderSource: 'KIOSK' });
+    return this.ordersService.createOrder(restaurant.id, session.id, { ...dto, orderSource: resolvedSource });
   }
 
   getCurrentDayAndTime(
