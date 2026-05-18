@@ -5,7 +5,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   CREATED: 'Creado',
   CONFIRMED: 'Confirmado',
   PROCESSING: 'En Proceso',
-  SERVED: 'Entregado',
+  SERVED: 'Listo para servir o entregar',
   COMPLETED: 'Completado',
   CANCELLED: 'Cancelado',
 };
