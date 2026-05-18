@@ -43,8 +43,8 @@ export interface CreateOrderData {
   paymentMethod?: string;
   customerEmail?: string;
   initialStatus?: OrderStatus;
-  orderSource?: string;
-  orderType?: string;
+  orderSource: string;
+  orderType: string;
   tableNumber?: string;
   items: {
     productId: string;
