@@ -198,8 +198,8 @@ model Order {
   totalAmount        BigInt
   isPaid             Boolean       @default(false)
   cancellationReason String?
-  orderSource        String?
-  orderType          String?
+  orderSource        String
+  orderType          String
   tableNumber        String?
 
   restaurantId String

@@ -24,8 +24,8 @@ export class OrderDto {
   @ApiPropertyOptional({ nullable: true }) cancellationReason: string | null;
   @ApiProperty() restaurantId: string;
   @ApiProperty() cashShiftId: string;
-  @ApiPropertyOptional({ nullable: true }) orderSource: string | null;
-  @ApiPropertyOptional({ nullable: true }) orderType: string | null;
+  @ApiProperty() orderSource: string;
+  @ApiProperty() orderType: string;
   @ApiPropertyOptional({ nullable: true }) tableNumber: string | null;
   @ApiProperty() createdAt: Date;
   @ApiPropertyOptional({ description: 'HH:MM en el timezone del restaurante' }) displayTime?: string;

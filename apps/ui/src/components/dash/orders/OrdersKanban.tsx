@@ -29,7 +29,7 @@ const COLUMNS = [
   },
   {
     status: 'SERVED',
-    label: 'Entregado',
+    label: 'Listo para servir o entregar',
     bg: 'bg-orange-50',
     border: 'border-orange-200',
     text: 'text-orange-800',

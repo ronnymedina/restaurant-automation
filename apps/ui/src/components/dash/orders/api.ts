@@ -19,6 +19,8 @@ export interface Order {
   isPaid: boolean;
   paymentMethod?: string;
   cancellationReason?: string;
+  orderSource: string;
+  orderType: string;
   createdAt: string;
   displayTime?: string;
   items: OrderItem[];
