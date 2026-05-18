@@ -52,7 +52,7 @@ export class CashRegisterService {
       const pendingCount = await tx.order.count({
         where: {
           cashShiftId: session.id,
-          status: { in: [OrderStatus.CREATED, OrderStatus.PROCESSING] },
+          status: { in: [OrderStatus.CREATED, OrderStatus.CONFIRMED, OrderStatus.PROCESSING, OrderStatus.SERVED] },
         },
       });
       if (pendingCount > 0) throw new PendingOrdersException(pendingCount);

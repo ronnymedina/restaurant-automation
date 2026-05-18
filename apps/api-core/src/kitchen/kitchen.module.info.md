@@ -30,7 +30,7 @@
 {
   "id": "string",
   "orderNumber": 42,
-  "status": "CONFIRMED | PROCESSING | COMPLETED | CANCELLED",
+  "status": "CONFIRMED | PROCESSING | SERVED | CANCELLED",
   "totalAmount": 12.5,
   "displayTime": "HH:MM",
   "items": [
@@ -50,7 +50,7 @@
 }
 ```
 
-> `totalAmount`, `unitPrice` y `subtotal` se exponen en pesos (divididos por 100 desde centavos). Los campos `restaurantId`, `cashShiftId`, `isPaid`, `paymentMethod`, `cancellationReason`, `updatedAt` **no se exponen**.
+> `totalAmount`, `unitPrice` y `subtotal` se exponen en pesos (divididos por 100 desde centavos). Los campos `restaurantId`, `cashShiftId`, `isPaid`, `paymentMethod`, `cancellationReason`, `updatedAt` **no se exponen**. Nota: el estado `COMPLETED` no se expone en KDS — la cocina entrega en `SERVED` y no ve pedidos pagados.
 
 ### Endpoints
 
@@ -101,20 +101,20 @@ Autenticado mediante `KitchenTokenGuard`: el `token` se pasa como query param y 
 | Sin token | 401 | Kitchen token required |
 | Token inválido | 401 | Invalid kitchen token |
 | Token expirado | 401 | Kitchen token expired |
-| OK | 200 | Array de órdenes CONFIRMED + PROCESSING, ordenadas por `createdAt desc` |
+| OK | 200 | Array de órdenes CONFIRMED + PROCESSING (SERVED no se muestra — ya fue entregada), ordenadas por `createdAt desc` |
 
 ---
 
 #### Advance Status — `PATCH /v1/kitchen/:slug/orders/:id/status?token=...`
 
-Transiciones permitidas: `CONFIRMED → PROCESSING`, `PROCESSING → COMPLETED`. No salta estados.
+Transiciones permitidas: `CONFIRMED → PROCESSING`, `PROCESSING → SERVED`. La cocina no puede avanzar a `COMPLETED` (lo hace el dashboard después de pago).
 
 | Caso | Status | Detalle |
 |---|---|---|
 | Token inválido/expirado | 401 | KitchenTokenGuard |
 | Pedido no encontrado | 404 | Aislamiento por restaurante |
 | Estado ya CANCELLED | 400 | `OrderAlreadyCancelledException` |
-| Transición inválida | 400 | `InvalidStatusTransitionException` |
+| Transición inválida (ej: PROCESSING → COMPLETED) | 400 | `InvalidStatusTransitionException` — máximo kitchen es SERVED |
 | OK | 200 | `KitchenOrderSerializer` con nuevo status |
 
 ---
@@ -137,6 +137,7 @@ Emite el evento SSE `kitchen:offline` al dashboard del restaurante vía `SseServ
 - Las rutas con `KitchenTokenGuard` son accesibles sin JWT — diseñadas para pantallas sin sesión de empleado.
 - Los endpoints JWT-auth (`/token`, `/token/generate`) derivan el `restaurantId` del payload del JWT, no de parámetros de URL.
 - `totalAmount`, `unitPrice` y `subtotal` se almacenan en centavos (BigInt); los serializers los convierten a pesos con `fromCents()`.
+- Máximo de transición en kitchen: `PROCESSING → SERVED`. El estado `COMPLETED` solo lo alcanza el dashboard vía `orders.service.markAsPaid()` cuando se paga la orden.
 
 ### Serializers
 

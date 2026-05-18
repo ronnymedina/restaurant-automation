@@ -89,4 +89,18 @@ describe('PATCH /v1/orders/:id/pay - markOrderAsPaid (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(404);
   });
+
+  it('Pagar orden en SERVED avanza automáticamente a COMPLETED → status: COMPLETED, isPaid: true', async () => {
+    const product = await seedProduct(prisma, restaurantId, categoryId);
+    const shift = await openCashShift(prisma, restaurantId, adminId);
+    const order = await seedOrder(prisma, restaurantId, shift.id, product.id, { status: 'SERVED' });
+
+    const res = await request(app.getHttpServer())
+      .patch(`/v1/orders/${order.id}/pay`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body.isPaid).toBe(true);
+    expect(res.body.status).toBe('COMPLETED');
+  });
 });

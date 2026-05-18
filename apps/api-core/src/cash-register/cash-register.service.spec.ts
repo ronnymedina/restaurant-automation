@@ -164,7 +164,7 @@ describe('CashRegisterService', () => {
       expect(mockTx.cashShift.update).not.toHaveBeenCalled();
     });
 
-    it('should throw PendingOrdersException when session has CREATED or PROCESSING orders', async () => {
+    it('should throw PendingOrdersException when session has CREATED, CONFIRMED, PROCESSING, or SERVED orders', async () => {
       const session = mockSession();
       mockTx.cashShift.findFirst.mockResolvedValue(session);
       mockTx.order.count.mockResolvedValue(2);

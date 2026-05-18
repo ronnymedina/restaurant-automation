@@ -10,11 +10,12 @@ const BORDER_COLORS: Record<string, string> = {
   CREATED: 'border-l-yellow-400',
   CONFIRMED: 'border-l-purple-400',
   PROCESSING: 'border-l-blue-400',
+  SERVED: 'border-l-orange-400',
   COMPLETED: 'border-l-green-400',
   CANCELLED: 'border-l-red-400',
 };
 
-const ACTIVE_STATUSES = new Set(['CREATED', 'CONFIRMED', 'PROCESSING']);
+const ACTIVE_STATUSES = new Set(['CREATED', 'CONFIRMED', 'PROCESSING', 'SERVED']);
 
 export interface OrderCardCallbacks {
   onConfirm: (id: string) => void;
@@ -99,10 +100,10 @@ export default function OrderCard({
           {order.status === 'PROCESSING' && (
             <button
               type="button"
-              onClick={() => onAdvance(order.id, 'COMPLETED')}
-              className="flex-1 py-1.5 text-xs font-medium bg-green-500 text-white rounded-lg cursor-pointer border-none hover:bg-green-600"
+              onClick={() => onAdvance(order.id, 'SERVED')}
+              className="flex-1 py-1.5 text-xs font-medium bg-orange-500 text-white rounded-lg cursor-pointer border-none hover:bg-orange-600"
             >
-              Completar
+              Entregar
             </button>
           )}
           {isActive && order.isPaid && (

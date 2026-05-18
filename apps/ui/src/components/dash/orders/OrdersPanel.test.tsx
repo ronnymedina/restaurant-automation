@@ -61,7 +61,7 @@ test('when session is open, fetches active orders with statuses and limit=100', 
 
   await waitFor(() =>
     expect(mockGetOrders).toHaveBeenCalledWith({
-      statuses: ['CREATED', 'CONFIRMED', 'PROCESSING'],
+      statuses: ['CREATED', 'CONFIRMED', 'PROCESSING', 'SERVED'],
       limit: 100,
     }),
   );

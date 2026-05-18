@@ -57,7 +57,7 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
       .expect(403);
   });
 
-  it('CREATED → PROCESSING es transición válida → 200', async () => {
+  it('CREATED → CONFIRMED es transición válida → 200', async () => {
     const product = await seedProduct(prisma, restaurantId, categoryId);
     const shift = await openCashShift(prisma, restaurantId, adminId);
     const order = await seedOrder(prisma, restaurantId, shift.id, product.id);
@@ -65,10 +65,10 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/status`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ status: 'PROCESSING' })
+      .send({ status: 'CONFIRMED' })
       .expect(200);
 
-    expect(res.body.status).toBe('PROCESSING');
+    expect(res.body.status).toBe('CONFIRMED');
   });
 
   it('Transición inválida PROCESSING → CREATED → 400 INVALID_STATUS_TRANSITION', async () => {
@@ -85,10 +85,10 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
     expect(res.body.code).toBe('INVALID_STATUS_TRANSITION');
   });
 
-  it('Completar orden sin pago → 409 ORDER_NOT_PAID', async () => {
+  it('SERVED sin pago → 409 ORDER_NOT_PAID', async () => {
     const product = await seedProduct(prisma, restaurantId, categoryId);
     const shift = await openCashShift(prisma, restaurantId, adminId);
-    const order = await seedOrder(prisma, restaurantId, shift.id, product.id, { status: 'PROCESSING' });
+    const order = await seedOrder(prisma, restaurantId, shift.id, product.id, { status: 'SERVED' });
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/status`)
@@ -123,5 +123,61 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ status: 'INVALID_STATUS' })
       .expect(400);
+  });
+
+  it('CONFIRMED → PROCESSING es transición válida → 200', async () => {
+    const product = await seedProduct(prisma, restaurantId, categoryId);
+    const shift = await openCashShift(prisma, restaurantId, adminId);
+    const order = await seedOrder(prisma, restaurantId, shift.id, product.id, { status: 'CONFIRMED' });
+
+    const res = await request(app.getHttpServer())
+      .patch(`/v1/orders/${order.id}/status`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'PROCESSING' })
+      .expect(200);
+
+    expect(res.body.status).toBe('PROCESSING');
+  });
+
+  it('PROCESSING → SERVED es transición válida → 200', async () => {
+    const product = await seedProduct(prisma, restaurantId, categoryId);
+    const shift = await openCashShift(prisma, restaurantId, adminId);
+    const order = await seedOrder(prisma, restaurantId, shift.id, product.id, { status: 'PROCESSING' });
+
+    const res = await request(app.getHttpServer())
+      .patch(`/v1/orders/${order.id}/status`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'SERVED' })
+      .expect(200);
+
+    expect(res.body.status).toBe('SERVED');
+  });
+
+  it('SERVED → COMPLETED con isPaid → 200', async () => {
+    const product = await seedProduct(prisma, restaurantId, categoryId);
+    const shift = await openCashShift(prisma, restaurantId, adminId);
+    const order = await seedOrder(prisma, restaurantId, shift.id, product.id, { status: 'SERVED', isPaid: true });
+
+    const res = await request(app.getHttpServer())
+      .patch(`/v1/orders/${order.id}/status`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'COMPLETED' })
+      .expect(200);
+
+    expect(res.body.status).toBe('COMPLETED');
+  });
+
+  it('Salto CREATED → PROCESSING → 400 INVALID_STATUS_TRANSITION', async () => {
+    const product = await seedProduct(prisma, restaurantId, categoryId);
+    const shift = await openCashShift(prisma, restaurantId, adminId);
+    const order = await seedOrder(prisma, restaurantId, shift.id, product.id);
+
+    const res = await request(app.getHttpServer())
+      .patch(`/v1/orders/${order.id}/status`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'PROCESSING' })
+      .expect(400);
+
+    expect(res.body.code).toBe('INVALID_STATUS_TRANSITION');
   });
 });

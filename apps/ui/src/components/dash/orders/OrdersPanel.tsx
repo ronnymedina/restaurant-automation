@@ -42,7 +42,7 @@ export default function OrdersPanel() {
       if (filter.statuses.length) params.statuses = filter.statuses;
       // When searching by orderNumber, no default statuses — find in any state
     } else {
-      params.statuses = filter?.statuses.length ? filter.statuses : ['CREATED', 'CONFIRMED', 'PROCESSING'];
+      params.statuses = filter?.statuses.length ? filter.statuses : ['CREATED', 'CONFIRMED', 'PROCESSING', 'SERVED'];
     }
 
     const result = await getOrders(params);
