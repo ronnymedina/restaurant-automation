@@ -32,9 +32,9 @@ export class KitchenOrderSerializer {
   @Type(() => KitchenOrderItemSerializer)
   items: KitchenOrderItemSerializer[];
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiProperty()
   @Expose()
-  orderType: string | null;
+  orderType: string;
 
   @ApiPropertyOptional({ nullable: true })
   @Expose()
