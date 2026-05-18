@@ -17,6 +17,18 @@ const BORDER_COLORS: Record<string, string> = {
 
 const ACTIVE_STATUSES = new Set(['CREATED', 'CONFIRMED', 'PROCESSING', 'SERVED']);
 
+const ORDER_SOURCE_LABELS: Record<string, string> = {
+  KIOSK: 'Kiosko',
+  WEB: 'Web',
+  STAFF: 'Personal',
+};
+
+const ORDER_TYPE_LABELS: Record<string, string> = {
+  DINE_IN: 'En mesa',
+  PICKUP: 'Para retirar',
+  DELIVERY: 'Delivery',
+};
+
 export interface OrderCardCallbacks {
   onConfirm: (id: string) => void;
   onAdvance: (id: string, nextStatus: string) => void;
@@ -64,7 +76,7 @@ export default function OrderCard({
             {PAYMENT_LABELS[order.paymentMethod ?? ''] ?? order.paymentMethod ?? '-'}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {order.isPaid ? (
             <span className="px-2 py-0.5 text-xs rounded-full font-medium bg-green-100 text-green-700">
               Pagado
@@ -74,6 +86,12 @@ export default function OrderCard({
               No pagado
             </span>
           )}
+          <span className="px-2 py-0.5 text-xs rounded-full font-medium bg-slate-100 text-slate-600">
+            {ORDER_SOURCE_LABELS[order.orderSource] ?? order.orderSource}
+          </span>
+          <span className="px-2 py-0.5 text-xs rounded-full font-medium bg-slate-100 text-slate-600">
+            {ORDER_TYPE_LABELS[order.orderType] ?? order.orderType}
+          </span>
         </div>
         {order.status === 'CANCELLED' && order.cancellationReason && (
           <p className="text-xs text-red-600 italic mt-1">Motivo: {order.cancellationReason}</p>
