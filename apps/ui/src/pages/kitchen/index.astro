@@ -182,10 +182,17 @@
         if (res.ok) {
           loadOrders();
         } else {
-          let msg = 'No se pudo actualizar el estado del pedido';
+          const ERROR_MESSAGES: Record<string, string> = {
+            INVALID_STATUS_TRANSITION: 'Transición no permitida para este pedido',
+            ORDER_ALREADY_CANCELLED: 'El pedido ya fue cancelado',
+            ORDER_NOT_FOUND: 'Pedido no encontrado',
+          };
+          let msg = res.status >= 500
+            ? 'Error del servidor, intente nuevamente'
+            : 'No se pudo actualizar el estado del pedido';
           try {
             const body = await res.json();
-            if (body?.message) msg = Array.isArray(body.message) ? body.message[0] : body.message;
+            if (body?.code && ERROR_MESSAGES[body.code]) msg = ERROR_MESSAGES[body.code];
           } catch { /* ignore parse errors */ }
           showErrorToast(msg);
         }
