@@ -60,7 +60,7 @@ export function OrderCustomerModal({ order, open, onClose }: Props) {
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
               Referencias
             </p>
-            <p className="text-slate-800 text-sm text-slate-500">{order.deliveryReferences}</p>
+            <p className="text-slate-800 text-sm">{order.deliveryReferences}</p>
           </div>
         )}
       </div>
