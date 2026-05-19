@@ -81,7 +81,7 @@ export function CustomerDataScreen({
           </label>
           <input
             type="text"
-            inputMode="email"
+            inputMode="text"
             value={contact}
             onChange={(e) => {
               setContact(e.target.value)
