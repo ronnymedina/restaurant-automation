@@ -2,6 +2,7 @@ import {
   IsArray,
   IsInt,
   IsIn,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -9,6 +10,7 @@ import {
   ValidateNested,
   IsEnum,
   IsEmail,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '@prisma/client';
@@ -50,6 +52,22 @@ export class CreateOrderDto {
   @IsEmail()
   @IsOptional()
   customerEmail?: string;
+
+  @ApiPropertyOptional({ example: '+52 555 1234567', description: 'Teléfono del cliente' })
+  @IsString()
+  @IsOptional()
+  customerPhone?: string;
+
+  @ApiPropertyOptional({ example: 'Calle Reforma 123, Col. Centro' })
+  @IsString()
+  @IsNotEmpty()
+  @ValidateIf((o) => o.orderType === 'DELIVERY')
+  deliveryAddress?: string;
+
+  @ApiPropertyOptional({ example: 'Puerta azul, 2do piso' })
+  @IsString()
+  @IsOptional()
+  deliveryReferences?: string;
 
   @ApiPropertyOptional({ example: 25.0, description: 'Total esperado para validación' })
   @IsNumber()
