@@ -21,6 +21,10 @@ type KioskActions = {
   clearCart(): void
   setPayment(method: PaymentMethod): void
   setCustomerEmail(email: string): void
+  setCustomerPhone(phone: string): void
+  setOrderType(type: 'PICKUP' | 'DELIVERY'): void
+  setDeliveryAddress(address: string): void
+  setDeliveryReferences(refs: string): void
   placeOrder(): Promise<void>
   resetOrder(): void
   setView(view: KioskView): void
@@ -66,6 +70,10 @@ const initialState: KioskStore = {
   cart: [],
   selectedPayment: null,
   customerEmail: '',
+  customerPhone: '',
+  orderType: 'PICKUP' as const,
+  deliveryAddress: '',
+  deliveryReferences: '',
   isSubmitting: false,
   view: KioskView.MENU,
   confirmedOrder: null,
@@ -252,10 +260,28 @@ export const useKioskStore = create<KioskStore & KioskActions>((set, get) => ({
     set({ customerEmail: email })
   },
 
-  async placeOrder(): Promise<void> {
-    const { slug, cart, selectedPayment, customerEmail, activeMenuId } = get()
+  setCustomerPhone(phone: string): void {
+    set({ customerPhone: phone })
+  },
 
-    // Guard: should not be callable without a payment method and items
+  setOrderType(type: 'PICKUP' | 'DELIVERY'): void {
+    set({ orderType: type })
+  },
+
+  setDeliveryAddress(address: string): void {
+    set({ deliveryAddress: address })
+  },
+
+  setDeliveryReferences(refs: string): void {
+    set({ deliveryReferences: refs })
+  },
+
+  async placeOrder(): Promise<void> {
+    const {
+      slug, cart, selectedPayment, customerEmail, customerPhone,
+      orderType, deliveryAddress, deliveryReferences, activeMenuId,
+    } = get()
+
     if (!selectedPayment || cart.length === 0) return
 
     set({ isSubmitting: true })
@@ -268,7 +294,11 @@ export const useKioskStore = create<KioskStore & KioskActions>((set, get) => ({
         notes: c.notes || undefined,
       })),
       paymentMethod: selectedPayment,
+      orderType,
       customerEmail: customerEmail || undefined,
+      customerPhone: customerPhone || undefined,
+      deliveryAddress: deliveryAddress || undefined,
+      deliveryReferences: deliveryReferences || undefined,
       expectedTotal: cart.reduce((s, c) => s + c.price * c.quantity, 0),
     }
 
@@ -329,6 +359,10 @@ export const useKioskStore = create<KioskStore & KioskActions>((set, get) => ({
       cartPriceSnapshot: null,
       selectedPayment: null,
       customerEmail: '',
+      customerPhone: '',
+      orderType: 'PICKUP',
+      deliveryAddress: '',
+      deliveryReferences: '',
       confirmedOrder: null,
       errorMessage: null,
       isSubmitting: false,

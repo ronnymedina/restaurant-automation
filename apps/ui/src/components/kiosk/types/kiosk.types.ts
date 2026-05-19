@@ -11,6 +11,8 @@ export type KioskTheme = {
 export const KioskView = {
   MENU: 'menu',
   CART: 'cart',
+  DELIVERY_TYPE: 'delivery_type',
+  CUSTOMER_DATA: 'customer_data',
   CHECKOUT: 'checkout',
   CONFIRMATION: 'confirmation',
 } as const
@@ -68,6 +70,10 @@ export type KioskStore = {
   cart: CartItem[]
   selectedPayment: PaymentMethod | null
   customerEmail: string
+  customerPhone: string
+  orderType: 'PICKUP' | 'DELIVERY'
+  deliveryAddress: string
+  deliveryReferences: string
   isSubmitting: boolean
   view: KioskView
   confirmedOrder: ConfirmedOrder | null
