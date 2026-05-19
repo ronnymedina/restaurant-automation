@@ -59,9 +59,10 @@ export class CreateOrderDto {
   customerPhone?: string;
 
   @ApiPropertyOptional({ example: 'Calle Reforma 123, Col. Centro' })
+  // No @IsOptional() — intentionally required (non-empty) when orderType === 'DELIVERY'
+  @ValidateIf((o) => o.orderType === 'DELIVERY')
   @IsString()
   @IsNotEmpty()
-  @ValidateIf((o) => o.orderType === 'DELIVERY')
   deliveryAddress?: string;
 
   @ApiPropertyOptional({ example: 'Puerta azul, 2do piso' })
