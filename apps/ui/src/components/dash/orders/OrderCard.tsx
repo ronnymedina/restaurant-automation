@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { Order } from './api';
+import { OrderCustomerModal } from './OrderCustomerModal';
 
 const PAYMENT_LABELS: Record<string, string> = {
   CASH: 'Efectivo',
@@ -48,6 +50,8 @@ export default function OrderCard({
 }: OrderCardProps) {
   const border = BORDER_COLORS[order.status] ?? 'border-l-slate-300';
   const isActive = ACTIVE_STATUSES.has(order.status);
+  const [customerModalOpen, setCustomerModalOpen] = useState(false);
+  const hasCustomerData = order.customerEmail || order.customerPhone || order.deliveryAddress;
 
   return (
     <div className={`bg-white rounded-xl border border-slate-200 border-l-4 ${border} shadow-sm`}>
@@ -92,6 +96,15 @@ export default function OrderCard({
           <span className="px-2 py-0.5 text-xs rounded-full font-medium bg-slate-100 text-slate-600">
             {ORDER_TYPE_LABELS[order.orderType] ?? order.orderType}
           </span>
+          {hasCustomerData && (
+            <button
+              type="button"
+              onClick={() => setCustomerModalOpen(true)}
+              className="py-0.5 px-2 text-xs font-medium bg-sky-100 text-sky-700 rounded-full cursor-pointer border-none hover:bg-sky-200"
+            >
+              Ver datos
+            </button>
+          )}
         </div>
         {order.status === 'CANCELLED' && order.cancellationReason && (
           <p className="text-xs text-red-600 italic mt-1">Motivo: {order.cancellationReason}</p>
@@ -172,6 +185,13 @@ export default function OrderCard({
           )}
         </div>
       </div>
+      {hasCustomerData && (
+        <OrderCustomerModal
+          order={order}
+          open={customerModalOpen}
+          onClose={() => setCustomerModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
