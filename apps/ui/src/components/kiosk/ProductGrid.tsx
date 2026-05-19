@@ -23,9 +23,13 @@ export function ProductGrid({ sections, theme, onAddItem }: ProductGridProps) {
     <div>
       {sectionEntries.map(([sectionName, items]) => (
         <div key={sectionName}>
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-6 mb-3 first:mt-0">
-            {sectionName}
-          </h3>
+          <div className="flex items-center gap-3 mt-8 mb-4 first:mt-0">
+            <div className="flex-1 h-px bg-slate-200" />
+            <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap flex-shrink-0 m-0">
+              {sectionName}
+            </h3>
+            <div className="flex-1 h-px bg-slate-200" />
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
             {items.map((item) => (
               <ProductCard
