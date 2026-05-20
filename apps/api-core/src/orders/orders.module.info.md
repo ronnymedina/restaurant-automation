@@ -12,6 +12,10 @@
   "status": "CREATED | PROCESSING | SERVED | COMPLETED | CANCELLED",
   "paymentMethod": "CASH | CARD | null",
   "customerEmail": "string | null",
+  "customerName": "string | null",
+  "customerPhone": "string | null",
+  "deliveryAddress": "string | null",
+  "deliveryReferences": "string | null",
   "totalAmount": 12.5,
   "isPaid": false,
   "cancellationReason": "string | null",
@@ -77,8 +81,9 @@
 | `GET` | `/v1/orders` | ADMIN, MANAGER, BASIC | `OrderDto[]` | Listar órdenes del restaurante (filtro por status y limit) |
 | `GET` | `/v1/orders/history` | ADMIN, MANAGER, BASIC | `{ data: OrderDto[], meta }` | Historial paginado con filtros |
 | `GET` | `/v1/orders/:id` | ADMIN, MANAGER, BASIC | `OrderWithItemsDto` | Obtener orden por ID con items |
+| `POST` | `/v1/orders` | ADMIN, MANAGER | `{ order, receipt, kitchenTicket }` (201) | Crear pedido desde el dashboard (orderSource: STAFF) |
 | `PATCH` | `/v1/orders/:id/status` | ADMIN, MANAGER | `OrderDto` | Avanzar estado de la orden |
-| `PATCH` | `/v1/orders/:id/pay` | ADMIN, MANAGER | `OrderDto` | Marcar orden como pagada |
+| `PATCH` | `/v1/orders/:id/pay` | ADMIN, MANAGER | `OrderDto` | Marcar orden como pagada. Body opcional: `{ paymentMethod? }` |
 | `PATCH` | `/v1/orders/:id/cancel` | ADMIN, MANAGER | `OrderDto` | Cancelar una orden |
 
 ---
@@ -195,6 +200,12 @@ E2E: ✅ `test/orders/cancelOrder.e2e-spec.ts`
 
 ---
 
+#### Create from Dashboard — `POST /v1/orders`
+
+E2E: ✅ `test/orders/createOrderFromDashboard.e2e-spec.ts`
+
+---
+
 ### Flujo de creación de pedido desde el dashboard (STAFF)
 
 ```mermaid
@@ -274,7 +285,7 @@ flowchart TD
   - Kitchen máximo: `PROCESSING → SERVED` (no puede avanzar a `COMPLETED`)
 - El endpoint `PATCH /:id/pay` es independiente del flujo de estado — se puede marcar como pagada en cualquier estado
 - Al marcar como pagada (`PATCH /:id/pay`), si la orden está en estado `SERVED`, se auto-avanza automáticamente a `COMPLETED`
-- La creación de órdenes la realiza el módulo `kiosk` vía `POST /v1/kiosk/:slug/orders` — el controller de `orders` no expone `POST`
+- La creación de órdenes puede realizarse desde el kiosk (`POST /v1/kiosk/:slug/orders`, público) o desde el dashboard (`POST /v1/orders`, autenticado ADMIN/MANAGER). Los pedidos de staff usan `orderSource: 'STAFF'` (forzado en el servicio) e inician en estado `CONFIRMED`
 - Al crear una orden (kiosk), se emite evento `order:created` por WebSocket; al actualizar estado se emite `order:updated`
 - Al marcar como pagada, se dispara de forma asíncrona la impresión de recibo y el envío de email si `customerEmail` está presente
 - El historial aplica `dateTo` con hora `23:59:59.999` para incluir el día completo
