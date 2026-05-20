@@ -113,15 +113,66 @@ docker compose exec res-ui pnpm add react-hook-form @hookform/resolvers
 docker compose cp res-ui:/app/pnpm-lock.yaml apps/ui/pnpm-lock.yaml
 ```
 
-### 3.2 Componentes nuevos
+### 3.2 Jerarquía de componentes
+
+```
+OrdersPanel                          (existente — agrega botón + monta modal)
+└── CreateOrderModal                 (modal principal, controla step actual)
+    ├── StepIndicator                (visual "Paso 1 / 2" — sin estado propio)
+    │
+    ├── CreateOrderStep1             (step === 1)
+    │   ├── ProductSearchInput       (input con debounce 300ms)
+    │   ├── ProductGrid              (grid de resultados)
+    │   │   └── ProductCard[]        (imagen, nombre, precio, botón +)
+    │   │       └── [badge Agotado]  (condicional si stock === 0)
+    │   └── Cart                     (visible si items.length > 0)
+    │       ├── CartItem[]           (nombre, input cantidad, subtotal, botón ×)
+    │       └── CartFooter           (total acumulado + botón "Siguiente →")
+    │
+    └── CreateOrderStep2             (step === 2, react-hook-form context)
+        ├── OrderTypeSelector        (PICKUP | DINE_IN | DELIVERY)
+        ├── DineInFields             (condicional: orderType === DINE_IN)
+        │   └── tableNumber input
+        ├── CustomerFields           (siempre visible)
+        │   ├── customerName input
+        │   └── customerPhone input
+        ├── DeliveryFields           (condicional: orderType === DELIVERY)
+        │   ├── deliveryAddress input
+        │   └── deliveryReferences input
+        └── Step2Footer              (botón "← Volver" + botón "Confirmar pedido")
+```
+
+**Flujo de estado entre componentes:**
+
+```
+create-order-store.ts (Zustand)
+  ├── Escribe: ProductCard.onAdd → addItem()
+  ├── Escribe: CartItem.onChangeQty → updateQuantity()
+  ├── Escribe: CartItem.onRemove → removeItem()
+  ├── Lee:    Cart (items[], total)
+  ├── Lee:    CartFooter (items.length para habilitar "Siguiente")
+  └── Escribe: CreateOrderModal.onClose → reset()
+
+react-hook-form (solo CreateOrderStep2)
+  ├── Schema: step2Schema (Zod + superRefine condicional)
+  ├── Controla: todos los inputs del Step 2
+  └── onSubmit → lee store (items) + form values → POST /v1/orders
+
+@tanstack/react-query (ProductSearchInput)
+  └── queryKey: ['products', searchTerm]
+      └── GET /v1/products?search=…&limit=20
+          (cacheado — no re-fetcha al volver del Step 2)
+```
+
+**Archivos nuevos:**
 
 ```
 apps/ui/src/components/dash/orders/
-├── CreateOrderModal.tsx       ← modal principal, stepper de 2 pasos
-├── CreateOrderStep1.tsx       ← búsqueda de productos + carrito
-├── CreateOrderStep2.tsx       ← tipo de entrega + datos del cliente
-├── create-order-store.ts      ← Zustand store del carrito y datos del pedido
-└── create-order-api.ts        ← GET /v1/products + POST /v1/orders
+├── CreateOrderModal.tsx
+├── CreateOrderStep1.tsx
+├── CreateOrderStep2.tsx
+├── create-order-store.ts
+└── create-order-api.ts
 ```
 
 ### 3.3 Cambio en OrdersPanel.tsx
