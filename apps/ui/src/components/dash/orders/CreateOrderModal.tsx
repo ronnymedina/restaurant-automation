@@ -5,7 +5,8 @@ import { queryClient } from '../../commons/Providers';
 import { useCreateOrderStore } from './create-order-store';
 import { createStaffOrder } from './create-order-api';
 import CreateOrderStep1 from './CreateOrderStep1';
-import CreateOrderStep2, { type Step2Values } from './CreateOrderStep2';
+import CreateOrderStep2, { type OrderType } from './CreateOrderStep2';
+import CreateOrderStep3, { detectContactType, type Step3Values } from './CreateOrderStep3';
 
 interface Props {
   onClose: () => void;
@@ -13,7 +14,8 @@ interface Props {
 }
 
 function ModalContent({ onClose, onCreated }: Props) {
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [orderType, setOrderType] = useState<OrderType>('PICKUP');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const { items, reset } = useCreateOrderStore();
@@ -23,17 +25,25 @@ function ModalContent({ onClose, onCreated }: Props) {
     onClose();
   }
 
-  async function handleConfirm(formValues: Step2Values) {
+  function handleStep2Next(type: OrderType) {
+    setOrderType(type);
+    setStep(3);
+  }
+
+  async function handleConfirm(formValues: Step3Values) {
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
+      const contactRaw = formValues.contact?.trim() ?? '';
+      const contactType = contactRaw ? detectContactType(contactRaw) : null;
+
       const payload = {
         items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
-        orderType: formValues.orderType,
+        orderType,
+        ...(formValues.customerName.trim() ? { customerName: formValues.customerName.trim() } : {}),
+        ...(contactType === 'email' ? { customerEmail: contactRaw } : {}),
+        ...(contactType === 'phone' ? { customerPhone: contactRaw } : {}),
         ...(formValues.tableNumber?.trim() ? { tableNumber: formValues.tableNumber.trim() } : {}),
-        ...(formValues.customerName?.trim() ? { customerName: formValues.customerName.trim() } : {}),
-        ...(formValues.customerPhone?.trim() ? { customerPhone: formValues.customerPhone.trim() } : {}),
-        ...(formValues.customerEmail?.trim() ? { customerEmail: formValues.customerEmail.trim() } : {}),
         ...(formValues.deliveryAddress?.trim() ? { deliveryAddress: formValues.deliveryAddress.trim() } : {}),
         ...(formValues.deliveryReferences?.trim() ? { deliveryReferences: formValues.deliveryReferences.trim() } : {}),
       };
@@ -51,17 +61,19 @@ function ModalContent({ onClose, onCreated }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 flex-shrink-0">
           <h2 className="text-lg font-bold text-slate-800">Nuevo pedido</h2>
           <div className="flex items-center gap-4">
-            {/* Step indicator */}
+            {/* Step indicator: 3 bubbles */}
             <div className="flex items-center gap-1.5 text-xs font-medium">
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center ${step === 1 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'}`}>1</span>
-              <span className="text-slate-400">—</span>
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center ${step === 2 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'}`}>2</span>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center ${step === 1 ? 'bg-blue-600 text-white' : 'bg-blue-200 text-blue-700'}`}>1</span>
+              <span className="text-slate-300">—</span>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center ${step === 2 ? 'bg-blue-600 text-white' : step > 2 ? 'bg-blue-200 text-blue-700' : 'bg-slate-200 text-slate-500'}`}>2</span>
+              <span className="text-slate-300">—</span>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center ${step === 3 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>3</span>
             </div>
             <button
               type="button"
@@ -73,8 +85,8 @@ function ModalContent({ onClose, onCreated }: Props) {
           </div>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        {/* Body — scrolls internally, modal height stays fixed */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
           {errorMsg && (
             <div className="mb-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-2">
               {errorMsg}
@@ -83,8 +95,12 @@ function ModalContent({ onClose, onCreated }: Props) {
 
           {step === 1 && <CreateOrderStep1 onNext={() => setStep(2)} />}
           {step === 2 && (
-            <CreateOrderStep2
-              onBack={() => setStep(1)}
+            <CreateOrderStep2 onNext={handleStep2Next} onBack={() => setStep(1)} />
+          )}
+          {step === 3 && (
+            <CreateOrderStep3
+              orderType={orderType}
+              onBack={() => setStep(2)}
               onSubmit={handleConfirm}
               isSubmitting={isSubmitting}
             />
