@@ -149,10 +149,13 @@ export class OrderRepository {
     return serializeOrder(order);
   }
 
-  async markAsPaid(id: string) {
+  async markAsPaid(id: string, paymentMethod?: string) {
     const order = await this.prisma.order.update({
       where: { id },
-      data: { isPaid: true },
+      data: {
+        isPaid: true,
+        ...(paymentMethod ? { paymentMethod: paymentMethod as PaymentMethod } : {}),
+      },
       include: ORDER_WITH_ITEMS,
     });
     return serializeOrder(order);
