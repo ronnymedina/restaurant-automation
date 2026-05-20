@@ -44,9 +44,10 @@ export class CreateOrderDto {
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
 
-  @ApiProperty({ enum: PaymentMethod, example: PaymentMethod.CASH })
+  @ApiPropertyOptional({ enum: PaymentMethod, example: PaymentMethod.CASH })
   @IsEnum(PaymentMethod)
-  paymentMethod: PaymentMethod;
+  @IsOptional()
+  paymentMethod?: PaymentMethod;
 
   @ApiPropertyOptional({ example: 'cliente@email.com' })
   @IsEmail()
