@@ -88,10 +88,11 @@ export default function CreateOrderStep3({ orderType, onBack, onSubmit, isSubmit
 
       {/* Name — required for all types */}
       <div>
-        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+        <label htmlFor="customerName" className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
           Nombre del cliente <span className="text-red-500">*</span>
         </label>
         <input
+          id="customerName"
           {...register('customerName')}
           placeholder="Nombre del cliente"
           className="mt-1 w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -102,10 +103,11 @@ export default function CreateOrderStep3({ orderType, onBack, onSubmit, isSubmit
       {/* Table number — DINE_IN only */}
       {orderType === 'DINE_IN' && (
         <div>
-          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          <label htmlFor="tableNumber" className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
             Número de mesa <span className="text-red-500">*</span>
           </label>
           <input
+            id="tableNumber"
             {...register('tableNumber')}
             placeholder="Ej: 5"
             className="mt-1 w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -117,7 +119,7 @@ export default function CreateOrderStep3({ orderType, onBack, onSubmit, isSubmit
       {/* Smart contact — PICKUP (optional) and DELIVERY (required) */}
       {(orderType === 'PICKUP' || orderType === 'DELIVERY') && (
         <div>
-          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          <label htmlFor="contact" className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
             Teléfono o email{' '}
             {orderType === 'DELIVERY' ? (
               <span className="text-red-500">*</span>
@@ -126,6 +128,7 @@ export default function CreateOrderStep3({ orderType, onBack, onSubmit, isSubmit
             )}
           </label>
           <input
+            id="contact"
             {...register('contact')}
             placeholder="Ej: 555-1234 o tu@email.com"
             className="mt-1 w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -138,10 +141,11 @@ export default function CreateOrderStep3({ orderType, onBack, onSubmit, isSubmit
       {orderType === 'DELIVERY' && (
         <>
           <div>
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <label htmlFor="deliveryAddress" className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
               Dirección <span className="text-red-500">*</span>
             </label>
             <input
+              id="deliveryAddress"
               {...register('deliveryAddress')}
               placeholder="Calle, número, colonia"
               className="mt-1 w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -149,11 +153,12 @@ export default function CreateOrderStep3({ orderType, onBack, onSubmit, isSubmit
             <FieldError message={errors.deliveryAddress?.message} />
           </div>
           <div>
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <label htmlFor="deliveryReferences" className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
               Referencias{' '}
               <span className="text-slate-400 normal-case font-normal">(opcional)</span>
             </label>
             <input
+              id="deliveryReferences"
               {...register('deliveryReferences')}
               placeholder="Ej. puerta azul, 2do piso"
               className="mt-1 w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
