@@ -14,4 +14,12 @@ describe('detectContactType', () => {
   it('returns "phone" for a plain number string', () => {
     expect(detectContactType('1234567890')).toBe('phone');
   });
+
+  it('returns "phone" for empty string', () => {
+    expect(detectContactType('')).toBe('phone');
+  });
+
+  it('returns "email" when multiple @ are present', () => {
+    expect(detectContactType('user@@example.com')).toBe('email');
+  });
 });
