@@ -145,6 +145,8 @@ export async function seedOrder(
       totalAmount: BigInt(1000),
       status: (overrides.status as any) ?? 'CREATED',
       isPaid: overrides.isPaid ?? false,
+      orderSource: 'STAFF',
+      orderType: 'PICKUP',
       ...(overrides.createdAt ? { createdAt: overrides.createdAt } : {}),
       items: {
         create: [{ productId, quantity: 1, unitPrice: BigInt(1000), subtotal: BigInt(1000) }],

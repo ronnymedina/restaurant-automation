@@ -234,6 +234,28 @@ describe('OrdersService', () => {
       await service.markAsPaid('o1', 'r1');
       expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith('o1', OrderStatus.COMPLETED);
     });
+
+    it('calls repository.markAsPaid with paymentMethod when provided', async () => {
+      const order = makeOrder({ status: OrderStatus.CONFIRMED });
+      mockOrderRepository.findById.mockResolvedValue(order);
+      mockOrderRepository.updateStatus.mockResolvedValue(order);
+      const paid = { ...order, isPaid: true, paymentMethod: 'CASH' };
+      mockOrderRepository.markAsPaid.mockResolvedValue(paid);
+
+      await service.markAsPaid('o1', 'r1', 'CASH');
+      expect(mockOrderRepository.markAsPaid).toHaveBeenCalledWith('o1', 'CASH');
+    });
+
+    it('calls repository.markAsPaid without paymentMethod when omitted', async () => {
+      const order = makeOrder({ status: OrderStatus.CONFIRMED });
+      mockOrderRepository.findById.mockResolvedValue(order);
+      mockOrderRepository.updateStatus.mockResolvedValue(order);
+      const paid = { ...order, isPaid: true };
+      mockOrderRepository.markAsPaid.mockResolvedValue(paid);
+
+      await service.markAsPaid('o1', 'r1');
+      expect(mockOrderRepository.markAsPaid).toHaveBeenCalledWith('o1', undefined);
+    });
   });
 
   describe('confirmOrder', () => {
@@ -553,6 +575,34 @@ describe('OrdersService', () => {
       mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.SERVED, isPaid: false }));
       await expect(service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.COMPLETED))
         .rejects.toThrow(InvalidStatusTransitionException);
+    });
+  });
+
+  describe('createStaffOrder', () => {
+    it('throws RegisterNotOpenException when no open shift', async () => {
+      mockCashShiftRepository.findOpen.mockResolvedValue(null);
+      const dto = { items: [], paymentMethod: undefined } as any;
+      await expect(service.createStaffOrder('r1', dto)).rejects.toThrow(RegisterNotOpenException);
+    });
+
+    it('calls createOrder with orderSource STAFF when shift is open', async () => {
+      mockCashShiftRepository.findOpen.mockResolvedValue({ id: 'shift1' });
+      mockPrisma.cashShift.update.mockResolvedValue({ lastOrderNumber: 1 });
+      mockPrisma.product.findUnique.mockResolvedValue({
+        id: 'p1', restaurantId: 'r1', price: BigInt(1000), stock: 10, name: 'Pizza',
+      });
+      mockPrisma.product.updateMany.mockResolvedValue({ count: 1 });
+      const createdOrder = { id: 'o1', orderNumber: 1, orderSource: 'STAFF', status: 'CONFIRMED', items: [] };
+      mockOrderRepository.createWithItems.mockResolvedValue(createdOrder);
+
+      const dto = {
+        items: [{ productId: 'p1', quantity: 1 }],
+        orderType: 'PICKUP',
+      } as any;
+
+      const result = await service.createStaffOrder('r1', dto);
+      expect(result.order.orderSource).toBe('STAFF');
+      expect(result.order.status).toBe('CONFIRMED');
     });
   });
 

@@ -98,6 +98,12 @@ export class OrdersService {
     };
   }
 
+  async createStaffOrder(restaurantId: string, dto: CreateOrderDto) {
+    const shift = await this.cashShiftRepository.findOpen(restaurantId);
+    if (!shift) throw new RegisterNotOpenException();
+    return this.createOrder(restaurantId, shift.id, { ...dto, orderSource: 'STAFF' });
+  }
+
   async listOrders(
     restaurantId: string,
     statuses?: OrderStatus[],
@@ -189,7 +195,7 @@ export class OrdersService {
     return updated;
   }
 
-  async markAsPaid(id: string, restaurantId: string) {
+  async markAsPaid(id: string, restaurantId: string, paymentMethod?: string) {
     const order = await this.findById(id, restaurantId);
 
     if (order.status === OrderStatus.CREATED) {
@@ -199,7 +205,7 @@ export class OrdersService {
       await this.orderRepository.updateStatus(id, OrderStatus.COMPLETED);
     }
 
-    const updatedOrder = await this.orderRepository.markAsPaid(id);
+    const updatedOrder = await this.orderRepository.markAsPaid(id, paymentMethod);
     this.orderEventsService.emitOrderUpdated(restaurantId, updatedOrder);
 
     void this.printService.printReceipt(id).catch((err) =>

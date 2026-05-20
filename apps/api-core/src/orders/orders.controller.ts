@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Patch, Param, Query, Body, UseGuards, ParseIntPipe, DefaultValuePipe,
+  Controller, Get, Post, Patch, Param, Query, Body, UseGuards, ParseIntPipe, DefaultValuePipe,
 } from '@nestjs/common';
 import { Role, OrderStatus } from '@prisma/client';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
@@ -7,6 +7,8 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam, ApiQuery }
 import { OrdersService } from './orders.service';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { MarkOrderPaidDto } from './dto/mark-order-paid.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -57,6 +59,19 @@ export class OrdersController {
         timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false,
       }).format(new Date(o.createdAt)),
     }));
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Crear pedido desde el dashboard (STAFF). Roles: ADMIN | MANAGER' })
+  @ApiResponse({ status: 201, description: 'Pedido creado', type: OrderWithItemsDto })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
+  @ApiResponse({ status: 409, description: 'Sin caja abierta o stock insuficiente' })
+  async createOrder(
+    @CurrentUser() user: { restaurantId: string },
+    @Body() dto: CreateOrderDto,
+  ) {
+    return this.ordersService.createStaffOrder(user.restaurantId, dto);
   }
 
   @Get('history')
@@ -116,7 +131,7 @@ export class OrdersController {
   }
 
   @Patch(':id/pay')
-  @ApiOperation({ summary: 'Marcar orden como pagada' })
+  @ApiOperation({ summary: 'Marcar orden como pagada. Acepta paymentMethod opcional.' })
   @ApiParam({ name: 'id', description: 'ID de la orden', type: String })
   @ApiResponse({ status: 200, description: 'Orden marcada como pagada', type: OrderDto })
   @ApiResponse({ status: 404, description: 'Orden no encontrada' })
@@ -124,8 +139,9 @@ export class OrdersController {
   async markAsPaid(
     @Param('id') id: string,
     @CurrentUser() user: { restaurantId: string },
+    @Body() dto: MarkOrderPaidDto,
   ) {
-    return this.ordersService.markAsPaid(id, user.restaurantId);
+    return this.ordersService.markAsPaid(id, user.restaurantId, dto.paymentMethod);
   }
 
   @Patch(':id/confirm')

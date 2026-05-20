@@ -14,6 +14,7 @@ import OrdersFilteredList from './OrdersFilteredList';
 import OrderFilterPanel from './OrderFilterPanel';
 import CancelOrderModal from './CancelOrderModal';
 import { ORDERS_STATUS, type OrdersStatus, type OrderStatus } from './types';
+import CreateOrderModal from './CreateOrderModal';
 
 interface ActiveFilter extends FilterValues {
   label: string;
@@ -27,6 +28,7 @@ export default function OrdersPanel() {
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [activeFilter, setActiveFilter] = useState<ActiveFilter | null>(null);
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
 
   function showToast(message: string, isError = false) {
@@ -238,6 +240,13 @@ export default function OrdersPanel() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-slate-800">Cocina (KDS)</h2>
+        <button
+          type="button"
+          onClick={() => setShowCreateModal(true)}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl cursor-pointer"
+        >
+          + Nuevo pedido
+        </button>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 px-4 py-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
@@ -293,6 +302,17 @@ export default function OrdersPanel() {
           orderId={cancelOrderId}
           onConfirm={handleCancelConfirm}
           onClose={() => setCancelOrderId(null)}
+        />
+      )}
+
+      {showCreateModal && (
+        <CreateOrderModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={(orderNumber) => {
+            setShowCreateModal(false);
+            showToast(`Pedido #${orderNumber} creado`);
+            fetchOrders(activeFilter);
+          }}
         />
       )}
 
