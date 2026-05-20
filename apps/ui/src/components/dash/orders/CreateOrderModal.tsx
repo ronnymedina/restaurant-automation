@@ -27,6 +27,7 @@ function ModalContent({ onClose, onCreated }: Props) {
 
   function handleStep2Next(type: OrderType) {
     setOrderType(type);
+    setErrorMsg(null);
     setStep(3);
   }
 
@@ -40,7 +41,7 @@ function ModalContent({ onClose, onCreated }: Props) {
       const payload = {
         items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
         orderType,
-        ...(formValues.customerName.trim() ? { customerName: formValues.customerName.trim() } : {}),
+        customerName: formValues.customerName.trim(),
         ...(contactType === 'email' ? { customerEmail: contactRaw } : {}),
         ...(contactType === 'phone' ? { customerPhone: contactRaw } : {}),
         ...(formValues.tableNumber?.trim() ? { tableNumber: formValues.tableNumber.trim() } : {}),
@@ -100,7 +101,7 @@ function ModalContent({ onClose, onCreated }: Props) {
           {step === 3 && (
             <CreateOrderStep3
               orderType={orderType}
-              onBack={() => setStep(2)}
+              onBack={() => { setErrorMsg(null); setStep(2); }}
               onSubmit={handleConfirm}
               isSubmitting={isSubmitting}
             />
