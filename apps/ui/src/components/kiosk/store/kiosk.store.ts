@@ -265,7 +265,9 @@ export const useKioskStore = create<KioskStore & KioskActions>((set, get) => ({
   },
 
   setOrderType(type: 'PICKUP' | 'DELIVERY'): void {
-    set({ orderType: type })
+    // Clear delivery-only fields when switching to PICKUP to prevent stale data leaking into the order body
+    if (type === 'PICKUP') set({ orderType: type, deliveryAddress: '', deliveryReferences: '' })
+    else set({ orderType: type })
   },
 
   setDeliveryAddress(address: string): void {
