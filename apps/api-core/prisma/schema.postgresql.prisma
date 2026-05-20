@@ -195,6 +195,7 @@ model Order {
   status             OrderStatus   @default(CREATED)
   paymentMethod      PaymentMethod?
   customerEmail      String?
+  customerName       String?
   customerPhone      String?
   deliveryAddress    String?
   deliveryReferences String?

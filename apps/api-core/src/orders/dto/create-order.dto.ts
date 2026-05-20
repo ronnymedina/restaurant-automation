@@ -53,6 +53,11 @@ export class CreateOrderDto {
   @IsOptional()
   customerEmail?: string;
 
+  @ApiPropertyOptional({ example: 'Juan Pérez', description: 'Nombre del cliente' })
+  @IsString()
+  @IsOptional()
+  customerName?: string;
+
   @ApiPropertyOptional({ example: '+52 555 1234567', description: 'Teléfono del cliente' })
   @IsString()
   @IsOptional()

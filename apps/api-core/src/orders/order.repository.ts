@@ -42,6 +42,7 @@ export interface CreateOrderData {
   cashShiftId: string;
   paymentMethod?: string;
   customerEmail?: string;
+  customerName?: string;
   customerPhone?: string;
   deliveryAddress?: string;
   deliveryReferences?: string;
@@ -73,6 +74,7 @@ export class OrderRepository {
         cashShiftId: data.cashShiftId,
         paymentMethod: data.paymentMethod as PaymentMethod,
         customerEmail: data.customerEmail,
+        customerName: data.customerName,
         customerPhone: data.customerPhone,
         deliveryAddress: data.deliveryAddress,
         deliveryReferences: data.deliveryReferences,

@@ -19,6 +19,7 @@ export class OrderDto {
   @ApiProperty({ enum: OrderStatus }) status: OrderStatus;
   @ApiPropertyOptional({ enum: PaymentMethod, nullable: true }) paymentMethod: PaymentMethod | null;
   @ApiPropertyOptional({ nullable: true }) customerEmail: string | null;
+  @ApiPropertyOptional({ nullable: true }) customerName: string | null;
   @ApiPropertyOptional({ nullable: true }) customerPhone: string | null;
   @ApiPropertyOptional({ nullable: true }) deliveryAddress: string | null;
   @ApiPropertyOptional({ nullable: true }) deliveryReferences: string | null;

@@ -333,6 +333,7 @@ export class OrdersService {
         cashShiftId: params.cashShiftId,
         paymentMethod: params.dto.paymentMethod,
         customerEmail: params.dto.customerEmail,
+        customerName: params.dto.customerName,
         customerPhone: params.dto.customerPhone,
         deliveryAddress: params.dto.deliveryAddress,
         deliveryReferences: params.dto.deliveryReferences,
