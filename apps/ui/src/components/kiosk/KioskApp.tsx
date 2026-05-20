@@ -12,6 +12,8 @@ import { CartFab } from './CartFab'
 import { CartPanel } from './CartPanel'
 import { OrderConfirmation } from './OrderConfirmation'
 import { PaymentMethodSelector } from './PaymentMethodSelector'
+import { DeliveryTypeScreen } from './DeliveryTypeScreen'
+import { CustomerDataScreen } from './CustomerDataScreen'
 
 const defaultTheme: KioskTheme = {
   primary: '#f97316',
@@ -60,6 +62,10 @@ export function KioskApp({ theme: themeProp }: Props) {
   const errorMessage = useKioskStore(s => s.errorMessage)
   const selectedPayment = useKioskStore(s => s.selectedPayment)
   const customerEmail = useKioskStore(s => s.customerEmail)
+  const customerPhone = useKioskStore(s => s.customerPhone)
+  const orderType = useKioskStore(s => s.orderType)
+  const deliveryAddress = useKioskStore(s => s.deliveryAddress)
+  const deliveryReferences = useKioskStore(s => s.deliveryReferences)
   const isSubmitting = useKioskStore(s => s.isSubmitting)
   const restaurantName = useKioskStore(s => s.restaurantName)
 
@@ -69,6 +75,10 @@ export function KioskApp({ theme: themeProp }: Props) {
   const setView = useKioskStore(s => s.setView)
   const setPayment = useKioskStore(s => s.setPayment)
   const setCustomerEmail = useKioskStore(s => s.setCustomerEmail)
+  const setCustomerPhone = useKioskStore(s => s.setCustomerPhone)
+  const setOrderType = useKioskStore(s => s.setOrderType)
+  const setDeliveryAddress = useKioskStore(s => s.setDeliveryAddress)
+  const setDeliveryReferences = useKioskStore(s => s.setDeliveryReferences)
   const placeOrder = useKioskStore(s => s.placeOrder)
   const resetOrder = useKioskStore(s => s.resetOrder)
   const clearError = useKioskStore(s => s.clearError)
@@ -107,11 +117,48 @@ export function KioskApp({ theme: themeProp }: Props) {
         <PaymentMethodSelector
           selectedMethod={selectedPayment}
           onSelect={setPayment}
-          customerEmail={customerEmail}
-          onEmailChange={setCustomerEmail}
           onConfirm={placeOrder}
-          onBack={() => setView(isSidebarMode ? KioskView.MENU : KioskView.CART)}
+          onBack={() => setView(KioskView.CUSTOMER_DATA)}
           isLoading={isSubmitting}
+          theme={theme}
+        />
+        {errorMessage && <ErrorToast message={errorMessage} onDismiss={clearError} />}
+      </>
+    )
+  }
+
+  if (view === KioskView.DELIVERY_TYPE) {
+    return (
+      <>
+        <DeliveryTypeScreen
+          selected={orderType}
+          onSelect={setOrderType}
+          onNext={() => setView(KioskView.CUSTOMER_DATA)}
+          onBack={() => setView(isSidebarMode ? KioskView.MENU : KioskView.CART)}
+          theme={theme}
+        />
+        {errorMessage && <ErrorToast message={errorMessage} onDismiss={clearError} />}
+      </>
+    )
+  }
+
+  if (view === KioskView.CUSTOMER_DATA) {
+    const initialContact = customerEmail || customerPhone
+    return (
+      <>
+        <CustomerDataScreen
+          orderType={orderType}
+          initialContact={initialContact}
+          initialAddress={deliveryAddress}
+          initialReferences={deliveryReferences}
+          onConfirm={(data) => {
+            setCustomerEmail(data.email ?? '')
+            setCustomerPhone(data.phone ?? '')
+            if (data.address !== undefined) setDeliveryAddress(data.address)
+            if (data.references !== undefined) setDeliveryReferences(data.references)
+            setView(KioskView.CHECKOUT)
+          }}
+          onBack={() => setView(KioskView.DELIVERY_TYPE)}
           theme={theme}
         />
         {errorMessage && <ErrorToast message={errorMessage} onDismiss={clearError} />}
@@ -139,7 +186,7 @@ export function KioskApp({ theme: themeProp }: Props) {
           <CartPanel
             variant="sidebar"
             onClose={() => {}}
-            onCheckout={() => setView(KioskView.CHECKOUT)}
+            onCheckout={() => setView(KioskView.DELIVERY_TYPE)}
             theme={theme}
           />
         </div>
@@ -167,7 +214,7 @@ export function KioskApp({ theme: themeProp }: Props) {
       {view === KioskView.CART && (
         <CartPanel
           onClose={() => setView(KioskView.MENU)}
-          onCheckout={() => setView(KioskView.CHECKOUT)}
+          onCheckout={() => setView(KioskView.DELIVERY_TYPE)}
           theme={theme}
         />
       )}

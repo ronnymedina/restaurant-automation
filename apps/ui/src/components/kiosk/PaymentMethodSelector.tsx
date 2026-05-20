@@ -1,4 +1,3 @@
-import React from 'react'
 import type { KioskTheme, PaymentMethod } from './types/kiosk.types'
 
 type PaymentOption = {
@@ -16,8 +15,6 @@ const PAYMENT_OPTIONS: PaymentOption[] = [
 type Props = {
   selectedMethod: PaymentMethod | null
   onSelect: (m: PaymentMethod) => void
-  customerEmail: string
-  onEmailChange: (e: string) => void
   onConfirm: () => void
   onBack: () => void
   isLoading: boolean
@@ -27,8 +24,6 @@ type Props = {
 export function PaymentMethodSelector({
   selectedMethod,
   onSelect,
-  customerEmail,
-  onEmailChange,
   onConfirm,
   onBack,
   isLoading,
@@ -58,20 +53,6 @@ export function PaymentMethodSelector({
               </button>
             )
           })}
-        </div>
-
-        <div>
-          <label className="block text-sm md:text-base font-medium text-slate-600 mb-1">
-            Email (opcional, para recibo)
-          </label>
-          <input
-            type="email"
-            value={customerEmail}
-            onChange={(e) => onEmailChange(e.target.value)}
-            placeholder="tu@email.com"
-            className="w-full px-4 py-3 md:py-4 border border-slate-300 rounded-xl text-base focus:outline-none focus:ring-2"
-            style={{ '--tw-ring-color': theme.primary } as React.CSSProperties}
-          />
         </div>
 
         <div className="flex gap-3">

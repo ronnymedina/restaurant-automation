@@ -426,6 +426,32 @@ describe('OrdersService', () => {
       });
     });
 
+    it('passes customerPhone, deliveryAddress and deliveryReferences to repository', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue({
+        id: 'p1', restaurantId: 'r1', price: 5, stock: 10, name: 'Widget',
+      });
+      mockPrisma.product.updateMany.mockResolvedValue({ count: 1 });
+
+      const dto = {
+        ...baseDto,
+        orderType: 'DELIVERY',
+        customerPhone: '555-1234',
+        deliveryAddress: 'Calle Reforma 123',
+        deliveryReferences: 'Puerta azul',
+      };
+
+      await service.createOrder('r1', 'session1', dto as any);
+
+      expect(mockOrderRepository.createWithItems).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customerPhone: '555-1234',
+          deliveryAddress: 'Calle Reforma 123',
+          deliveryReferences: 'Puerta azul',
+        }),
+        expect.anything(),
+      );
+    });
+
     it('increments the order counter before the main transaction starts', async () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1', restaurantId: 'r1', price: 5, stock: null, name: 'Widget',
