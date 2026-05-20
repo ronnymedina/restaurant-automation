@@ -153,6 +153,7 @@ Fields that are nullable have a defined reason:
 | MenuItem | sectionName | No visual section grouping when null |
 | Order | paymentMethod | Set when order is paid |
 | Order | customerEmail | Anonymous orders allowed |
+| Order | customerPhone, deliveryAddress, deliveryReferences | Pickup orders don't need address/phone; all optional for anonymous kiosk orders |
 | OrderItem | notes | No special instructions |
 | OrderItem | menuItemId | Product ordered directly, not from a menu |
 | RegisterSession | totalSales, totalOrders, closedBy, closedAt | Set when session is closed |

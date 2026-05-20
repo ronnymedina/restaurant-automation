@@ -23,6 +23,10 @@ export interface Order {
   orderType: string;
   createdAt: string;
   displayTime?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  deliveryReferences?: string;
   items: OrderItem[];
 }
 

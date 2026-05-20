@@ -55,6 +55,7 @@ services:
     env_file: ./apps/ui/.env
     environment:
       PUBLIC_API_URL: http://localhost:3000
+      PUBLIC_SUPPORT_GOOGLE_FORM_URL: https://forms.gle/8174Fx4JJaXitqVp6
     depends_on:
       - res-api-core
     ports:

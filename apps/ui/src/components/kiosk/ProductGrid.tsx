@@ -21,16 +21,16 @@ export function ProductGrid({ sections, theme, onAddItem }: ProductGridProps) {
 
   return (
     <div>
-      {sectionEntries.map(([sectionName, items]) => (
-        <div key={sectionName}>
-          <div className="flex items-center gap-3 mt-8 mb-4 first:mt-0">
+      {sectionEntries.map(([sectionName, items], index) => (
+        <div key={sectionName} className={index === 0 ? '' : 'mt-10'}>
+          <div className="flex items-center gap-3 mb-4">
             <div className="flex-1 h-px bg-slate-200" />
-            <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap flex-shrink-0 m-0">
+            <h3 className="text-[13px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap flex-shrink-0 m-0">
               {sectionName}
             </h3>
             <div className="flex-1 h-px bg-slate-200" />
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 pb-2">
             {items.map((item) => (
               <ProductCard
                 key={item.menuItemId ?? item.id}
