@@ -12,6 +12,10 @@
   "status": "CREATED | PROCESSING | SERVED | COMPLETED | CANCELLED",
   "paymentMethod": "CASH | CARD | null",
   "customerEmail": "string | null",
+  "customerName": "string | null",
+  "customerPhone": "string | null",
+  "deliveryAddress": "string | null",
+  "deliveryReferences": "string | null",
   "totalAmount": 12.5,
   "isPaid": false,
   "cancellationReason": "string | null",
@@ -77,8 +81,9 @@
 | `GET` | `/v1/orders` | ADMIN, MANAGER, BASIC | `OrderDto[]` | Listar órdenes del restaurante (filtro por status y limit) |
 | `GET` | `/v1/orders/history` | ADMIN, MANAGER, BASIC | `{ data: OrderDto[], meta }` | Historial paginado con filtros |
 | `GET` | `/v1/orders/:id` | ADMIN, MANAGER, BASIC | `OrderWithItemsDto` | Obtener orden por ID con items |
+| `POST` | `/v1/orders` | ADMIN, MANAGER | `{ order, receipt, kitchenTicket }` (201) | Crear pedido desde el dashboard (orderSource: STAFF) |
 | `PATCH` | `/v1/orders/:id/status` | ADMIN, MANAGER | `OrderDto` | Avanzar estado de la orden |
-| `PATCH` | `/v1/orders/:id/pay` | ADMIN, MANAGER | `OrderDto` | Marcar orden como pagada |
+| `PATCH` | `/v1/orders/:id/pay` | ADMIN, MANAGER | `OrderDto` | Marcar orden como pagada. Body opcional: `{ paymentMethod? }` |
 | `PATCH` | `/v1/orders/:id/cancel` | ADMIN, MANAGER | `OrderDto` | Cancelar una orden |
 
 ---
@@ -195,6 +200,73 @@ E2E: ✅ `test/orders/cancelOrder.e2e-spec.ts`
 
 ---
 
+#### Create from Dashboard — `POST /v1/orders`
+
+E2E: ✅ `test/orders/createOrderFromDashboard.e2e-spec.ts`
+
+---
+
+### Flujo de creación de pedido desde el dashboard (STAFF)
+
+```mermaid
+flowchart TD
+    A([Staff abre modal\n"Nuevo pedido"]) --> B[Busca producto por texto\nGET /v1/products?search=…]
+    B --> C[Agrega productos al carrito\nZustand store · addItem]
+
+    C --> D{¿Carrito vacío?}
+    D -- Sí --> E[Botón 'Siguiente' deshabilitado\nUI validation]
+    E --> C
+    D -- No --> F
+
+    subgraph PASO2 ["Paso 2 — Datos del pedido"]
+        F[Selecciona tipo de entrega\nPICKUP · DINE_IN · DELIVERY]
+        F --> G{Validación Zod\nreact-hook-form}
+        G -- DINE_IN sin mesa --> H[Error: Número de mesa requerido]
+        G -- DELIVERY sin dirección --> I[Error: Dirección requerida]
+        H --> F
+        I --> F
+        G -- OK --> J[Click 'Confirmar pedido']
+    end
+
+    J --> K[POST /v1/orders\nBearer JWT]
+
+    subgraph BACKEND ["Backend — Guards + Servicio"]
+        K --> L{JwtAuthGuard}
+        L -- Inválido --> M[401 Unauthorized]
+        L -- Válido --> N{RolesGuard\nADMIN · MANAGER}
+        N -- BASIC --> O[403 Forbidden]
+        N -- OK --> P{¿Caja abierta?\nCashShiftRepository}
+        P -- No --> Q[409 REGISTER_NOT_OPEN]
+        P -- Sí --> R{¿DTO válido?\nDelivery → address req.}
+        R -- No --> S[400 Validation Error]
+        R -- Sí --> T
+
+        subgraph TX ["$transaction — Prisma"]
+            T[Incrementa orderNumber] --> U[Valida stock por producto]
+            U -- Sin stock --> V[409 STOCK_INSUFFICIENT]
+            U -- OK --> W[Decrementa stock\nrow-level lock ordenado por productId]
+            W --> X[Persiste Order\norderSource: STAFF forzado\nstatus: CONFIRMED]
+            X --> Y[Persiste OrderItems\nmenuItemId: null\nunitPrice = product.price]
+        end
+    end
+
+    Y --> Z[Emite SSE order:created\nKanban se actualiza]
+    Z --> AA[Print kitchen ticket\nfire-and-forget]
+    AA --> AB([Respuesta 201\norder.status: CONFIRMED\norder.orderSource: STAFF])
+
+    AB --> AC[Toast: Pedido #N creado\nModal se cierra · Store reseteado]
+
+    AC -.->|Más tarde| AD[Staff cobra al cliente\nPATCH /v1/orders/:id/pay\nbody: paymentMethod opcional]
+    AD --> AE{¿paymentMethod\nen body?}
+    AE -- Sí con valor inválido --> AF[400 Bad Request\n@IsEnum PaymentMethod]
+    AE -- Sí válido --> AG[Actualiza paymentMethod\nen la orden]
+    AE -- No --> AH[paymentMethod queda null]
+    AG --> AI([200 OK · isPaid: true])
+    AH --> AI
+```
+
+---
+
 ### Notas de implementación
 
 - `GET /v1/orders` resuelve el turno activo internamente desde el `restaurantId` del JWT. Si no hay caja abierta devuelve 409 `REGISTER_NOT_OPEN`. Aplica `limit` de 100 por defecto (máximo 100). Para reportes históricos completos usar `/history`
@@ -213,7 +285,7 @@ E2E: ✅ `test/orders/cancelOrder.e2e-spec.ts`
   - Kitchen máximo: `PROCESSING → SERVED` (no puede avanzar a `COMPLETED`)
 - El endpoint `PATCH /:id/pay` es independiente del flujo de estado — se puede marcar como pagada en cualquier estado
 - Al marcar como pagada (`PATCH /:id/pay`), si la orden está en estado `SERVED`, se auto-avanza automáticamente a `COMPLETED`
-- La creación de órdenes la realiza el módulo `kiosk` vía `POST /v1/kiosk/:slug/orders` — el controller de `orders` no expone `POST`
+- La creación de órdenes puede realizarse desde el kiosk (`POST /v1/kiosk/:slug/orders`, público) o desde el dashboard (`POST /v1/orders`, autenticado ADMIN/MANAGER). Los pedidos de staff usan `orderSource: 'STAFF'` (forzado en el servicio) e inician en estado `CONFIRMED`
 - Al crear una orden (kiosk), se emite evento `order:created` por WebSocket; al actualizar estado se emite `order:updated`
 - Al marcar como pagada, se dispara de forma asíncrona la impresión de recibo y el envío de email si `customerEmail` está presente
 - El historial aplica `dateTo` con hora `23:59:59.999` para incluir el día completo
