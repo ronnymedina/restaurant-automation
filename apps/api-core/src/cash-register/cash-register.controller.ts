@@ -127,7 +127,7 @@ export class CashRegisterController {
       return CashShiftStatsSerializer.empty();
     }
     const stats = await this.statsService.getStats(
-      (session as any).id,
+      (session as { id: string }).id,
       user.restaurantId,
     );
     return new CashShiftStatsSerializer(stats);
