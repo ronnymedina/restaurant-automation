@@ -105,7 +105,7 @@ describe('CashRegisterService', () => {
     mockPrismaService.$transaction.mockImplementation(
       (cb: (tx: typeof mockTx) => Promise<unknown>) => cb(mockTx),
     );
-    // Default empty responses for groupBy/findMany used in getSessionSummary
+    // Default empty responses for groupBy/findMany used by CashRegisterStatsService
     mockPrismaService.orderItem.groupBy.mockResolvedValue([]);
     mockPrismaService.product.findMany.mockResolvedValue([]);
     (mockPrismaService.order as any).groupBy.mockResolvedValue([]);
