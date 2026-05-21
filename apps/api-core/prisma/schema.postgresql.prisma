@@ -236,6 +236,8 @@ model OrderItem {
   menuItem   MenuItem? @relation(fields: [menuItemId], references: [id])
 
   createdAt DateTime @default(now())
+
+  @@index([orderId])
 }
 
 // PostgreSQL partial unique index must be created manually:
