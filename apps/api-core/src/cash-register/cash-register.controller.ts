@@ -32,14 +32,9 @@ import { CashShiftSerializer } from './serializers/cash-shift.serializer';
 import { CashShiftStatsSerializer } from './serializers/cash-register-stats.serializer';
 import { PaginatedCashShiftsSerializer } from './serializers/paginated-cash-shifts.serializer';
 import {
-  SessionSummaryResponseDto,
   TopProductsResponseDto,
   CashShiftStatsResponseDto,
 } from './dto/cash-register-response.dto';
-import {
-  serializeSessionSummary,
-  serializeTopProducts,
-} from './serializers/session-summary.serializer';
 
 @ApiTags('Cash Register')
 @ApiBearerAuth()
@@ -141,9 +136,9 @@ export class CashRegisterController {
   }
 
   @Get('summary/:sessionId')
-  @ApiOperation({ summary: 'Resumen detallado de una sesión de caja' })
+  @ApiOperation({ summary: 'Estadísticas completas de una sesión de caja' })
   @ApiParam({ name: 'sessionId', type: String })
-  @ApiResponse({ status: 200, type: SessionSummaryResponseDto })
+  @ApiResponse({ status: 200, type: CashShiftStatsResponseDto })
   @ApiResponse({ status: 404, description: 'Sesión no encontrada (CASH_REGISTER_NOT_FOUND)' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
@@ -152,12 +147,12 @@ export class CashRegisterController {
     @Param('sessionId') sessionId: string,
   ) {
     const [result, tz] = await Promise.all([
-      this.registerService.getSessionSummary(sessionId),
+      this.registerService.getSessionStats(sessionId, user.restaurantId),
       this.timezoneService.getTimezone(user.restaurantId),
     ]);
     return {
       session: new CashShiftSerializer(result.session, tz),
-      summary: serializeSessionSummary(result.summary),
+      stats:   new CashShiftStatsSerializer(result.stats),
     };
   }
 
@@ -168,8 +163,12 @@ export class CashRegisterController {
   @ApiResponse({ status: 404, description: 'Sesión no encontrada (CASH_REGISTER_NOT_FOUND)' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
-  async topProducts(@Param('sessionId') sessionId: string) {
-    const result = await this.registerService.getTopProducts(sessionId);
-    return { topProducts: serializeTopProducts(result.topProducts) };
+  async topProducts(
+    @CurrentUser() user: { restaurantId: string },
+    @Param('sessionId') sessionId: string,
+  ) {
+    const stats = await this.statsService.getStats(sessionId, user.restaurantId);
+    const serialized = new CashShiftStatsSerializer(stats);
+    return { topProducts: serialized.topProducts };
   }
 }

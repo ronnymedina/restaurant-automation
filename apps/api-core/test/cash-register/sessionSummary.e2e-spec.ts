@@ -55,7 +55,7 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     expect(res.body.code).toBe('REGISTER_NOT_FOUND');
   });
 
-  it('Retorna session y summary', async () => {
+  it('Retorna session y stats', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
@@ -63,7 +63,8 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
 
     expect(res.body.session).toBeDefined();
     expect(res.body.session.id).toBe(shiftId);
-    expect(res.body.summary).toBeDefined();
+    expect(res.body.stats).toBeDefined();
+    expect(res.body.summary).toBeUndefined();
     expect(res.body.orders).toBeUndefined();
   });
 
@@ -84,54 +85,58 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     expect(session.totalOrders).toBeUndefined();
   });
 
-  it('summary.completed refleja las órdenes COMPLETED', async () => {
+  it('stats.counts refleja las órdenes correctamente', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    const { completed } = res.body.summary;
-    expect(completed).toBeDefined();
-    expect(completed.count).toBe(2);
+    const { counts } = res.body.stats;
+    expect(counts).toBeDefined();
+    expect(counts.completed).toBe(2);
+    expect(counts.cancelled).toBe(1);
+    expect(counts.total).toBe(3);
+  });
+
+  it('stats.revenue.completed refleja el total de órdenes COMPLETED en pesos', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/v1/cash-register/summary/${shiftId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    const { revenue } = res.body.stats;
+    expect(revenue).toBeDefined();
     // 2 orders × 1000 centavos = 2000 centavos = 20 pesos
-    expect(completed.total).toBeCloseTo(20, 2);
+    expect(revenue.completed).toBeCloseTo(20, 2);
   });
 
-  it('summary.cancelled refleja las órdenes CANCELLED (sin total)', async () => {
+  it('stats.byPaymentMethod es un array con {method, count, total}', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    const { cancelled } = res.body.summary;
-    expect(cancelled).toBeDefined();
-    expect(cancelled.count).toBe(1);
-    expect(cancelled.total).toBeUndefined();
-  });
-
-  it('summary.paymentBreakdown es un array con {method, count, total}', async () => {
-    const res = await request(app.getHttpServer())
-      .get(`/v1/cash-register/summary/${shiftId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
-
-    const { paymentBreakdown } = res.body.summary;
-    expect(Array.isArray(paymentBreakdown)).toBe(true);
-    for (const item of paymentBreakdown) {
+    const { byPaymentMethod } = res.body.stats;
+    expect(Array.isArray(byPaymentMethod)).toBe(true);
+    for (const item of byPaymentMethod) {
       expect(typeof item.method).toBe('string');
       expect(typeof item.count).toBe('number');
       expect(typeof item.total).toBe('number');
     }
   });
 
-  it('summary NO contiene ordersByStatus, totalSales ni totalOrders', async () => {
+  it('stats tiene counts, revenue, byPaymentMethod, byOrderType, byOrderSource, topProducts', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    expect(res.body.summary.ordersByStatus).toBeUndefined();
-    expect(res.body.summary.totalSales).toBeUndefined();
-    expect(res.body.summary.totalOrders).toBeUndefined();
+    const { stats } = res.body;
+    expect(stats.counts).toBeDefined();
+    expect(stats.revenue).toBeDefined();
+    expect(Array.isArray(stats.byPaymentMethod)).toBe(true);
+    expect(Array.isArray(stats.byOrderType)).toBe(true);
+    expect(Array.isArray(stats.byOrderSource)).toBe(true);
+    expect(Array.isArray(stats.topProducts)).toBe(true);
   });
 });
