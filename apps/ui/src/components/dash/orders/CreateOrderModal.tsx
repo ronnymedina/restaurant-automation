@@ -1,5 +1,6 @@
 // apps/ui/src/components/dash/orders/CreateOrderModal.tsx
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '../../commons/Providers';
 import { useCreateOrderStore } from './create-order-store';
@@ -113,9 +114,10 @@ function ModalContent({ onClose, onCreated }: Props) {
 }
 
 export default function CreateOrderModal({ onClose, onCreated }: Props) {
-  return (
+  return createPortal(
     <QueryClientProvider client={queryClient}>
       <ModalContent onClose={onClose} onCreated={onCreated} />
-    </QueryClientProvider>
+    </QueryClientProvider>,
+    document.body,
   );
 }
