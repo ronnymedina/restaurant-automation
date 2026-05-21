@@ -21,6 +21,7 @@ import {
 import { Role } from '@prisma/client';
 
 import { CashRegisterService } from './cash-register.service';
+import { CashRegisterStatsService } from './cash-register-stats.service';
 import { TimezoneService } from '../restaurants/timezone.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -28,11 +29,13 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { CashShiftSerializer } from './serializers/cash-shift.serializer';
+import { CashShiftStatsSerializer } from './serializers/cash-register-stats.serializer';
 import { PaginatedCashShiftsSerializer } from './serializers/paginated-cash-shifts.serializer';
 import {
   CloseSessionResponseDto,
   SessionSummaryResponseDto,
   TopProductsResponseDto,
+  CashShiftStatsResponseDto,
 } from './dto/cash-register-response.dto';
 import {
   serializeSessionSummary,
@@ -48,6 +51,7 @@ import {
 export class CashRegisterController {
   constructor(
     private readonly registerService: CashRegisterService,
+    private readonly statsService: CashRegisterStatsService,
     private readonly timezoneService: TimezoneService,
   ) {}
 
@@ -110,6 +114,23 @@ export class CashRegisterController {
       data: result.data.map((s) => new CashShiftSerializer(s, tz)),
       meta: result.meta,
     });
+  }
+
+  @Get('stats')
+  @Roles(Role.ADMIN, Role.MANAGER, Role.BASIC)
+  @ApiOperation({ summary: 'Estadísticas en vivo de la sesión de caja activa' })
+  @ApiResponse({ status: 200, type: CashShiftStatsResponseDto })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  async stats(@CurrentUser() user: { restaurantId: string }) {
+    const session = await this.registerService.getCurrentSession(user.restaurantId);
+    if (!('id' in session)) {
+      return CashShiftStatsSerializer.empty();
+    }
+    const stats = await this.statsService.getStats(
+      (session as any).id,
+      user.restaurantId,
+    );
+    return new CashShiftStatsSerializer(stats);
   }
 
   @Get('current')
