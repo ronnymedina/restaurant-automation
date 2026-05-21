@@ -73,8 +73,8 @@ export class CashRegisterController {
   @Post('close')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cerrar sesión de caja activa' })
-  @ApiResponse({ status: 200, description: 'Sesión cerrada con resumen de ventas', type: CloseSessionResponseDto })
-  @ApiResponse({ status: 409, description: 'No hay sesión de caja abierta (NO_OPEN_CASH_REGISTER)' })
+  @ApiResponse({ status: 200, description: 'Sesión cerrada con estadísticas completas' })
+  @ApiResponse({ status: 409, description: 'No hay sesión de caja abierta o hay pedidos pendientes' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async close(@CurrentUser() user: { restaurantId: string; id: string }) {
@@ -82,16 +82,9 @@ export class CashRegisterController {
       this.registerService.closeSession(user.restaurantId, user.id),
       this.timezoneService.getTimezone(user.restaurantId),
     ]);
-    const paymentBreakdown = Object.entries(result.summary.paymentBreakdown).map(
-      ([method, val]) => ({ method, count: val.count, total: val.total }),
-    );
     return {
       session: new CashShiftSerializer(result.session, tz),
-      summary: {
-        totalOrders: result.summary.totalOrders,
-        totalSales: result.summary.totalSales,
-        paymentBreakdown,
-      },
+      stats:   new CashShiftStatsSerializer(result.stats),
     };
   }
 

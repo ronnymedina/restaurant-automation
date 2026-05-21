@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CashShiftStatus, OrderStatus, Prisma } from '@prisma/client';
 
 import { CashRegisterService } from './cash-register.service';
+import { CashRegisterStatsService } from './cash-register-stats.service';
 import { CashShiftRepository } from '../cash-shift/cash-shift.repository';
 import { OrderRepository } from '../orders/order.repository';
 import {
@@ -74,6 +75,19 @@ const mockPrismaService: any = {
   },
 };
 
+const mockStatsResult = {
+  counts: { total: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 0, cancelled: 0, pending: 0 },
+  revenue: { completed: 0n, pending: 0n, averageTicket: 0n },
+  byPaymentMethod: [],
+  byOrderType: [],
+  byOrderSource: [],
+  topProducts: [],
+};
+
+const mockStatsService = {
+  getStats: jest.fn().mockResolvedValue(mockStatsResult),
+};
+
 describe('CashRegisterService', () => {
   let service: CashRegisterService;
 
@@ -87,6 +101,7 @@ describe('CashRegisterService', () => {
         },
         { provide: OrderRepository, useValue: mockOrderRepository },
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: CashRegisterStatsService, useValue: mockStatsService },
       ],
     }).compile();
 
@@ -102,6 +117,8 @@ describe('CashRegisterService', () => {
     (mockPrismaService.order as any).groupBy.mockResolvedValue([]);
     // Default: no pending orders (allows closeSession to proceed)
     mockTx.order.count.mockResolvedValue(0);
+    // Default stats service response
+    mockStatsService.getStats.mockResolvedValue(mockStatsResult);
   });
 
   describe('openSession', () => {
@@ -176,7 +193,7 @@ describe('CashRegisterService', () => {
       expect(mockTx.cashShift.update).not.toHaveBeenCalled();
     });
 
-    it('should close the session and return session + summary with payment breakdown', async () => {
+    it('should close the session and return session + stats', async () => {
       const session = mockSession();
       const closedSession = mockSession({ status: CashShiftStatus.CLOSED, closedAt: new Date() });
 
@@ -185,10 +202,6 @@ describe('CashRegisterService', () => {
         _sum: { totalAmount: 350n },
         _count: { id: 2 },
       });
-      mockTx.order.groupBy.mockResolvedValue([
-        { paymentMethod: 'CASH', _sum: { totalAmount: 150n }, _count: { id: 1 } },
-        { paymentMethod: 'CARD', _sum: { totalAmount: 200n }, _count: { id: 1 } },
-      ]);
       mockTx.cashShift.update.mockResolvedValue(closedSession);
 
       const result = await service.closeSession('restaurant-uuid-1');
@@ -204,11 +217,10 @@ describe('CashRegisterService', () => {
         }),
       });
       expect(result.session).toEqual(closedSession);
-      expect(result.summary.totalOrders).toBe(2);
-      expect(result.summary.totalSales).toBe(3.5);
+      expect(result.stats).toEqual(mockStatsResult);
     });
 
-    it('should calculate totalSales and totalOrders from aggregate', async () => {
+    it('should call statsService.getStats with closedSession.id and restaurantId', async () => {
       const session = mockSession();
       const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
 
@@ -217,58 +229,11 @@ describe('CashRegisterService', () => {
         _sum: { totalAmount: 150n },
         _count: { id: 3 },
       });
-      mockTx.order.groupBy.mockResolvedValue([]);
       mockTx.cashShift.update.mockResolvedValue(closedSession);
 
-      const result = await service.closeSession('restaurant-uuid-1');
+      await service.closeSession('restaurant-uuid-1');
 
-      expect(result.summary.totalSales).toBe(1.5);
-      expect(result.summary.totalOrders).toBe(3);
-    });
-
-    it('should group orders by paymentMethod in paymentBreakdown', async () => {
-      const session = mockSession();
-      const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
-
-      mockTx.cashShift.findFirst.mockResolvedValue(session);
-      mockTx.order.aggregate.mockResolvedValue({
-        _sum: { totalAmount: 450n },
-        _count: { id: 3 },
-      });
-      mockTx.order.groupBy.mockResolvedValue([
-        { paymentMethod: 'CASH', _sum: { totalAmount: 300n }, _count: { id: 2 } },
-        { paymentMethod: 'CARD', _sum: { totalAmount: 150n }, _count: { id: 1 } },
-      ]);
-      mockTx.cashShift.update.mockResolvedValue(closedSession);
-
-      const result = await service.closeSession('restaurant-uuid-1');
-
-      expect(result.summary.paymentBreakdown).toEqual({
-        CASH: { count: 2, total: 3 },
-        CARD: { count: 1, total: 1.5 },
-      });
-    });
-
-
-    it('should use UNKNOWN as payment method when paymentMethod is null', async () => {
-      const session = mockSession();
-      const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
-
-      mockTx.cashShift.findFirst.mockResolvedValue(session);
-      mockTx.order.aggregate.mockResolvedValue({
-        _sum: { totalAmount: 100n },
-        _count: { id: 1 },
-      });
-      mockTx.order.groupBy.mockResolvedValue([
-        { paymentMethod: null, _sum: { totalAmount: 100n }, _count: { id: 1 } },
-      ]);
-      mockTx.cashShift.update.mockResolvedValue(closedSession);
-
-      const result = await service.closeSession('restaurant-uuid-1');
-
-      expect(result.summary.paymentBreakdown).toHaveProperty('UNKNOWN');
-      expect(result.summary.paymentBreakdown['UNKNOWN']).toEqual({ count: 1, total: 1 });
-      expect(result.summary.paymentBreakdown).not.toHaveProperty('null');
+      expect(mockStatsService.getStats).toHaveBeenCalledWith(closedSession.id, 'restaurant-uuid-1');
     });
 
     it('should pass closedBy to the tx.cashShift.update call', async () => {
@@ -280,7 +245,6 @@ describe('CashRegisterService', () => {
         _sum: { totalAmount: 0n },
         _count: { id: 0 },
       });
-      mockTx.order.groupBy.mockResolvedValue([]);
       mockTx.cashShift.update.mockResolvedValue(closedSession);
 
       await service.closeSession('restaurant-uuid-1', 'manager-uuid-1');
@@ -292,7 +256,7 @@ describe('CashRegisterService', () => {
       );
     });
 
-    it('should query only COMPLETED orders for aggregate and groupBy', async () => {
+    it('should query only COMPLETED orders for aggregate', async () => {
       const session = mockSession();
       const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
 
@@ -301,17 +265,11 @@ describe('CashRegisterService', () => {
         _sum: { totalAmount: 200n },
         _count: { id: 2 },
       });
-      mockTx.order.groupBy.mockResolvedValue([]);
       mockTx.cashShift.update.mockResolvedValue(closedSession);
 
       await service.closeSession('restaurant-uuid-1');
 
       expect(mockTx.order.aggregate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ status: 'COMPLETED' }),
-        }),
-      );
-      expect(mockTx.order.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ status: 'COMPLETED' }),
         }),
@@ -327,14 +285,17 @@ describe('CashRegisterService', () => {
         _sum: { totalAmount: null },
         _count: { id: 0 },
       });
-      mockTx.order.groupBy.mockResolvedValue([]);
       mockTx.cashShift.update.mockResolvedValue(closedSession);
 
       const result = await service.closeSession('restaurant-uuid-1');
 
-      expect(result.summary.totalSales).toBe(0);
-      expect(result.summary.totalOrders).toBe(0);
-      expect(result.summary.paymentBreakdown).toEqual({});
+      expect(result.session).toEqual(closedSession);
+      expect(result.stats).toEqual(mockStatsResult);
+      expect(mockTx.cashShift.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ totalOrders: 0, totalSales: 0n }),
+        }),
+      );
     });
   });
 

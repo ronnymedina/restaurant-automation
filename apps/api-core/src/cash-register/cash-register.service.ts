@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { CashShiftStatus, OrderStatus, Prisma } from '@prisma/client';
 
-import { fromCents } from '../common/helpers/money';
-
 import { CashShiftRepository, CashShiftWithUser, CashShiftWithCount } from '../cash-shift/cash-shift.repository';
 import { OrderRepository } from '../orders/order.repository';
 import {
@@ -14,6 +12,7 @@ import {
 import { DEFAULT_PAGE_SIZE } from '../config';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import { PrismaService } from '../prisma/prisma.service';
+import { CashRegisterStatsService } from './cash-register-stats.service';
 
 @Injectable()
 export class CashRegisterService {
@@ -21,6 +20,7 @@ export class CashRegisterService {
     private readonly registerSessionRepository: CashShiftRepository,
     private readonly orderRepository: OrderRepository,
     private readonly prisma: PrismaService,
+    private readonly statsService: CashRegisterStatsService,
   ) { }
 
   async openSession(restaurantId: string, userId: string): Promise<CashShiftWithUser> {
@@ -40,69 +40,47 @@ export class CashRegisterService {
   }
 
   async closeSession(restaurantId: string, closedBy?: string) {
-    return this.prisma.$transaction(async (tx) => {
+    const closedSession = await this.prisma.$transaction(async (tx) => {
       const session = await tx.cashShift.findFirst({
-        where: {
-          restaurantId,
-          status: CashShiftStatus.OPEN,
-        },
+        where: { restaurantId, status: CashShiftStatus.OPEN },
       });
       if (!session) throw new NoOpenCashRegisterException();
 
       const pendingCount = await tx.order.count({
         where: {
           cashShiftId: session.id,
-          status: { in: [OrderStatus.CREATED, OrderStatus.CONFIRMED, OrderStatus.PROCESSING, OrderStatus.SERVED] },
+          status: {
+            in: [
+              OrderStatus.CREATED,
+              OrderStatus.CONFIRMED,
+              OrderStatus.PROCESSING,
+              OrderStatus.SERVED,
+            ],
+          },
         },
       });
       if (pendingCount > 0) throw new PendingOrdersException(pendingCount);
 
-      const [agg, paymentGroups] = await Promise.all([
-        tx.order.aggregate({
-          where: { cashShiftId: session.id, status: OrderStatus.COMPLETED },
-          _sum: { totalAmount: true },
-          _count: { id: true },
-        }),
-        tx.order.groupBy({
-          by: ['paymentMethod'],
-          where: { cashShiftId: session.id, status: OrderStatus.COMPLETED },
-          _sum: { totalAmount: true },
-          _count: { id: true },
-        }),
-      ]);
+      const agg = await tx.order.aggregate({
+        where: { cashShiftId: session.id, status: OrderStatus.COMPLETED },
+        _sum: { totalAmount: true },
+        _count: { id: true },
+      });
 
-      const totalSales = fromCents(agg._sum.totalAmount ?? 0n);
-      const totalOrders = agg._count.id;
-
-      const paymentBreakdown: Record<string, { count: number; total: number }> = {};
-      for (const group of paymentGroups) {
-        const method = group.paymentMethod ?? 'UNKNOWN';
-        paymentBreakdown[method] = {
-          count: group._count.id,
-          total: fromCents(group._sum.totalAmount ?? 0n),
-        };
-      }
-
-      const closedSession = await tx.cashShift.update({
+      return tx.cashShift.update({
         where: { id: session.id },
         data: {
           status: CashShiftStatus.CLOSED,
           closedAt: new Date(),
           closedBy,
           totalSales: agg._sum.totalAmount ?? 0n,
-          totalOrders,
+          totalOrders: agg._count.id,
         },
       });
-
-      return {
-        session: closedSession,
-        summary: {
-          totalOrders,
-          totalSales,
-          paymentBreakdown,
-        },
-      };
     });
+
+    const stats = await this.statsService.getStats(closedSession.id, restaurantId);
+    return { session: closedSession, stats };
   }
 
   async getSessionHistory(
