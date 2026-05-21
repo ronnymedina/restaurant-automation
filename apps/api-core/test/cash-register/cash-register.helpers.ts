@@ -144,6 +144,8 @@ export async function seedOrderOnShift(
       cashShiftId,
       totalAmount: BigInt(1000),
       status,
+      orderSource: 'KIOSK',
+      orderType: 'DINE_IN',
       items: {
         create: [{ productId, quantity: 1, unitPrice: BigInt(1000), subtotal: BigInt(1000) }],
       },
