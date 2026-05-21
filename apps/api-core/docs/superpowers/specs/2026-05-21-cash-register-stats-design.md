@@ -44,10 +44,10 @@ apps/api-core/src/cash-register/
 ├── cash-register-stats.service.ts       ← nuevo
 ├── cash-register-stats.service.spec.ts  ← nuevo
 ├── dto/
-│   ├── cash-register-response.dto.ts    (agregar CashShiftStatsResponseDto)
-│   └── cash-register-stats-response.dto.ts  ← nuevo (tipos internos de stats)
+│   ├── cash-register-response.dto.ts    (agregar @ApiProperty Swagger types para stats)
+│   └── (sin archivo de tipos internos — el tipo ShiftStats vive en el service)
 └── serializers/
-    └── cash-register-stats.serializer.ts   ← nuevo
+    └── cash-register-stats.serializer.ts   ← nuevo (clase con @Exclude/@Expose + @Type)
 ```
 
 ---
@@ -109,6 +109,122 @@ El `restaurantId` se usa para validar que la sesión pertenece al restaurante de
 - `byOrderType` = todas las órdenes (incluye canceladas — refleja intención original)
 - `byOrderSource` = todas las órdenes
 - `topProducts` = top 5 por quantity, excluyendo items de órdenes CANCELLED; máximo 5 elementos
+
+---
+
+## Serialización — `CashShiftStatsSerializer`
+
+El response usa el patrón `class-transformer` establecido en el módulo: clase con `@Exclude()` a nivel de clase y `@Expose()` por cada propiedad expuesta. El controller ya tiene `@UseInterceptors(ClassSerializerInterceptor)` aplicado a nivel de controlador, lo que procesa el árbol completo de objetos.
+
+### Estructura de clases
+
+```ts
+// serializers/cash-register-stats.serializer.ts
+
+@Exclude()
+export class StatsCountsSerializer {
+  @Expose() @ApiProperty() total: number;
+  @Expose() @ApiProperty() created: number;
+  @Expose() @ApiProperty() confirmed: number;
+  @Expose() @ApiProperty() processing: number;
+  @Expose() @ApiProperty() served: number;
+  @Expose() @ApiProperty() completed: number;
+  @Expose() @ApiProperty() cancelled: number;
+  @Expose() @ApiProperty() pending: number;
+  constructor(partial: Partial<StatsCountsSerializer>) { Object.assign(this, partial); }
+}
+
+@Exclude()
+export class StatsRevenueSerializer {
+  @Expose() @ApiProperty() completed: number;
+  @Expose() @ApiProperty() pending: number;
+  @Expose() @ApiProperty() averageTicket: number;
+  constructor(partial: Partial<StatsRevenueSerializer>) { Object.assign(this, partial); }
+}
+
+@Exclude()
+export class StatsByPaymentMethodSerializer {
+  @Expose() @ApiProperty() method: string;
+  @Expose() @ApiProperty() count: number;
+  @Expose() @ApiProperty() total: number;
+  constructor(partial: Partial<StatsByPaymentMethodSerializer>) { Object.assign(this, partial); }
+}
+
+@Exclude()
+export class StatsByOrderTypeSerializer {
+  @Expose() @ApiProperty() type: string;
+  @Expose() @ApiProperty() count: number;
+  constructor(partial: Partial<StatsByOrderTypeSerializer>) { Object.assign(this, partial); }
+}
+
+@Exclude()
+export class StatsByOrderSourceSerializer {
+  @Expose() @ApiProperty() source: string;
+  @Expose() @ApiProperty() count: number;
+  constructor(partial: Partial<StatsByOrderSourceSerializer>) { Object.assign(this, partial); }
+}
+
+@Exclude()
+export class StatsTopProductSerializer {
+  @Expose() @ApiProperty() id: string;
+  @Expose() @ApiProperty() name: string;
+  @Expose() @ApiProperty() quantity: number;
+  @Expose() @ApiProperty() total: number;
+  constructor(partial: Partial<StatsTopProductSerializer>) { Object.assign(this, partial); }
+}
+
+@Exclude()
+export class CashShiftStatsSerializer {
+  @Expose() @ApiProperty({ type: StatsCountsSerializer })
+  @Type(() => StatsCountsSerializer)
+  counts: StatsCountsSerializer;
+
+  @Expose() @ApiProperty({ type: StatsRevenueSerializer })
+  @Type(() => StatsRevenueSerializer)
+  revenue: StatsRevenueSerializer;
+
+  @Expose() @ApiProperty({ type: [StatsByPaymentMethodSerializer] })
+  @Type(() => StatsByPaymentMethodSerializer)
+  byPaymentMethod: StatsByPaymentMethodSerializer[];
+
+  @Expose() @ApiProperty({ type: [StatsByOrderTypeSerializer] })
+  @Type(() => StatsByOrderTypeSerializer)
+  byOrderType: StatsByOrderTypeSerializer[];
+
+  @Expose() @ApiProperty({ type: [StatsByOrderSourceSerializer] })
+  @Type(() => StatsByOrderSourceSerializer)
+  byOrderSource: StatsByOrderSourceSerializer[];
+
+  @Expose() @ApiProperty({ type: [StatsTopProductSerializer] })
+  @Type(() => StatsTopProductSerializer)
+  topProducts: StatsTopProductSerializer[];
+
+  constructor(stats: ShiftStats) {
+    // Convierte BigInt → number via fromCents() en el constructor
+    this.counts = new StatsCountsSerializer(stats.counts);
+    this.revenue = new StatsRevenueSerializer({
+      completed: fromCents(stats.revenue.completed),
+      pending: fromCents(stats.revenue.pending),
+      averageTicket: fromCents(stats.revenue.averageTicket),
+    });
+    this.byPaymentMethod = stats.byPaymentMethod.map(
+      (x) => new StatsByPaymentMethodSerializer({ ...x, total: fromCents(x.total) }),
+    );
+    this.byOrderType = stats.byOrderType.map((x) => new StatsByOrderTypeSerializer(x));
+    this.byOrderSource = stats.byOrderSource.map((x) => new StatsByOrderSourceSerializer(x));
+    this.topProducts = stats.topProducts.map(
+      (x) => new StatsTopProductSerializer({ ...x, total: fromCents(x.total) }),
+    );
+  }
+}
+```
+
+### Reglas del patrón
+- `@Exclude()` en la clase: bloquea todo por defecto; solo llega al cliente lo que tenga `@Expose()`
+- `@Type(() => NestedClass)` en arrays/objetos anidados: necesario para que `ClassSerializerInterceptor` traverse la jerarquía correctamente
+- Toda conversión `BigInt → number` ocurre en el constructor del serializer, no en el servicio — el servicio devuelve `bigint` internamente
+- El controller instancia directamente: `return new CashShiftStatsSerializer(stats)`
+- `session-summary.serializer.ts` (funciones planas) se elimina; sus casos de uso se delegan al nuevo serializer
 
 ---
 
