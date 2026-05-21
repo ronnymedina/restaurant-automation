@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { CashShiftStatus, OrderStatus, Prisma } from '@prisma/client';
 
 import { CashShiftRepository, CashShiftWithUser, CashShiftWithCount } from '../cash-shift/cash-shift.repository';
-import { OrderRepository } from '../orders/order.repository';
 import {
   CashRegisterAlreadyOpenException,
   CashRegisterNotFoundException,
@@ -18,7 +17,6 @@ import { CashRegisterStatsService } from './cash-register-stats.service';
 export class CashRegisterService {
   constructor(
     private readonly registerSessionRepository: CashShiftRepository,
-    private readonly orderRepository: OrderRepository,
     private readonly prisma: PrismaService,
     private readonly statsService: CashRegisterStatsService,
   ) { }

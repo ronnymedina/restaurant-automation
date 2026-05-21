@@ -32,7 +32,6 @@ import { CashShiftSerializer } from './serializers/cash-shift.serializer';
 import { CashShiftStatsSerializer } from './serializers/cash-register-stats.serializer';
 import { PaginatedCashShiftsSerializer } from './serializers/paginated-cash-shifts.serializer';
 import {
-  CloseSessionResponseDto,
   SessionSummaryResponseDto,
   TopProductsResponseDto,
   CashShiftStatsResponseDto,
