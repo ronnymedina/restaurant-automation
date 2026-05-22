@@ -41,6 +41,7 @@ const mockRegisterSessionRepository = {
   close: jest.fn(),
   findByRestaurantIdPaginated: jest.fn(),
   findOpenWithOrderCount: jest.fn(),
+  findOpenId: jest.fn(),
   findById: jest.fn(),
 };
 
@@ -227,7 +228,7 @@ describe('CashRegisterService', () => {
 
       await service.closeSession('restaurant-uuid-1');
 
-      expect(mockStatsService.getStats).toHaveBeenCalledWith(closedSession.id, 'restaurant-uuid-1');
+      expect(mockStatsService.getStats).toHaveBeenCalledWith(closedSession.id);
     });
 
     it('should pass closedBy to the tx.cashShift.update call', async () => {
@@ -382,15 +383,34 @@ describe('CashRegisterService', () => {
     });
   });
 
+  describe('getOpenSessionId', () => {
+    it('should return the session id when an open session exists', async () => {
+      mockRegisterSessionRepository.findOpenId.mockResolvedValue('session-uuid-1');
+
+      const result = await service.getOpenSessionId('restaurant-uuid-1');
+
+      expect(mockRegisterSessionRepository.findOpenId).toHaveBeenCalledWith('restaurant-uuid-1');
+      expect(result).toBe('session-uuid-1');
+    });
+
+    it('should return null when no open session exists', async () => {
+      mockRegisterSessionRepository.findOpenId.mockResolvedValue(null);
+
+      const result = await service.getOpenSessionId('restaurant-uuid-1');
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe('getSessionStats', () => {
     it('should return session and stats via statsService', async () => {
       const session = mockSession({ status: 'CLOSED' });
       mockRegisterSessionRepository.findById.mockResolvedValue(session);
       mockStatsService.getStats.mockResolvedValue(mockStatsResult);
 
-      const result = await service.getSessionStats('session-uuid-1', 'restaurant-uuid-1');
+      const result = await service.getSessionStats('session-uuid-1');
 
-      expect(mockStatsService.getStats).toHaveBeenCalledWith('session-uuid-1', 'restaurant-uuid-1');
+      expect(mockStatsService.getStats).toHaveBeenCalledWith('session-uuid-1');
       expect(mockRegisterSessionRepository.findById).toHaveBeenCalledWith('session-uuid-1');
       expect(result.session).toEqual(session);
       expect(result.stats).toEqual(mockStatsResult);
@@ -401,7 +421,7 @@ describe('CashRegisterService', () => {
       mockRegisterSessionRepository.findById.mockResolvedValue(null);
 
       await expect(
-        service.getSessionStats('nonexistent', 'restaurant-uuid-1'),
+        service.getSessionStats('nonexistent'),
       ).rejects.toThrow(CashRegisterNotFoundException);
     });
 
@@ -410,7 +430,7 @@ describe('CashRegisterService', () => {
       mockRegisterSessionRepository.findById.mockResolvedValue(session);
       mockStatsService.getStats.mockResolvedValue(mockStatsResult);
 
-      await service.getSessionStats('session-uuid-1', 'restaurant-uuid-1');
+      await service.getSessionStats('session-uuid-1');
 
       expect(mockStatsService.getStats).toHaveBeenCalledTimes(1);
       expect(mockRegisterSessionRepository.findById).toHaveBeenCalledTimes(1);

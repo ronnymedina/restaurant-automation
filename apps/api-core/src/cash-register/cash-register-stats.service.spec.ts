@@ -8,8 +8,7 @@ const SESSION_ID = 'session-uuid';
 
 const mockOrderShiftReport = {
   groupOrdersByShift: jest.fn(),
-  getTopProductsByShift: jest.fn(),
-  getProductNamesByIds: jest.fn(),
+  getTopProductsWithNamesByShift: jest.fn(),
 };
 
 describe('CashRegisterStatsService', () => {
@@ -29,8 +28,7 @@ describe('CashRegisterStatsService', () => {
 
   function setupEmptyOrders() {
     mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([]);
-    mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([]);
-    mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([]);
+    mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
   }
 
   describe('getStats', () => {
@@ -59,8 +57,7 @@ describe('CashRegisterStatsService', () => {
         { status: OrderStatus.COMPLETED,  paymentMethod: 'CASH', orderType: 'PICKUP', orderSource: 'STAFF',  _count: { id: 3 }, _sum: { totalAmount: 6000n } },
         { status: OrderStatus.CANCELLED,  paymentMethod: null,   orderType: 'PICKUP', orderSource: 'KIOSK',  _count: { id: 1 }, _sum: { totalAmount:  800n } },
       ]);
-      mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([]);
-      mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([]);
+      mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
       const stats = await service.getStats(SESSION_ID);
 
@@ -85,8 +82,7 @@ describe('CashRegisterStatsService', () => {
         { status: OrderStatus.PROCESSING, paymentMethod: null,   orderType: 'PICKUP', orderSource: 'STAFF', _count: { id: 1 }, _sum: { totalAmount: 1500n } },
         { status: OrderStatus.CANCELLED,  paymentMethod: null,   orderType: 'PICKUP', orderSource: 'KIOSK', _count: { id: 1 }, _sum: { totalAmount:  800n } },
       ]);
-      mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([]);
-      mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([]);
+      mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
       const stats = await service.getStats(SESSION_ID);
 
@@ -100,8 +96,7 @@ describe('CashRegisterStatsService', () => {
       mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([
         { status: OrderStatus.CREATED, paymentMethod: null, orderType: 'PICKUP', orderSource: 'STAFF', _count: { id: 1 }, _sum: { totalAmount: 1000n } },
       ]);
-      mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([]);
-      mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([]);
+      mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
       const stats = await service.getStats(SESSION_ID);
 
@@ -116,8 +111,7 @@ describe('CashRegisterStatsService', () => {
         { status: OrderStatus.CANCELLED, paymentMethod: 'CASH', orderType: 'PICKUP', orderSource: 'KIOSK', _count: { id: 1 }, _sum: { totalAmount:  500n } },
         { status: OrderStatus.CREATED,   paymentMethod: null,   orderType: 'PICKUP', orderSource: 'STAFF', _count: { id: 1 }, _sum: { totalAmount: 1000n } },
       ]);
-      mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([]);
-      mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([]);
+      mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
       const stats = await service.getStats(SESSION_ID);
 
@@ -137,8 +131,7 @@ describe('CashRegisterStatsService', () => {
         { status: OrderStatus.CREATED,   paymentMethod: null,   orderType: 'DELIVERY', orderSource: 'KIOSK', _count: { id: 2 }, _sum: { totalAmount: 2000n } },
         { status: OrderStatus.CANCELLED, paymentMethod: null,   orderType: 'PICKUP',   orderSource: 'KIOSK', _count: { id: 1 }, _sum: { totalAmount:  800n } },
       ]);
-      mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([]);
-      mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([]);
+      mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
       const stats = await service.getStats(SESSION_ID);
 
@@ -153,13 +146,9 @@ describe('CashRegisterStatsService', () => {
     it('retorna top products con id, name, quantity y total', async () => {
 
       mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([]);
-      mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([
-        { productId: 'prod-1', _sum: { quantity: 10, subtotal: 5000n } },
-        { productId: 'prod-2', _sum: { quantity:  5, subtotal: 2500n } },
-      ]);
-      mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([
-        { id: 'prod-1', name: 'Burger' },
-        { id: 'prod-2', name: 'Fries'  },
+      mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([
+        { id: 'prod-1', name: 'Burger', quantity: 10, total: 5000n },
+        { id: 'prod-2', name: 'Fries',  quantity:  5, total: 2500n },
       ]);
 
       const stats = await service.getStats(SESSION_ID);
@@ -173,8 +162,7 @@ describe('CashRegisterStatsService', () => {
     it('retorna topProducts vacío cuando no hay items', async () => {
 
       mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([]);
-      mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([]);
-      mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([]);
+      mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
       const stats = await service.getStats(SESSION_ID);
 

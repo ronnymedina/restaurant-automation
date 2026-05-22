@@ -212,14 +212,15 @@ export class OrdersService {
       this.logger.warn(`Receipt print failed for order ${id}: ${err.message}`),
     );
 
-    if (updatedOrder.customerEmail && this.emailService) {
-      try {
-        const receipt = await this.printService.generateReceipt(id);
-        await this.emailService.sendReceiptEmail(updatedOrder.customerEmail, receipt);
-      } catch (error) {
-        this.logger.error(`Failed to send receipt email for order ${id}`, error);
-      }
-    }
+    // TODO: receipt email disabled — template needs redesign before re-enabling
+    // if (updatedOrder.customerEmail && this.emailService) {
+    //   try {
+    //     const receipt = await this.printService.generateReceipt(id);
+    //     await this.emailService.sendReceiptEmail(updatedOrder.customerEmail, receipt);
+    //   } catch (error) {
+    //     this.logger.error(`Failed to send receipt email for order ${id}`, error);
+    //   }
+    // }
 
     return updatedOrder;
   }

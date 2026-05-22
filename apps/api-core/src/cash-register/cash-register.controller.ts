@@ -4,12 +4,14 @@ import {
   Post,
   Param,
   Query,
+  Req,
   UseGuards,
   UseInterceptors,
   ClassSerializerInterceptor,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -25,6 +27,7 @@ import { CashRegisterStatsService } from './cash-register-stats.service';
 import { TimezoneService } from '../restaurants/timezone.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { CashShiftGuard } from './guards/cash-shift.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -109,14 +112,11 @@ export class CashRegisterController {
   @ApiResponse({ status: 200, type: CashShiftStatsResponseDto })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   async stats(@CurrentUser() user: { restaurantId: string }) {
-    const session = await this.registerService.getCurrentSession(user.restaurantId);
-    if (!('id' in session)) {
+    const sessionId = await this.registerService.getOpenSessionId(user.restaurantId);
+    if (!sessionId) {
       return CashShiftStatsSerializer.empty();
     }
-    const stats = await this.statsService.getStats(
-      (session as { id: string }).id,
-      user.restaurantId,
-    );
+    const stats = await this.statsService.getStats(sessionId);
     return new CashShiftStatsSerializer(stats);
   }
 
@@ -136,6 +136,7 @@ export class CashRegisterController {
   }
 
   @Get('summary/:sessionId')
+  @UseGuards(CashShiftGuard)
   @ApiOperation({ summary: 'Estadísticas completas de una sesión de caja' })
   @ApiParam({ name: 'sessionId', type: String })
   @ApiResponse({ status: 200, type: CashShiftStatsResponseDto })
@@ -144,10 +145,10 @@ export class CashRegisterController {
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async summary(
     @CurrentUser() user: { restaurantId: string },
-    @Param('sessionId') sessionId: string,
+    @Req() req: Request & { cashShift: { id: string } },
   ) {
     const [result, tz] = await Promise.all([
-      this.registerService.getSessionStats(sessionId, user.restaurantId),
+      this.registerService.getSessionStats(req.cashShift.id),
       this.timezoneService.getTimezone(user.restaurantId),
     ]);
     return {
@@ -157,6 +158,7 @@ export class CashRegisterController {
   }
 
   @Get('top-products/:sessionId')
+  @UseGuards(CashShiftGuard)
   @ApiOperation({ summary: 'Top 5 productos más vendidos de una sesión' })
   @ApiParam({ name: 'sessionId', type: String })
   @ApiResponse({ status: 200, type: TopProductsResponseDto })
@@ -164,10 +166,9 @@ export class CashRegisterController {
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async topProducts(
-    @CurrentUser() user: { restaurantId: string },
-    @Param('sessionId') sessionId: string,
+    @Req() req: Request & { cashShift: { id: string } },
   ) {
-    const stats = await this.statsService.getStats(sessionId, user.restaurantId);
+    const stats = await this.statsService.getStats(req.cashShift.id);
     const serialized = new CashShiftStatsSerializer(stats);
     return { topProducts: serialized.topProducts };
   }

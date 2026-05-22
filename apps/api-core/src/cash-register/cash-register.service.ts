@@ -77,7 +77,7 @@ export class CashRegisterService {
       });
     });
 
-    const stats = await this.statsService.getStats(closedSession.id, restaurantId);
+    const stats = await this.statsService.getStats(closedSession.id);
     return { session: closedSession, stats };
   }
 
@@ -108,15 +108,19 @@ export class CashRegisterService {
     };
   }
 
+  async getOpenSessionId(restaurantId: string): Promise<string | null> {
+    return this.registerSessionRepository.findOpenId(restaurantId);
+  }
+
   async getCurrentSession(restaurantId: string) {
     const session =
       await this.registerSessionRepository.findOpenWithOrderCount(restaurantId);
     return session || {};
   }
 
-  async getSessionStats(sessionId: string, restaurantId: string) {
+  async getSessionStats(sessionId: string) {
     const [stats, session] = await Promise.all([
-      this.statsService.getStats(sessionId, restaurantId),
+      this.statsService.getStats(sessionId),
       this.registerSessionRepository.findById(sessionId),
     ]);
     return { session: session!, stats };

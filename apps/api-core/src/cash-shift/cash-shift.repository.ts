@@ -78,6 +78,14 @@ export class CashShiftRepository {
     return { data, total };
   }
 
+  async findOpenId(restaurantId: string): Promise<string | null> {
+    const shift = await this.prisma.cashShift.findFirst({
+      where: { restaurantId, status: CashShiftStatus.OPEN },
+      select: { id: true },
+    });
+    return shift?.id ?? null;
+  }
+
   async findOpenWithOrderCount(restaurantId: string): Promise<CashShiftWithUserAndCount | null> {
     return this.prisma.cashShift.findFirst({
       where: { restaurantId, status: CashShiftStatus.OPEN },

@@ -2,7 +2,7 @@ import { Exclude, Expose, Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 import { fromCents } from '../../common/helpers/money';
-import { ShiftStats, emptyShiftStats } from '../cash-register-stats.service';
+import { type ShiftStats } from '../cash-register-stats.service';
 
 @Exclude()
 export class ShiftCountSerializer {
@@ -123,6 +123,16 @@ export class CashShiftStatsSerializer {
   }
 
   static empty(): CashShiftStatsSerializer {
-    return new CashShiftStatsSerializer(emptyShiftStats());
+    const empty: ShiftStats = {
+      total: 0,
+      pending: 0,
+      counts: [],
+      revenue: { completed: 0n, pending: 0n, averageTicket: 0n },
+      byPaymentMethod: [],
+      byOrderType: [],
+      byOrderSource: [],
+      topProducts: [],
+    };
+    return new CashShiftStatsSerializer(empty);
   }
 }
