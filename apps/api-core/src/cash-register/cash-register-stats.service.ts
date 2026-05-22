@@ -1,19 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { OrderStatus } from '@prisma/client';
 
-import { PrismaService } from '../prisma/prisma.service';
-import { CashShiftRepository } from '../cash-shift/cash-shift.repository';
-import { CashRegisterNotFoundException } from './exceptions/cash-register.exceptions';
+import { OrderShiftReportRepository } from '../orders/order-shift-report.repository';
 
-export interface ShiftCounts {
+// -- Types --
+
+export interface ShiftCount {
+  status: string;
   total: number;
-  created: number;
-  confirmed: number;
-  processing: number;
-  served: number;
-  completed: number;
-  cancelled: number;
-  pending: number;
 }
 
 export interface ShiftRevenue {
@@ -30,7 +24,9 @@ export interface ShiftTopProduct {
 }
 
 export interface ShiftStats {
-  counts: ShiftCounts;
+  total: number;
+  pending: number;
+  counts: ShiftCount[];
   revenue: ShiftRevenue;
   byPaymentMethod: Array<{ method: string; count: number; total: bigint }>;
   byOrderType: Array<{ type: string; count: number }>;
@@ -40,10 +36,9 @@ export interface ShiftStats {
 
 export function emptyShiftStats(): ShiftStats {
   return {
-    counts: {
-      total: 0, created: 0, confirmed: 0, processing: 0,
-      served: 0, completed: 0, cancelled: 0, pending: 0,
-    },
+    total: 0,
+    pending: 0,
+    counts: [],
     revenue: { completed: 0n, pending: 0n, averageTicket: 0n },
     byPaymentMethod: [],
     byOrderType: [],
@@ -52,116 +47,107 @@ export function emptyShiftStats(): ShiftStats {
   };
 }
 
+// -- Aggregation helpers --
+
+type StatusGroup = Awaited<ReturnType<OrderShiftReportRepository['groupOrdersByShift']>>[number];
+
+function groupByStatus(
+  groups: StatusGroup[],
+): Map<string, { count: number; revenue: bigint }> {
+  return groups.reduce((map, row) => {
+    const status = row.status as string;
+    const prev = map.get(status) ?? { count: 0, revenue: 0n };
+    return map.set(status, {
+      count: prev.count + row._count.id,
+      revenue: prev.revenue + (row._sum.totalAmount ?? 0n),
+    });
+  }, new Map<string, { count: number; revenue: bigint }>());
+}
+
+function calculateRevenue(
+  byStatus: Map<string, { count: number; revenue: bigint }>,
+): ShiftRevenue {
+  const completed = byStatus.get(OrderStatus.COMPLETED);
+  const completedRevenue = completed?.revenue ?? 0n;
+  const completedCount = completed?.count ?? 0;
+
+  const pendingRevenue = Array.from(byStatus.entries())
+    .filter(([status]) => status !== OrderStatus.COMPLETED && status !== OrderStatus.CANCELLED)
+    .reduce((sum, [, { revenue }]) => sum + revenue, 0n);
+
+  const averageTicket = completedCount > 0
+    ? completedRevenue / BigInt(completedCount)
+    : 0n;
+
+  return { completed: completedRevenue, pending: pendingRevenue, averageTicket };
+}
+
+function buildPaymentMethods(groups: StatusGroup[]): ShiftStats['byPaymentMethod'] {
+  const methodMap = groups
+    .filter((row) => row.status === OrderStatus.COMPLETED && row.paymentMethod)
+    .reduce((map, row) => {
+      const method = row.paymentMethod as string;
+      const prev = map.get(method) ?? { count: 0, total: 0n };
+      return map.set(method, {
+        count: prev.count + row._count.id,
+        total: prev.total + (row._sum.totalAmount ?? 0n),
+      });
+    }, new Map<string, { count: number; total: bigint }>());
+
+  return Array.from(methodMap.entries()).map(([method, { count, total }]) => ({ method, count, total }));
+}
+
+function buildDimensionCounts(
+  groups: StatusGroup[],
+  getKey: (row: StatusGroup) => string | null | undefined,
+): Map<string, number> {
+  return groups.reduce((map, row) => {
+    const key = getKey(row) ?? 'UNKNOWN';
+    return map.set(key, (map.get(key) ?? 0) + row._count.id);
+  }, new Map<string, number>());
+}
+
+// -- Service --
+
 @Injectable()
 export class CashRegisterStatsService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly cashShiftRepository: CashShiftRepository,
-  ) {}
+  constructor(private readonly orderShiftReport: OrderShiftReportRepository) {}
 
-  async getStats(sessionId: string, restaurantId: string): Promise<ShiftStats> {
-    const session = await this.cashShiftRepository.findById(sessionId);
-    if (!session || session.restaurantId !== restaurantId) {
-      throw new CashRegisterNotFoundException(sessionId);
-    }
-
+  async getStats(sessionId: string): Promise<ShiftStats> {
     const [groups, topProductRows] = await Promise.all([
-      this.prisma.order.groupBy({
-        by: ['status', 'paymentMethod', 'orderType', 'orderSource'],
-        where: { cashShiftId: sessionId },
-        _sum: { totalAmount: true },
-        _count: { id: true },
-      }),
-      this.prisma.orderItem.groupBy({
-        by: ['productId'],
-        where: { order: { cashShiftId: sessionId, status: { not: OrderStatus.CANCELLED } } },
-        _sum: { quantity: true, subtotal: true },
-        orderBy: { _sum: { quantity: 'desc' } },
-        take: 5,
-      }),
+      this.orderShiftReport.groupOrdersByShift(sessionId),
+      this.orderShiftReport.getTopProductsByShift(sessionId),
     ]);
 
-    const countsByStatus: Record<string, number> = {};
-    const revenueByStatus: Record<string, bigint> = {};
-    const paymentMethodMap: Record<string, { count: number; total: bigint }> = {};
-    const orderTypeMap: Record<string, number> = {};
-    const orderSourceMap: Record<string, number> = {};
-
-    for (const row of groups) {
-      const status = row.status as string;
-      const count = row._count.id;
-      const amount = row._sum.totalAmount ?? 0n;
-
-      countsByStatus[status] = (countsByStatus[status] ?? 0) + count;
-      revenueByStatus[status] = (revenueByStatus[status] ?? 0n) + amount;
-
-      if (status === OrderStatus.COMPLETED && row.paymentMethod) {
-        const method = row.paymentMethod as string;
-        if (!paymentMethodMap[method]) {
-          paymentMethodMap[method] = { count: 0, total: 0n };
-        }
-        paymentMethodMap[method].count += count;
-        paymentMethodMap[method].total += amount;
-      }
-
-      const orderType = row.orderType ?? 'UNKNOWN';
-      orderTypeMap[orderType] = (orderTypeMap[orderType] ?? 0) + count;
-
-      const orderSource = row.orderSource ?? 'UNKNOWN';
-      orderSourceMap[orderSource] = (orderSourceMap[orderSource] ?? 0) + count;
-    }
-
-    const completedCount = countsByStatus[OrderStatus.COMPLETED] ?? 0;
-    const cancelledCount = countsByStatus[OrderStatus.CANCELLED] ?? 0;
-    const totalCount = Object.values(countsByStatus).reduce((a, b) => a + b, 0);
-    const completedRevenue = revenueByStatus[OrderStatus.COMPLETED] ?? 0n;
-
-    let pendingRevenue = 0n;
-    for (const [status, amount] of Object.entries(revenueByStatus)) {
-      if (status !== OrderStatus.COMPLETED && status !== OrderStatus.CANCELLED) {
-        pendingRevenue += amount;
-      }
-    }
-
-    const averageTicket = completedCount > 0
-      ? completedRevenue / BigInt(completedCount)
-      : 0n;
+    const byStatus = groupByStatus(groups);
+    const counts = Array.from(byStatus.entries()).map(([status, { count }]) => ({ status, total: count }));
+    const total = counts.reduce((sum, c) => sum + c.total, 0);
+    const pending = total
+      - (byStatus.get(OrderStatus.COMPLETED)?.count ?? 0)
+      - (byStatus.get(OrderStatus.CANCELLED)?.count ?? 0);
 
     const productIds = topProductRows.map((r) => r.productId);
     const products = productIds.length > 0
-      ? await this.prisma.product.findMany({
-          where: { id: { in: productIds } },
-          select: { id: true, name: true },
-        })
+      ? await this.orderShiftReport.getProductNamesByIds(productIds)
       : [];
-    const nameMap = Object.fromEntries(products.map((p) => [p.id, p.name]));
+    const nameMap = new Map(products.map((p) => [p.id, p.name]));
+
+    const orderTypeCounts = buildDimensionCounts(groups, (r) => r.orderType);
+    const orderSourceCounts = buildDimensionCounts(groups, (r) => r.orderSource);
 
     return {
-      counts: {
-        total: totalCount,
-        created:    countsByStatus[OrderStatus.CREATED]    ?? 0,
-        confirmed:  countsByStatus[OrderStatus.CONFIRMED]  ?? 0,
-        processing: countsByStatus[OrderStatus.PROCESSING] ?? 0,
-        served:     countsByStatus[OrderStatus.SERVED]     ?? 0,
-        completed:  completedCount,
-        cancelled:  cancelledCount,
-        pending:    totalCount - completedCount - cancelledCount,
-      },
-      revenue: {
-        completed: completedRevenue,
-        pending:   pendingRevenue,
-        averageTicket,
-      },
-      byPaymentMethod: Object.entries(paymentMethodMap).map(([method, val]) => ({
-        method, count: val.count, total: val.total,
-      })),
-      byOrderType:   Object.entries(orderTypeMap).map(([type, count])     => ({ type, count })),
-      byOrderSource: Object.entries(orderSourceMap).map(([source, count]) => ({ source, count })),
+      total,
+      pending,
+      counts,
+      revenue: calculateRevenue(byStatus),
+      byPaymentMethod: buildPaymentMethods(groups),
+      byOrderType: Array.from(orderTypeCounts.entries()).map(([type, count]) => ({ type, count })),
+      byOrderSource: Array.from(orderSourceCounts.entries()).map(([source, count]) => ({ source, count })),
       topProducts: topProductRows.map((r) => ({
-        id:       r.productId,
-        name:     nameMap[r.productId] ?? 'Producto',
+        id: r.productId,
+        name: nameMap.get(r.productId) ?? 'Producto',
         quantity: r._sum.quantity ?? 0,
-        total:    r._sum.subtotal ?? 0n,
+        total: r._sum.subtotal ?? 0n,
       })),
     };
   }

@@ -2,21 +2,14 @@ import { Test } from '@nestjs/testing';
 import { OrderStatus } from '@prisma/client';
 
 import { CashRegisterStatsService } from './cash-register-stats.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { CashShiftRepository } from '../cash-shift/cash-shift.repository';
-import { CashRegisterNotFoundException } from './exceptions/cash-register.exceptions';
+import { OrderShiftReportRepository } from '../orders/order-shift-report.repository';
 
 const SESSION_ID = 'session-uuid';
-const RESTAURANT_ID = 'restaurant-uuid';
 
-const mockPrisma = {
-  order: { groupBy: jest.fn() },
-  orderItem: { groupBy: jest.fn() },
-  product: { findMany: jest.fn() },
-};
-
-const mockCashShiftRepository = {
-  findById: jest.fn(),
+const mockOrderShiftReport = {
+  groupOrdersByShift: jest.fn(),
+  getTopProductsByShift: jest.fn(),
+  getProductNamesByIds: jest.fn(),
 };
 
 describe('CashRegisterStatsService', () => {
@@ -26,8 +19,7 @@ describe('CashRegisterStatsService', () => {
     const module = await Test.createTestingModule({
       providers: [
         CashRegisterStatsService,
-        { provide: PrismaService, useValue: mockPrisma },
-        { provide: CashShiftRepository, useValue: mockCashShiftRepository },
+        { provide: OrderShiftReportRepository, useValue: mockOrderShiftReport },
       ],
     }).compile();
 
@@ -35,48 +27,21 @@ describe('CashRegisterStatsService', () => {
     jest.clearAllMocks();
   });
 
-  function setupValidSession(restaurantId = RESTAURANT_ID) {
-    mockCashShiftRepository.findById.mockResolvedValue({
-      id: SESSION_ID,
-      restaurantId,
-    });
-  }
-
   function setupEmptyOrders() {
-    mockPrisma.order.groupBy.mockResolvedValue([]);
-    mockPrisma.orderItem.groupBy.mockResolvedValue([]);
-    mockPrisma.product.findMany.mockResolvedValue([]);
+    mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([]);
+    mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([]);
+    mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([]);
   }
 
   describe('getStats', () => {
-    it('lanza CashRegisterNotFoundException cuando la sesión no existe', async () => {
-      mockCashShiftRepository.findById.mockResolvedValue(null);
-      setupEmptyOrders();
-
-      await expect(service.getStats(SESSION_ID, RESTAURANT_ID)).rejects.toThrow(
-        CashRegisterNotFoundException,
-      );
-    });
-
-    it('lanza CashRegisterNotFoundException cuando la sesión pertenece a otro restaurante', async () => {
-      setupValidSession('otro-restaurante-id');
-      setupEmptyOrders();
-
-      await expect(service.getStats(SESSION_ID, RESTAURANT_ID)).rejects.toThrow(
-        CashRegisterNotFoundException,
-      );
-    });
-
     it('retorna stats en cero para una sesión vacía', async () => {
-      setupValidSession();
       setupEmptyOrders();
 
-      const stats = await service.getStats(SESSION_ID, RESTAURANT_ID);
+      const stats = await service.getStats(SESSION_ID);
 
-      expect(stats.counts).toEqual({
-        total: 0, created: 0, confirmed: 0, processing: 0,
-        served: 0, completed: 0, cancelled: 0, pending: 0,
-      });
+      expect(stats.total).toBe(0);
+      expect(stats.pending).toBe(0);
+      expect(stats.counts).toEqual([]);
       expect(stats.revenue).toEqual({ completed: 0n, pending: 0n, averageTicket: 0n });
       expect(stats.byPaymentMethod).toEqual([]);
       expect(stats.byOrderType).toEqual([]);
@@ -85,8 +50,8 @@ describe('CashRegisterStatsService', () => {
     });
 
     it('cuenta cada status correctamente y calcula pending', async () => {
-      setupValidSession();
-      mockPrisma.order.groupBy.mockResolvedValue([
+
+      mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([
         { status: OrderStatus.CREATED,    paymentMethod: null,   orderType: 'PICKUP', orderSource: 'KIOSK',  _count: { id: 2 }, _sum: { totalAmount: 2000n } },
         { status: OrderStatus.CONFIRMED,  paymentMethod: null,   orderType: 'PICKUP', orderSource: 'STAFF',  _count: { id: 1 }, _sum: { totalAmount: 1000n } },
         { status: OrderStatus.PROCESSING, paymentMethod: null,   orderType: 'PICKUP', orderSource: 'STAFF',  _count: { id: 1 }, _sum: { totalAmount: 1500n } },
@@ -94,32 +59,36 @@ describe('CashRegisterStatsService', () => {
         { status: OrderStatus.COMPLETED,  paymentMethod: 'CASH', orderType: 'PICKUP', orderSource: 'STAFF',  _count: { id: 3 }, _sum: { totalAmount: 6000n } },
         { status: OrderStatus.CANCELLED,  paymentMethod: null,   orderType: 'PICKUP', orderSource: 'KIOSK',  _count: { id: 1 }, _sum: { totalAmount:  800n } },
       ]);
-      mockPrisma.orderItem.groupBy.mockResolvedValue([]);
-      mockPrisma.product.findMany.mockResolvedValue([]);
+      mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([]);
+      mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([]);
 
-      const stats = await service.getStats(SESSION_ID, RESTAURANT_ID);
+      const stats = await service.getStats(SESSION_ID);
 
-      expect(stats.counts.total).toBe(9);
-      expect(stats.counts.created).toBe(2);
-      expect(stats.counts.confirmed).toBe(1);
-      expect(stats.counts.processing).toBe(1);
-      expect(stats.counts.served).toBe(1);
-      expect(stats.counts.completed).toBe(3);
-      expect(stats.counts.cancelled).toBe(1);
-      expect(stats.counts.pending).toBe(5); // 9 - 3 completed - 1 cancelled
+      expect(stats.total).toBe(9);
+      expect(stats.pending).toBe(5); // 9 - 3 completed - 1 cancelled
+      expect(stats.counts).toEqual(
+        expect.arrayContaining([
+          { status: 'CREATED',    total: 2 },
+          { status: 'CONFIRMED',  total: 1 },
+          { status: 'PROCESSING', total: 1 },
+          { status: 'SERVED',     total: 1 },
+          { status: 'COMPLETED',  total: 3 },
+          { status: 'CANCELLED',  total: 1 },
+        ]),
+      );
     });
 
     it('calcula revenue correctamente (completed, pending, averageTicket)', async () => {
-      setupValidSession();
-      mockPrisma.order.groupBy.mockResolvedValue([
+
+      mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([
         { status: OrderStatus.COMPLETED,  paymentMethod: 'CASH', orderType: 'PICKUP', orderSource: 'STAFF', _count: { id: 2 }, _sum: { totalAmount: 4000n } },
         { status: OrderStatus.PROCESSING, paymentMethod: null,   orderType: 'PICKUP', orderSource: 'STAFF', _count: { id: 1 }, _sum: { totalAmount: 1500n } },
         { status: OrderStatus.CANCELLED,  paymentMethod: null,   orderType: 'PICKUP', orderSource: 'KIOSK', _count: { id: 1 }, _sum: { totalAmount:  800n } },
       ]);
-      mockPrisma.orderItem.groupBy.mockResolvedValue([]);
-      mockPrisma.product.findMany.mockResolvedValue([]);
+      mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([]);
+      mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([]);
 
-      const stats = await service.getStats(SESSION_ID, RESTAURANT_ID);
+      const stats = await service.getStats(SESSION_ID);
 
       expect(stats.revenue.completed).toBe(4000n);
       expect(stats.revenue.pending).toBe(1500n);    // PROCESSING; CANCELLED excluido
@@ -127,30 +96,30 @@ describe('CashRegisterStatsService', () => {
     });
 
     it('averageTicket es 0n cuando no hay pedidos completados', async () => {
-      setupValidSession();
-      mockPrisma.order.groupBy.mockResolvedValue([
+
+      mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([
         { status: OrderStatus.CREATED, paymentMethod: null, orderType: 'PICKUP', orderSource: 'STAFF', _count: { id: 1 }, _sum: { totalAmount: 1000n } },
       ]);
-      mockPrisma.orderItem.groupBy.mockResolvedValue([]);
-      mockPrisma.product.findMany.mockResolvedValue([]);
+      mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([]);
+      mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([]);
 
-      const stats = await service.getStats(SESSION_ID, RESTAURANT_ID);
+      const stats = await service.getStats(SESSION_ID);
 
       expect(stats.revenue.averageTicket).toBe(0n);
     });
 
     it('byPaymentMethod incluye solo órdenes COMPLETED', async () => {
-      setupValidSession();
-      mockPrisma.order.groupBy.mockResolvedValue([
+
+      mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([
         { status: OrderStatus.COMPLETED, paymentMethod: 'CASH', orderType: 'PICKUP', orderSource: 'STAFF', _count: { id: 2 }, _sum: { totalAmount: 4000n } },
         { status: OrderStatus.COMPLETED, paymentMethod: 'CARD', orderType: 'PICKUP', orderSource: 'STAFF', _count: { id: 1 }, _sum: { totalAmount: 2000n } },
         { status: OrderStatus.CANCELLED, paymentMethod: 'CASH', orderType: 'PICKUP', orderSource: 'KIOSK', _count: { id: 1 }, _sum: { totalAmount:  500n } },
         { status: OrderStatus.CREATED,   paymentMethod: null,   orderType: 'PICKUP', orderSource: 'STAFF', _count: { id: 1 }, _sum: { totalAmount: 1000n } },
       ]);
-      mockPrisma.orderItem.groupBy.mockResolvedValue([]);
-      mockPrisma.product.findMany.mockResolvedValue([]);
+      mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([]);
+      mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([]);
 
-      const stats = await service.getStats(SESSION_ID, RESTAURANT_ID);
+      const stats = await service.getStats(SESSION_ID);
 
       expect(stats.byPaymentMethod).toHaveLength(2);
       expect(stats.byPaymentMethod).toEqual(
@@ -162,16 +131,16 @@ describe('CashRegisterStatsService', () => {
     });
 
     it('byOrderType agrega todos los statuses incluyendo CANCELLED', async () => {
-      setupValidSession();
-      mockPrisma.order.groupBy.mockResolvedValue([
+
+      mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([
         { status: OrderStatus.COMPLETED, paymentMethod: 'CASH', orderType: 'PICKUP',   orderSource: 'STAFF', _count: { id: 3 }, _sum: { totalAmount: 6000n } },
         { status: OrderStatus.CREATED,   paymentMethod: null,   orderType: 'DELIVERY', orderSource: 'KIOSK', _count: { id: 2 }, _sum: { totalAmount: 2000n } },
         { status: OrderStatus.CANCELLED, paymentMethod: null,   orderType: 'PICKUP',   orderSource: 'KIOSK', _count: { id: 1 }, _sum: { totalAmount:  800n } },
       ]);
-      mockPrisma.orderItem.groupBy.mockResolvedValue([]);
-      mockPrisma.product.findMany.mockResolvedValue([]);
+      mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([]);
+      mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([]);
 
-      const stats = await service.getStats(SESSION_ID, RESTAURANT_ID);
+      const stats = await service.getStats(SESSION_ID);
 
       expect(stats.byOrderType).toEqual(
         expect.arrayContaining([
@@ -182,18 +151,18 @@ describe('CashRegisterStatsService', () => {
     });
 
     it('retorna top products con id, name, quantity y total', async () => {
-      setupValidSession();
-      mockPrisma.order.groupBy.mockResolvedValue([]);
-      mockPrisma.orderItem.groupBy.mockResolvedValue([
+
+      mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([]);
+      mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([
         { productId: 'prod-1', _sum: { quantity: 10, subtotal: 5000n } },
         { productId: 'prod-2', _sum: { quantity:  5, subtotal: 2500n } },
       ]);
-      mockPrisma.product.findMany.mockResolvedValue([
+      mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([
         { id: 'prod-1', name: 'Burger' },
         { id: 'prod-2', name: 'Fries'  },
       ]);
 
-      const stats = await service.getStats(SESSION_ID, RESTAURANT_ID);
+      const stats = await service.getStats(SESSION_ID);
 
       expect(stats.topProducts).toEqual([
         { id: 'prod-1', name: 'Burger', quantity: 10, total: 5000n },
@@ -201,14 +170,15 @@ describe('CashRegisterStatsService', () => {
       ]);
     });
 
-    it('no llama product.findMany cuando no hay top products', async () => {
-      setupValidSession();
-      mockPrisma.order.groupBy.mockResolvedValue([]);
-      mockPrisma.orderItem.groupBy.mockResolvedValue([]);
+    it('retorna topProducts vacío cuando no hay items', async () => {
 
-      await service.getStats(SESSION_ID, RESTAURANT_ID);
+      mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([]);
+      mockOrderShiftReport.getTopProductsByShift.mockResolvedValue([]);
+      mockOrderShiftReport.getProductNamesByIds.mockResolvedValue([]);
 
-      expect(mockPrisma.product.findMany).not.toHaveBeenCalled();
+      const stats = await service.getStats(SESSION_ID);
+
+      expect(stats.topProducts).toEqual([]);
     });
   });
 });

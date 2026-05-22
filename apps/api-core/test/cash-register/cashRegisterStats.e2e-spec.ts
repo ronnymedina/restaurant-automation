@@ -52,8 +52,9 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    expect(res.body.counts.total).toBe(0);
-    expect(res.body.counts.pending).toBe(0);
+    expect(res.body.total).toBe(0);
+    expect(res.body.pending).toBe(0);
+    expect(res.body.counts).toEqual([]);
     expect(res.body.revenue.completed).toBe(0);
     expect(res.body.revenue.averageTicket).toBe(0);
     expect(res.body.topProducts).toEqual([]);
@@ -71,19 +72,12 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
       .expect(200);
 
     expect(res.body).toMatchObject({
-      counts: {
-        total:      expect.any(Number),
-        created:    expect.any(Number),
-        confirmed:  expect.any(Number),
-        processing: expect.any(Number),
-        served:     expect.any(Number),
-        completed:  expect.any(Number),
-        cancelled:  expect.any(Number),
-        pending:    expect.any(Number),
-      },
+      total:   expect.any(Number),
+      pending: expect.any(Number),
+      counts:  expect.any(Array),
       revenue: {
-        completed:    expect.any(Number),
-        pending:      expect.any(Number),
+        completed:     expect.any(Number),
+        pending:       expect.any(Number),
         averageTicket: expect.any(Number),
       },
       byPaymentMethod: expect.any(Array),
@@ -93,9 +87,9 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
     });
   });
 
-  it('counts.pending = total - completed - cancelled', async () => {
+  it('pending = total - completed - cancelled', async () => {
     const rest = await seedRestaurant(prisma, 'PendingCalc');
-    const token  = await login(app, rest.admin.email);
+    const token   = await login(app, rest.admin.email);
     const product = await seedProduct(prisma, rest.restaurant.id, rest.category.id);
     const shiftId = await openCashShiftViaApi(app, token);
 
@@ -108,16 +102,20 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    const { counts } = res.body;
-    expect(counts.total).toBe(3);
-    expect(counts.completed).toBe(1);
-    expect(counts.cancelled).toBe(1);
-    expect(counts.pending).toBe(counts.total - counts.completed - counts.cancelled);
+    expect(res.body.total).toBe(3);
+    expect(res.body.pending).toBe(1); // 3 - 1 completed - 1 cancelled
+    expect(res.body.counts).toEqual(
+      expect.arrayContaining([
+        { status: 'CREATED',   total: 1 },
+        { status: 'COMPLETED', total: 1 },
+        { status: 'CANCELLED', total: 1 },
+      ]),
+    );
   });
 
   it('revenue.completed solo cuenta órdenes COMPLETED', async () => {
     const rest = await seedRestaurant(prisma, 'RevenueCalc');
-    const token  = await login(app, rest.admin.email);
+    const token   = await login(app, rest.admin.email);
     const product = await seedProduct(prisma, rest.restaurant.id, rest.category.id);
     const shiftId = await openCashShiftViaApi(app, token);
 
@@ -137,11 +135,10 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
   });
 
   it('topProducts tiene máximo 5 elementos', async () => {
-    const rest = await seedRestaurant(prisma, 'TopProds');
-    const token  = await login(app, rest.admin.email);
+    const rest    = await seedRestaurant(prisma, 'TopProds');
+    const token   = await login(app, rest.admin.email);
     const shiftId = await openCashShiftViaApi(app, token);
 
-    // Crear 6 productos distintos y un pedido COMPLETED para cada uno
     for (let i = 0; i < 6; i++) {
       const p = await seedProduct(prisma, rest.restaurant.id, rest.category.id);
       await seedOrderOnShift(prisma, rest.restaurant.id, shiftId, p.id, 'COMPLETED');
@@ -156,15 +153,14 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
   });
 
   it('aislamiento por restaurante — no mezcla stats de otro restaurante', async () => {
-    const restA = await seedRestaurant(prisma, 'IsoA');
-    const restB = await seedRestaurant(prisma, 'IsoB');
-    const tokenA = await login(app, restA.admin.email);
-    const tokenB = await login(app, restB.admin.email);
+    const restA   = await seedRestaurant(prisma, 'IsoA');
+    const restB   = await seedRestaurant(prisma, 'IsoB');
+    const tokenA  = await login(app, restA.admin.email);
+    const tokenB  = await login(app, restB.admin.email);
     const productA = await seedProduct(prisma, restA.restaurant.id, restA.category.id);
     const shiftAId = await openCashShiftViaApi(app, tokenA);
     await openCashShiftViaApi(app, tokenB);
 
-    // Solo RestA tiene órdenes
     await seedOrderOnShift(prisma, restA.restaurant.id, shiftAId, productA.id, 'COMPLETED');
     await seedOrderOnShift(prisma, restA.restaurant.id, shiftAId, productA.id, 'COMPLETED');
 
@@ -173,8 +169,8 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
       .set('Authorization', `Bearer ${tokenB}`)
       .expect(200);
 
-    // RestB no tiene órdenes — sus stats deben estar en cero
-    expect(resB.body.counts.total).toBe(0);
+    expect(resB.body.total).toBe(0);
+    expect(resB.body.counts).toEqual([]);
     expect(resB.body.revenue.completed).toBe(0);
   });
 });

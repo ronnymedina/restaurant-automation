@@ -57,15 +57,9 @@ export class SessionSummaryResponseDto {
   @ApiProperty({ type: NewSessionSummaryDto }) summary: NewSessionSummaryDto;
 }
 
-export class StatsCountsDto {
+export class ShiftCountDto {
+  @ApiProperty() status: string;
   @ApiProperty() total: number;
-  @ApiProperty() created: number;
-  @ApiProperty() confirmed: number;
-  @ApiProperty() processing: number;
-  @ApiProperty() served: number;
-  @ApiProperty() completed: number;
-  @ApiProperty() cancelled: number;
-  @ApiProperty() pending: number;
 }
 
 export class StatsRevenueDto {
@@ -98,8 +92,10 @@ export class StatsTopProductDto {
 }
 
 export class CashShiftStatsResponseDto {
-  @ApiProperty({ type: StatsCountsDto })          counts: StatsCountsDto;
-  @ApiProperty({ type: StatsRevenueDto })          revenue: StatsRevenueDto;
+  @ApiProperty()                                    total: number;
+  @ApiProperty()                                    pending: number;
+  @ApiProperty({ type: [ShiftCountDto] })           counts: ShiftCountDto[];
+  @ApiProperty({ type: StatsRevenueDto })           revenue: StatsRevenueDto;
   @ApiProperty({ type: [StatsByPaymentMethodDto] }) byPaymentMethod: StatsByPaymentMethodDto[];
   @ApiProperty({ type: [StatsByOrderTypeDto] })     byOrderType: StatsByOrderTypeDto[];
   @ApiProperty({ type: [StatsByOrderSourceDto] })   byOrderSource: StatsByOrderSourceDto[];

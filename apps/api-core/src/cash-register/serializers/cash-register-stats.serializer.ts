@@ -5,17 +5,11 @@ import { fromCents } from '../../common/helpers/money';
 import { ShiftStats, emptyShiftStats } from '../cash-register-stats.service';
 
 @Exclude()
-export class StatsCountsSerializer {
+export class ShiftCountSerializer {
+  @Expose() @ApiProperty() status: string;
   @Expose() @ApiProperty() total: number;
-  @Expose() @ApiProperty() created: number;
-  @Expose() @ApiProperty() confirmed: number;
-  @Expose() @ApiProperty() processing: number;
-  @Expose() @ApiProperty() served: number;
-  @Expose() @ApiProperty() completed: number;
-  @Expose() @ApiProperty() cancelled: number;
-  @Expose() @ApiProperty() pending: number;
 
-  constructor(partial: Partial<StatsCountsSerializer>) {
+  constructor(partial: Partial<ShiftCountSerializer>) {
     Object.assign(this, partial);
   }
 }
@@ -76,10 +70,13 @@ export class StatsTopProductSerializer {
 
 @Exclude()
 export class CashShiftStatsSerializer {
+  @Expose() @ApiProperty() total: number;
+  @Expose() @ApiProperty() pending: number;
+
   @Expose()
-  @ApiProperty({ type: StatsCountsSerializer })
-  @Type(() => StatsCountsSerializer)
-  counts: StatsCountsSerializer;
+  @ApiProperty({ type: [ShiftCountSerializer] })
+  @Type(() => ShiftCountSerializer)
+  counts: ShiftCountSerializer[];
 
   @Expose()
   @ApiProperty({ type: StatsRevenueSerializer })
@@ -107,7 +104,9 @@ export class CashShiftStatsSerializer {
   topProducts: StatsTopProductSerializer[];
 
   constructor(stats: ShiftStats) {
-    this.counts = new StatsCountsSerializer(stats.counts);
+    this.total = stats.total;
+    this.pending = stats.pending;
+    this.counts = stats.counts.map((c) => new ShiftCountSerializer(c));
     this.revenue = new StatsRevenueSerializer({
       completed:     fromCents(stats.revenue.completed),
       pending:       fromCents(stats.revenue.pending),
