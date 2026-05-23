@@ -108,7 +108,7 @@ COPY --from=build     --chown=node:node /builder/prisma         ./prisma
 COPY --from=build     --chown=node:node /builder/commands       ./commands
 COPY --chown=node:node prisma.config.ts ./prisma.config.ts
 
-RUN chmod +x ./commands/execute-migrations.sh
+RUN chmod +x ./commands/execute-migrations.sh ./commands/resend-activation.sh
 
 USER node
 
