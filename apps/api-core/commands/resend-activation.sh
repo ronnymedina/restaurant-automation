@@ -6,4 +6,8 @@
 #   ./commands/resend-activation.sh            # send emails
 #   ./commands/resend-activation.sh --dry-run  # preview without sending
 
-node_modules/.bin/ts-node -r tsconfig-paths/register src/cli/main.ts resend-activation "$@"
+if [ -f "node_modules/.bin/ts-node" ]; then
+  node_modules/.bin/ts-node -r tsconfig-paths/register src/cli.ts resend-activation "$@"
+else
+  node dist/src/cli.js resend-activation "$@"
+fi
