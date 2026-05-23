@@ -29,6 +29,11 @@ export class UserRepository {
     });
   }
 
+  async existsByEmail(email: string): Promise<boolean> {
+    const count = await this.prisma.user.count({ where: { email, deletedAt: null } });
+    return count > 0;
+  }
+
   async findById(id: string): Promise<User | null> {
     return this.prisma.user.findFirst({
       where: { id, deletedAt: null },
@@ -74,6 +79,13 @@ export class UserRepository {
     return this.prisma.user.update({
       where: { id },
       data: { deletedAt: new Date() },
+    });
+  }
+
+  async findInactiveUsers(): Promise<User[]> {
+    return this.prisma.user.findMany({
+      where: { isActive: false, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
     });
   }
 

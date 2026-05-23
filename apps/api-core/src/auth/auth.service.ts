@@ -147,7 +147,7 @@ export class AuthService {
 
     if (!user.isActive) {
       try {
-        await this.emailService.sendActivationEmail(user.email, newToken);
+        await this.emailService.sendActivationEmail(user.email, newToken, 5000);
       } catch (error) {
         this.logger.error(`Failed to send activation email to ${user.email}`, error);
       }

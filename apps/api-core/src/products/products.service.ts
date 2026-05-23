@@ -56,6 +56,16 @@ export class ProductsService {
     }, tx);
   }
 
+  async createDefaultCategory(
+    restaurantId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<ProductCategory> {
+    return this.categoryRepository.create({
+      name: this.configService.defaultCategoryName,
+      restaurantId,
+    }, tx);
+  }
+
   async createProduct(
     restaurantId: string,
     data: CreateProductDto,

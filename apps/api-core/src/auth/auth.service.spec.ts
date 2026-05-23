@@ -317,6 +317,7 @@ describe('AuthService', () => {
       expect(mockEmailService.sendActivationEmail).toHaveBeenCalledWith(
         inactiveUser.email,
         expect.any(String),
+        expect.any(Number),
       );
       expect(mockEmailService.sendPasswordResetEmail).not.toHaveBeenCalled();
     });

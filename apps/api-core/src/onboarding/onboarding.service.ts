@@ -15,12 +15,16 @@ import {
   EmailAlreadyExistsException,
   RestaurantCreationFailedException,
   UserCreationFailedException,
+  DefaultCategoryCreationFailedException,
 } from './exceptions/onboarding.exceptions';
 
 type TransactionClient = Prisma.TransactionClient;
 
+export type ProductsWarning = 'products_extraction_failed' | 'products_creation_failed';
+
 export interface OnboardingResult {
   productsCreated: number;
+  productsWarning?: ProductsWarning;
 }
 
 export interface OnboardingInput {
@@ -60,33 +64,38 @@ export class OnboardingService {
   ) {}
 
   async registerRestaurant(input: OnboardingInput): Promise<OnboardingResult> {
-    this.logger.log(`Starting onboarding for restaurant: ${input.restaurantName}`);
+    this.logger.log(`Starting onboarding for restaurant: === ${input.restaurantName} ===`);
+    this.logger.log(input)
 
     // 1. Validate email uniqueness before creating anything
-    const existingUser = await this.usersService.findByEmail(input.email);
-    if (existingUser) {
-      throw new EmailAlreadyExistsException(input.email);
-    }
+    await this.validateEmail(input.email);
 
     // 2. Create restaurant + user + default category atomically
     const { restaurant, user, defaultCategoryId } = await this.setupCoreEntities(input);
 
-    // 5. Handle products
-    const productsCreated = await this.resolveProducts(restaurant.id, defaultCategoryId, input);
+    // 3. Send activation email right after core setup — independent of products
+    await this.sendActivationEmail(user.email, user.activationToken!);
 
-    // 6. Send activation email LAST — after all DB operations succeed
-    try {
-      const sent = await this.emailService.sendActivationEmail(user.email, user.activationToken!);
-      if (sent) {
-        this.logger.log(`Activation email dispatched to ${user.email}`);
-      } else {
-        this.logger.warn(`Activation email could not be sent to ${user.email}`);
-      }
-    } catch (error) {
-      this.logger.error(`Failed to send activation email to ${user.email}`, error);
+    // 4. Process products — non-fatal, failure returns a warning for the frontend
+    const { count: productsCreated, warning: productsWarning } = await this.resolveProducts(restaurant.id, defaultCategoryId, input);
+
+    return { productsCreated, productsWarning };
+  }
+
+  private async sendActivationEmail(email: string, token: string): Promise<void> {
+    const EMAIL_TIMEOUT_MS = 5000;
+    const sent = await this.emailService.sendActivationEmail(email, token, EMAIL_TIMEOUT_MS);
+    if (sent) {
+      this.logger.log(`Activation email dispatched to ${email}`);
+    } else {
+      this.logger.warn(`Activation email could not be sent to ${email}`);
     }
+  }
 
-    return { productsCreated };
+  private async validateEmail(email: string): Promise<void> {
+    if (await this.usersService.existsByEmail(email)) {
+      throw new EmailAlreadyExistsException(email);
+    }
   }
 
   private async setupCoreEntities(
@@ -94,44 +103,73 @@ export class OnboardingService {
   ): Promise<{ restaurant: Restaurant; user: User; defaultCategoryId: string }> {
     try {
       return await this.prisma.$transaction(async (tx: TransactionClient) => {
-        let restaurant: Restaurant;
-        try {
-          restaurant = await this.restaurantsService.createRestaurant(input.restaurantName, input.timezone, tx);
-        } catch (error) {
-          this.logger.error('Failed to create restaurant', error);
-          throw new RestaurantCreationFailedException({ restaurantName: input.restaurantName });
-        }
+        const {restaurantName, email, timezone} = input;
 
-        let user: User;
-        try {
-          user = await this.usersService.createOnboardingUser(input.email, restaurant.id, tx);
-        } catch (error) {
-          this.logger.error('Failed to create onboarding user', error);
-          throw new UserCreationFailedException({ email: input.email });
-        }
+        this.logger.log("Creating restaurant...")
+        const restaurant = await this.createRestaurant(restaurantName, timezone, tx);
+        this.logger.log("The restaurant was successfully created")
 
-        let defaultCategoryId: string;
-        try {
-          const category = await this.productsService.getOrCreateDefaultCategory(restaurant.id, tx);
-          defaultCategoryId = category.id;
-        } catch (error) {
-          this.logger.error('Failed to create default category', error);
-          throw new OnboardingFailedException('Failed to create default category');
-        }
+        this.logger.log("Creating the user")
+        const user = await this.createOnboardingUser(email, restaurant.id, restaurantName, tx);
+        this.logger.log("The user was successfully created")
 
-        this.logger.log(`Core entities created — restaurant: ${restaurant.id}, user: ${user.id}`);
+        this.logger.log("Creating default category")
+        const defaultCategoryId = await this.createDefaultCategory(restaurant.id, tx);
+        this.logger.log("The category was successfully created")
+
+        this.logger.log(`Core entities created — email: ${email} - restaurant: ${restaurant.id}, user: ${user.id}`);
         return { restaurant, user, defaultCategoryId };
       });
     } catch (error) {
       if (
         error instanceof RestaurantCreationFailedException ||
         error instanceof UserCreationFailedException ||
+        error instanceof DefaultCategoryCreationFailedException ||
         error instanceof OnboardingFailedException
       ) {
+        this.logger.error('Unexpected error during core entity setup', error);
         throw error;
       }
+
       this.logger.error('Unexpected error during core entity setup', error);
       throw new OnboardingFailedException('Unexpected error during setup');
+    }
+  }
+
+  private async createRestaurant(
+    name: string,
+    timezone: string | undefined,
+    tx: TransactionClient,
+  ): Promise<Restaurant> {
+    try {
+      return await this.restaurantsService.createRestaurant(name, timezone, tx);
+    } catch (error) {
+      throw new RestaurantCreationFailedException({ restaurantName: name });
+    }
+  }
+
+  private async createOnboardingUser(
+    email: string,
+    restaurantId: string,
+    restaurantName: string,
+    tx: TransactionClient,
+  ): Promise<User> {
+    try {
+      return await this.usersService.createOnboardingUser(email, restaurantId, tx);
+    } catch (error) {
+      throw new UserCreationFailedException({ email, restaurantName });
+    }
+  }
+
+  private async createDefaultCategory(
+    restaurantId: string,
+    tx: TransactionClient,
+  ): Promise<string> {
+    try {
+      const category = await this.productsService.createDefaultCategory(restaurantId, tx);
+      return category.id;
+    } catch (error) {
+      throw new DefaultCategoryCreationFailedException({ restaurantId });
     }
   }
 
@@ -139,23 +177,26 @@ export class OnboardingService {
     restaurantId: string,
     categoryId: string,
     input: Pick<OnboardingInput, 'photo' | 'createDemoData'>,
-  ): Promise<number> {
+  ): Promise<{ count: number; warning?: ProductsWarning }> {
     if (input.photo) {
       this.logger.log('Processing photo with Gemini AI');
-      return this.tryPhotoExtraction(restaurantId, categoryId, input.photo);
+      const count = await this.tryPhotoExtraction(restaurantId, categoryId, input.photo);
+      const warning = count === 0 ? 'products_extraction_failed' : undefined;
+      return { count, warning };
     }
 
     if (input.createDemoData) {
       this.logger.log('Creating demo products and menu');
       try {
-        return await this.handleDemoProducts(restaurantId, categoryId);
+        const count = await this.handleDemoProducts(restaurantId, categoryId);
+        return { count };
       } catch (error) {
         this.logger.error('Failed to create demo products', error);
-        throw new OnboardingFailedException('Failed to create demo products');
+        return { count: 0, warning: 'products_creation_failed' };
       }
     }
 
-    return 0;
+    return { count: 0 };
   }
 
   private async tryPhotoExtraction(

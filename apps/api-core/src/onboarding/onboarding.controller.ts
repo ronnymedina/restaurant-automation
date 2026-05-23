@@ -17,17 +17,12 @@ import {
   ApiConsumes,
   ApiBody,
   ApiResponse,
-  ApiProperty,
 } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 import { OnboardingService } from './onboarding.service';
 import { OnboardingRegisterDto, OnboardingRegisterSwaggerDto } from './dto';
 import { MAX_FILE_SIZE } from '../config';
-
-export class OnboardingResponse {
-  @ApiProperty({ description: 'Número de productos creados durante el onboarding', example: 5 })
-  productsCreated: number;
-}
+import { OnboardingResponseSerializer } from './serializers/onboarding-response.serializer';
 
 @ApiTags('Onboarding')
 @Controller({ version: '1', path: 'onboarding' })
@@ -41,11 +36,11 @@ export class OnboardingController {
   @ApiOperation({
     summary: 'Registrar un nuevo restaurante',
     description:
-      'Crea un restaurante y opcionalmente extrae productos desde una foto de menú usando IA. El email de activación se envía al finalizar todo el proceso.',
+      'Crea un restaurante y opcionalmente extrae productos desde una foto de menú usando IA. El email de activación se envía inmediatamente tras crear las entidades core, antes del procesamiento de productos.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: OnboardingRegisterSwaggerDto })
-  @ApiResponse({ status: 201, description: 'Restaurante registrado exitosamente', type: OnboardingResponse })
+  @ApiResponse({ status: 201, description: 'Restaurante registrado exitosamente', type: OnboardingResponseSerializer })
   @ApiResponse({ status: 400, description: 'Datos de entrada inválidos o archivo rechazado' })
   @ApiResponse({ status: 409, description: 'El email o nombre de restaurante ya está registrado' })
   @ApiResponse({ status: 429, description: 'Demasiadas solicitudes — intente más tarde' })
@@ -63,7 +58,7 @@ export class OnboardingController {
       }),
     )
     file?: Express.Multer.File,
-  ): Promise<OnboardingResponse> {
+  ): Promise<OnboardingResponseSerializer> {
     const photo = file ? { buffer: file.buffer, mimeType: file.mimetype } : undefined;
 
     const result = await this.onboardingService.registerRestaurant({
@@ -74,7 +69,6 @@ export class OnboardingController {
       photo,
     });
 
-    return { productsCreated: result.productsCreated };
+    return { productsCreated: result.productsCreated, productsWarning: result.productsWarning };
   }
-
 }

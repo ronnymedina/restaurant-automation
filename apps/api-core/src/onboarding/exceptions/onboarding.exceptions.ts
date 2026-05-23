@@ -57,4 +57,18 @@ export class UserCreationFailedException extends BaseException {
   }
 }
 
+/**
+ * Thrown when the default category cannot be created during onboarding.
+ */
+export class DefaultCategoryCreationFailedException extends BaseException {
+  constructor(details?: Record<string, unknown>) {
+    super(
+      'Failed to create the default category',
+      HttpStatus.INTERNAL_SERVER_ERROR,
+      'DEFAULT_CATEGORY_CREATION_FAILED',
+      details,
+    );
+  }
+}
+
 

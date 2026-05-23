@@ -1,0 +1,28 @@
+flowchart TD
+    A([POST /v1/onboarding/register]) --> B[validateEmail\nexistsByEmail]
+
+    B -->|email exists| ERR1([409 EMAIL_ALREADY_EXISTS])
+    B -->|ok| C
+
+    subgraph TX [Transaction atómica]
+        C[createRestaurant] -->|error| ERR2([500 RESTAURANT_CREATION_FAILED])
+        C -->|ok| D[createOnboardingUser]
+        D -->|error| ERR3([500 USER_CREATION_FAILED])
+        D -->|ok| E[createDefaultCategory]
+        E -->|error| ERR4([500 DEFAULT_CATEGORY_CREATION_FAILED])
+    end
+
+    E -->|ok| F[sendActivationEmail\ntimeout 5s · retry ×2]
+    F --> G{resolveProducts}
+
+    G -->|photo| H[Gemini AI extraction]
+    H -->|ok| I1[productsCreated: N]
+    H -->|falla| W1[productsCreated: 0\nproductsWarning: products_extraction_failed]
+
+    G -->|createDemoData| J[handleDemoProducts]
+    J -->|ok| I2[productsCreated: 5]
+    J -->|falla| W2[productsCreated: 0\nproductsWarning: products_creation_failed]
+
+    G -->|ninguno| I3[productsCreated: 0]
+
+    I1 & I2 & I3 & W1 & W2 --> Z([201 OnboardingResponse])

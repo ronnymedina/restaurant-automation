@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Resend } from 'resend';
 import { type ConfigType } from '@nestjs/config';
+import { defer, firstValueFrom } from 'rxjs';
+import { timeout, retry } from 'rxjs/operators';
 
 import { emailConfig } from './email.config';
 
@@ -22,7 +24,7 @@ export class EmailService {
     }
   }
 
-  async sendActivationEmail(email: string, token: string): Promise<boolean> {
+  async sendActivationEmail(email: string, token: string, timeoutMs: number): Promise<boolean> {
     const activationUrl = `${this.configService.frontendUrl}/activate?token=${token}`;
 
     if (!this.resend) {
@@ -33,12 +35,19 @@ export class EmailService {
     }
 
     try {
-      const { error } = await this.resend.emails.send({
-        from: this.configService.emailFrom,
-        to: email,
-        subject: 'Activa tu cuenta',
-        html: this.buildActivationHtml(activationUrl),
-      });
+      const send$ = defer(() =>
+        this.resend!.emails.send({
+          from: this.configService.emailFrom,
+          to: email,
+          subject: 'Activa tu cuenta',
+          html: this.buildActivationHtml(activationUrl),
+        }),
+      ).pipe(
+        timeout(timeoutMs),
+        retry({ count: 2, delay: 1000 }),
+      );
+
+      const { error } = await firstValueFrom(send$);
 
       if (error) {
         this.logger.error(`Resend API error for ${email}: ${error.message}`);
