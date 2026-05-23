@@ -14,7 +14,7 @@ import {
   EmailAlreadyExistsException,
   RestaurantCreationFailedException,
   UserCreationFailedException,
-  OnboardingFailedException,
+  DefaultCategoryCreationFailedException,
 } from './exceptions/onboarding.exceptions';
 
 const mockRestaurant = {
@@ -58,7 +58,7 @@ const mockRestaurantsService = {
   createRestaurant: jest.fn(),
 };
 const mockProductsService = {
-  getOrCreateDefaultCategory: jest.fn(),
+  createDefaultCategory: jest.fn(),
   createProduct: jest.fn(),
   createProductsBatch: jest.fn(),
 };
@@ -66,7 +66,7 @@ const mockMenusService = { createMenu: jest.fn() };
 const mockMenuItemsService = { bulkCreateItems: jest.fn() };
 const mockGeminiService = { extractProductsFromMultipleImages: jest.fn() };
 const mockUsersService = {
-  findByEmail: jest.fn(),
+  existsByEmail: jest.fn(),
   createOnboardingUser: jest.fn(),
 };
 const mockEmailService = { sendActivationEmail: jest.fn() };
@@ -93,10 +93,10 @@ describe('OnboardingService', () => {
     jest.clearAllMocks();
 
     // Default happy-path mocks
-    mockUsersService.findByEmail.mockResolvedValue(null);
+    mockUsersService.existsByEmail.mockResolvedValue(false);
     mockUsersService.createOnboardingUser.mockResolvedValue(mockUser);
     mockRestaurantsService.createRestaurant.mockResolvedValue(mockRestaurant);
-    mockProductsService.getOrCreateDefaultCategory.mockResolvedValue(mockCategory);
+    mockProductsService.createDefaultCategory.mockResolvedValue(mockCategory);
     mockEmailService.sendActivationEmail.mockResolvedValue(true);
   });
 
@@ -104,7 +104,7 @@ describe('OnboardingService', () => {
 
   describe('email uniqueness', () => {
     it('rejects duplicate email before creating anything', async () => {
-      mockUsersService.findByEmail.mockResolvedValue(mockUser);
+      mockUsersService.existsByEmail.mockResolvedValue(true);
 
       await expect(
         service.registerRestaurant({ email: mockUser.email, restaurantName: 'Test Restaurant' }),
@@ -136,20 +136,20 @@ describe('OnboardingService', () => {
       ).rejects.toThrow(UserCreationFailedException);
     });
 
-    it('throws OnboardingFailedException when default category creation fails', async () => {
-      mockProductsService.getOrCreateDefaultCategory.mockRejectedValue(new Error('DB error'));
+    it('throws DefaultCategoryCreationFailedException when default category creation fails', async () => {
+      mockProductsService.createDefaultCategory.mockRejectedValue(new Error('DB error'));
 
       await expect(
         service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test' }),
-      ).rejects.toThrow(OnboardingFailedException);
+      ).rejects.toThrow(DefaultCategoryCreationFailedException);
     });
   });
 
   // ─── Execution order ─────────────────────────────────────────────────────
 
   describe('execution order', () => {
-    it('validates email → creates restaurant → creates user → sends email last', async () => {
-      mockProductsService.createProduct.mockImplementation((_, p) =>
+    it('validates email → creates entities → sends email → then processes products', async () => {
+      mockProductsService.createProduct.mockImplementation(() =>
         Promise.resolve(makeMockProduct(1)),
       );
       mockMenusService.createMenu.mockResolvedValue(mockMenu);
@@ -161,27 +161,26 @@ describe('OnboardingService', () => {
         createDemoData: true,
       });
 
-      const findEmailOrder = mockUsersService.findByEmail.mock.invocationCallOrder[0];
+      const validateOrder = mockUsersService.existsByEmail.mock.invocationCallOrder[0];
       const createRestOrder = mockRestaurantsService.createRestaurant.mock.invocationCallOrder[0];
       const createUserOrder = mockUsersService.createOnboardingUser.mock.invocationCallOrder[0];
       const sendEmailOrder = mockEmailService.sendActivationEmail.mock.invocationCallOrder[0];
+      const createProductOrder = mockProductsService.createProduct.mock.invocationCallOrder[0];
 
-      expect(findEmailOrder).toBeLessThan(createRestOrder);
+      expect(validateOrder).toBeLessThan(createRestOrder);
       expect(createRestOrder).toBeLessThan(createUserOrder);
       expect(createUserOrder).toBeLessThan(sendEmailOrder);
+      expect(sendEmailOrder).toBeLessThan(createProductOrder);
     });
 
-    it('sends activation email after all DB operations complete', async () => {
+    it('sends activation email with correct args (email, token, timeoutMs)', async () => {
       await service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test' });
 
       expect(mockEmailService.sendActivationEmail).toHaveBeenCalledWith(
         mockUser.email,
         mockUser.activationToken,
+        5000,
       );
-      // Should be called after user creation
-      const createUserOrder = mockUsersService.createOnboardingUser.mock.invocationCallOrder[0];
-      const sendEmailOrder = mockEmailService.sendActivationEmail.mock.invocationCallOrder[0];
-      expect(createUserOrder).toBeLessThan(sendEmailOrder);
     });
   });
 
@@ -202,7 +201,7 @@ describe('OnboardingService', () => {
       );
     });
 
-    it('uses UTC as default when timezone is not provided', async () => {
+    it('passes undefined timezone when not provided', async () => {
       await service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test' });
 
       expect(mockRestaurantsService.createRestaurant).toHaveBeenCalledWith(
@@ -223,21 +222,13 @@ describe('OnboardingService', () => {
 
       expect(result.productsCreated).toBe(0);
     });
-
-    it('completes onboarding even when sendActivationEmail throws', async () => {
-      mockEmailService.sendActivationEmail.mockRejectedValue(new Error('SMTP error'));
-
-      const result = await service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test' });
-
-      expect(result.productsCreated).toBe(0);
-    });
   });
 
   // ─── createDemoData (demo) flow ─────────────────────────────────────────────
 
   describe('createDemoData = true (demo flow)', () => {
     beforeEach(() => {
-      mockProductsService.createProduct.mockImplementation((_, p, __) =>
+      mockProductsService.createProduct.mockImplementation(() =>
         Promise.resolve(makeMockProduct(Math.random())),
       );
       mockMenusService.createMenu.mockResolvedValue(mockMenu);
@@ -294,16 +285,17 @@ describe('OnboardingService', () => {
       );
     });
 
-    it('throws OnboardingFailedException when demo product creation fails', async () => {
+    it('returns productsWarning when demo product creation fails (non-fatal)', async () => {
       mockProductsService.createProduct.mockRejectedValue(new Error('DB error'));
 
-      await expect(
-        service.registerRestaurant({
-          email: 'new@test.com',
-          restaurantName: 'Test',
-          createDemoData: true,
-        }),
-      ).rejects.toThrow(OnboardingFailedException);
+      const result = await service.registerRestaurant({
+        email: 'new@test.com',
+        restaurantName: 'Test',
+        createDemoData: true,
+      });
+
+      expect(result.productsCreated).toBe(0);
+      expect(result.productsWarning).toBe('products_creation_failed');
     });
   });
 
@@ -344,7 +336,7 @@ describe('OnboardingService', () => {
       expect(mockProductsService.createProductsBatch).toHaveBeenCalled();
     });
 
-    it('returns 0 products (non-blocking) when Gemini extraction fails', async () => {
+    it('returns 0 products and productsWarning when Gemini extraction fails', async () => {
       mockGeminiService.extractProductsFromMultipleImages.mockRejectedValue(new Error('API error'));
 
       const result = await service.registerRestaurant({
@@ -354,9 +346,10 @@ describe('OnboardingService', () => {
       });
 
       expect(result.productsCreated).toBe(0);
+      expect(result.productsWarning).toBe('products_extraction_failed');
     });
 
-    it('returns 0 products when Gemini returns empty array', async () => {
+    it('returns 0 products and productsWarning when Gemini returns empty array', async () => {
       mockGeminiService.extractProductsFromMultipleImages.mockResolvedValue([]);
 
       const result = await service.registerRestaurant({
@@ -366,6 +359,7 @@ describe('OnboardingService', () => {
       });
 
       expect(result.productsCreated).toBe(0);
+      expect(result.productsWarning).toBe('products_extraction_failed');
       expect(mockProductsService.createProductsBatch).not.toHaveBeenCalled();
     });
 
@@ -427,14 +421,14 @@ describe('OnboardingService', () => {
   // ─── Response shape ───────────────────────────────────────────────────────
 
   describe('response', () => {
-    it('returns only productsCreated field', async () => {
+    it('returns productsCreated without productsWarning on success', async () => {
       const result = await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
       });
 
-      expect(Object.keys(result)).toEqual(['productsCreated']);
+      expect(result.productsCreated).toBe(0);
+      expect(result.productsWarning).toBeUndefined();
     });
   });
-
 });

@@ -149,8 +149,16 @@ export class UsersService {
     return this.userRepository.findByEmail(email);
   }
 
+  async existsByEmail(email: string): Promise<boolean> {
+    return this.userRepository.existsByEmail(email);
+  }
+
   async refreshActivationToken(userId: string, token: string): Promise<void> {
     await this.userRepository.update(userId, { activationToken: token });
+  }
+
+  async findInactiveUsers(): Promise<User[]> {
+    return this.userRepository.findInactiveUsers();
   }
 
   async findById(id: string): Promise<User | null> {

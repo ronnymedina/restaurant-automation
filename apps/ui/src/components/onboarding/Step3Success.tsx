@@ -1,7 +1,13 @@
+const PRODUCTS_WARNING_MESSAGES: Record<string, string> = {
+  products_extraction_failed: 'No pudimos extraer productos de la foto. Podés agregarlos manualmente desde el dashboard.',
+  products_creation_failed: 'Hubo un error al crear los productos de demo. Podés agregarlos manualmente desde el dashboard.',
+};
+
 interface Step3SuccessProps {
   email: string;
   restaurantName: string;
   productsCreated: number;
+  productsWarning?: string;
   onResend: () => void;
   resendStatus: 'idle' | 'loading' | 'sent' | 'error';
 }
@@ -10,6 +16,7 @@ export default function Step3Success({
   email,
   restaurantName,
   productsCreated,
+  productsWarning,
   onResend,
   resendStatus,
 }: Step3SuccessProps) {
@@ -41,6 +48,18 @@ export default function Step3Success({
           </span>
         </div>
       </div>
+
+      {productsWarning && (
+        <div className="flex gap-3 p-4 bg-amber-50 rounded-xl border border-amber-200 mb-4 text-left">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500 flex-shrink-0 mt-0.5">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+            <path d="M12 9v4" /><path d="M12 17h.01" />
+          </svg>
+          <p className="text-sm text-amber-800 m-0">
+            {PRODUCTS_WARNING_MESSAGES[productsWarning] ?? 'No pudimos procesar los productos. Podés agregarlos desde el dashboard.'}
+          </p>
+        </div>
+      )}
 
       <div className="flex gap-4 p-5 bg-orange-50 rounded-xl border border-orange-200 mb-6">
         <div className="text-[#f97316] flex-shrink-0 mt-0.5">

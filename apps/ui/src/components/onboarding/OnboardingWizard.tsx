@@ -70,6 +70,7 @@ export default function OnboardingWizard() {
   const [step, setStep] = useState<Step>(1);
   const [formData, setFormData] = useState<Step1Data | null>(null);
   const [productsCreated, setProductsCreated] = useState(0);
+  const [productsWarning, setProductsWarning] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resendStatus, setResendStatus] = useState<ResendStatus>('idle');
@@ -113,6 +114,7 @@ export default function OnboardingWizard() {
 
       const result = await response.json();
       setProductsCreated(result.productsCreated ?? 0);
+      setProductsWarning(result.productsWarning);
       setStep(3);
     } catch {
       setError('Hubo un error al procesar tu solicitud. Intenta nuevamente.');
@@ -154,6 +156,7 @@ export default function OnboardingWizard() {
           email={formData.email}
           restaurantName={formData.restaurantName}
           productsCreated={productsCreated}
+          productsWarning={productsWarning}
           onResend={handleResend}
           resendStatus={resendStatus}
         />
