@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { Test, TestingModule } from '@nestjs/testing';
-import { CashShiftStatus, OrderStatus, Prisma } from '@prisma/client';
+import { CashShiftStatus, Prisma } from '@prisma/client';
 
 import { CashRegisterService } from './cash-register.service';
+import { CashRegisterStatsService } from './cash-register-stats.service';
 import { CashShiftRepository } from '../cash-shift/cash-shift.repository';
-import { OrderRepository } from '../orders/order.repository';
 import {
   CashRegisterAlreadyOpenException,
   CashRegisterNotFoundException,
@@ -41,11 +41,8 @@ const mockRegisterSessionRepository = {
   close: jest.fn(),
   findByRestaurantIdPaginated: jest.fn(),
   findOpenWithOrderCount: jest.fn(),
+  findOpenId: jest.fn(),
   findById: jest.fn(),
-};
-
-const mockOrderRepository = {
-  findBySessionId: jest.fn(),
 };
 
 // tx mock used inside $transaction callbacks for closeSession tests
@@ -74,6 +71,19 @@ const mockPrismaService: any = {
   },
 };
 
+const mockStatsResult = {
+  counts: { total: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 0, cancelled: 0, pending: 0 },
+  revenue: { completed: 0n, pending: 0n, averageTicket: 0n },
+  byPaymentMethod: [],
+  byOrderType: [],
+  byOrderSource: [],
+  topProducts: [],
+};
+
+const mockStatsService = {
+  getStats: jest.fn().mockResolvedValue(mockStatsResult),
+};
+
 describe('CashRegisterService', () => {
   let service: CashRegisterService;
 
@@ -85,8 +95,8 @@ describe('CashRegisterService', () => {
           provide: CashShiftRepository,
           useValue: mockRegisterSessionRepository,
         },
-        { provide: OrderRepository, useValue: mockOrderRepository },
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: CashRegisterStatsService, useValue: mockStatsService },
       ],
     }).compile();
 
@@ -96,12 +106,14 @@ describe('CashRegisterService', () => {
     mockPrismaService.$transaction.mockImplementation(
       (cb: (tx: typeof mockTx) => Promise<unknown>) => cb(mockTx),
     );
-    // Default empty responses for groupBy/findMany used in getSessionSummary
+    // Default empty responses for groupBy/findMany used by CashRegisterStatsService
     mockPrismaService.orderItem.groupBy.mockResolvedValue([]);
     mockPrismaService.product.findMany.mockResolvedValue([]);
     (mockPrismaService.order as any).groupBy.mockResolvedValue([]);
     // Default: no pending orders (allows closeSession to proceed)
     mockTx.order.count.mockResolvedValue(0);
+    // Default stats service response
+    mockStatsService.getStats.mockResolvedValue(mockStatsResult);
   });
 
   describe('openSession', () => {
@@ -176,7 +188,7 @@ describe('CashRegisterService', () => {
       expect(mockTx.cashShift.update).not.toHaveBeenCalled();
     });
 
-    it('should close the session and return session + summary with payment breakdown', async () => {
+    it('should close the session and return session + stats', async () => {
       const session = mockSession();
       const closedSession = mockSession({ status: CashShiftStatus.CLOSED, closedAt: new Date() });
 
@@ -185,10 +197,6 @@ describe('CashRegisterService', () => {
         _sum: { totalAmount: 350n },
         _count: { id: 2 },
       });
-      mockTx.order.groupBy.mockResolvedValue([
-        { paymentMethod: 'CASH', _sum: { totalAmount: 150n }, _count: { id: 1 } },
-        { paymentMethod: 'CARD', _sum: { totalAmount: 200n }, _count: { id: 1 } },
-      ]);
       mockTx.cashShift.update.mockResolvedValue(closedSession);
 
       const result = await service.closeSession('restaurant-uuid-1');
@@ -204,11 +212,10 @@ describe('CashRegisterService', () => {
         }),
       });
       expect(result.session).toEqual(closedSession);
-      expect(result.summary.totalOrders).toBe(2);
-      expect(result.summary.totalSales).toBe(3.5);
+      expect(result.stats).toEqual(mockStatsResult);
     });
 
-    it('should calculate totalSales and totalOrders from aggregate', async () => {
+    it('should call statsService.getStats with closedSession.id and restaurantId', async () => {
       const session = mockSession();
       const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
 
@@ -217,58 +224,11 @@ describe('CashRegisterService', () => {
         _sum: { totalAmount: 150n },
         _count: { id: 3 },
       });
-      mockTx.order.groupBy.mockResolvedValue([]);
       mockTx.cashShift.update.mockResolvedValue(closedSession);
 
-      const result = await service.closeSession('restaurant-uuid-1');
+      await service.closeSession('restaurant-uuid-1');
 
-      expect(result.summary.totalSales).toBe(1.5);
-      expect(result.summary.totalOrders).toBe(3);
-    });
-
-    it('should group orders by paymentMethod in paymentBreakdown', async () => {
-      const session = mockSession();
-      const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
-
-      mockTx.cashShift.findFirst.mockResolvedValue(session);
-      mockTx.order.aggregate.mockResolvedValue({
-        _sum: { totalAmount: 450n },
-        _count: { id: 3 },
-      });
-      mockTx.order.groupBy.mockResolvedValue([
-        { paymentMethod: 'CASH', _sum: { totalAmount: 300n }, _count: { id: 2 } },
-        { paymentMethod: 'CARD', _sum: { totalAmount: 150n }, _count: { id: 1 } },
-      ]);
-      mockTx.cashShift.update.mockResolvedValue(closedSession);
-
-      const result = await service.closeSession('restaurant-uuid-1');
-
-      expect(result.summary.paymentBreakdown).toEqual({
-        CASH: { count: 2, total: 3 },
-        CARD: { count: 1, total: 1.5 },
-      });
-    });
-
-
-    it('should use UNKNOWN as payment method when paymentMethod is null', async () => {
-      const session = mockSession();
-      const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
-
-      mockTx.cashShift.findFirst.mockResolvedValue(session);
-      mockTx.order.aggregate.mockResolvedValue({
-        _sum: { totalAmount: 100n },
-        _count: { id: 1 },
-      });
-      mockTx.order.groupBy.mockResolvedValue([
-        { paymentMethod: null, _sum: { totalAmount: 100n }, _count: { id: 1 } },
-      ]);
-      mockTx.cashShift.update.mockResolvedValue(closedSession);
-
-      const result = await service.closeSession('restaurant-uuid-1');
-
-      expect(result.summary.paymentBreakdown).toHaveProperty('UNKNOWN');
-      expect(result.summary.paymentBreakdown['UNKNOWN']).toEqual({ count: 1, total: 1 });
-      expect(result.summary.paymentBreakdown).not.toHaveProperty('null');
+      expect(mockStatsService.getStats).toHaveBeenCalledWith(closedSession.id);
     });
 
     it('should pass closedBy to the tx.cashShift.update call', async () => {
@@ -280,7 +240,6 @@ describe('CashRegisterService', () => {
         _sum: { totalAmount: 0n },
         _count: { id: 0 },
       });
-      mockTx.order.groupBy.mockResolvedValue([]);
       mockTx.cashShift.update.mockResolvedValue(closedSession);
 
       await service.closeSession('restaurant-uuid-1', 'manager-uuid-1');
@@ -292,7 +251,7 @@ describe('CashRegisterService', () => {
       );
     });
 
-    it('should query only COMPLETED orders for aggregate and groupBy', async () => {
+    it('should query only COMPLETED orders for aggregate', async () => {
       const session = mockSession();
       const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
 
@@ -301,17 +260,11 @@ describe('CashRegisterService', () => {
         _sum: { totalAmount: 200n },
         _count: { id: 2 },
       });
-      mockTx.order.groupBy.mockResolvedValue([]);
       mockTx.cashShift.update.mockResolvedValue(closedSession);
 
       await service.closeSession('restaurant-uuid-1');
 
       expect(mockTx.order.aggregate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ status: 'COMPLETED' }),
-        }),
-      );
-      expect(mockTx.order.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ status: 'COMPLETED' }),
         }),
@@ -327,14 +280,17 @@ describe('CashRegisterService', () => {
         _sum: { totalAmount: null },
         _count: { id: 0 },
       });
-      mockTx.order.groupBy.mockResolvedValue([]);
       mockTx.cashShift.update.mockResolvedValue(closedSession);
 
       const result = await service.closeSession('restaurant-uuid-1');
 
-      expect(result.summary.totalSales).toBe(0);
-      expect(result.summary.totalOrders).toBe(0);
-      expect(result.summary.paymentBreakdown).toEqual({});
+      expect(result.session).toEqual(closedSession);
+      expect(result.stats).toEqual(mockStatsResult);
+      expect(mockTx.cashShift.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ totalOrders: 0, totalSales: 0n }),
+        }),
+      );
     });
   });
 
@@ -427,181 +383,57 @@ describe('CashRegisterService', () => {
     });
   });
 
-  describe('getSessionSummary', () => {
-    it('should throw CashRegisterNotFoundException when session not found', async () => {
-      mockRegisterSessionRepository.findById.mockResolvedValue(null);
+  describe('getOpenSessionId', () => {
+    it('should return the session id when an open session exists', async () => {
+      mockRegisterSessionRepository.findOpenId.mockResolvedValue('session-uuid-1');
 
-      await expect(
-        service.getSessionSummary('nonexistent-session-id'),
-      ).rejects.toThrow(CashRegisterNotFoundException);
+      const result = await service.getOpenSessionId('restaurant-uuid-1');
 
-      expect(mockOrderRepository.findBySessionId).not.toHaveBeenCalled();
+      expect(mockRegisterSessionRepository.findOpenId).toHaveBeenCalledWith('restaurant-uuid-1');
+      expect(result).toBe('session-uuid-1');
     });
 
-    it('should return session and summary', async () => {
-      const session = mockSession({ status: 'CLOSED', totalOrders: null, totalSales: null });
-      mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      (mockPrismaService.order as any).groupBy.mockResolvedValue([
-        { status: 'COMPLETED', _sum: { totalAmount: 200n }, _count: { id: 2 } },
-        { status: 'CANCELLED', _sum: { totalAmount: 50n }, _count: { id: 1 } },
-      ]);
+    it('should return null when no open session exists', async () => {
+      mockRegisterSessionRepository.findOpenId.mockResolvedValue(null);
 
-      const result = await service.getSessionSummary('session-uuid-1');
+      const result = await service.getOpenSessionId('restaurant-uuid-1');
 
-      expect(result.session).toEqual(session);
-      expect(result.summary).toBeDefined();
-      expect((result as any).orders).toBeUndefined();
-    });
-
-    it('should build completed and cancelled from status groupBy', async () => {
-      const session = mockSession({ status: 'CLOSED', totalOrders: null, totalSales: null });
-      mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      (mockPrismaService.order as any).groupBy
-        .mockResolvedValueOnce([
-          { status: 'COMPLETED', _sum: { totalAmount: 200n }, _count: { id: 2 } },
-          { status: 'CANCELLED', _sum: { totalAmount: 50n },  _count: { id: 1 } },
-          { status: 'CREATED',   _sum: { totalAmount: 30n },  _count: { id: 1 } },
-        ])
-        .mockResolvedValueOnce([]);
-
-      const result = await service.getSessionSummary('session-uuid-1');
-
-      expect(result.summary.completed).toEqual({ count: 2, total: 200n });
-      expect(result.summary.cancelled).toEqual({ count: 1 });
-    });
-
-    it('should return completed total only for COMPLETED orders (CANCELLED excluded from total)', async () => {
-      const session = mockSession({ status: 'CLOSED', totalOrders: null, totalSales: null });
-      mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      (mockPrismaService.order as any).groupBy
-        .mockResolvedValueOnce([
-          { status: 'COMPLETED',  _sum: { totalAmount: 200n }, _count: { id: 2 } },
-          { status: 'CANCELLED',  _sum: { totalAmount: 50n },  _count: { id: 1 } },
-          { status: 'CREATED',    _sum: { totalAmount: 30n },  _count: { id: 1 } },
-          { status: 'PROCESSING', _sum: { totalAmount: 10n },  _count: { id: 1 } },
-        ])
-        .mockResolvedValueOnce([]);
-
-      const result = await service.getSessionSummary('session-uuid-1');
-
-      // summary exposes completed total (200n) and cancelled count only
-      expect(result.summary.completed).toEqual({ count: 2, total: 200n });
-      expect(result.summary.cancelled).toEqual({ count: 1 });
-    });
-
-    it('should compute paymentBreakdown from non-CANCELLED orders via second groupBy', async () => {
-      const session = mockSession({ status: 'CLOSED', totalOrders: null, totalSales: null });
-      mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      (mockPrismaService.order as any).groupBy
-        .mockResolvedValueOnce([
-          { status: 'COMPLETED', _sum: { totalAmount: 200n }, _count: { id: 2 } },
-        ])
-        .mockResolvedValueOnce([
-          { paymentMethod: 'CASH', _sum: { totalAmount: 150n }, _count: { id: 1 } },
-          { paymentMethod: 'CARD', _sum: { totalAmount: 50n },  _count: { id: 1 } },
-        ]);
-
-      const result = await service.getSessionSummary('session-uuid-1');
-
-      expect(result.summary.paymentBreakdown).toEqual({
-        CASH: { count: 1, total: 150n },
-        CARD: { count: 1, total: 50n  },
-      });
-
-      const groupByCalls = (mockPrismaService.order as any).groupBy.mock.calls;
-      const paymentCall = groupByCalls.find(
-        ([arg]: [any]) => Array.isArray(arg.by) && arg.by.includes('paymentMethod'),
-      );
-      expect(paymentCall?.[0]).toMatchObject({
-        where: expect.objectContaining({ status: OrderStatus.COMPLETED }),
-      });
-    });
-
-    it('should not include topProducts in summary', async () => {
-      const session = mockSession({ status: 'CLOSED', totalOrders: null, totalSales: null });
-      mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      // groupBy already defaults to [] via beforeEach; no override needed
-      mockOrderRepository.findBySessionId.mockResolvedValue([]);
-
-      const result = await service.getSessionSummary('session-uuid-1');
-
-      expect((result.summary as any).topProducts).toBeUndefined();
-      expect((result.summary as any).completedOrders).toBeUndefined();
-      expect((result.summary as any).cancelledOrders).toBeUndefined();
+      expect(result).toBeNull();
     });
   });
 
-  describe('getTopProducts', () => {
-    it('should throw CashRegisterNotFoundException when session not found', async () => {
+  describe('getSessionStats', () => {
+    it('should return session and stats via statsService', async () => {
+      const session = mockSession({ status: 'CLOSED' });
+      mockRegisterSessionRepository.findById.mockResolvedValue(session);
+      mockStatsService.getStats.mockResolvedValue(mockStatsResult);
+
+      const result = await service.getSessionStats('session-uuid-1');
+
+      expect(mockStatsService.getStats).toHaveBeenCalledWith('session-uuid-1');
+      expect(mockRegisterSessionRepository.findById).toHaveBeenCalledWith('session-uuid-1');
+      expect(result.session).toEqual(session);
+      expect(result.stats).toEqual(mockStatsResult);
+    });
+
+    it('should throw when statsService.getStats throws (session not found)', async () => {
+      mockStatsService.getStats.mockRejectedValue(new CashRegisterNotFoundException('nonexistent'));
       mockRegisterSessionRepository.findById.mockResolvedValue(null);
 
       await expect(
-        service.getTopProducts('nonexistent-id'),
+        service.getSessionStats('nonexistent'),
       ).rejects.toThrow(CashRegisterNotFoundException);
     });
 
-    it('should return top 5 products sorted by quantity, excluding CANCELLED orders', async () => {
+    it('should call both statsService.getStats and findById in parallel', async () => {
       const session = mockSession({ status: 'CLOSED' });
       mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      mockPrismaService.orderItem.groupBy.mockResolvedValue([
-        { productId: 'prod-1', _sum: { quantity: 10, subtotal: 1000n } },
-        { productId: 'prod-2', _sum: { quantity: 5,  subtotal: 500n  } },
-      ]);
-      mockPrismaService.product.findMany.mockResolvedValue([
-        { id: 'prod-1', name: 'Burger' },
-        { id: 'prod-2', name: 'Fries'  },
-      ]);
+      mockStatsService.getStats.mockResolvedValue(mockStatsResult);
 
-      const result = await service.getTopProducts('session-uuid-1');
+      await service.getSessionStats('session-uuid-1');
 
-      expect(result.topProducts).toHaveLength(2);
-      expect(result.topProducts[0]).toEqual({ id: 'prod-1', name: 'Burger', quantity: 10, total: 1000n });
-      expect(result.topProducts[1]).toEqual({ id: 'prod-2', name: 'Fries',  quantity: 5,  total: 500n  });
-    });
-
-    it('should call orderItem.groupBy with status { not: CANCELLED } filter', async () => {
-      const session = mockSession({ status: 'CLOSED' });
-      mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      mockPrismaService.orderItem.groupBy.mockResolvedValue([]);
-      mockPrismaService.product.findMany.mockResolvedValue([]);
-
-      await service.getTopProducts('session-uuid-1');
-
-      expect(mockPrismaService.orderItem.groupBy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          take: 5,
-          where: expect.objectContaining({
-            order: expect.objectContaining({
-              cashShiftId: session.id,
-              status: { not: OrderStatus.CANCELLED },
-            }),
-          }),
-        }),
-      );
-    });
-
-    it('should use fallback name "Producto" when product not found', async () => {
-      const session = mockSession({ status: 'CLOSED' });
-      mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      mockPrismaService.orderItem.groupBy.mockResolvedValue([
-        { productId: 'orphan-id', _sum: { quantity: 1, subtotal: 100n } },
-      ]);
-      mockPrismaService.product.findMany.mockResolvedValue([]);
-
-      const result = await service.getTopProducts('session-uuid-1');
-
-      expect(result.topProducts[0].name).toBe('Producto');
-    });
-
-    it('should return empty topProducts for a session with no orders', async () => {
-      const session = mockSession({ status: 'CLOSED' });
-      mockRegisterSessionRepository.findById.mockResolvedValue(session);
-      mockPrismaService.orderItem.groupBy.mockResolvedValue([]);
-      mockPrismaService.product.findMany.mockResolvedValue([]);
-
-      const result = await service.getTopProducts('session-uuid-1');
-
-      expect(result.topProducts).toEqual([]);
+      expect(mockStatsService.getStats).toHaveBeenCalledTimes(1);
+      expect(mockRegisterSessionRepository.findById).toHaveBeenCalledTimes(1);
     });
   });
 });

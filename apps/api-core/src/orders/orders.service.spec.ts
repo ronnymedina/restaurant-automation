@@ -186,24 +186,11 @@ describe('OrdersService', () => {
       expect(result).toEqual(paid);
     });
 
-    it('sends receipt email when customerEmail is set', async () => {
-      const paid = makeOrder({ isPaid: true, customerEmail: 'customer@test.com' });
+    it('does not throw when printReceipt fails', async () => {
+      const paid = makeOrder({ isPaid: true });
       mockOrderRepository.findById.mockResolvedValue(makeOrder());
       mockOrderRepository.markAsPaid.mockResolvedValue(paid);
-      mockPrint.generateReceipt.mockResolvedValue('<html>receipt</html>');
-      mockEmail.sendReceiptEmail.mockResolvedValue(undefined);
-
-      await service.markAsPaid('o1', 'r1');
-
-      expect(mockPrint.generateReceipt).toHaveBeenCalledWith('o1');
-      expect(mockEmail.sendReceiptEmail).toHaveBeenCalledWith('customer@test.com', '<html>receipt</html>');
-    });
-
-    it('logs error but does not throw when receipt email fails', async () => {
-      const paid = makeOrder({ isPaid: true, customerEmail: 'customer@test.com' });
-      mockOrderRepository.findById.mockResolvedValue(makeOrder());
-      mockOrderRepository.markAsPaid.mockResolvedValue(paid);
-      mockPrint.generateReceipt.mockRejectedValue(new Error('Print failed'));
+      mockPrint.printReceipt.mockRejectedValue(new Error('Print failed'));
 
       await expect(service.markAsPaid('o1', 'r1')).resolves.toEqual(paid);
     });

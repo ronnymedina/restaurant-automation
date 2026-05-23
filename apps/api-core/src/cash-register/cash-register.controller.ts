@@ -4,12 +4,14 @@ import {
   Post,
   Param,
   Query,
+  Req,
   UseGuards,
   UseInterceptors,
   ClassSerializerInterceptor,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -21,23 +23,21 @@ import {
 import { Role } from '@prisma/client';
 
 import { CashRegisterService } from './cash-register.service';
+import { CashRegisterStatsService } from './cash-register-stats.service';
 import { TimezoneService } from '../restaurants/timezone.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { CashShiftGuard } from './guards/cash-shift.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { CashShiftSerializer } from './serializers/cash-shift.serializer';
+import { CashShiftStatsSerializer } from './serializers/cash-register-stats.serializer';
 import { PaginatedCashShiftsSerializer } from './serializers/paginated-cash-shifts.serializer';
 import {
-  CloseSessionResponseDto,
-  SessionSummaryResponseDto,
   TopProductsResponseDto,
+  CashShiftStatsResponseDto,
 } from './dto/cash-register-response.dto';
-import {
-  serializeSessionSummary,
-  serializeTopProducts,
-} from './serializers/session-summary.serializer';
 
 @ApiTags('Cash Register')
 @ApiBearerAuth()
@@ -48,6 +48,7 @@ import {
 export class CashRegisterController {
   constructor(
     private readonly registerService: CashRegisterService,
+    private readonly statsService: CashRegisterStatsService,
     private readonly timezoneService: TimezoneService,
   ) {}
 
@@ -69,8 +70,8 @@ export class CashRegisterController {
   @Post('close')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cerrar sesión de caja activa' })
-  @ApiResponse({ status: 200, description: 'Sesión cerrada con resumen de ventas', type: CloseSessionResponseDto })
-  @ApiResponse({ status: 409, description: 'No hay sesión de caja abierta (NO_OPEN_CASH_REGISTER)' })
+  @ApiResponse({ status: 200, description: 'Sesión cerrada con estadísticas completas' })
+  @ApiResponse({ status: 409, description: 'No hay sesión de caja abierta o hay pedidos pendientes' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async close(@CurrentUser() user: { restaurantId: string; id: string }) {
@@ -78,16 +79,9 @@ export class CashRegisterController {
       this.registerService.closeSession(user.restaurantId, user.id),
       this.timezoneService.getTimezone(user.restaurantId),
     ]);
-    const paymentBreakdown = Object.entries(result.summary.paymentBreakdown).map(
-      ([method, val]) => ({ method, count: val.count, total: val.total }),
-    );
     return {
       session: new CashShiftSerializer(result.session, tz),
-      summary: {
-        totalOrders: result.summary.totalOrders,
-        totalSales: result.summary.totalSales,
-        paymentBreakdown,
-      },
+      stats:   new CashShiftStatsSerializer(result.stats),
     };
   }
 
@@ -112,6 +106,20 @@ export class CashRegisterController {
     });
   }
 
+  @Get('stats')
+  @Roles(Role.ADMIN, Role.MANAGER, Role.BASIC)
+  @ApiOperation({ summary: 'Estadísticas en vivo de la sesión de caja activa' })
+  @ApiResponse({ status: 200, type: CashShiftStatsResponseDto })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  async stats(@CurrentUser() user: { restaurantId: string }) {
+    const sessionId = await this.registerService.getOpenSessionId(user.restaurantId);
+    if (!sessionId) {
+      return CashShiftStatsSerializer.empty();
+    }
+    const stats = await this.statsService.getStats(sessionId);
+    return new CashShiftStatsSerializer(stats);
+  }
+
   @Get('current')
   @Roles(Role.ADMIN, Role.MANAGER, Role.BASIC)
   @ApiOperation({ summary: 'Sesión de caja actualmente abierta' })
@@ -128,35 +136,40 @@ export class CashRegisterController {
   }
 
   @Get('summary/:sessionId')
-  @ApiOperation({ summary: 'Resumen detallado de una sesión de caja' })
+  @UseGuards(CashShiftGuard)
+  @ApiOperation({ summary: 'Estadísticas completas de una sesión de caja' })
   @ApiParam({ name: 'sessionId', type: String })
-  @ApiResponse({ status: 200, type: SessionSummaryResponseDto })
+  @ApiResponse({ status: 200, type: CashShiftStatsResponseDto })
   @ApiResponse({ status: 404, description: 'Sesión no encontrada (CASH_REGISTER_NOT_FOUND)' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async summary(
     @CurrentUser() user: { restaurantId: string },
-    @Param('sessionId') sessionId: string,
+    @Req() req: Request & { cashShift: { id: string } },
   ) {
     const [result, tz] = await Promise.all([
-      this.registerService.getSessionSummary(sessionId),
+      this.registerService.getSessionStats(req.cashShift.id),
       this.timezoneService.getTimezone(user.restaurantId),
     ]);
     return {
       session: new CashShiftSerializer(result.session, tz),
-      summary: serializeSessionSummary(result.summary),
+      stats:   new CashShiftStatsSerializer(result.stats),
     };
   }
 
   @Get('top-products/:sessionId')
+  @UseGuards(CashShiftGuard)
   @ApiOperation({ summary: 'Top 5 productos más vendidos de una sesión' })
   @ApiParam({ name: 'sessionId', type: String })
   @ApiResponse({ status: 200, type: TopProductsResponseDto })
   @ApiResponse({ status: 404, description: 'Sesión no encontrada (CASH_REGISTER_NOT_FOUND)' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
-  async topProducts(@Param('sessionId') sessionId: string) {
-    const result = await this.registerService.getTopProducts(sessionId);
-    return { topProducts: serializeTopProducts(result.topProducts) };
+  async topProducts(
+    @Req() req: Request & { cashShift: { id: string } },
+  ) {
+    const stats = await this.statsService.getStats(req.cashShift.id);
+    const serialized = new CashShiftStatsSerializer(stats);
+    return { topProducts: serialized.topProducts };
   }
 }
