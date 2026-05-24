@@ -48,6 +48,7 @@ export default function KitchenConfirmModal() {
     if (!order) return;
     const params = new URLSearchParams(window.location.search);
     const slug = params.get('slug') ?? '';
+    // token will always be set — index.astro throws before the modal renders if absent
     const token =
       params.get('token') ?? sessionStorage.getItem(`kitchen_token_${slug}`) ?? '';
 
@@ -57,6 +58,7 @@ export default function KitchenConfirmModal() {
     setLoading(true);
     setError(null);
     try {
+      // order is captured in React state at modal-open time; safe if ordersMap is cleared by SSE reload
       const res = await fetch(
         `${config.apiUrl}/v1/kitchen/${slug}/orders/${order.orderId}/status?token=${token}`,
         {

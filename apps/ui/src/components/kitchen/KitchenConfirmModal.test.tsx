@@ -117,6 +117,17 @@ test('shows error on network failure', async () => {
   await waitFor(() => expect(screen.getByText('Error de conexión, intente nuevamente')).toBeInTheDocument());
 });
 
+test('shows timeout message when request is aborted', async () => {
+  const abortError = new DOMException('Aborted', 'AbortError');
+  mockFetch.mockRejectedValueOnce(abortError);
+  render(<KitchenConfirmModal />);
+  dispatchConfirm();
+  fireEvent.click(screen.getByRole('button', { name: /confirmar listo/i }));
+  await waitFor(() =>
+    expect(screen.getByText('La solicitud tardó demasiado, intente nuevamente')).toBeInTheDocument(),
+  );
+});
+
 test('uses sessionStorage token when not in URL', async () => {
   window.history.pushState({}, '', '?slug=rest-slug');
   sessionStorage.setItem('kitchen_token_rest-slug', 'session-token');
