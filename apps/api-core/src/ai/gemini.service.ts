@@ -43,7 +43,7 @@ export class GeminiService {
     }
 
     this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({ model: modelToUse });
+    this.model = this.genAI.getGenerativeModel({ model: modelToUse }, { timeout: 3000 });
     this.logger.log(
       'Gemini AI initialized successfully with model: ',
       modelToUse,
