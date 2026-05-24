@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { createPortal } from 'react-dom';
 
 const SIZE_CLASSES = {
@@ -24,19 +25,20 @@ export default function Modal({
   dark = false,
   hideCloseButton = false,
 }: Props) {
+  const titleId = useId();
   if (!open) return null;
   return createPortal(
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby="modal-title"
+      aria-labelledby={titleId}
       className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
     >
       <div
         className={`${dark ? 'bg-[#1e293b] border border-slate-700' : 'bg-white'} rounded-xl w-full ${SIZE_CLASSES[size]} max-h-[85vh] overflow-y-auto p-6 space-y-4`}
       >
         <h3
-          id="modal-title"
+          id={titleId}
           className={`text-xl font-bold ${dark ? 'text-slate-100' : 'text-slate-800'}`}
         >
           {title}

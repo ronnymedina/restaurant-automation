@@ -42,3 +42,8 @@ test('calls onClose when Cerrar clicked', () => {
   fireEvent.click(screen.getByRole('button', { name: /cerrar/i }));
   expect(onClose).toHaveBeenCalledOnce();
 });
+
+test('applies dark title color when dark=true', () => {
+  render(<Modal open title="T" onClose={() => {}} dark><p>X</p></Modal>);
+  expect(screen.getByRole('heading', { name: 'T' })).toHaveClass('text-slate-100');
+});
