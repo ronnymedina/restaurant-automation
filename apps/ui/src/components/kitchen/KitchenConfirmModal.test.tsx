@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import KitchenConfirmModal from './KitchenConfirmModal';
 
 vi.mock('../../config', () => ({
@@ -15,16 +15,18 @@ beforeEach(() => {
 });
 
 function dispatchConfirm(detail = {}) {
-  window.dispatchEvent(
-    new CustomEvent('kitchen:confirm', {
-      detail: {
-        orderId: 'order-1',
-        orderNumber: 42,
-        items: [{ quantity: 2, productName: 'Tacos', notes: undefined }],
-        ...detail,
-      },
-    }),
-  );
+  act(() => {
+    window.dispatchEvent(
+      new CustomEvent('kitchen:confirm', {
+        detail: {
+          orderId: 'order-1',
+          orderNumber: 42,
+          items: [{ quantity: 2, productName: 'Tacos', notes: undefined }],
+          ...detail,
+        },
+      }),
+    );
+  });
 }
 
 test('does not show dialog initially', () => {

@@ -51,6 +51,9 @@ export default function KitchenConfirmModal() {
     const token =
       params.get('token') ?? sessionStorage.getItem(`kitchen_token_${slug}`) ?? '';
 
+    const controller = new AbortController();
+    const timerId = setTimeout(() => controller.abort(), 10_000);
+
     setLoading(true);
     setError(null);
     try {
@@ -60,8 +63,10 @@ export default function KitchenConfirmModal() {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'SERVED' }),
+          signal: controller.signal,
         },
       );
+      clearTimeout(timerId);
       if (res.ok) {
         setOpen(false);
         setOrder(null);
@@ -74,8 +79,13 @@ export default function KitchenConfirmModal() {
         } catch { /* ignore parse errors */ }
         setError(msg);
       }
-    } catch {
-      setError('Error de conexión, intente nuevamente');
+    } catch (err) {
+      clearTimeout(timerId);
+      const msg =
+        err instanceof DOMException && err.name === 'AbortError'
+          ? 'La solicitud tardó demasiado, intente nuevamente'
+          : 'Error de conexión, intente nuevamente';
+      setError(msg);
     } finally {
       setLoading(false);
     }
