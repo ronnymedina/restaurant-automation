@@ -1,4 +1,5 @@
 ---
+import KitchenConfirmModal from '../../components/kitchen/KitchenConfirmModal';
 ---
 
 <!DOCTYPE html>
@@ -10,6 +11,27 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #111827; color: #f9fafb; font-family: system-ui, sans-serif; min-height: 100vh; }
+
+    #mobileTabBar { display: none; }
+
+    @media (max-width: 640px) {
+      #kitchenMain {
+        grid-template-columns: 1fr !important;
+        padding-bottom: 64px;
+      }
+      #colWrapCreated,
+      #colWrapProcessing {
+        display: none;
+        border-right: none !important;
+      }
+      #colWrapCreated.tab-visible,
+      #colWrapProcessing.tab-visible {
+        display: flex;
+      }
+      #mobileTabBar {
+        display: flex;
+      }
+    }
   </style>
 </head>
 <body>
@@ -35,10 +57,10 @@
   </header>
 
   <!-- Kanban: NUEVOS | EN PROCESO -->
-  <main style="display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 64px);">
+  <main id="kitchenMain" style="display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 64px);">
 
-    <!-- NUEVOS (CREATED) -->
-    <div style="border-right:1px solid #374151;display:flex;flex-direction:column;">
+    <!-- NUEVOS (CONFIRMED) -->
+    <div id="colWrapCreated" style="border-right:1px solid #374151;display:flex;flex-direction:column;">
       <div style="background:rgba(139,92,246,0.15);border-bottom:1px solid rgba(139,92,246,0.3);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
         <h2 style="font-size:18px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:0.1em;">Confirmados</h2>
         <span id="countCreated" style="background:rgba(167,139,250,0.25);color:#c4b5fd;font-size:14px;font-weight:700;padding:4px 12px;border-radius:9999px;">0</span>
@@ -49,7 +71,7 @@
     </div>
 
     <!-- EN PROCESO (PROCESSING) -->
-    <div style="display:flex;flex-direction:column;">
+    <div id="colWrapProcessing" style="display:flex;flex-direction:column;">
       <div style="background:rgba(59,130,246,0.15);border-bottom:1px solid rgba(59,130,246,0.3);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
         <h2 style="font-size:18px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:0.1em;">En Proceso</h2>
         <span id="countProcessing" style="background:rgba(59,130,246,0.25);color:#93c5fd;font-size:14px;font-weight:700;padding:4px 12px;border-radius:9999px;">0</span>
@@ -60,6 +82,32 @@
     </div>
   </main>
 
+  <!-- Mobile tab bar (hidden on desktop via CSS) -->
+  <nav id="mobileTabBar" style="position:fixed;bottom:0;left:0;right:0;background:#111827;border-top:1px solid #374151;z-index:40;">
+    <button
+      id="tabCreated"
+      type="button"
+      style="flex:1;padding:10px 6px;text-align:center;background:none;border:none;cursor:pointer;border-top:3px solid transparent;"
+      onclick="switchTab('created')"
+    >
+      <div style="font-size:20px;">📋</div>
+      <div id="tabCreatedLabel" style="font-size:10px;font-weight:700;margin-top:2px;">Nuevos</div>
+      <div id="tabCreatedBadge" style="border-radius:9999px;padding:1px 8px;font-size:10px;font-weight:700;display:inline-block;margin-top:3px;">0</div>
+    </button>
+    <button
+      id="tabProcessing"
+      type="button"
+      style="flex:1;padding:10px 6px;text-align:center;background:none;border:none;cursor:pointer;border-top:3px solid transparent;"
+      onclick="switchTab('processing')"
+    >
+      <div style="font-size:20px;">🔥</div>
+      <div id="tabProcessingLabel" style="font-size:10px;font-weight:700;margin-top:2px;">En Proceso</div>
+      <div id="tabProcessingBadge" style="border-radius:9999px;padding:1px 8px;font-size:10px;font-weight:700;display:inline-block;margin-top:3px;">0</div>
+    </button>
+  </nav>
+
+  <!-- Confirmation modal (React island, client-only) -->
+  <KitchenConfirmModal client:only="react" />
 
 </body>
 </html>
@@ -70,7 +118,6 @@
 
   const API_URL = config.apiUrl;
 
-  // Read slug and token from query string (with sessionStorage fallback)
   const params = new URLSearchParams(window.location.search);
   const slug = params.get('slug') ?? '';
   const urlToken = params.get('token') ?? '';
@@ -81,7 +128,6 @@
     throw new Error('No kitchen token');
   }
 
-  // Persist token so page refresh keeps working even without ?token= in URL
   if (urlToken) sessionStorage.setItem(`kitchen_token_${slug}`, urlToken);
 
   const colCreated = document.getElementById('colCreated')!;
@@ -92,8 +138,56 @@
   const connDot = document.getElementById('connDot')!;
   const offlineOverlay = document.getElementById('offlineOverlay')!;
   const errorToast = document.getElementById('errorToast')!;
+  const tabCreatedBadge = document.getElementById('tabCreatedBadge')!;
+  const tabProcessingBadge = document.getElementById('tabProcessingBadge')!;
 
   let notifiedOffline = false;
+  const ordersMap = new Map<string, any>();
+
+  // ── Tab switching ─────────────────────────────────────────────────
+
+  function switchTab(tab: 'created' | 'processing') {
+    const wrapCreated = document.getElementById('colWrapCreated')!;
+    const wrapProcessing = document.getElementById('colWrapProcessing')!;
+    const tabCreated = document.getElementById('tabCreated')!;
+    const tabProcessing = document.getElementById('tabProcessing')!;
+    const tabCreatedLabel = document.getElementById('tabCreatedLabel')!;
+    const tabProcessingLabel = document.getElementById('tabProcessingLabel')!;
+
+    if (tab === 'created') {
+      wrapCreated.classList.add('tab-visible');
+      wrapProcessing.classList.remove('tab-visible');
+      tabCreated.style.borderTopColor = '#a78bfa';
+      tabCreated.style.background = 'rgba(139,92,246,0.12)';
+      tabCreatedLabel.style.color = '#a78bfa';
+      tabCreatedBadge.style.background = '#a78bfa';
+      tabCreatedBadge.style.color = '#0f172a';
+      tabProcessing.style.borderTopColor = 'transparent';
+      tabProcessing.style.background = 'none';
+      tabProcessingLabel.style.color = '#4b5563';
+      tabProcessingBadge.style.background = '#374151';
+      tabProcessingBadge.style.color = '#6b7280';
+    } else {
+      wrapProcessing.classList.add('tab-visible');
+      wrapCreated.classList.remove('tab-visible');
+      tabProcessing.style.borderTopColor = '#60a5fa';
+      tabProcessing.style.background = 'rgba(59,130,246,0.12)';
+      tabProcessingLabel.style.color = '#60a5fa';
+      tabProcessingBadge.style.background = '#60a5fa';
+      tabProcessingBadge.style.color = '#0f172a';
+      tabCreated.style.borderTopColor = 'transparent';
+      tabCreated.style.background = 'none';
+      tabCreatedLabel.style.color = '#4b5563';
+      tabCreatedBadge.style.background = '#374151';
+      tabCreatedBadge.style.color = '#6b7280';
+    }
+  }
+
+  // Initialize mobile tab state (Nuevos active by default)
+  switchTab('created');
+
+  // Expose switchTab globally for inline onclick handlers
+  (window as any).switchTab = switchTab;
 
   // ── API helper ────────────────────────────────────────────────────
 
@@ -173,10 +267,31 @@
     container.querySelectorAll('[data-advance]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const el = btn as HTMLElement;
+        const orderId = el.dataset.advance!;
+        const next = el.dataset.next!;
+
+        // "✓ LISTO" button: delegate to confirmation modal
+        if (next === 'SERVED') {
+          const order = ordersMap.get(orderId);
+          window.dispatchEvent(new CustomEvent('kitchen:confirm', {
+            detail: {
+              orderId,
+              orderNumber: order?.orderNumber,
+              items: (order?.items || []).map((i: any) => ({
+                quantity: i.quantity,
+                productName: i.product?.name || i.productName || '?',
+                notes: i.notes,
+              })),
+            },
+          }));
+          return;
+        }
+
+        // "EN PROCESO →" button: advance directly, no confirmation
         (btn as HTMLButtonElement).disabled = true;
-        const res = await kitchenFetch(`/v1/kitchen/${slug}/orders/${el.dataset.advance}/status`, {
+        const res = await kitchenFetch(`/v1/kitchen/${slug}/orders/${orderId}/status`, {
           method: 'PATCH',
-          body: JSON.stringify({ status: el.dataset.next }),
+          body: JSON.stringify({ status: next }),
         });
         (btn as HTMLButtonElement).disabled = false;
         if (res.ok) {
@@ -205,11 +320,18 @@
     if (!res || !res.ok) return;
 
     const orders: any[] = await res.json();
+
+    // Keep ordersMap in sync for the confirm modal
+    ordersMap.clear();
+    orders.forEach((o) => ordersMap.set(o.id, o));
+
     const created = orders.filter((o) => o.status === 'CONFIRMED');
     const processing = orders.filter((o) => o.status === 'PROCESSING');
 
     countCreated.textContent = String(created.length);
     countProcessing.textContent = String(processing.length);
+    tabCreatedBadge.textContent = String(created.length);
+    tabProcessingBadge.textContent = String(processing.length);
 
     const empty = '<p style="color:#4b5563;text-align:center;padding:48px 0;font-size:18px;">Sin pedidos</p>';
     colCreated.innerHTML = created.length ? created.map(renderCard).join('') : empty;
@@ -227,6 +349,9 @@
   es.onerror = () => { setOffline(); };
   es.addEventListener(ORDER_EVENTS.NEW, () => loadOrders());
   es.addEventListener(ORDER_EVENTS.UPDATED, () => loadOrders());
+
+  // Reload after confirmation modal confirms a SERVED transition
+  window.addEventListener('kitchen:order-updated', () => loadOrders());
 
   window.addEventListener('beforeunload', () => es.close());
   loadOrders();
