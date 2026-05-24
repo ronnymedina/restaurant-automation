@@ -17,7 +17,6 @@ import KitchenConfirmModal from '../../components/kitchen/KitchenConfirmModal';
     @media (max-width: 640px) {
       #kitchenMain {
         grid-template-columns: 1fr !important;
-        padding-bottom: 64px;
       }
       #colWrapCreated,
       #colWrapProcessing {
@@ -27,6 +26,10 @@ import KitchenConfirmModal from '../../components/kitchen/KitchenConfirmModal';
       #colWrapCreated.tab-visible,
       #colWrapProcessing.tab-visible {
         display: flex;
+      }
+      #colCreated,
+      #colProcessing {
+        padding-bottom: 80px;
       }
       #mobileTabBar {
         display: flex;
