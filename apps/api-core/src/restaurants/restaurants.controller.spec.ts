@@ -36,23 +36,41 @@ describe('RestaurantsController', () => {
   });
 
   describe('getSettings', () => {
-    it('returns timezone from restaurant settings', async () => {
+    it('returns settings from restaurant', async () => {
       mockRestaurantsService.findByIdWithSettings.mockResolvedValue({
         id: 'r1',
-        settings: { timezone: 'America/Mexico_City' },
+        settings: {
+          timezone: 'America/Mexico_City',
+          country: 'MX',
+          currency: 'MXN',
+          decimalSeparator: '.',
+          thousandsSeparator: ',',
+        },
       });
       const result = await controller.getSettings({ restaurantId: 'r1' });
       expect(mockRestaurantsService.findByIdWithSettings).toHaveBeenCalledWith('r1');
-      expect(result).toEqual({ timezone: 'America/Mexico_City' });
+      expect(result).toEqual({
+        timezone: 'America/Mexico_City',
+        country: 'MX',
+        currency: 'MXN',
+        decimalSeparator: '.',
+        thousandsSeparator: ',',
+      });
     });
 
-    it('returns UTC when settings is null', async () => {
+    it('returns CL/CLP defaults when settings is null', async () => {
       mockRestaurantsService.findByIdWithSettings.mockResolvedValue({
         id: 'r1',
         settings: null,
       });
       const result = await controller.getSettings({ restaurantId: 'r1' });
-      expect(result).toEqual({ timezone: 'UTC' });
+      expect(result).toEqual({
+        timezone: 'UTC',
+        country: 'CL',
+        currency: 'CLP',
+        decimalSeparator: ',',
+        thousandsSeparator: '.',
+      });
     });
   });
 });

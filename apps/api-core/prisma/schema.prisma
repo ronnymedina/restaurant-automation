@@ -101,6 +101,14 @@ model RestaurantSettings {
   kitchenToken          String?   @unique
   kitchenTokenExpiresAt DateTime?
 
+  // Display settings — used by UI to format money amounts.
+  // country drives sensible defaults; the separators allow per-restaurant override.
+  // Amounts are always rendered with 2 decimal places.
+  country            String @default("CL") // ISO 3166-1 alpha-2
+  currency           String @default("CLP") // ISO 4217
+  decimalSeparator   String @default(",")
+  thousandsSeparator String @default(".")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
