@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useCreateOrderStore, selectTotal } from './create-order-store';
 import { searchProducts, type ProductSearchResult } from './create-order-api';
+import { useRestaurantSettings } from '../../../lib/restaurant-settings';
+import { formatMoney } from '../../../lib/money';
 
 interface Props {
   onNext: () => void;
@@ -17,7 +19,15 @@ function useDebounce(value: string, delay: number) {
   return debounced;
 }
 
-function ProductCard({ product, onAdd }: { product: ProductSearchResult; onAdd: () => void }) {
+function ProductCard({
+  product,
+  onAdd,
+  formatPrice,
+}: {
+  product: ProductSearchResult;
+  onAdd: () => void;
+  formatPrice: (amount: number) => string;
+}) {
   const isOutOfStock = product.stock !== null && product.stock === 0;
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col gap-2">
@@ -28,7 +38,7 @@ function ProductCard({ product, onAdd }: { product: ProductSearchResult; onAdd: 
       )}
       <div className="flex-1">
         <p className="font-medium text-slate-800 text-sm leading-tight">{product.name}</p>
-        <p className="text-slate-500 text-xs mt-0.5">${(product.price / 100).toFixed(2)}</p>
+        <p className="text-slate-500 text-xs mt-0.5">{formatPrice(product.price)}</p>
       </div>
       {isOutOfStock ? (
         <span className="text-center text-xs bg-red-100 text-red-600 rounded-lg py-1 font-medium">Agotado</span>
@@ -51,6 +61,8 @@ export default function CreateOrderStep1({ onNext }: Props) {
 
   const { items, addItem, removeItem, updateQuantity } = useCreateOrderStore();
   const total = useCreateOrderStore(selectTotal);
+  const { data: settings } = useRestaurantSettings();
+  const formatPrice = (amount: number) => formatMoney(amount, settings);
 
   const { data: products = [], isFetching } = useQuery({
     queryKey: ['staff-products', debouncedSearch],
@@ -79,6 +91,7 @@ export default function CreateOrderStep1({ onNext }: Props) {
             <ProductCard
               key={p.id}
               product={p}
+              formatPrice={formatPrice}
               onAdd={() => addItem({ productId: p.id, name: p.name, price: p.price, imageUrl: p.imageUrl })}
             />
           ))}
@@ -98,7 +111,7 @@ export default function CreateOrderStep1({ onNext }: Props) {
                 onChange={(e) => updateQuantity(item.productId, parseInt(e.target.value) || 0)}
                 className="w-14 border border-slate-300 rounded-lg px-2 py-1 text-center text-sm"
               />
-              <span className="w-16 text-right text-slate-700">${((item.price * item.quantity) / 100).toFixed(2)}</span>
+              <span className="w-16 text-right text-slate-700">{formatPrice(item.price * item.quantity)}</span>
               <button
                 type="button"
                 onClick={() => removeItem(item.productId)}
@@ -110,7 +123,7 @@ export default function CreateOrderStep1({ onNext }: Props) {
           ))}
           <div className="flex justify-between font-semibold text-slate-800 pt-1 border-t border-slate-100">
             <span>Total</span>
-            <span>${(total / 100).toFixed(2)}</span>
+            <span>{formatPrice(total)}</span>
           </div>
         </div>
       )}

@@ -24,7 +24,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 
 | Severidad | Cantidad | IDs |
 |-----------|----------|-----|
-| 🔴 CRÍTICO | 4 | H-01 ✅, H-02 🔄, H-03, H-04 |
+| 🔴 CRÍTICO | 4 | H-01 ✅, H-02 ✅, H-03, H-04 |
 | 🟠 ALTO    | 16 | H-05 … H-20 |
 | 🟡 MEDIO   | 19 | H-21, H-22 ✅, H-23 … H-39 |
 | 🟢 BAJO    | 13 | H-40 … H-52 |
@@ -32,7 +32,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 
 **Progreso:**
 - ✅ H-01 implementado (2026-05-25)
-- 🔄 H-02 acotado a 5 puntos del wizard (no todo el dashboard)
+- ✅ H-02 implementado (2026-05-25) — fix del wizard + nuevas columnas de display settings + endpoint extendido
 - ✅ H-22 parcial (2026-05-25) — `fromCents` aplicado en `serializeOrder`; refactor estructural a Serializer dedicado sigue pendiente
 - ➕ Hallazgo adicional descubierto y arreglado: contrato roto entre backend `/cash-register/summary` y frontend `RegisterHistoryIsland`. Ver sección "Hallazgos adicionales".
 
@@ -156,11 +156,30 @@ Verificación visual confirmada en local:
 
 **Fix:** Eliminar `/100` en los 5 puntos. Usar `Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' })` para evitar futuros errores de formato.
 
-**Estado:** 🔄 Modificado — pendiente de verificación puntual
+**Estado:** ✅ Implementado (2026-05-25)
 
-**Diagnóstico corregido durante la revisión:** la auditoría apuntó al listado de productos del dashboard, pero la verificación visual mostró que **el listado de productos en `/dash/products` muestra los precios correctos** ($23.03, $100.00, $25.00). Es decir, `ProductsIsland.tsx` consume `ProductListSerializer.price` (ya en pesos) sin dividir entre 100. El bug `/100` solo aplica al **wizard de creación manual de orden** (`CreateOrderStep1.tsx:31, 101, 113` y `CreateOrderStep3.tsx:178, 183`).
+**Diagnóstico corregido durante la revisión:** la auditoría apuntó al listado de productos del dashboard, pero la verificación visual mostró que **el listado de productos en `/dash/products` muestra los precios correctos** ($23.03, $100.00, $25.00). Es decir, `ProductsIsland.tsx` consume `ProductListSerializer.price` (ya en pesos) sin dividir entre 100. El bug `/100` solo aplicaba al **wizard de creación manual de orden** (`CreateOrderStep1.tsx:31, 101, 113` y `CreateOrderStep3.tsx:178, 183`).
 
-Por lo tanto el fix queda acotado a esos 5 puntos del wizard de creación de orden manual desde el dashboard — no a todo el dashboard. La descripción original era engañosa. Pendiente abrir el wizard `/dash/orders` → "Nuevo pedido" para confirmar visualmente antes de aplicar el cambio.
+**Cambios aplicados:**
+
+Backend:
+- `prisma/schema.postgresql.prisma` y `prisma/schema.prisma` — `RestaurantSettings` gana 4 columnas: `country` (default `CL`), `currency` (default `CLP`), `decimalSeparator` (default `,`), `thousandsSeparator` (default `.`). Permite que cada restaurante use el formato monetario de su país sin tocar código.
+- Migración: `20260525162458_add_display_settings_to_restaurant_settings`.
+- `restaurants/dto/restaurant-settings.dto.ts` — nuevo DTO + constante `DEFAULT_RESTAURANT_SETTINGS` única fuente de verdad para fallback.
+- `GET /v1/restaurants/settings` ahora retorna también `country`, `currency`, `decimalSeparator`, `thousandsSeparator` (además de `timezone`). Si no hay fila de settings, devuelve los defaults de Chile.
+- Spec actualizado: `restaurants.controller.spec.ts` cubre los 5 campos.
+
+Frontend:
+- `lib/money.ts` — helper `formatMoney(amount, settings)` que aplica 2 decimales fijos + separadores configurables, con guardas para NaN/Infinity y signo negativo correcto (`-$25,00` no `$-25,00`). Tests: 8 casos cubriendo CL, MX, redondeo, negativos, millones, defaults.
+- `lib/restaurant-settings.ts` — hook `useRestaurantSettings()` basado en React Query con `staleTime: Infinity` e `initialData` para render síncrono sin flash.
+- `CreateOrderStep1.tsx:31, 101, 113` — los 3 puntos ahora usan `formatPrice(...)` sin `/100`.
+- `CreateOrderStep3.tsx:178, 183` — idem en el resumen.
+
+Naming rule confirmada para la UI: los precios viajan **siempre en pesos** desde el backend (vía `fromCents`); la UI nunca debe dividir entre 100. Si necesita formato monetario, usa `formatMoney` + `useRestaurantSettings`.
+
+**Verificación:** 8 unit tests de `money.test.ts` en verde; 7 unit tests de restaurants (controller + timezone) en verde tras regenerar Prisma client. Pendiente smoke test visual del wizard.
+
+**Lo que sigue pendiente (H-38, otro PR):** aplicar `formatMoney` en `OrderCard.tsx:77` y `OrdersPanel.tsx:184, 186` (que hoy muestran montos correctos pero con `toFixed(2)` sin separadores). Mantenerlo separado para no mezclar scope.
 
 ---
 
@@ -547,7 +566,7 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 
 | Sprint | Hallazgos |
 |--------|-----------|
-| **Hoy / hotfix** | ~~H-01 (kiosk roto)~~ ✅, H-02 (precios wizard) 🔄, H-03 (XSS), H-04 (tokens en URL), ~~H-AUX-01 (contrato cash-register)~~ ✅ |
+| **Hoy / hotfix** | ~~H-01 (kiosk roto)~~ ✅, ~~H-02 (precios wizard)~~ ✅, H-03 (XSS), H-04 (tokens en URL), ~~H-AUX-01 (contrato cash-register)~~ ✅ |
 | **Esta semana** | H-05 (markAsPaid TX), H-09 (closeSession race), H-13 (kitchen race), H-14 (kitchen token) |
 | **Próximo sprint** | H-07 (findHistory DTO), H-11 (BigInt cash-shift), H-08/H-12 (filtros restaurantId), H-15 (notifyOffline canal) |
 | **Backlog técnico** | H-17 a H-20 + todos los MEDIOS |
