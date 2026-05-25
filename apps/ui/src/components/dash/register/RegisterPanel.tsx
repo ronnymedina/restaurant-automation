@@ -17,6 +17,7 @@ export default function RegisterPanel() {
   const [registerData, setRegisterData] = useState<CashShiftDto | null>(null);
   const [alert, setAlert] = useState<AlertConfig | null>(null);
   const [summaryData, setSummaryData] = useState<ShiftSummary | null>(null);
+  const [summarySession, setSummarySession] = useState<CashShiftDto | null>(null);
   const [showSummary, setShowSummary] = useState(false);
   const [showSensitive, setShowSensitive] = useState(false);
 
@@ -93,6 +94,7 @@ export default function RegisterPanel() {
       return;
     }
     setSummaryData(result.data.summary);
+    setSummarySession(result.data.session ?? null);
     setShowSummary(true);
     setRegisterData(null);
     setStatus(REGISTER_STATUS.CLOSED);
@@ -190,6 +192,7 @@ export default function RegisterPanel() {
       {showSummary && summaryData && (
         <RegisterSummaryModal
           open={showSummary}
+          session={summarySession}
           summary={summaryData}
           onClose={() => setShowSummary(false)}
         />
