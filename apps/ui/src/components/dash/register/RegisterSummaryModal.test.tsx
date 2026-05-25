@@ -1,8 +1,20 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import RegisterSummaryModal from './RegisterSummaryModal';
-import type { CloseSummary } from './api';
+import type { ShiftSummary } from './api';
 
-const emptySummary: CloseSummary = { totalOrders: 0, totalSales: 0, paymentBreakdown: [] };
+function makeSummary(overrides: Partial<ShiftSummary> = {}): ShiftSummary {
+  return {
+    counts: { total: 0, pending: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 0, cancelled: 0 },
+    revenue: { completed: 0, pending: 0, averageTicket: 0 },
+    byPaymentMethod: [],
+    byOrderType: [],
+    byOrderSource: [],
+    topProducts: [],
+    ...overrides,
+  };
+}
+
+const emptySummary = makeSummary();
 
 test('renders nothing when closed', () => {
   const { container } = render(
@@ -16,27 +28,30 @@ test('renders summary title when open', () => {
   expect(screen.getByText('Resumen de Caja')).toBeInTheDocument();
 });
 
-test('renders totalOrders and totalSales', () => {
-  const summary: CloseSummary = { totalOrders: 12, totalSales: 480.5, paymentBreakdown: [] };
+test('renders completed count and revenue', () => {
+  const summary = makeSummary({
+    counts: { ...emptySummary.counts, total: 12, completed: 12 },
+    revenue: { completed: 480.5, pending: 0, averageTicket: 40.04 },
+  });
   render(<RegisterSummaryModal open={true} summary={summary} onClose={vi.fn()} />);
   expect(screen.getByText('12')).toBeInTheDocument();
   expect(screen.getByText('$480.50')).toBeInTheDocument();
 });
 
-test('shows Sin pedidos when paymentBreakdown is empty', () => {
+test('shows Sin pedidos when byPaymentMethod is empty', () => {
   render(<RegisterSummaryModal open={true} summary={emptySummary} onClose={vi.fn()} />);
   expect(screen.getByText('Sin pedidos')).toBeInTheDocument();
 });
 
 test('renders payment breakdown entries', () => {
-  const summary: CloseSummary = {
-    totalOrders: 2,
-    totalSales: 100,
-    paymentBreakdown: [
+  const summary = makeSummary({
+    counts: { ...emptySummary.counts, total: 2, completed: 2 },
+    revenue: { completed: 100, pending: 0, averageTicket: 50 },
+    byPaymentMethod: [
       { method: 'CASH', count: 1, total: 50 },
       { method: 'CARD', count: 1, total: 50 },
     ],
-  };
+  });
   render(<RegisterSummaryModal open={true} summary={summary} onClose={vi.fn()} />);
   expect(screen.getByText('CASH')).toBeInTheDocument();
   expect(screen.getByText('CARD')).toBeInTheDocument();

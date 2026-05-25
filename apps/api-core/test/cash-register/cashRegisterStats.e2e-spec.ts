@@ -43,7 +43,7 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
       .expect(200);
   });
 
-  it('Sin sesión abierta retorna zeros (no error)', async () => {
+  it('Sin sesión abierta retorna summary en zeros (no error)', async () => {
     const rest = await seedRestaurant(prisma, 'NoShift');
     const token = await login(app, rest.admin.email);
 
@@ -52,13 +52,16 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    expect(res.body.total).toBe(0);
-    expect(res.body.pending).toBe(0);
-    expect(res.body.counts).toEqual([]);
-    expect(res.body.revenue.completed).toBe(0);
-    expect(res.body.revenue.averageTicket).toBe(0);
-    expect(res.body.topProducts).toEqual([]);
-    expect(res.body.byPaymentMethod).toEqual([]);
+    const { summary } = res.body;
+    expect(summary).toBeDefined();
+    expect(summary.counts.total).toBe(0);
+    expect(summary.counts.pending).toBe(0);
+    expect(summary.counts.completed).toBe(0);
+    expect(summary.counts.cancelled).toBe(0);
+    expect(summary.revenue.completed).toBe(0);
+    expect(summary.revenue.averageTicket).toBe(0);
+    expect(summary.topProducts).toEqual([]);
+    expect(summary.byPaymentMethod).toEqual([]);
   });
 
   it('Retorna todos los campos requeridos con una sesión abierta', async () => {
@@ -71,10 +74,13 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    expect(res.body).toMatchObject({
-      total:   expect.any(Number),
-      pending: expect.any(Number),
-      counts:  expect.any(Array),
+    expect(res.body.summary).toMatchObject({
+      counts: {
+        total: expect.any(Number),
+        completed: expect.any(Number),
+        cancelled: expect.any(Number),
+        pending: expect.any(Number),
+      },
       revenue: {
         completed:     expect.any(Number),
         pending:       expect.any(Number),
@@ -87,7 +93,7 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
     });
   });
 
-  it('pending = total - completed - cancelled', async () => {
+  it('counts.pending = counts.total - counts.completed - counts.cancelled', async () => {
     const rest = await seedRestaurant(prisma, 'PendingCalc');
     const token   = await login(app, rest.admin.email);
     const product = await seedProduct(prisma, rest.restaurant.id, rest.category.id);
@@ -102,15 +108,12 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    expect(res.body.total).toBe(3);
-    expect(res.body.pending).toBe(1); // 3 - 1 completed - 1 cancelled
-    expect(res.body.counts).toEqual(
-      expect.arrayContaining([
-        { status: 'CREATED',   total: 1 },
-        { status: 'COMPLETED', total: 1 },
-        { status: 'CANCELLED', total: 1 },
-      ]),
-    );
+    const { counts } = res.body.summary;
+    expect(counts.total).toBe(3);
+    expect(counts.pending).toBe(1); // 3 - 1 completed - 1 cancelled
+    expect(counts.created).toBe(1);
+    expect(counts.completed).toBe(1);
+    expect(counts.cancelled).toBe(1);
   });
 
   it('revenue.completed solo cuenta órdenes COMPLETED', async () => {
@@ -128,10 +131,11 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
+    const { revenue } = res.body.summary;
     // product price = 1000 centavos = 10.0; solo 1 COMPLETED
-    expect(res.body.revenue.completed).toBe(10);
+    expect(revenue.completed).toBe(10);
     // pending = 1 CREATED = 10.0; CANCELLED excluida
-    expect(res.body.revenue.pending).toBe(10);
+    expect(revenue.pending).toBe(10);
   });
 
   it('topProducts tiene máximo 5 elementos', async () => {
@@ -149,7 +153,7 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    expect(res.body.topProducts.length).toBeLessThanOrEqual(5);
+    expect(res.body.summary.topProducts.length).toBeLessThanOrEqual(5);
   });
 
   it('aislamiento por restaurante — no mezcla stats de otro restaurante', async () => {
@@ -169,8 +173,9 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
       .set('Authorization', `Bearer ${tokenB}`)
       .expect(200);
 
-    expect(resB.body.total).toBe(0);
-    expect(resB.body.counts).toEqual([]);
-    expect(resB.body.revenue.completed).toBe(0);
+    const { summary } = resB.body;
+    expect(summary.counts.total).toBe(0);
+    expect(summary.counts.completed).toBe(0);
+    expect(summary.revenue.completed).toBe(0);
   });
 });

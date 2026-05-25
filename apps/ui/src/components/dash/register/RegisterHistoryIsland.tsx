@@ -156,11 +156,11 @@ export default function RegisterHistoryIsland() {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-blue-50 rounded-lg p-4 text-center">
-            <p className="text-lg font-bold text-blue-700">{summary.completed.count}</p>
-            <p className="text-xs text-blue-600 mt-1">{formatCurrency(summary.completed.total)} — Completados</p>
+            <p className="text-lg font-bold text-blue-700">{summary.counts.completed}</p>
+            <p className="text-xs text-blue-600 mt-1">{formatCurrency(summary.revenue.completed)} — Completados</p>
           </div>
           <div className="bg-red-50 rounded-lg p-4 text-center">
-            <p className="text-lg font-bold text-red-600">{summary.cancelled.count}</p>
+            <p className="text-lg font-bold text-red-600">{summary.counts.cancelled}</p>
             <p className="text-xs text-red-500 mt-1">Cancelados</p>
           </div>
         </div>
@@ -168,10 +168,10 @@ export default function RegisterHistoryIsland() {
         <div>
           <h4 className="font-semibold text-slate-700 mb-2">Desglose por método de pago</h4>
           <div className="bg-slate-50 rounded-lg px-4 py-2">
-            {summary.paymentBreakdown.length === 0 ? (
+            {summary.byPaymentMethod.length === 0 ? (
               <p className="text-slate-400 text-sm py-1">Sin pedidos</p>
             ) : (
-              summary.paymentBreakdown.map((item) => (
+              summary.byPaymentMethod.map((item) => (
                 <div
                   key={item.method}
                   className="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0"

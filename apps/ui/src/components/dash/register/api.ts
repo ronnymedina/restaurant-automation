@@ -19,21 +19,73 @@ export interface CashShiftDto {
   //          totalSales, totalOrders, openedAt, closedAt
 }
 
+// -- Shift summary (unified shape used by /close, /summary/:id and /stats) --
+
+export interface ShiftCounts {
+  total: number;
+  pending: number;
+  created: number;
+  confirmed: number;
+  processing: number;
+  served: number;
+  completed: number;
+  cancelled: number;
+}
+
+export interface ShiftRevenue {
+  completed: number;
+  pending: number;
+  averageTicket: number;
+}
+
 export interface PaymentBreakdownItem {
   method: string;
   count: number;
   total: number;
 }
 
-export interface CloseSummary {
-  totalOrders: number;
-  totalSales: number;
-  paymentBreakdown: PaymentBreakdownItem[];
+export interface OrderTypeBreakdownItem {
+  type: string;
+  count: number;
+}
+
+export interface OrderSourceBreakdownItem {
+  source: string;
+  count: number;
+}
+
+export interface TopProduct {
+  id: string;
+  name: string;
+  quantity: number;
+  total: number;
+}
+
+export interface ShiftSummary {
+  counts: ShiftCounts;
+  revenue: ShiftRevenue;
+  byPaymentMethod: PaymentBreakdownItem[];
+  byOrderType: OrderTypeBreakdownItem[];
+  byOrderSource: OrderSourceBreakdownItem[];
+  topProducts: TopProduct[];
 }
 
 export interface CloseSessionResult {
   session: CashShiftDto;
-  summary: CloseSummary;
+  summary: ShiftSummary;
+}
+
+export interface SessionDetail {
+  session: CashShiftDto;
+  summary: ShiftSummary;
+}
+
+export interface LiveStatsResult {
+  summary: ShiftSummary;
+}
+
+export interface TopProductsResult {
+  topProducts: TopProduct[];
 }
 
 interface ApiError {
@@ -82,28 +134,6 @@ export interface SessionHistoryMeta {
   totalPages: number;
 }
 
-export interface SessionDetailSummary {
-  completed: { count: number; total: number };
-  cancelled: { count: number };
-  paymentBreakdown: PaymentBreakdownItem[];
-}
-
-export interface TopProduct {
-  id: string;
-  name: string;
-  quantity: number;
-  total: number;
-}
-
-export interface TopProductsResult {
-  topProducts: TopProduct[];
-}
-
-export interface SessionDetail {
-  session: CashShiftDto;
-  summary: SessionDetailSummary;
-}
-
 export async function getSessionHistory(
   page: number,
   limit = 10,
@@ -127,6 +157,15 @@ export async function getSessionDetail(sessionId: string): Promise<ApiResult<Ses
 
 export async function getTopProducts(sessionId: string): Promise<ApiResult<TopProductsResult>> {
   const res = await apiFetch(`/v1/cash-register/top-products/${sessionId}`);
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    return { ok: false, error, httpStatus: res.status };
+  }
+  return { ok: true, data: await res.json() };
+}
+
+export async function getLiveStats(): Promise<ApiResult<LiveStatsResult>> {
+  const res = await apiFetch('/v1/cash-register/stats');
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
     return { ok: false, error, httpStatus: res.status };

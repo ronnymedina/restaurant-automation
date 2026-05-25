@@ -9,6 +9,7 @@ import { CreateOrderDto } from '../orders/dto/create-order.dto';
 import { EntityNotFoundException } from '../common/exceptions';
 import { RegisterNotOpenException } from '../orders/exceptions/orders.exceptions';
 import { STOCK_STATUS, StockStatus } from '../events/kiosk.events';
+import { fromCents } from '../common/helpers/money';
 
 export interface MenuItemEntry {
   id: string;
@@ -132,7 +133,9 @@ export class KioskService {
       if (!sections[sectionName]) sections[sectionName] = [];
 
       const effectiveStock = item.stock ?? item.product.stock;
-      const price = Number(item.price ?? item.product.price);
+      // Prices in DB are BigInt centavos; the kiosk API exposes them in pesos
+      // to match the convention of ProductListSerializer and the dashboard.
+      const price = fromCents(item.price ?? item.product.price);
 
       sections[sectionName].push({
         id: item.product.id,

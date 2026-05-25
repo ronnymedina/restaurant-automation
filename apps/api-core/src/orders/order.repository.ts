@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { OrderStatus, Prisma, PaymentMethod } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { fromCents } from '../common/helpers/money';
 
 const ORDER_WITH_ITEMS = {
   items: {
@@ -9,24 +10,31 @@ const ORDER_WITH_ITEMS = {
   },
 } as const;
 
-/** Convert BigInt monetary fields to numbers so JSON serialization works. */
+/**
+ * Convert BigInt monetary fields (stored as centavos) to decimal pesos
+ * before returning to the API layer. JSON does not support BigInt and
+ * the convention across the API is to expose money in pesos.
+ *
+ * Applies to: totalAmount, items[].unitPrice, items[].subtotal,
+ * items[].product.price, items[].menuItem.priceOverride.
+ */
 function serializeOrder<T extends Record<string, any>>(order: T): T {
   const result: Record<string, any> = { ...order };
 
   if (typeof result['totalAmount'] === 'bigint') {
-    result['totalAmount'] = Number(result['totalAmount']);
+    result['totalAmount'] = fromCents(result['totalAmount']);
   }
 
   if (Array.isArray(result['items'])) {
     result['items'] = result['items'].map((item: Record<string, any>) => {
       const si: Record<string, any> = { ...item };
-      if (typeof si['unitPrice'] === 'bigint') si['unitPrice'] = Number(si['unitPrice']);
-      if (typeof si['subtotal'] === 'bigint') si['subtotal'] = Number(si['subtotal']);
+      if (typeof si['unitPrice'] === 'bigint') si['unitPrice'] = fromCents(si['unitPrice']);
+      if (typeof si['subtotal'] === 'bigint') si['subtotal'] = fromCents(si['subtotal']);
       if (si['product'] && typeof si['product']['price'] === 'bigint') {
-        si['product'] = { ...si['product'], price: Number(si['product']['price']) };
+        si['product'] = { ...si['product'], price: fromCents(si['product']['price']) };
       }
       if (si['menuItem'] && typeof si['menuItem']['priceOverride'] === 'bigint') {
-        si['menuItem'] = { ...si['menuItem'], priceOverride: Number(si['menuItem']['priceOverride']) };
+        si['menuItem'] = { ...si['menuItem'], priceOverride: fromCents(si['menuItem']['priceOverride']) };
       }
       return si;
     });

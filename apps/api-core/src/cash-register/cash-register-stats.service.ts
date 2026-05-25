@@ -5,9 +5,15 @@ import { OrderShiftReportRepository, TopProductWithName } from '../orders/order-
 
 // -- Types --
 
-export interface ShiftCount {
-  status: string;
+export interface ShiftCounts {
   total: number;
+  pending: number;
+  created: number;
+  confirmed: number;
+  processing: number;
+  served: number;
+  completed: number;
+  cancelled: number;
 }
 
 export interface ShiftRevenue {
@@ -22,17 +28,14 @@ export interface ShiftStatsByPaymentMethod {
   total: bigint;
 }
 
-export interface ShiftStats {
-  total: number;
-  pending: number;
-  counts: ShiftCount[];
+export interface ShiftSummary {
+  counts: ShiftCounts;
   revenue: ShiftRevenue;
   byPaymentMethod: Array<ShiftStatsByPaymentMethod>;
   byOrderType: Array<{ type: string; count: number }>;
   byOrderSource: Array<{ source: string; count: number }>;
   topProducts: TopProductWithName[];
 }
-
 
 type StatusGroup = Awaited<ReturnType<OrderShiftReportRepository['groupOrdersByShift']>>[number];
 type StatusAccumulator = Record<string, { count: number; revenue: bigint }>;
@@ -41,25 +44,19 @@ type StatusAccumulator = Record<string, { count: number; revenue: bigint }>;
 export class CashRegisterStatsService {
   constructor(private readonly orderShiftReport: OrderShiftReportRepository) {}
 
-  async getStats(sessionId: string): Promise<ShiftStats> {
+  async getSummary(sessionId: string): Promise<ShiftSummary> {
     const [groups, topProducts] = await Promise.all([
       this.orderShiftReport.groupOrdersByShift(sessionId),
       this.orderShiftReport.getTopProductsWithNamesByShift(sessionId),
     ]);
 
     const byStatus = this.groupByStatus(groups);
-    const counts = Object.entries(byStatus).map(([status, { count }]) => ({ status, total: count }));
-    const total = counts.reduce((sum, c) => sum + c.total, 0);
-    const pending = total
-      - (byStatus[OrderStatus.COMPLETED]?.count ?? 0)
-      - (byStatus[OrderStatus.CANCELLED]?.count ?? 0);
+    const counts = this.buildCounts(byStatus);
 
     const orderTypeCounts = this.countOrdersBy(groups, (r) => r.orderType);
     const orderSourceCounts = this.countOrdersBy(groups, (r) => r.orderSource);
 
     return {
-      total,
-      pending,
       counts,
       revenue: this.calculateRevenue(byStatus),
       byPaymentMethod: this.buildPaymentMethods(groups),
@@ -83,6 +80,23 @@ export class CashRegisterStatsService {
       };
       return acc;
     }, {});
+  }
+
+  /**
+   * Builds the counts object with one key per OrderStatus + total + pending.
+   * `pending` = total - completed - cancelled (CREATED, CONFIRMED, PROCESSING, SERVED).
+   */
+  private buildCounts(byStatus: StatusAccumulator): ShiftCounts {
+    const get = (s: OrderStatus) => byStatus[s]?.count ?? 0;
+    const created    = get(OrderStatus.CREATED);
+    const confirmed  = get(OrderStatus.CONFIRMED);
+    const processing = get(OrderStatus.PROCESSING);
+    const served     = get(OrderStatus.SERVED);
+    const completed  = get(OrderStatus.COMPLETED);
+    const cancelled  = get(OrderStatus.CANCELLED);
+    const total      = created + confirmed + processing + served + completed + cancelled;
+    const pending    = total - completed - cancelled;
+    return { total, pending, created, confirmed, processing, served, completed, cancelled };
   }
 
   /**

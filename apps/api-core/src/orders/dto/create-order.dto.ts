@@ -3,7 +3,6 @@ import {
   IsInt,
   IsIn,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
   Min,
@@ -12,9 +11,12 @@ import {
   IsEmail,
   ValidateIf,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { PaymentMethod } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+import { toCents } from '../../common/helpers/money';
+import { IsBigInt, MinBigInt } from '../../common/decorators/is-bigint.decorator';
 
 export class CreateOrderItemDto {
   @ApiProperty({ example: 'uuid-producto', description: 'ID del producto' })
@@ -76,10 +78,15 @@ export class CreateOrderDto {
   @IsOptional()
   deliveryReferences?: string;
 
-  @ApiPropertyOptional({ example: 25.0, description: 'Total esperado para validación' })
-  @IsNumber()
+  @ApiPropertyOptional({
+    example: 25.0,
+    description: 'Total esperado en pesos para validación (se convierte a BigInt centavos internamente)',
+  })
   @IsOptional()
-  expectedTotal?: number;
+  @Transform(({ value }) => (typeof value === 'number' ? toCents(value) : value))
+  @IsBigInt()
+  @MinBigInt(0n, { message: 'expectedTotal no puede ser negativo' })
+  expectedTotal?: bigint;
 
   @ApiPropertyOptional({ example: 'STAFF', description: 'Origen del pedido: KIOSK | WEB | STAFF' })
   @IsString()

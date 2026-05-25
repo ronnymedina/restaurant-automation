@@ -284,8 +284,11 @@ export class OrdersService {
     }
   }
 
-  private validateExpectedTotal(totalAmount: number, expectedTotal?: number): void {
-    if (expectedTotal !== undefined && Math.abs(totalAmount - expectedTotal) > 0.01) {
+  private validateExpectedTotal(totalAmount: number, expectedTotal?: bigint): void {
+    // totalAmount is in Number centavos (computed in validateAndBuildItems).
+    // expectedTotal arrives as BigInt centavos (DTO @Transform(toCents)).
+    // Both sides are now in centavos: exact equality, no floating-point tolerance.
+    if (expectedTotal !== undefined && BigInt(totalAmount) !== expectedTotal) {
       throw new BadRequestException(
         'Los precios de tu pedido han cambiado. Por favor revisa el carrito e intenta de nuevo.',
       );
