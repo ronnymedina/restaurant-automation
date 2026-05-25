@@ -87,7 +87,7 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
     expect(res.body.details.pendingCount).toBe(1);
   });
 
-  it('Cierra sesión con pedidos completados → 200 con session y stats', async () => {
+  it('Cierra sesión con pedidos completados → 200 con session y summary', async () => {
     const restC = await seedRestaurant(prisma, 'C');
     const tokenC = await login(app, restC.admin.email);
     const product = await seedProduct(prisma, restC.restaurant.id, restC.category.id);
@@ -112,21 +112,21 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
     expect(res.body.session.totalSales).toBeUndefined();
     expect(res.body.session.totalOrders).toBeUndefined();
 
-    // stats shape (CashShiftStatsSerializer)
-    expect(res.body.stats).toBeDefined();
-    expect(res.body.stats.counts).toBeDefined();
-    expect(typeof res.body.stats.counts.completed).toBe('number');
-    expect(res.body.stats.counts.completed).toBe(1);
-    expect(res.body.stats.revenue).toBeDefined();
-    expect(typeof res.body.stats.revenue.completed).toBe('number');
-    expect(Array.isArray(res.body.stats.byPaymentMethod)).toBe(true);
-    expect(Array.isArray(res.body.stats.topProducts)).toBe(true);
+    // summary shape (unified ShiftSummary)
+    expect(res.body.summary).toBeDefined();
+    expect(res.body.summary.counts).toBeDefined();
+    expect(typeof res.body.summary.counts.completed).toBe('number');
+    expect(res.body.summary.counts.completed).toBe(1);
+    expect(res.body.summary.revenue).toBeDefined();
+    expect(typeof res.body.summary.revenue.completed).toBe('number');
+    expect(Array.isArray(res.body.summary.byPaymentMethod)).toBe(true);
+    expect(Array.isArray(res.body.summary.topProducts)).toBe(true);
 
-    // old summary field should not be present
-    expect(res.body.summary).toBeUndefined();
+    // old field name should not be present
+    expect(res.body.stats).toBeUndefined();
   });
 
-  it('stats.revenue.completed refleja solo órdenes COMPLETED (excluye CANCELLED)', async () => {
+  it('summary.revenue.completed refleja solo órdenes COMPLETED (excluye CANCELLED)', async () => {
     const restMixed = await seedRestaurant(prisma, 'Mixed');
     const tokenMixed = await login(app, restMixed.admin.email);
     const product = await seedProduct(prisma, restMixed.restaurant.id, restMixed.category.id);
@@ -141,8 +141,8 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
       .expect(200);
 
     // Only the COMPLETED order counts (1000 centavos = 10 pesos via fromCents)
-    expect(res.body.stats.revenue.completed).toBeCloseTo(10, 2);
-    expect(res.body.stats.counts.completed).toBe(1);
-    expect(res.body.stats.counts.cancelled).toBe(1);
+    expect(res.body.summary.revenue.completed).toBeCloseTo(10, 2);
+    expect(res.body.summary.counts.completed).toBe(1);
+    expect(res.body.summary.counts.cancelled).toBe(1);
   });
 });

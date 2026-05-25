@@ -2,14 +2,20 @@ import { Exclude, Expose, Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 import { fromCents } from '../../common/helpers/money';
-import { type ShiftStats } from '../cash-register-stats.service';
+import { type ShiftSummary } from '../cash-register-stats.service';
 
 @Exclude()
-export class ShiftCountSerializer {
-  @Expose() @ApiProperty() status: string;
+export class ShiftCountsSerializer {
   @Expose() @ApiProperty() total: number;
+  @Expose() @ApiProperty() pending: number;
+  @Expose() @ApiProperty() created: number;
+  @Expose() @ApiProperty() confirmed: number;
+  @Expose() @ApiProperty() processing: number;
+  @Expose() @ApiProperty() served: number;
+  @Expose() @ApiProperty() completed: number;
+  @Expose() @ApiProperty() cancelled: number;
 
-  constructor(partial: Partial<ShiftCountSerializer>) {
+  constructor(partial: Partial<ShiftCountsSerializer>) {
     Object.assign(this, partial);
   }
 }
@@ -78,13 +84,10 @@ export class StatsTopProductSerializer {
 }
 
 @Exclude()
-export class CashShiftStatsSerializer {
-  @Expose() @ApiProperty() total: number;
-  @Expose() @ApiProperty() pending: number;
-
+export class ShiftSummarySerializer {
   @Expose()
-  @ApiProperty({ type: [ShiftCountSerializer] })
-  counts: ShiftCountSerializer[];
+  @ApiProperty({ type: ShiftCountsSerializer })
+  counts: ShiftCountsSerializer;
 
   @Expose()
   @ApiProperty({ type: StatsRevenueSerializer })
@@ -106,30 +109,26 @@ export class CashShiftStatsSerializer {
   @ApiProperty({ type: [StatsTopProductSerializer] })
   topProducts: StatsTopProductSerializer[];
 
-  constructor(stats: ShiftStats) {
-    this.total = stats.total;
-    this.pending = stats.pending;
-    this.counts = stats.counts.map((c) => new ShiftCountSerializer(c));
-    this.revenue = new StatsRevenueSerializer(stats.revenue);
-    this.byPaymentMethod = stats.byPaymentMethod.map(
+  constructor(summary: ShiftSummary) {
+    this.counts = new ShiftCountsSerializer(summary.counts);
+    this.revenue = new StatsRevenueSerializer(summary.revenue);
+    this.byPaymentMethod = summary.byPaymentMethod.map(
       (x) => new StatsByPaymentMethodSerializer(x),
     );
-    this.byOrderType   = stats.byOrderType.map((x)   => new StatsByOrderTypeSerializer(x));
-    this.byOrderSource = stats.byOrderSource.map((x) => new StatsByOrderSourceSerializer(x));
-    this.topProducts   = stats.topProducts.map((x)   => new StatsTopProductSerializer(x));
+    this.byOrderType   = summary.byOrderType.map((x)   => new StatsByOrderTypeSerializer(x));
+    this.byOrderSource = summary.byOrderSource.map((x) => new StatsByOrderSourceSerializer(x));
+    this.topProducts   = summary.topProducts.map((x)   => new StatsTopProductSerializer(x));
   }
 
-  static empty(): CashShiftStatsSerializer {
-    const empty: ShiftStats = {
-      total: 0,
-      pending: 0,
-      counts: [],
+  static empty(): ShiftSummarySerializer {
+    const empty: ShiftSummary = {
+      counts: { total: 0, pending: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 0, cancelled: 0 },
       revenue: { completed: 0n, pending: 0n, averageTicket: 0n },
       byPaymentMethod: [],
       byOrderType: [],
       byOrderSource: [],
       topProducts: [],
     };
-    return new CashShiftStatsSerializer(empty);
+    return new ShiftSummarySerializer(empty);
   }
 }

@@ -272,7 +272,8 @@ flowchart TD
 - `GET /v1/orders` resuelve el turno activo internamente desde el `restaurantId` del JWT. Si no hay caja abierta devuelve 409 `REGISTER_NOT_OPEN`. Aplica `limit` de 100 por defecto (máximo 100). Para reportes históricos completos usar `/history`
 - `displayTime` se formatea en el timezone del restaurante server-side. El campo `createdAt` se mantiene en ISO8601
 - El `restaurantId` viene del JWT — toda operación está aislada por restaurante
-- `totalAmount`, `unitPrice` y `subtotal` se almacenan como `BigInt` en PostgreSQL (centavos). El serializer los convierte a `number` para la respuesta JSON. JSON no soporta `BigInt` nativo
+- `totalAmount`, `unitPrice` y `subtotal` se almacenan como `BigInt` en PostgreSQL (centavos). El helper `serializeOrder` (en `order.repository.ts`) aplica `fromCents` antes de devolver, de modo que la respuesta JSON expone los montos en **pesos** (decimal). Mismo criterio para `items[].product.price` y `items[].menuItem.priceOverride`. JSON no soporta `BigInt` nativo.
+- **`CreateOrderDto.expectedTotal`** acepta `number` en pesos en la request, pero internamente se transforma a `bigint` centavos vía `@Transform(toCents)`. La validación `validateExpectedTotal` compara `BigInt(totalAmount) === expectedTotal` exactamente (centavos vs centavos), sin tolerancia de coma flotante. Antes existía un mismatch de unidades entre kiosk (centavos) y backend (centavos) que pasaba por accidente; ver H-01 en `docs/superpowers/specs/2026-05-24-orders-cash-kitchen-audit-findings.md`.
 - Máquina de estados de orden:
   - Flujo normal: `CREATED → PROCESSING → SERVED → COMPLETED`
   - Cancelación: `CREATED` o `PROCESSING → CANCELLED`

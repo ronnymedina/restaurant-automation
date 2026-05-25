@@ -77,8 +77,8 @@ export class CashRegisterService {
       });
     });
 
-    const stats = await this.statsService.getStats(closedSession.id);
-    return { session: closedSession, stats };
+    const summary = await this.statsService.getSummary(closedSession.id);
+    return { session: closedSession, summary };
   }
 
   async getSessionHistory(
@@ -118,11 +118,11 @@ export class CashRegisterService {
     return session || {};
   }
 
-  async getSessionStats(sessionId: string) {
-    const [stats, session] = await Promise.all([
-      this.statsService.getStats(sessionId),
+  async getSessionSummary(sessionId: string) {
+    const [summary, session] = await Promise.all([
+      this.statsService.getSummary(sessionId),
       this.registerSessionRepository.findById(sessionId),
     ]);
-    return { session: session!, stats };
+    return { session: session!, summary };
   }
 }

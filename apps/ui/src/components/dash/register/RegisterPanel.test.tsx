@@ -141,7 +141,14 @@ test('canceling close Alert hides it', async () => {
 });
 
 test('confirming close calls close API endpoint', async () => {
-  const summary = { totalOrders: 2, totalSales: 100, paymentBreakdown: [] };
+  const summary = {
+    counts: { total: 2, pending: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 2, cancelled: 0 },
+    revenue: { completed: 100, pending: 0, averageTicket: 50 },
+    byPaymentMethod: [],
+    byOrderType: [],
+    byOrderSource: [],
+    topProducts: [],
+  };
   mockApiFetch
     .mockResolvedValueOnce({ ok: true, json: async () => openData } as Response)
     .mockResolvedValueOnce({ ok: true, json: async () => ({ summary }) } as Response)
@@ -158,7 +165,14 @@ test('confirming close calls close API endpoint', async () => {
 });
 
 test('shows RegisterSummaryModal on successful close', async () => {
-  const summary = { totalOrders: 5, totalSales: 250, paymentBreakdown: [] };
+  const summary = {
+    counts: { total: 5, pending: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 5, cancelled: 0 },
+    revenue: { completed: 250, pending: 0, averageTicket: 50 },
+    byPaymentMethod: [],
+    byOrderType: [],
+    byOrderSource: [],
+    topProducts: [],
+  };
   mockApiFetch
     .mockResolvedValueOnce({ ok: true, json: async () => openData } as Response)
     .mockResolvedValueOnce({ ok: true, json: async () => ({ summary }) } as Response)
