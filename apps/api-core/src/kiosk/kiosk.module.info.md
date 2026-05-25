@@ -150,7 +150,7 @@ E2E: ✅ `test/kiosk/kioskMenuItems.e2e-spec.ts`
 | Slug no existe | 404 | `ENTITY_NOT_FOUND` |
 | `menuId` no existe | 404 | `ENTITY_NOT_FOUND` |
 | No requiere token | 200 | Endpoint público |
-| `price` como number | 200 | BigInt serializado a number |
+| `price` como number en **pesos** (no centavos) | 200 | El servicio aplica `fromCents` a `item.price ?? item.product.price` antes de devolver. Ver H-01 regression test |
 | `stockStatus` refleja disponibilidad | 200 | Derivado del stock del producto |
 
 ---
@@ -196,5 +196,7 @@ E2E: ✅ `test/kiosk/kioskOrderStatus.e2e-spec.ts`
 - `getAvailableMenus` filtra menús por `active = true` y valida el horario (`startTime`/`endTime`) y día de la semana (`daysOfWeek`) en el momento de la consulta
 - La creación de órdenes (`createKioskOrder`) delega en `OrdersService.createOrder` que usa `$transaction` para: validar stock, decrementar stock atómicamente, incrementar `lastOrderNumber` en la sesión de caja y persistir la orden
 - BigInt: `totalAmount`, `unitPrice` y `subtotal` se almacenan como `BigInt` en PostgreSQL. El repositorio los serializa a `number` antes de devolver la respuesta JSON
+- **Precios del menú (kiosk) en pesos**: el endpoint `GET /:slug/menus/:menuId/items` aplica `fromCents()` a los precios crudos (BigInt centavos) antes de exponerlos. Igual convención que `ProductListSerializer` del dashboard. Sin esto, el frontend del kiosk recibiría centavos y mostraría precios inflados 100× (bug H-01 — ver `apps/api-core/docs/superpowers/specs/2026-05-24-orders-cash-kitchen-audit-findings.md`).
+- **`expectedTotal` en pesos**: el cliente del kiosk envía `expectedTotal` en pesos (decimal). El DTO `CreateOrderDto` aplica `@Transform(toCents)` internamente y la validación compara BigInt centavos con exactitud (sin tolerancia de coma flotante).
 - `receipt` y `kitchenTicket` en la respuesta de creación son strings HTML/texto generados por `PrintService`; pueden ser `null` si el servicio de impresión falla (fire-and-forget — nunca bloquea la respuesta)
 - El endpoint `GET /:slug/orders/:orderId` no valida que la orden pertenezca al restaurante del slug más allá de resolver el restaurante — es intencional para simplificar el polling desde el kiosk

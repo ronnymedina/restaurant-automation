@@ -380,7 +380,7 @@ describe('KioskService', () => {
       expect(result.sections['Burgers'][0].stockStatus).toBe(STOCK_STATUS.LOW_STOCK);
     });
 
-    it('uses item price when item price is not null', async () => {
+    it('uses item price (in pesos) when item.price is not null — converts centavos via fromCents', async () => {
       const menu = {
         id: 'm1',
         name: 'Menu',
@@ -388,13 +388,31 @@ describe('KioskService', () => {
           id: 'mi1',
           sectionName: null,
           stock: null,
-          price: 15,
-          product: { id: 'p1', name: 'Burger', description: null, price: 10, imageUrl: null, stock: null },
+          price: BigInt(1500),
+          product: { id: 'p1', name: 'Burger', description: null, price: BigInt(1000), imageUrl: null, stock: null },
         }],
       };
       mockMenuRepository.findByIdWithItems.mockResolvedValue(menu);
       const result = await service.getMenuItems('test-rest', 'm1');
-      expect(result.sections['General'][0].price).toBe(15);
+      expect(result.sections['General'][0].price).toBe(15); // 1500 centavos → 15 pesos
+    });
+
+    it('applies fromCents to product.price when menuItem.price is null (H-01 regression test)', async () => {
+      const menu = {
+        id: 'm1',
+        name: 'Menu',
+        items: [{
+          id: 'mi1',
+          sectionName: 'General',
+          stock: null,
+          price: null,
+          product: { id: 'p1', name: 'Pizza', description: null, price: BigInt(10000), imageUrl: null, stock: null },
+        }],
+      };
+      mockMenuRepository.findByIdWithItems.mockResolvedValue(menu);
+      const result = await service.getMenuItems('test-rest', 'm1');
+      // Bug pre-fix: returned 10000 (raw centavos). After fix: 100 pesos.
+      expect(result.sections['General'][0].price).toBe(100);
     });
   });
 

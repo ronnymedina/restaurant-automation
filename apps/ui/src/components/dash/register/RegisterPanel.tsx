@@ -6,7 +6,7 @@ import { EyeIcon, EyeOffIcon } from '../../commons/icons';
 
 import { getCurrentSession, openSession, closeSession } from './api';
 
-import type { CashShiftDto, CloseSummary } from './api';
+import type { CashShiftDto, ShiftSummary } from './api';
 import type { RegisterStatus, AlertConfig } from './types';
 
 import { REGISTER_STATUS, ALERT_TYPE } from './types';
@@ -16,7 +16,8 @@ export default function RegisterPanel() {
   const [errorMessage, setErrorMessage] = useState('');
   const [registerData, setRegisterData] = useState<CashShiftDto | null>(null);
   const [alert, setAlert] = useState<AlertConfig | null>(null);
-  const [summaryData, setSummaryData] = useState<CloseSummary | null>(null);
+  const [summaryData, setSummaryData] = useState<ShiftSummary | null>(null);
+  const [summarySession, setSummarySession] = useState<CashShiftDto | null>(null);
   const [showSummary, setShowSummary] = useState(false);
   const [showSensitive, setShowSensitive] = useState(false);
 
@@ -93,6 +94,7 @@ export default function RegisterPanel() {
       return;
     }
     setSummaryData(result.data.summary);
+    setSummarySession(result.data.session ?? null);
     setShowSummary(true);
     setRegisterData(null);
     setStatus(REGISTER_STATUS.CLOSED);
@@ -190,6 +192,7 @@ export default function RegisterPanel() {
       {showSummary && summaryData && (
         <RegisterSummaryModal
           open={showSummary}
+          session={summarySession}
           summary={summaryData}
           onClose={() => setShowSummary(false)}
         />
