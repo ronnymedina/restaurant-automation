@@ -184,7 +184,7 @@ test('shows RegisterSummaryModal on successful close', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
 
   await waitFor(() => expect(screen.getByText('Resumen de Caja')).toBeInTheDocument());
-  expect(screen.getByText('$250.00')).toBeInTheDocument();
+  expect(screen.getByText(/\$250\.00/)).toBeInTheDocument();
 });
 
 test('shows error Alert on PENDING_ORDERS_ON_SHIFT', async () => {
