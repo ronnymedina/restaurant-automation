@@ -19,7 +19,6 @@ import { ForbiddenAccessException } from '../common/exceptions';
 import { EmailService } from '../email/email.service';
 import { PrintService } from '../print/print.service';
 import { OrderEventsService } from '../events/orders.events';
-import { PRINT_CUSTOMER_ON_CREATE } from '../config';
 import { TimezoneService } from '../restaurants/timezone.service';
 import { toUtcBoundary } from '../common/date.utils';
 import { CashShiftRepository } from '../cash-shift/cash-shift.repository';
@@ -82,20 +81,7 @@ export class OrdersService {
       this.logger.warn(`Kitchen print failed for order #${order.orderNumber}: ${err.message}`),
     );
 
-    if (PRINT_CUSTOMER_ON_CREATE) {
-      void this.printService.printReceipt(order.id).catch((err) =>
-        this.logger.warn(`Customer receipt print failed for order #${order.orderNumber}: ${err.message}`),
-      );
-    }
-
-    // TODO(print-cloud): generateBoth is disabled — see docs/print-cloud.md
-    // const tickets = await this.printService.generateBoth(order.id).catch(() => null);
-
-    return {
-      order,
-      receipt: null,
-      kitchenTicket: null,
-    };
+    return { order };
   }
 
   async createStaffOrder(restaurantId: string, dto: CreateOrderDto) {
@@ -207,20 +193,6 @@ export class OrdersService {
 
     const updatedOrder = await this.orderRepository.markAsPaid(id, paymentMethod);
     this.orderEventsService.emitOrderUpdated(restaurantId, updatedOrder);
-
-    void this.printService.printReceipt(id).catch((err) =>
-      this.logger.warn(`Receipt print failed for order ${id}: ${err.message}`),
-    );
-
-    // TODO: receipt email disabled — template needs redesign before re-enabling
-    // if (updatedOrder.customerEmail && this.emailService) {
-    //   try {
-    //     const receipt = await this.printService.generateReceipt(id);
-    //     await this.emailService.sendReceiptEmail(updatedOrder.customerEmail, receipt);
-    //   } catch (error) {
-    //     this.logger.error(`Failed to send receipt email for order ${id}`, error);
-    //   }
-    // }
 
     return updatedOrder;
   }

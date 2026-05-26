@@ -42,12 +42,9 @@ const mockOrderEvents = {
   emitOrderCreated: jest.fn(),
   emitOrderUpdated: jest.fn(),
 };
-const mockEmail = { sendReceiptEmail: jest.fn() };
+const mockEmail = {};
 const mockPrint = {
-  generateReceipt: jest.fn(),
-  generateBoth: jest.fn().mockResolvedValue({ receipt: {}, kitchenTicket: {} }),
   printKitchenTicket: jest.fn().mockResolvedValue({ success: true, message: '' }),
-  printReceipt: jest.fn().mockResolvedValue({ success: true, message: '' }),
 };
 const mockTimezoneService = { getTimezone: jest.fn().mockResolvedValue('UTC') };
 
@@ -184,15 +181,6 @@ describe('OrdersService', () => {
       const result = await service.markAsPaid('o1', 'r1');
       expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', paid);
       expect(result).toEqual(paid);
-    });
-
-    it('does not throw when printReceipt fails', async () => {
-      const paid = makeOrder({ isPaid: true });
-      mockOrderRepository.findById.mockResolvedValue(makeOrder());
-      mockOrderRepository.markAsPaid.mockResolvedValue(paid);
-      mockPrint.printReceipt.mockRejectedValue(new Error('Print failed'));
-
-      await expect(service.markAsPaid('o1', 'r1')).resolves.toEqual(paid);
     });
 
     it('auto-confirms CREATED order when marking as paid', async () => {

@@ -21,7 +21,6 @@ const callbacks = {
   onUnpay: noop,
   onCancel: noop,
   onCancelBlocked: noop,
-  onReceipt: noop,
 };
 
 describe('OrdersFilteredList', () => {

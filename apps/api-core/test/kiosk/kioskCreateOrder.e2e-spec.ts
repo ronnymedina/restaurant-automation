@@ -131,4 +131,20 @@ describe('POST /v1/kiosk/:slug/orders - kioskCreateOrder (e2e) [PUBLIC]', () => 
       .send({ items: [{ productId, quantity: 1 }], expectedTotal: 5 })
       .expect(400);
   });
+
+  it('notes >500 caracteres → 400 (H-03 regression)', async () => {
+    // Defense in depth — frontend should escape, but backend caps free-text fields
+    // to bound DoS via huge payloads and limit blast radius of any future renderer mistake.
+    await request(app.getHttpServer())
+      .post(`/v1/kiosk/${slug}/orders`)
+      .send({ items: [{ productId, quantity: 1, notes: 'x'.repeat(501) }] })
+      .expect(400);
+  });
+
+  it('notes exactamente 500 caracteres → 201 (H-03 regression boundary)', async () => {
+    await request(app.getHttpServer())
+      .post(`/v1/kiosk/${slug}/orders`)
+      .send({ items: [{ productId, quantity: 1, notes: 'x'.repeat(500) }] })
+      .expect(201);
+  });
 });

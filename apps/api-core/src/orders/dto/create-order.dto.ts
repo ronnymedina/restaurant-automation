@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   ValidateNested,
   IsEnum,
@@ -36,6 +37,7 @@ export class CreateOrderItemDto {
   @ApiPropertyOptional({ example: 'Sin cebolla' })
   @IsString()
   @IsOptional()
+  @MaxLength(500)
   notes?: string;
 }
 
@@ -54,16 +56,19 @@ export class CreateOrderDto {
   @ApiPropertyOptional({ example: 'cliente@email.com' })
   @IsEmail()
   @IsOptional()
+  @MaxLength(254)
   customerEmail?: string;
 
   @ApiPropertyOptional({ example: 'Juan Pérez', description: 'Nombre del cliente' })
   @IsString()
   @IsOptional()
+  @MaxLength(200)
   customerName?: string;
 
   @ApiPropertyOptional({ example: '+52 555 1234567', description: 'Teléfono del cliente' })
   @IsString()
   @IsOptional()
+  @MaxLength(30)
   customerPhone?: string;
 
   @ApiPropertyOptional({ example: 'Calle Reforma 123, Col. Centro' })
@@ -71,11 +76,13 @@ export class CreateOrderDto {
   @ValidateIf((o) => o.orderType === 'DELIVERY')
   @IsString()
   @IsNotEmpty()
+  @MaxLength(500)
   deliveryAddress?: string;
 
   @ApiPropertyOptional({ example: 'Puerta azul, 2do piso' })
   @IsString()
   @IsOptional()
+  @MaxLength(500)
   deliveryReferences?: string;
 
   @ApiPropertyOptional({
@@ -103,5 +110,6 @@ export class CreateOrderDto {
   @ApiPropertyOptional({ example: '5', description: 'Número de mesa. Requerido si orderType = DINE_IN' })
   @IsString()
   @IsOptional()
+  @MaxLength(20)
   tableNumber?: string;
 }

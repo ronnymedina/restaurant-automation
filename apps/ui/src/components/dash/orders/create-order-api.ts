@@ -39,8 +39,6 @@ export interface CreateStaffOrderPayload {
 
 export interface CreatedOrderResult {
   order: { id: string; orderNumber: number; status: string; orderSource: string };
-  receipt: null;
-  kitchenTicket: null;
 }
 
 export async function createStaffOrder(payload: CreateStaffOrderPayload): Promise<ApiResult<CreatedOrderResult>> {

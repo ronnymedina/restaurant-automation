@@ -2,7 +2,6 @@ import { join } from 'path';
 
 import { plainToInstance } from 'class-transformer';
 import {
-  IsBoolean,
   IsEnum,
   IsNotEmpty,
   IsNumber,
@@ -176,11 +175,6 @@ class EnvironmentVariables {
   @Min(1)
   MAX_FILES?: number;
 
-  // --- print ---
-
-  @IsOptional()
-  @IsBoolean()
-  PRINT_CUSTOMER_ON_CREATE?: boolean;
 }
 
 export function validate(config: Record<string, unknown>) {
@@ -247,6 +241,3 @@ const MAX_FILE_SIZE_MB = Number(process.env.MAX_FILE_SIZE_MB) || 5;
 export const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
 export const MAX_FILES = Number(process.env.MAX_FILES) || 1;
 export const MAX_ONBOARDING_PRODUCTS = Number(process.env.MAX_ONBOARDING_PRODUCTS) || 20;
-
-// print
-export const PRINT_CUSTOMER_ON_CREATE = process.env.PRINT_CUSTOMER_ON_CREATE === 'true';
