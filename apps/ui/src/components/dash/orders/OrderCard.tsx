@@ -38,7 +38,6 @@ export interface OrderCardCallbacks {
   onUnpay: (id: string) => void;
   onCancel: (id: string) => void;
   onCancelBlocked: (id: string) => void;
-  onReceipt: (id: string) => void;
 }
 
 interface OrderCardProps extends OrderCardCallbacks {
@@ -46,7 +45,7 @@ interface OrderCardProps extends OrderCardCallbacks {
 }
 
 export default function OrderCard({
-  order, onConfirm, onAdvance, onPay, onUnpay, onCancel, onCancelBlocked, onReceipt,
+  order, onConfirm, onAdvance, onPay, onUnpay, onCancel, onCancelBlocked,
 }: OrderCardProps) {
   const border = BORDER_COLORS[order.status] ?? 'border-l-slate-300';
   const isActive = ACTIVE_STATUSES.has(order.status);

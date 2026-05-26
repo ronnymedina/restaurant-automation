@@ -12,16 +12,6 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class PrintController {
   constructor(private readonly printService: PrintService) {}
 
-  @Get('receipt/:orderId')
-  async getReceipt(@Param('orderId') orderId: string) {
-    return this.printService.generateReceipt(orderId);
-  }
-
-  @Post('receipt/:orderId/print')
-  async printReceipt(@Param('orderId') orderId: string) {
-    return this.printService.printReceipt(orderId);
-  }
-
   @Get('kitchen-ticket/:orderId')
   async getKitchenTicket(@Param('orderId') orderId: string) {
     return this.printService.generateKitchenTicket(orderId);

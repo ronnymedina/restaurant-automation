@@ -24,7 +24,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 
 | Severidad | Cantidad | IDs |
 |-----------|----------|-----|
-| 🔴 CRÍTICO | 4 | H-01 ✅, H-02 ✅, H-03, H-04 |
+| 🔴 CRÍTICO | 4 | H-01 ✅, H-02 ✅, H-03 ✅, H-04 |
 | 🟠 ALTO    | 16 | H-05 … H-20 |
 | 🟡 MEDIO   | 19 | H-21, H-22 ✅, H-23 … H-39 |
 | 🟢 BAJO    | 13 | H-40 … H-52 |
@@ -33,6 +33,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 **Progreso:**
 - ✅ H-01 implementado (2026-05-25)
 - ✅ H-02 implementado (2026-05-25) — fix del wizard + nuevas columnas de display settings + endpoint extendido
+- ✅ H-03 implementado (2026-05-25) — XSS de cocina cerrado vía DOM API + módulo de recibo (dashboard + backend) eliminado por ser dead code + `@MaxLength` en campos de texto libre del DTO de orden
 - ✅ H-22 parcial (2026-05-25) — `fromCents` aplicado en `serializeOrder`; refactor estructural a Serializer dedicado sigue pendiente
 - ➕ Hallazgo adicional descubierto y arreglado: contrato roto entre backend `/cash-register/summary` y frontend `RegisterHistoryIsland`. Ver sección "Hallazgos adicionales".
 
@@ -204,6 +205,35 @@ colCreated.innerHTML = created.length ? created.map(renderCard).join('') : empty
 ```
 
 **Fix:** Reemplazar concatenación por `document.createElement` + `textContent`. Aplicar a `productName`, `notes`, `cancellationReason`, `restaurantName`, `paymentMethod`, `orderNumber`. La ventana de recibo debe abrirse con `rel="noopener"`.
+
+**Estado:** ✅ Implementado (2026-05-25)
+
+**Diagnóstico corregido durante la revisión:** la auditoría apuntó a 2 superficies (recibo del dashboard + cocina). Verificación en código:
+- **Recibo del dashboard**: `handleReceipt` estaba cableado en `OrdersPanel.tsx` y `OrderCard.tsx` declaraba la prop `onReceipt`, pero **no existía botón en el JSX que lo invocara**. Era código muerto. Decisión: borrar todo el módulo de recibo (frontend + backend) porque no se va a usar en el corto plazo.
+- **Cocina**: el XSS sí estaba 100% vivo. `renderCard` concatenaba `notes`, `productName` y `orderNumber` en un template string que luego se asignaba a `innerHTML`. Vector remoto sin auth (kiosk público acepta `notes` libre sin validación) → todas las pantallas de cocina conectadas ejecutan JS arbitrario en cuanto SSE entrega el pedido → token de cocina exfiltrable desde `sessionStorage` (combina con [[H-14]] para escalar a control total del KDS).
+
+**Cambios aplicados (A + C):**
+
+A — Cocina (`apps/ui/src/pages/kitchen/index.astro:238-298`):
+- `renderCard(order)` ahora retorna `HTMLElement` construido con `document.createElement`. Todos los valores controlados por el usuario (`notes`, `productName`, `orderNumber`, `displayTime`) van por `textContent` o `createTextNode` — `innerHTML` ya no existe en el path de render.
+- `loadOrders()` cambió `colCreated.innerHTML = …` por `colCreated.replaceChildren(...)` con array de nodos.
+- Empty state extraído a `renderEmptyState()` también construido por DOM API.
+- Helper `el(tag, style)` para reducir verbosity sin volver al patrón frágil de strings.
+
+Receipt cleanup (recibo dashboard era dead code):
+- Backend: borrados endpoints `GET/POST /v1/print/receipt/:id`, métodos `generateReceipt`/`generateBoth`/`printReceipt`, `Receipt` interface, `EmailService.sendReceiptEmail`/`buildReceiptHtml`. Llamadas internas `printReceipt` en `OrdersService.createOrder` (gated por `PRINT_CUSTOMER_ON_CREATE`) y `markAsPaid` eliminadas. Env var `PRINT_CUSTOMER_ON_CREATE` eliminada. Kitchen-ticket (otro endpoint del mismo módulo) conservado intacto.
+- Frontend: borrado `handleReceipt`, prop `onReceipt` purgada en `OrderCard.tsx`, `OrdersFilteredList.tsx`, `OrdersKanban.tsx`. `CreatedOrderResult` simplificado a `{ order }` sin los nulls residuales.
+
+C — Defensa en profundidad backend (`apps/api-core/src/orders/dto/create-order.dto.ts`):
+- `@MaxLength(500)` en `notes` (nivel item).
+- `@MaxLength(200)` en `customerName`, `@MaxLength(30)` en `customerPhone`, `@MaxLength(254)` en `customerEmail`, `@MaxLength(500)` en `deliveryAddress` y `deliveryReferences`, `@MaxLength(20)` en `tableNumber`.
+- Tests: 13 nuevos casos en `create-order.dto.spec.ts` cubriendo aceptación en el límite exacto y rechazo justo encima (`maxLength` constraint). 2 regression tests adicionales en `kioskCreateOrder.e2e-spec.ts` (no corren por el bug pre-existente de stack overflow del e2e kiosk).
+
+Naming rule: el frontend que renderiza datos controlados por usuarios anónimos (kiosk → cocina, kiosk → dashboard) **debe** usar DOM API + `textContent`. Nunca `innerHTML` + template strings con valores externos. Esto incluye el helper `escapeHtml` — está prohibido porque invita a olvidos.
+
+**Verificación:** 39 suites / 419 tests del backend en verde (13 nuevos en DTO spec). Smoke test visual de cocina con notes maliciosas pendiente — ver caveat al final.
+
+**Caveat conocido:** los e2e del módulo `kiosk` siguen rotos por el stack overflow preexistente al inicializar NestJS con SQLite (documentado en H-01). Los 2 e2e regression que agregué quedan listos para correr cuando se desbloquee esa infra.
 
 ---
 
@@ -566,7 +596,7 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 
 | Sprint | Hallazgos |
 |--------|-----------|
-| **Hoy / hotfix** | ~~H-01 (kiosk roto)~~ ✅, ~~H-02 (precios wizard)~~ ✅, H-03 (XSS), H-04 (tokens en URL), ~~H-AUX-01 (contrato cash-register)~~ ✅ |
+| **Hoy / hotfix** | ~~H-01 (kiosk roto)~~ ✅, ~~H-02 (precios wizard)~~ ✅, ~~H-03 (XSS)~~ ✅, H-04 (tokens en URL), ~~H-AUX-01 (contrato cash-register)~~ ✅ |
 | **Esta semana** | H-05 (markAsPaid TX), H-09 (closeSession race), H-13 (kitchen race), H-14 (kitchen token) |
 | **Próximo sprint** | H-07 (findHistory DTO), H-11 (BigInt cash-shift), H-08/H-12 (filtros restaurantId), H-15 (notifyOffline canal) |
 | **Backlog técnico** | H-17 a H-20 + todos los MEDIOS |

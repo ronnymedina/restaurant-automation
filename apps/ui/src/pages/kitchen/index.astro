@@ -236,34 +236,58 @@ import KitchenConfirmModal from '../../components/kitchen/KitchenConfirmModal';
   }
 
   // ── Render cards ──────────────────────────────────────────────────
+  // H-03 — All user-controlled text (notes, product names, order numbers)
+  // is written via textContent / createTextNode. No string interpolation
+  // into HTML — eliminates the XSS vector from kiosk-supplied `notes`.
 
-  function renderCard(order: any): string {
-    const time = order.displayTime;
-    const items = (order.items || []).map((i: any) => {
-      const note = i.notes ? `<p style="color:#fbbf24;font-size:16px;font-style:italic;margin-left:16px;margin-top:4px;">${i.notes}</p>` : '';
-      return `<p style="color:white;font-size:22px;font-weight:500;"><span style="font-size:26px;font-weight:900;">${i.quantity}×</span> ${i.product?.name || i.productName || '?'}</p>${note}`;
-    }).join('');
+  function el(tag: string, style: string): HTMLElement {
+    const node = document.createElement(tag);
+    node.setAttribute('style', style);
+    return node;
+  }
 
-    const actionBtn = order.status === 'CONFIRMED'
-      ? `<button data-advance="${order.id}" data-next="PROCESSING"
-           style="width:100%;padding:20px;font-size:20px;font-weight:900;background:#2563eb;color:white;border:none;border-radius:12px;cursor:pointer;margin-top:8px;">
-           EN PROCESO →
-         </button>`
-      : `<button data-advance="${order.id}" data-next="SERVED"
-           style="width:100%;padding:20px;font-size:20px;font-weight:900;background:#ea580c;color:white;border:none;border-radius:12px;cursor:pointer;margin-top:8px;">
-           ✓ LISTO
-         </button>`;
+  function renderCard(order: any): HTMLElement {
+    const card = el('div', 'background:#1f2937;border:1px solid #374151;border-radius:16px;padding:20px;');
+    card.dataset.orderId = String(order.id ?? '');
 
-    return `
-      <div style="background:#1f2937;border:1px solid #374151;border-radius:16px;padding:20px;" data-order-id="${order.id}">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <span style="font-size:32px;font-weight:900;color:white;">#${order.orderNumber}</span>
-          <span style="color:#6b7280;font-size:16px;">${time}</span>
-        </div>
-        <div style="border-top:1px solid #374151;padding-top:12px;display:flex;flex-direction:column;gap:4px;">${items}</div>
-        ${actionBtn}
-      </div>
-    `;
+    const header = el('div', 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;');
+    const num = el('span', 'font-size:32px;font-weight:900;color:white;');
+    num.textContent = `#${order.orderNumber ?? '?'}`;
+    const time = el('span', 'color:#6b7280;font-size:16px;');
+    time.textContent = String(order.displayTime ?? '');
+    header.append(num, time);
+
+    const itemsWrap = el('div', 'border-top:1px solid #374151;padding-top:12px;display:flex;flex-direction:column;gap:4px;');
+    for (const i of (order.items || [])) {
+      const line = el('p', 'color:white;font-size:22px;font-weight:500;');
+      const qty = el('span', 'font-size:26px;font-weight:900;');
+      qty.textContent = `${i.quantity}× `;
+      line.append(qty, document.createTextNode(i.product?.name || i.productName || '?'));
+      itemsWrap.append(line);
+      if (i.notes) {
+        const note = el('p', 'color:#fbbf24;font-size:16px;font-style:italic;margin-left:16px;margin-top:4px;');
+        note.textContent = String(i.notes);
+        itemsWrap.append(note);
+      }
+    }
+
+    const isConfirmed = order.status === 'CONFIRMED';
+    const btn = el(
+      'button',
+      `width:100%;padding:20px;font-size:20px;font-weight:900;background:${isConfirmed ? '#2563eb' : '#ea580c'};color:white;border:none;border-radius:12px;cursor:pointer;margin-top:8px;`,
+    );
+    btn.textContent = isConfirmed ? 'EN PROCESO →' : '✓ LISTO';
+    btn.dataset.advance = String(order.id ?? '');
+    btn.dataset.next = isConfirmed ? 'PROCESSING' : 'SERVED';
+
+    card.append(header, itemsWrap, btn);
+    return card;
+  }
+
+  function renderEmptyState(): HTMLElement {
+    const p = el('p', 'color:#4b5563;text-align:center;padding:48px 0;font-size:18px;');
+    p.textContent = 'Sin pedidos';
+    return p;
   }
 
   function bindCardEvents(container: HTMLElement) {
@@ -336,9 +360,12 @@ import KitchenConfirmModal from '../../components/kitchen/KitchenConfirmModal';
     tabCreatedBadge.textContent = String(created.length);
     tabProcessingBadge.textContent = String(processing.length);
 
-    const empty = '<p style="color:#4b5563;text-align:center;padding:48px 0;font-size:18px;">Sin pedidos</p>';
-    colCreated.innerHTML = created.length ? created.map(renderCard).join('') : empty;
-    colProcessing.innerHTML = processing.length ? processing.map(renderCard).join('') : empty;
+    colCreated.replaceChildren(
+      ...(created.length ? created.map(renderCard) : [renderEmptyState()]),
+    );
+    colProcessing.replaceChildren(
+      ...(processing.length ? processing.map(renderCard) : [renderEmptyState()]),
+    );
 
     bindCardEvents(colCreated);
     bindCardEvents(colProcessing);
