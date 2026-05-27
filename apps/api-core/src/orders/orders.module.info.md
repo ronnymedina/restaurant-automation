@@ -290,4 +290,65 @@ flowchart TD
 - Al crear una orden (kiosk), se emite evento `order:created` por WebSocket; al actualizar estado se emite `order:updated`
 - Al marcar como pagada, se dispara de forma asíncrona la impresión de recibo y el envío de email si `customerEmail` está presente
 - El historial aplica `dateTo` con hora `23:59:59.999` para incluir el día completo
-- La asignación de `orderNumber` usa una transacción corta separada antes de la transacción principal de creación de orden, para evitar contención en `CashShift.lastOrderNumber`. Ver `src/cash-register/cash-register.module.info.md` y `docs/superpowers/specs/2026-05-06-cashshift-order-number-design.md`.
+- La asignación de `orderNumber` corre dentro de la `$transaction` principal de creación de orden, después de adquirir un `FOR UPDATE` lock sobre la fila de `CashShift` (audit H-09). Ver `src/cash-register/cash-register.module.info.md` (sección "Concurrency model — cashShift row lock") y `docs/superpowers/specs/2026-05-27-orders-cashshift-kitchen-token-hardening-design.md`.
+
+---
+
+### Concurrency model — order status transitions (audit H-05, H-13)
+
+State transitions on `Order` (kitchen advance, mark-as-paid, etc.) use
+optimistic concurrency. Each writer reads the current status, validates the
+transition, then issues an `UPDATE ... WHERE id = ? AND status = ?` via the
+repository helpers `transitionStatusIfMatches` /
+`transitionStatusIfMatchesAndUnpaid`. If the status drifted between read and
+write, the UPDATE matches 0 rows and the writer throws
+`InvalidStatusTransitionException`.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant K1 as Kitchen screen A
+    participant DB as Postgres (Order row)
+    participant K2 as Kitchen screen B
+    participant C as Cashier (cancel)
+
+    rect rgba(120, 180, 255, 0.08)
+    note over K1,K2: Double-advance race — both screens press "Listo"
+    K1->>DB: SELECT status FROM Order WHERE id=O → PROCESSING
+    K2->>DB: SELECT status FROM Order WHERE id=O → PROCESSING
+    K1->>DB: UPDATE ... WHERE id=O AND status='PROCESSING' SET status='SERVED'
+    DB-->>K1: 1 row updated, lock held
+    K2->>DB: UPDATE ... WHERE id=O AND status='PROCESSING' SET status='SERVED'
+    Note right of DB: TX-K2 suspended on lock
+    K1->>DB: COMMIT
+    DB-->>K2: re-evaluates WHERE; status now 'SERVED', no match
+    K2-->>K2: count = 0 → throw InvalidStatusTransitionException
+    end
+
+    rect rgba(255, 180, 120, 0.08)
+    note over K1,C: Kitchen vs cashier — cancel during kitchen advance
+    K1->>DB: SELECT status FROM Order WHERE id=O → PROCESSING
+    C->>DB: UPDATE ... WHERE id=O SET status='CANCELLED'
+    DB-->>C: 1 row updated, lock held
+    C->>DB: COMMIT
+    K1->>DB: UPDATE ... WHERE id=O AND status='PROCESSING' SET status='SERVED'
+    DB-->>K1: 0 rows (status is now CANCELLED)
+    K1-->>K1: throw InvalidStatusTransitionException
+    Note over K1: cashier's CANCELLED is preserved
+    end
+```
+
+**Why optimistic concurrency suffices here (vs the FOR UPDATE used for
+cashShift):** the decision criterion is the row's own status. Unlike
+`closeSession`, there is no cross-table aggregation between read and write, so
+the implicit lock that `UPDATE` acquires is enough to serialize the
+conflicting writers. Each loser observes `count = 0` and fails cleanly with
+`InvalidStatusTransitionException`. See `cash-register.module.info.md` for
+the cross-table coordination pattern.
+
+**Known gap (out of scope for this audit cycle):** `cancelOrder` still uses
+an unconditional `update` without status guard, so a concurrent cancel can
+overwrite an advance that committed milliseconds earlier. This is observable
+but not corrupting: the final persisted state is always a valid terminal
+state ({CANCELLED, SERVED, COMPLETED}). Hardening `cancelOrder` to the same
+optimistic pattern is a backlog follow-up.

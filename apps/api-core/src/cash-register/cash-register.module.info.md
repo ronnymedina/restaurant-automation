@@ -291,12 +291,78 @@ E2E: ✅ `test/cash-register/topProducts.e2e-spec.ts`
 
 #### Contención bajo carga concurrente (ERR-05)
 
-Bajo alta concurrencia, el `UPDATE CashShift.lastOrderNumber` genera contención. **Solución implementada (Opción A):** el increment se extrae a una transacción corta independiente, liberando el lock en ~2ms.
+**Estado actual (post-H-09):** El increment de `lastOrderNumber` corre dentro
+de la `$transaction` principal de `createOrder`, después de adquirir el
+`FOR UPDATE` lock sobre la fila de `CashShift`. La contención queda acotada
+por la duración del lock (que de todos modos serializa creates concurrentes
+contra el mismo turno) y la consistencia transaccional es ahora atómica:
+si la inserción de la orden falla, el contador se rollback automáticamente.
 
 | Opción | Descripción | Estado |
 |--------|-------------|--------|
-| **A — Dos transacciones** | Tx1 corta solo para increment; Tx2 para stock + INSERT | ✅ Elegida |
+| **A — Increment dentro de la TX principal** | Una sola transacción con `FOR UPDATE` lock + increment + INSERT | ✅ Actual (post-H-09) |
 | **B — PostgreSQL SEQUENCE** | `nextval()` fuera de cualquier tx; contención prácticamente cero | Reservada para alta escala |
-| **C — Redis INCR** | Contador atómico externo | Descartada |
+| **C — Increment en TX separada** | Tx1 corta solo para increment; Tx2 para stock + INSERT | Descartada (pre-H-09, generaba huecos no transaccionales) |
 
-Ver spec completo en `docs/superpowers/specs/2026-05-06-cashshift-order-number-design.md`.
+Ver spec completo de la fix de H-09: `docs/superpowers/specs/2026-05-27-orders-cashshift-kitchen-token-hardening-design.md`.
+
+---
+
+### Concurrency model — cashShift row lock (audit H-09)
+
+Both `closeSession` and `createOrder` acquire a pessimistic `FOR UPDATE` lock
+on the target `cashShift` row at the start of their `$transaction`. The row
+acts as the coordination point: any transition that depends on
+`status = 'OPEN'` must take the lock first. This prevents the write-skew race
+where a new order could be created in a shift that was concurrently being
+closed.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as createOrder TX-A
+    participant DB as Postgres (CashShift row)
+    participant B as closeSession TX-B
+
+    rect rgba(120, 180, 255, 0.08)
+    note over A,B: Scenario A — createOrder wins the lock
+    A->>DB: BEGIN
+    A->>DB: SELECT status FROM CashShift WHERE id=S FOR UPDATE
+    DB-->>A: row locked
+    B->>DB: BEGIN
+    B->>DB: SELECT id FROM CashShift WHERE restaurantId=R AND status='OPEN' FOR UPDATE
+    Note right of DB: TX-B suspended on lock
+    A->>DB: UPDATE lastOrderNumber += 1
+    A->>DB: INSERT INTO Order (...)
+    A->>DB: COMMIT
+    Note right of DB: lock released
+    DB-->>B: row locked (WHERE re-evaluated, still matches)
+    B->>DB: SELECT count(*) pending
+    DB-->>B: 1 (sees just-committed order)
+    B-->>B: throw PendingOrdersException
+    B->>DB: ROLLBACK
+    end
+
+    rect rgba(255, 180, 120, 0.08)
+    note over A,B: Scenario B — closeSession wins the lock
+    B->>DB: BEGIN
+    B->>DB: SELECT id FROM CashShift WHERE restaurantId=R AND status='OPEN' FOR UPDATE
+    DB-->>B: row locked
+    A->>DB: BEGIN
+    A->>DB: SELECT status FROM CashShift WHERE id=S FOR UPDATE
+    Note right of DB: TX-A suspended on lock
+    B->>DB: count(pending) = 0
+    B->>DB: UPDATE status='CLOSED'
+    B->>DB: COMMIT
+    Note right of DB: lock released
+    DB-->>A: row locked (WHERE re-evaluated)
+    A-->>A: status='CLOSED' → throw RegisterNotOpenException
+    A->>DB: ROLLBACK
+    end
+```
+
+Implementation lives in `CashShiftRepository.lockOpenShift` and
+`CashShiftRepository.lockShiftById`. Both use Prisma's tagged-template
+`$queryRaw`, which parameterizes the interpolated value via the driver and is
+safe against SQL injection. Do not change either to `$queryRawUnsafe` (the
+ESLint config flags this).
