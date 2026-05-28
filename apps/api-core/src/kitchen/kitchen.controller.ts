@@ -103,16 +103,4 @@ export class KitchenController {
     );
   }
 
-  @Post(':slug/notify-offline')
-  @UseGuards(KitchenTokenGuard)
-  @ApiSecurity('kitchen-token')
-  @ApiOperation({ summary: 'Notificar al dashboard que la pantalla de cocina está offline' })
-  @ApiParam({ name: 'slug', description: 'Slug del restaurante', type: String })
-  @ApiQuery({ name: 'token', required: true, description: 'Token de acceso de cocina' })
-  @ApiResponse({ status: 201, description: 'Notificación emitida', schema: { example: { notified: true } } })
-  @ApiResponse({ status: 401, description: 'Token inválido o expirado' })
-  async notifyOffline(@Req() req: Request) {
-    await this.kitchenService.notifyOffline((req as any)[KITCHEN_RESTAURANT_KEY]);
-    return { notified: true };
-  }
 }

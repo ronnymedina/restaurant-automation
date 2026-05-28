@@ -118,6 +118,21 @@ Query params:
 
 E2E: ✅ `test/orders/orderHistory.e2e-spec.ts`
 
+Query params (validados por `FindHistoryDto`, audit H-07):
+
+- `orderNumber?: number` — entero ≥ 1.
+- `status?: OrderStatus` — uno de `CREATED|CONFIRMED|PROCESSING|SERVED|COMPLETED|CANCELLED`.
+- `dateFrom?: string` — formato estricto `YYYY-MM-DD`.
+- `dateTo?: string` — formato estricto `YYYY-MM-DD`.
+- `page?: number` — entero ≥ 1 (default 1).
+- `limit?: number` — entero 1–100 (default 20).
+
+Reglas adicionales (cuando `dateFrom` y `dateTo` están ambos presentes):
+- `dateFrom <= dateTo`.
+- Rango máximo: 90 días — protege count + findMany contra escaneos arbitrarios.
+
+Cualquier violación retorna `400 Bad Request` con mensajes de class-validator.
+
 | Caso | Status | Detalle |
 |---|---|---|
 | Sin token | 401 | Unauthenticated |
@@ -129,6 +144,11 @@ E2E: ✅ `test/orders/orderHistory.e2e-spec.ts`
 | Con `?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD` | 200 | Filtra por rango de fechas |
 | Con `?orderNumber=1` | 200 | Filtra por número de orden |
 | Solo órdenes del propio restaurante | 200 | Aislamiento por `restaurantId` del JWT |
+| `?limit=abc` o `?limit=999` | 400 | Validación rechaza no-numéricos y > 100 |
+| `?dateFrom=hoy` | 400 | Formato inválido (no es `YYYY-MM-DD`) |
+| `?dateFrom=2026-02-01&dateTo=2026-01-01` | 400 | `dateFrom > dateTo` |
+| Rango > 90 días | 400 | El validador cross-field rechaza |
+| `?status=BLAH` | 400 | Enum inválido |
 
 ---
 

@@ -14,6 +14,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { OrderDto, OrderWithItemsDto } from './dto/order.dto';
+import { FindHistoryDto } from './dto/find-history.dto';
 import { TimezoneService } from '../restaurants/timezone.service';
 import { ParseEnumArrayPipe } from '../common/pipes/parse-enum-array.pipe';
 import { ClampIntPipe } from '../common/pipes/clamp-int.pipe';
@@ -85,20 +86,15 @@ export class OrdersController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   async findHistory(
     @CurrentUser() user: { restaurantId: string },
-    @Query('orderNumber') orderNumber?: string,
-    @Query('status') status?: OrderStatus,
-    @Query('dateFrom') dateFrom?: string,
-    @Query('dateTo') dateTo?: string,
-    @Query('page') page = '1',
-    @Query('limit') limit = '20',
+    @Query() query: FindHistoryDto,
   ) {
     return this.ordersService.findHistory(user.restaurantId, {
-      orderNumber: orderNumber ? parseInt(orderNumber, 10) : undefined,
-      status,
-      dateFrom,
-      dateTo,
-      page: Math.max(1, parseInt(page, 10) || 1),
-      limit: Math.min(100, Math.max(1, parseInt(limit, 10) || 20)),
+      orderNumber: query.orderNumber,
+      status: query.status,
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
+      page: query.page ?? 1,
+      limit: query.limit ?? 20,
     });
   }
 

@@ -5,6 +5,7 @@ import { CashRegisterStatsService } from './cash-register-stats.service';
 import { OrderShiftReportRepository } from '../orders/order-shift-report.repository';
 
 const SESSION_ID = 'session-uuid';
+const RESTAURANT_ID = 'restaurant-uuid';
 
 const mockOrderShiftReport = {
   groupOrdersByShift: jest.fn(),
@@ -35,7 +36,7 @@ describe('CashRegisterStatsService', () => {
     it('retorna summary en cero para una sesión vacía', async () => {
       setupEmptyOrders();
 
-      const summary = await service.getSummary(SESSION_ID);
+      const summary = await service.getSummary(RESTAURANT_ID, SESSION_ID);
 
       expect(summary.counts.total).toBe(0);
       expect(summary.counts.pending).toBe(0);
@@ -59,7 +60,7 @@ describe('CashRegisterStatsService', () => {
       ]);
       mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
-      const summary = await service.getSummary(SESSION_ID);
+      const summary = await service.getSummary(RESTAURANT_ID, SESSION_ID);
 
       expect(summary.counts.total).toBe(9);
       expect(summary.counts.pending).toBe(5); // 9 - 3 completed - 1 cancelled
@@ -79,7 +80,7 @@ describe('CashRegisterStatsService', () => {
       ]);
       mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
-      const summary = await service.getSummary(SESSION_ID);
+      const summary = await service.getSummary(RESTAURANT_ID, SESSION_ID);
 
       expect(summary.revenue.completed).toBe(4000n);
       expect(summary.revenue.pending).toBe(1500n);    // PROCESSING; CANCELLED excluido
@@ -92,7 +93,7 @@ describe('CashRegisterStatsService', () => {
       ]);
       mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
-      const summary = await service.getSummary(SESSION_ID);
+      const summary = await service.getSummary(RESTAURANT_ID, SESSION_ID);
 
       expect(summary.revenue.averageTicket).toBe(0n);
     });
@@ -106,7 +107,7 @@ describe('CashRegisterStatsService', () => {
       ]);
       mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
-      const summary = await service.getSummary(SESSION_ID);
+      const summary = await service.getSummary(RESTAURANT_ID, SESSION_ID);
 
       expect(summary.byPaymentMethod).toHaveLength(2);
       expect(summary.byPaymentMethod).toEqual(
@@ -125,7 +126,7 @@ describe('CashRegisterStatsService', () => {
       ]);
       mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
-      const summary = await service.getSummary(SESSION_ID);
+      const summary = await service.getSummary(RESTAURANT_ID, SESSION_ID);
 
       expect(summary.byOrderType).toEqual(
         expect.arrayContaining([
@@ -142,7 +143,7 @@ describe('CashRegisterStatsService', () => {
         { id: 'prod-2', name: 'Fries',  quantity:  5, total: 2500n },
       ]);
 
-      const summary = await service.getSummary(SESSION_ID);
+      const summary = await service.getSummary(RESTAURANT_ID, SESSION_ID);
 
       expect(summary.topProducts).toEqual([
         { id: 'prod-1', name: 'Burger', quantity: 10, total: 5000n },
@@ -154,9 +155,20 @@ describe('CashRegisterStatsService', () => {
       mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([]);
       mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
-      const summary = await service.getSummary(SESSION_ID);
+      const summary = await service.getSummary(RESTAURANT_ID, SESSION_ID);
 
       expect(summary.topProducts).toEqual([]);
+    });
+  });
+
+  describe('tenant filter (H-12)', () => {
+    it('propaga restaurantId al orderShiftReport', async () => {
+      setupEmptyOrders();
+
+      await service.getSummary(RESTAURANT_ID, SESSION_ID);
+
+      expect(mockOrderShiftReport.groupOrdersByShift).toHaveBeenCalledWith(RESTAURANT_ID, SESSION_ID);
+      expect(mockOrderShiftReport.getTopProductsWithNamesByShift).toHaveBeenCalledWith(RESTAURANT_ID, SESSION_ID);
     });
   });
 });

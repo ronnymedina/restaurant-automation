@@ -44,10 +44,10 @@ type StatusAccumulator = Record<string, { count: number; revenue: bigint }>;
 export class CashRegisterStatsService {
   constructor(private readonly orderShiftReport: OrderShiftReportRepository) {}
 
-  async getSummary(sessionId: string): Promise<ShiftSummary> {
+  async getSummary(restaurantId: string, sessionId: string): Promise<ShiftSummary> {
     const [groups, topProducts] = await Promise.all([
-      this.orderShiftReport.groupOrdersByShift(sessionId),
-      this.orderShiftReport.getTopProductsWithNamesByShift(sessionId),
+      this.orderShiftReport.groupOrdersByShift(restaurantId, sessionId),
+      this.orderShiftReport.getTopProductsWithNamesByShift(restaurantId, sessionId),
     ]);
 
     const byStatus = this.groupByStatus(groups);
