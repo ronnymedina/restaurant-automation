@@ -7,22 +7,24 @@
 
 ```json
 {
-  "kitchenUrl": "/kitchen?slug=mi-restaurante&token=abc123...",
+  "hasToken": true,
   "expiresAt": "2026-06-25T00:00:00.000Z"
 }
 ```
 
-> Si no hay token generado o está expirado, ambos campos retornan `null`.
+> Si no hay token generado o está expirado, `hasToken=false` y `expiresAt=null`. La URL del token solo se entrega en `POST /token/generate` (audit H-14 — el plain token no se persiste, solo su sha256).
 
 **KitchenGeneratedTokenSerializer** — usado en `POST /token/generate`:
 
 ```json
 {
-  "token": "64-char-hex-string",
+  "token": "43-char-url-safe-base64",
   "expiresAt": "2026-06-25T00:00:00.000Z",
   "kitchenUrl": "/kitchen?slug=mi-restaurante&token=abc123..."
 }
 ```
+
+> El `token` es un string URL-safe base64 de 43 chars (32 bytes de entropía). Se muestra al admin **exactamente una vez** en esta response — no se persiste en BD (solo se guarda su sha256). Si se pierde, la única recuperación es regenerar (audit H-14).
 
 **KitchenOrderSerializer** — usado en `GET /:slug/orders`, `PATCH /:slug/orders/:id/status`:
 
@@ -72,9 +74,9 @@ Requiere JWT con rol ADMIN. Retorna el token activo del restaurante derivado del
 |---|---|---|
 | Sin token JWT | 401 | Unauthenticated |
 | Rol < ADMIN | 403 | Solo ADMIN |
-| Sin token generado | 200 | `{ kitchenUrl: null, expiresAt: null }` |
-| Token expirado | 200 | `{ kitchenUrl: null, expiresAt: null }` |
-| Token activo | 200 | `{ kitchenUrl, expiresAt }` |
+| Sin token generado | 200 | `{ hasToken: false, expiresAt: null }` |
+| Token expirado | 200 | `{ hasToken: false, expiresAt: null }` |
+| Token activo | 200 | `{ hasToken: true, expiresAt }` (la URL no se expone post-generación) |
 
 ---
 
@@ -94,7 +96,7 @@ Requiere JWT con rol ADMIN. Genera un token nuevo (invalida el anterior). El `re
 
 #### Active Orders — `GET /v1/kitchen/:slug/orders?token=...`
 
-Autenticado mediante `KitchenTokenGuard`: el `token` se pasa como query param y se valida contra `restaurant.settings.kitchenToken`.
+Autenticado mediante `KitchenTokenGuard`: el `token` se pasa via header `X-Kitchen-Token` (preferido) o query param `?token=` (legacy fallback para SSE). El guard hashea el token entrante y lo compara contra `restaurant.settings.kitchenTokenHash` con `crypto.timingSafeEqual` (audit H-14).
 
 | Caso | Status | Detalle |
 |---|---|---|
@@ -132,8 +134,8 @@ Emite el evento SSE `kitchen:offline` al dashboard del restaurante vía `SseServ
 
 ### Notas de implementación
 
-- El token de cocina se almacena en `RestaurantSettings.kitchenToken` (hex de 32 bytes = 64 chars). Se invalida al generar uno nuevo.
-- El `KitchenTokenGuard` resuelve el restaurante por slug y compara el token del query param contra el almacenado en BD. Adjunta el objeto `Restaurant` al request bajo la clave `KITCHEN_RESTAURANT_KEY`.
+- El token de cocina se almacena en `RestaurantSettings.kitchenTokenHash` (sha256 hex de 64 chars). El plain token (43 chars URL-safe base64) se muestra al admin exactamente una vez en `POST /token/generate`; no se persiste. Regenerar invalida cualquier token previo.
+- El `KitchenTokenGuard` resuelve el restaurante por slug, hashea el token entrante y lo compara contra `kitchenTokenHash` con `crypto.timingSafeEqual` (constant-time, cierra el oracle de byte-guessing). Adjunta el objeto `Restaurant` al request bajo la clave `KITCHEN_RESTAURANT_KEY`. Acepta el token via header `X-Kitchen-Token` (preferido) o query `?token=` (fallback para SSE que no puede setear headers).
 - Las rutas con `KitchenTokenGuard` son accesibles sin JWT — diseñadas para pantallas sin sesión de empleado.
 - Los endpoints JWT-auth (`/token`, `/token/generate`) derivan el `restaurantId` del payload del JWT, no de parámetros de URL.
 - `totalAmount`, `unitPrice` y `subtotal` se almacenan en centavos (BigInt); los serializers los convierten a pesos con `fromCents()`.
@@ -143,9 +145,31 @@ Emite el evento SSE `kitchen:offline` al dashboard del restaurante vía `SseServ
 
 | Clase | Campos expuestos | Usado en |
 |---|---|---|
-| `KitchenTokenSerializer` | `kitchenUrl`, `expiresAt` (ambos nullable) | GET /token |
+| `KitchenTokenSerializer` | `hasToken` (boolean), `expiresAt` (nullable) | GET /token |
 | `KitchenGeneratedTokenSerializer` | `token`, `expiresAt`, `kitchenUrl` | POST /token/generate |
 | `KitchenOrderSerializer` | `id`, `orderNumber`, `status`, `totalAmount` (pesos), `displayTime`, `items[]` | GET orders, PATCH status |
 | `KitchenOrderItemSerializer` | `id`, `quantity`, `unitPrice` (pesos), `subtotal` (pesos), `notes`, `product{id,name,imageUrl}` | Anidado en KitchenOrderSerializer |
 
 > `displayTime` se formatea en el timezone del restaurante server-side vía `TimezoneService`. El campo `createdAt` no se expone.
+
+---
+
+### Token authentication (audit H-14)
+
+#### Storage
+- El plain token se muestra al admin **exactamente una vez** en la response de `POST /token/generate`. Nunca se persiste.
+- `RestaurantSettings.kitchenTokenHash` almacena el sha256 hex del token plano. Un leak de BD no expone ningún token usable.
+- Si el admin pierde el plain token, la única recuperación es regenerar — lo que invalida cualquier pantalla de cocina actualmente conectada para ese restaurante.
+
+#### Transmission
+- Preferido: header `X-Kitchen-Token: <token>`. Los tokens enviados via header no aparecen en URLs, Referer, history del browser ni logs de proxies upstream.
+- Legacy: query string `?token=<token>`. Requerido hoy porque el `EventSource` del browser (SSE) no puede mandar headers custom. Se eliminará cuando H-04 introduzca el mecanismo sse-ticket.
+
+#### Comparison
+- El token entrante se hashea via sha256 y se compara contra el hash almacenado vía `crypto.timingSafeEqual` (`KitchenTokenService.verifyHash`). Comparación constant-time — cierra el oracle de byte-by-byte timing que `===` crearía.
+
+#### Lifecycle
+- Tokens expiran en `kitchenTokenExpiresAt`. Tokens expirados fallan el guard con 401; el admin debe regenerar.
+
+#### Modelo elegido: shared secret vs JWT
+- Shared secret per-restaurant elegido sobre JWT. Razón: las sesiones de cocina son long-lived (meses) y los admins necesitan revocación inmediata al regenerar. Per-restaurant secret también acota el blast radius (un leak compromete un restaurante, no todos). Detalles en el spec referenciado en `docs/superpowers/specs/2026-05-27-orders-cashshift-kitchen-token-hardening-design.md`.

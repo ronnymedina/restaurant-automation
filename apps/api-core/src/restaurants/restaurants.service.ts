@@ -54,7 +54,7 @@ export class RestaurantsService {
 
   async upsertSettings(
     restaurantId: string,
-    data: { kitchenToken?: string; kitchenTokenExpiresAt?: Date },
+    data: { kitchenTokenHash?: string; kitchenTokenExpiresAt?: Date },
   ) {
     return this.restaurantRepository.upsertSettings(restaurantId, data);
   }

@@ -6,6 +6,7 @@ import { of } from 'rxjs';
 import { EventsController } from './events.controller';
 import { SseService } from './sse.service';
 import { RestaurantsService } from '../restaurants/restaurants.service';
+import { KitchenTokenService } from '../kitchen/kitchen-token.service';
 
 const mockStream = of({ data: {} });
 
@@ -24,9 +25,15 @@ const mockRestaurantsService = {
 
 describe('EventsController', () => {
   let controller: EventsController;
+  let tokenService: KitchenTokenService;
+  let plainToken: string;
+  let tokenHash: string;
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    tokenService = new KitchenTokenService();
+    ({ plainToken, tokenHash } = tokenService.generate());
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [EventsController],
@@ -34,6 +41,7 @@ describe('EventsController', () => {
         { provide: SseService, useValue: mockSseService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: RestaurantsService, useValue: mockRestaurantsService },
+        { provide: KitchenTokenService, useValue: tokenService },
       ],
     }).compile();
 
@@ -68,18 +76,13 @@ describe('EventsController', () => {
   });
 
   describe('kitchen', () => {
-    const validRestaurant = {
-      id: 'rest-1',
-      settings: {
-        kitchenToken: 'secret-token',
-        kitchenTokenExpiresAt: null,
-      },
-    };
-
     it('returns stream when token and slug are valid', async () => {
-      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(validRestaurant);
+      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue({
+        id: 'rest-1',
+        settings: { kitchenTokenHash: tokenHash, kitchenTokenExpiresAt: null },
+      });
 
-      const result = await controller.kitchen('secret-token', 'my-slug');
+      const result = await controller.kitchen(plainToken, 'my-slug');
 
       expect(mockRestaurantsService.findBySlugWithSettings).toHaveBeenCalledWith('my-slug');
       expect(mockSseService.streamForKitchen).toHaveBeenCalledWith('rest-1');
@@ -87,7 +90,10 @@ describe('EventsController', () => {
     });
 
     it('throws UnauthorizedException when token does not match', async () => {
-      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(validRestaurant);
+      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue({
+        id: 'rest-1',
+        settings: { kitchenTokenHash: tokenHash, kitchenTokenExpiresAt: null },
+      });
 
       await expect(controller.kitchen('wrong-token', 'my-slug')).rejects.toThrow(
         UnauthorizedException,
@@ -95,16 +101,15 @@ describe('EventsController', () => {
     });
 
     it('throws UnauthorizedException when kitchen token is expired', async () => {
-      const expiredRestaurant = {
+      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue({
         id: 'rest-1',
         settings: {
-          kitchenToken: 'secret-token',
+          kitchenTokenHash: tokenHash,
           kitchenTokenExpiresAt: new Date('2000-01-01'),
         },
-      };
-      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(expiredRestaurant);
+      });
 
-      await expect(controller.kitchen('secret-token', 'my-slug')).rejects.toThrow(
+      await expect(controller.kitchen(plainToken, 'my-slug')).rejects.toThrow(
         UnauthorizedException,
       );
     });
@@ -112,7 +117,7 @@ describe('EventsController', () => {
     it('throws UnauthorizedException when slug is not found', async () => {
       mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(null);
 
-      await expect(controller.kitchen('secret-token', 'unknown-slug')).rejects.toThrow(
+      await expect(controller.kitchen(plainToken, 'unknown-slug')).rejects.toThrow(
         UnauthorizedException,
       );
     });

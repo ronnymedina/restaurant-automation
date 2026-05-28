@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 import { Public } from '../auth/decorators/public.decorator';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { SseService } from './sse.service';
+import { KitchenTokenService } from '../kitchen/kitchen-token.service';
 
 @Controller({ version: '1', path: 'events' })
 export class EventsController {
@@ -12,6 +13,7 @@ export class EventsController {
     private readonly jwtService: JwtService,
     private readonly restaurantsService: RestaurantsService,
     private readonly sseService: SseService,
+    private readonly kitchenTokenService: KitchenTokenService,
   ) {}
 
   @Public()
@@ -45,13 +47,23 @@ export class EventsController {
       throw new UnauthorizedException();
     }
 
-    const restaurant = await this.restaurantsService.findBySlugWithSettings(slug);
+    // Defensive cap before hashing attacker-supplied input.
+    if (token.length > 128) {
+      throw new UnauthorizedException();
+    }
 
+    const restaurant = await this.restaurantsService.findBySlugWithSettings(slug);
     if (!restaurant || !restaurant.settings) {
       throw new UnauthorizedException();
     }
 
-    if (restaurant.settings.kitchenToken !== token) {
+    const storedHash = restaurant.settings.kitchenTokenHash;
+    if (!storedHash) {
+      throw new UnauthorizedException();
+    }
+
+    const candidateHash = this.kitchenTokenService.hash(token);
+    if (!this.kitchenTokenService.verifyHash(storedHash, candidateHash)) {
       throw new UnauthorizedException();
     }
 

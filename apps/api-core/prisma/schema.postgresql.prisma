@@ -99,7 +99,7 @@ model RestaurantSettings {
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
   timezone              String    @default("UTC")
-  kitchenToken          String?   @unique
+  kitchenTokenHash      String?
   kitchenTokenExpiresAt DateTime?
 
   // Display settings — used by UI to format money amounts.

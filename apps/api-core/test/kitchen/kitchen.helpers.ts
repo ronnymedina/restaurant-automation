@@ -7,6 +7,7 @@ import { execSync } from 'child_process';
 
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { KitchenTokenService } from '../../src/kitchen/kitchen-token.service';
 
 export async function bootstrapApp(): Promise<{
   app: INestApplication<App>;
@@ -29,7 +30,9 @@ export async function bootstrapApp(): Promise<{
 
 export async function seedRestaurantWithToken(prisma: PrismaService, suffix: string) {
   const slug = `kitchen-${suffix}-${Date.now()}`;
-  const token = `test-token-${suffix}-${Date.now()}`;
+  const tokenService = new KitchenTokenService();
+  const { plainToken, tokenHash } = tokenService.generate();
+  const token = plainToken;
 
   const restaurant = await prisma.restaurant.create({
     data: { name: `Kitchen Test ${suffix}`, slug },
@@ -39,7 +42,7 @@ export async function seedRestaurantWithToken(prisma: PrismaService, suffix: str
     data: {
       restaurantId: restaurant.id,
       timezone: 'UTC',
-      kitchenToken: token,
+      kitchenTokenHash: tokenHash,
       kitchenTokenExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   });
