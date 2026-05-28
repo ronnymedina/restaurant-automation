@@ -121,9 +121,9 @@ export default function OrdersPanel() {
     await fetchOrders(activeFilter);
   }
 
-  async function handlePay(id: string) {
+  async function handlePay(id: string, paymentMethod?: string) {
     if (!session) return;
-    const result = await markOrderPaid(id);
+    const result = await markOrderPaid(id, paymentMethod);
     if (!result.ok) {
       showToast(result.error.message ?? 'Error al marcar pagado', true);
       return;

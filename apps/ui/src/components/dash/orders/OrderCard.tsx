@@ -34,7 +34,7 @@ const ORDER_TYPE_LABELS: Record<string, string> = {
 export interface OrderCardCallbacks {
   onConfirm: (id: string) => void;
   onAdvance: (id: string, nextStatus: string) => void;
-  onPay: (id: string) => void;
+  onPay: (id: string, paymentMethod?: string) => void;
   onUnpay: (id: string) => void;
   onCancel: (id: string) => void;
   onCancelBlocked: (id: string) => void;
