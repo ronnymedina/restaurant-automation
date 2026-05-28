@@ -10,9 +10,9 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 const BORDER_COLORS: Record<string, string> = {
   CREATED: 'border-l-yellow-400',
-  CONFIRMED: 'border-l-purple-400',
-  PROCESSING: 'border-l-blue-400',
-  SERVED: 'border-l-orange-400',
+  CONFIRMED: 'border-l-blue-400',
+  PROCESSING: 'border-l-indigo-400',
+  SERVED: 'border-l-green-500',
   COMPLETED: 'border-l-green-400',
   CANCELLED: 'border-l-red-400',
 };
