@@ -3,12 +3,9 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { RestaurantsService } from '../../restaurants/restaurants.service';
-import { KitchenTokenService } from '../kitchen-token.service';
+import { KitchenTokenService, MAX_KITCHEN_TOKEN_LENGTH } from '../kitchen-token.service';
 
 export const KITCHEN_RESTAURANT_KEY = 'kitchenRestaurant';
-
-/** Defensive cap before hashing attacker-supplied input. Valid tokens are 43 chars. */
-const MAX_TOKEN_LENGTH = 128;
 
 @Injectable()
 export class KitchenTokenGuard implements CanActivate {
@@ -23,7 +20,7 @@ export class KitchenTokenGuard implements CanActivate {
     const token = this.extractToken(req);
 
     if (!slug || !token) throw new UnauthorizedException('Kitchen token required');
-    if (token.length > MAX_TOKEN_LENGTH) {
+    if (token.length > MAX_KITCHEN_TOKEN_LENGTH) {
       throw new UnauthorizedException('Invalid kitchen token');
     }
 

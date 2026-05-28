@@ -2,6 +2,13 @@ import { Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
 
 /**
+ * Defensive cap on attacker-supplied token length BEFORE hashing.
+ * Valid tokens are 43 chars (32 bytes base64url). 128 leaves room for
+ * any future format change while preventing DoS amplification via huge inputs.
+ */
+export const MAX_KITCHEN_TOKEN_LENGTH = 128;
+
+/**
  * Encapsulates the cryptographic primitives for kitchen-token authentication.
  *
  * The plain token is shown to the admin exactly once at generation time and is

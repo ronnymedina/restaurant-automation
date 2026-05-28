@@ -24,8 +24,8 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 
 | Severidad | Cantidad | IDs |
 |-----------|----------|-----|
-| 🔴 CRÍTICO | 4 | H-01 ✅, H-02 ✅, H-03 ✅, H-04 |
-| 🟠 ALTO    | 16 | H-05 … H-20 |
+| 🔴 CRÍTICO | 4 | H-01 ✅, H-02 ✅, H-03 ✅, H-04 ⏳ |
+| 🟠 ALTO    | 16 | H-05 ✅, H-06 ✅, H-09 ✅, H-13 ✅, H-14 ✅, H-07, H-08, H-10…H-12, H-15…H-20 |
 | 🟡 MEDIO   | 19 | H-21, H-22 ✅, H-23 … H-39 |
 | 🟢 BAJO    | 13 | H-40 … H-52 |
 | **Total**  | **52** | |
@@ -35,6 +35,8 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 - ✅ H-02 implementado (2026-05-25) — fix del wizard + nuevas columnas de display settings + endpoint extendido
 - ✅ H-03 implementado (2026-05-25) — XSS de cocina cerrado vía DOM API + módulo de recibo (dashboard + backend) eliminado por ser dead code + `@MaxLength` en campos de texto libre del DTO de orden
 - ✅ H-22 parcial (2026-05-25) — `fromCents` aplicado en `serializeOrder`; refactor estructural a Serializer dedicado sigue pendiente
+- ✅ H-05, H-06, H-09, H-13, H-14 implementados (2026-05-27) — race conditions de order/cash-shift transitions (markAsPaid, unmarkAsPaid, createOrder, closeSession, kitchenAdvanceStatus) y hardening del kitchen token (hash sha256 + timingSafeEqual + header X-Kitchen-Token). Ver `2026-05-27-orders-cashshift-kitchen-token-hardening-design.md` y plan asociado.
+- ⏳ H-04 deferred (2026-05-27) — scope acotado a "esta semana"; requiere diseño separado del mecanismo sse-ticket y refactor del cliente SSE (dashboard + cocina). Tracker como follow-up.
 - ➕ Hallazgo adicional descubierto y arreglado: contrato roto entre backend `/cash-register/summary` y frontend `RegisterHistoryIsland`. Ver sección "Hallazgos adicionales".
 
 ---
@@ -254,6 +256,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 
 **Fix:** Cookie httpOnly + sameSite, **o** endpoint `/auth/sse-ticket` que emita un token efímero (60s) específico para SSE. Para cocina, aceptar token por header `X-Kitchen-Token`.
 
+**Estado:** ⏳ Deferred (2026-05-27)
+**Razón:** scope acotado a "esta semana"; requiere diseño separado del mecanismo sse-ticket y refactor del cliente SSE (dashboard + cocina). Tracker como follow-up.
+
 ---
 
 ## 🟠 ALTOS
@@ -267,6 +272,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 
 **Fix:** Envolver en `$transaction`, usar `update({ where: { id, status: expectedStatus } })` para optimistic locking.
 
+**Estado:** ✅ Implementado (2026-05-27)
+**Plan asociado:** `docs/superpowers/plans/2026-05-27-orders-cashshift-kitchen-token-hardening-plan.md`
+
 ---
 
 ### H-06 — `unmarkAsPaid` sin validación de estado
@@ -277,6 +285,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 **Descripción:** No valida `order.status !== COMPLETED && order.isPaid === true`. Puede desmarcar una orden ya COMPLETED → estado contradictorio. Además, `findById` se llama pero no se asigna a variable (desperdicio + pierde la oportunidad de validar).
 
 **Fix:** `const order = await this.findById(...)` + validar transición permitida.
+
+**Estado:** ✅ Implementado (2026-05-27)
+**Plan asociado:** `docs/superpowers/plans/2026-05-27-orders-cashshift-kitchen-token-hardening-plan.md`
 
 ---
 
@@ -310,6 +321,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 **Descripción:** Entre `count(pending orders)` y `update(status=CLOSED)`, el kiosk u otro flujo puede insertar nuevas órdenes en ese turno (postgres default READ COMMITTED). Esas órdenes quedan huérfanas en un turno cerrado.
 
 **Fix:** `SELECT ... FOR UPDATE` sobre `cashShift` al inicio de la TX, o nivel `SERIALIZABLE`. Adicional: `orders.service.createOrder` debe validar dentro de su TX que `cashShift.status === OPEN`.
+
+**Estado:** ✅ Implementado (2026-05-27)
+**Plan asociado:** `docs/superpowers/plans/2026-05-27-orders-cashshift-kitchen-token-hardening-plan.md`
 
 ---
 
@@ -357,6 +371,11 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 
 **Fix:** `update({ where: { id, restaurantId, status: expectedCurrent }, data: { status: newStatus } })`; si `count = 0` → `InvalidStatusTransition`. Alternativa: `$transaction` con SELECT FOR UPDATE.
 
+**Estado:** ✅ Implementado (2026-05-27)
+**Plan asociado:** `docs/superpowers/plans/2026-05-27-orders-cashshift-kitchen-token-hardening-plan.md`
+
+**Nota — gap descubierto durante implementación:** `OrderRepository.cancelOrder` aún no usa optimistic concurrency (sigue siendo `update` sin guard por status). Un cancel concurrente puede sobreescribir un advance/markAsPaid recién commitado, dejando estados como `status=CANCELLED, isPaid=true`. Trackear como backlog: extender `transitionStatusIfMatches` pattern a `cancelOrder`.
+
 ---
 
 ### H-14 — `KitchenTokenGuard` débil
@@ -367,6 +386,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 **Descripción:** Token plano en BD (`settings.kitchenToken`), expira en 60 días, viaja en query, comparado con `!==` (timing attack). Filtración de logs/BD compromete cocinas indefinidamente.
 
 **Fix:** Guardar `sha256(token)`, comparar con `crypto.timingSafeEqual`, aceptar header `X-Kitchen-Token` además de query.
+
+**Estado:** ✅ Implementado (2026-05-27)
+**Plan asociado:** `docs/superpowers/plans/2026-05-27-orders-cashshift-kitchen-token-hardening-plan.md`
 
 ---
 
@@ -596,8 +618,8 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 
 | Sprint | Hallazgos |
 |--------|-----------|
-| **Hoy / hotfix** | ~~H-01 (kiosk roto)~~ ✅, ~~H-02 (precios wizard)~~ ✅, ~~H-03 (XSS)~~ ✅, H-04 (tokens en URL), ~~H-AUX-01 (contrato cash-register)~~ ✅ |
-| **Esta semana** | H-05 (markAsPaid TX), H-09 (closeSession race), H-13 (kitchen race), H-14 (kitchen token) |
+| **Hoy / hotfix** | ~~H-01 (kiosk roto)~~ ✅, ~~H-02 (precios wizard)~~ ✅, ~~H-03 (XSS)~~ ✅, H-04 (tokens en URL) ⏳ deferred, ~~H-AUX-01 (contrato cash-register)~~ ✅ |
+| **Esta semana** | ~~H-05 (markAsPaid TX)~~ ✅, ~~H-06 (unmarkAsPaid)~~ ✅, ~~H-09 (closeSession race)~~ ✅, ~~H-13 (kitchen race)~~ ✅, ~~H-14 (kitchen token)~~ ✅ |
 | **Próximo sprint** | H-07 (findHistory DTO), H-11 (BigInt cash-shift), H-08/H-12 (filtros restaurantId), H-15 (notifyOffline canal) |
 | **Backlog técnico** | H-17 a H-20 + todos los MEDIOS |
 | **Limpieza** | Todos los BAJOS |

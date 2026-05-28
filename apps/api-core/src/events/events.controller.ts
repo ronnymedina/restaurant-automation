@@ -5,7 +5,7 @@ import { Observable } from 'rxjs';
 import { Public } from '../auth/decorators/public.decorator';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { SseService } from './sse.service';
-import { KitchenTokenService } from '../kitchen/kitchen-token.service';
+import { KitchenTokenService, MAX_KITCHEN_TOKEN_LENGTH } from '../kitchen/kitchen-token.service';
 
 @Controller({ version: '1', path: 'events' })
 export class EventsController {
@@ -47,8 +47,7 @@ export class EventsController {
       throw new UnauthorizedException();
     }
 
-    // Defensive cap before hashing attacker-supplied input.
-    if (token.length > 128) {
+    if (token.length > MAX_KITCHEN_TOKEN_LENGTH) {
       throw new UnauthorizedException();
     }
 
