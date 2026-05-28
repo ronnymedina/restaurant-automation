@@ -50,6 +50,7 @@ export default function OrderCard({
   const border = BORDER_COLORS[order.status] ?? 'border-l-slate-300';
   const isActive = ACTIVE_STATUSES.has(order.status);
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const hasCustomerData = order.customerEmail || order.customerPhone || order.deliveryAddress;
 
   return (
@@ -75,9 +76,25 @@ export default function OrderCard({
           <span className="font-semibold text-sm text-slate-800">
             ${Number(order.totalAmount).toFixed(2)}
           </span>
-          <span className="text-xs text-slate-500">
-            {PAYMENT_LABELS[order.paymentMethod ?? ''] ?? order.paymentMethod ?? '-'}
-          </span>
+          {isActive && !order.paymentMethod ? (
+            <div className="flex items-center gap-1">
+              <span className="text-amber-600 text-xs">⚠</span>
+              <select
+                value={selectedPaymentMethod}
+                onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                className="border border-amber-300 bg-amber-50 text-amber-800 text-xs rounded px-1.5 py-0.5 cursor-pointer"
+              >
+                <option value="" disabled>— Asignar método —</option>
+                <option value="CASH">Efectivo</option>
+                <option value="CARD">Tarjeta</option>
+                <option value="DIGITAL_WALLET">Digital</option>
+              </select>
+            </div>
+          ) : (
+            <span className="text-xs text-slate-500">
+              {PAYMENT_LABELS[order.paymentMethod ?? ''] ?? order.paymentMethod ?? '-'}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {order.isPaid ? (
