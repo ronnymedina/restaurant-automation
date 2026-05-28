@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, CashShiftStatus } from '@prisma/client';
 import { OrdersService } from './orders.service';
 import { OrderRepository } from './order.repository';
 import { PrismaService } from '../prisma/prisma.service';
@@ -24,13 +24,15 @@ const mockOrderRepository = {
   createWithItems: jest.fn(),
   updateStatus: jest.fn(),
   cancelOrder: jest.fn(),
-  markAsPaid: jest.fn(),
-  markAsUnpaid: jest.fn(),
   listOrders: jest.fn(),
   findHistory: jest.fn(),
+  transitionStatusIfMatches: jest.fn(),
+  transitionStatusIfMatchesAndUnpaid: jest.fn(),
+  unmarkAsPaidIfPaid: jest.fn(),
 };
 const mockCashShiftRepository = {
   findOpen: jest.fn(),
+  lockShiftById: jest.fn(),
 };
 const mockPrisma: Record<string, any> = {
   $transaction: jest.fn((cb: (tx: any) => any) => cb(mockPrisma)),
@@ -174,62 +176,145 @@ describe('OrdersService', () => {
   });
 
   describe('markAsPaid', () => {
-    it('emits updated event and returns order', async () => {
-      const paid = makeOrder({ isPaid: true });
-      mockOrderRepository.findById.mockResolvedValue(makeOrder());
-      mockOrderRepository.markAsPaid.mockResolvedValue(paid);
+    // Refactored markAsPaid (audit H-05) reads the order inside a tx via
+    // tx.order.findFirst, so the default $transaction stub (cb => cb(mockPrisma))
+    // does not expose `order.findFirst` properly. We override $transaction per
+    // test, then restore the global default in afterEach so other describe
+    // blocks (createOrder, etc.) keep their original tx semantics.
+    const stubTxWithOrder = (txOrder: any) => {
+      mockPrisma.$transaction.mockImplementationOnce(async (cb: any) =>
+        cb({
+          order: { findFirst: jest.fn().mockResolvedValue(txOrder) },
+        }),
+      );
+    };
+
+    afterEach(() => {
+      // Drain any unused mockImplementationOnce queued by stubTxWithOrder so
+      // it can't leak into subsequent describe blocks. (clearAllMocks does
+      // not flush the once-queue.)
+      mockPrisma.$transaction.mockReset();
+      mockPrisma.$transaction.mockImplementation((cb: (tx: any) => any) => cb(mockPrisma));
+    });
+
+    it('emits updated event and returns re-fetched order', async () => {
+      const seed = makeOrder({ status: OrderStatus.CONFIRMED });
+      const paid = makeOrder({ status: OrderStatus.CONFIRMED, isPaid: true });
+      stubTxWithOrder(seed);
+      mockOrderRepository.transitionStatusIfMatchesAndUnpaid.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(paid);
+
       const result = await service.markAsPaid('o1', 'r1');
       expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', paid);
       expect(result).toEqual(paid);
     });
 
     it('auto-confirms CREATED order when marking as paid', async () => {
-      const paid = makeOrder({ isPaid: true, status: OrderStatus.CONFIRMED });
-      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CREATED }));
-      mockOrderRepository.updateStatus.mockResolvedValue(makeOrder({ status: OrderStatus.CONFIRMED }));
-      mockOrderRepository.markAsPaid.mockResolvedValue(paid);
+      stubTxWithOrder(makeOrder({ status: OrderStatus.CREATED }));
+      mockOrderRepository.transitionStatusIfMatchesAndUnpaid.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(
+        makeOrder({ status: OrderStatus.CONFIRMED, isPaid: true }),
+      );
+
       await service.markAsPaid('o1', 'r1');
-      expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith('o1', OrderStatus.CONFIRMED);
+      // The transition primitive carries CREATED → CONFIRMED in one atomic UPDATE.
+      expect(mockOrderRepository.transitionStatusIfMatchesAndUnpaid).toHaveBeenCalledWith(
+        expect.anything(), 'o1', 'r1', OrderStatus.CREATED, OrderStatus.CONFIRMED, undefined,
+      );
     });
 
-    it('does NOT call updateStatus when already CONFIRMED', async () => {
-      const paid = makeOrder({ isPaid: true, status: OrderStatus.CONFIRMED });
-      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CONFIRMED }));
-      mockOrderRepository.markAsPaid.mockResolvedValue(paid);
+    it('keeps the same status when already CONFIRMED', async () => {
+      stubTxWithOrder(makeOrder({ status: OrderStatus.CONFIRMED }));
+      mockOrderRepository.transitionStatusIfMatchesAndUnpaid.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(
+        makeOrder({ status: OrderStatus.CONFIRMED, isPaid: true }),
+      );
+
       await service.markAsPaid('o1', 'r1');
-      expect(mockOrderRepository.updateStatus).not.toHaveBeenCalled();
+      // No status change — expected and new are the same.
+      expect(mockOrderRepository.transitionStatusIfMatchesAndUnpaid).toHaveBeenCalledWith(
+        expect.anything(), 'o1', 'r1', OrderStatus.CONFIRMED, OrderStatus.CONFIRMED, undefined,
+      );
     });
 
     it('auto-advances to COMPLETED when marking a SERVED order as paid', async () => {
-      const servedOrder = makeOrder({ status: OrderStatus.SERVED, isPaid: false });
-      const completedPaid = makeOrder({ status: OrderStatus.COMPLETED, isPaid: true });
-      mockOrderRepository.findById.mockResolvedValue(servedOrder);
-      mockOrderRepository.updateStatus.mockResolvedValue(completedPaid);
-      mockOrderRepository.markAsPaid.mockResolvedValue(completedPaid);
+      stubTxWithOrder(makeOrder({ status: OrderStatus.SERVED, isPaid: false }));
+      mockOrderRepository.transitionStatusIfMatchesAndUnpaid.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(
+        makeOrder({ status: OrderStatus.COMPLETED, isPaid: true }),
+      );
+
       await service.markAsPaid('o1', 'r1');
-      expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith('o1', OrderStatus.COMPLETED);
+      expect(mockOrderRepository.transitionStatusIfMatchesAndUnpaid).toHaveBeenCalledWith(
+        expect.anything(), 'o1', 'r1', OrderStatus.SERVED, OrderStatus.COMPLETED, undefined,
+      );
     });
 
-    it('calls repository.markAsPaid with paymentMethod when provided', async () => {
-      const order = makeOrder({ status: OrderStatus.CONFIRMED });
-      mockOrderRepository.findById.mockResolvedValue(order);
-      mockOrderRepository.updateStatus.mockResolvedValue(order);
-      const paid = { ...order, isPaid: true, paymentMethod: 'CASH' };
-      mockOrderRepository.markAsPaid.mockResolvedValue(paid);
+    it('passes paymentMethod through to the transition helper when provided', async () => {
+      stubTxWithOrder(makeOrder({ status: OrderStatus.CONFIRMED }));
+      mockOrderRepository.transitionStatusIfMatchesAndUnpaid.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(
+        makeOrder({ status: OrderStatus.CONFIRMED, isPaid: true, paymentMethod: 'CASH' }),
+      );
 
       await service.markAsPaid('o1', 'r1', 'CASH');
-      expect(mockOrderRepository.markAsPaid).toHaveBeenCalledWith('o1', 'CASH');
+      expect(mockOrderRepository.transitionStatusIfMatchesAndUnpaid).toHaveBeenCalledWith(
+        expect.anything(), 'o1', 'r1', OrderStatus.CONFIRMED, OrderStatus.CONFIRMED, 'CASH',
+      );
     });
 
-    it('calls repository.markAsPaid without paymentMethod when omitted', async () => {
-      const order = makeOrder({ status: OrderStatus.CONFIRMED });
-      mockOrderRepository.findById.mockResolvedValue(order);
-      mockOrderRepository.updateStatus.mockResolvedValue(order);
-      const paid = { ...order, isPaid: true };
-      mockOrderRepository.markAsPaid.mockResolvedValue(paid);
+    it('passes undefined paymentMethod through to the transition helper when omitted', async () => {
+      stubTxWithOrder(makeOrder({ status: OrderStatus.CONFIRMED }));
+      mockOrderRepository.transitionStatusIfMatchesAndUnpaid.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(
+        makeOrder({ status: OrderStatus.CONFIRMED, isPaid: true }),
+      );
 
       await service.markAsPaid('o1', 'r1');
-      expect(mockOrderRepository.markAsPaid).toHaveBeenCalledWith('o1', undefined);
+      expect(mockOrderRepository.transitionStatusIfMatchesAndUnpaid).toHaveBeenCalledWith(
+        expect.anything(), 'o1', 'r1', OrderStatus.CONFIRMED, OrderStatus.CONFIRMED, undefined,
+      );
+    });
+
+    // --- New tests for audit H-05: idempotency + race detection -----------
+    it('is idempotent when order is already paid — skips the transition', async () => {
+      const paidOrder = makeOrder({ status: OrderStatus.COMPLETED, isPaid: true });
+      stubTxWithOrder(paidOrder);
+      // uses default mockOrderRepository.transitionStatusIfMatchesAndUnpaid (jest.fn() returns undefined)
+      mockOrderRepository.findById.mockResolvedValue(paidOrder);
+
+      const result = await service.markAsPaid('o1', 'r1', 'CASH');
+      expect(mockOrderRepository.transitionStatusIfMatchesAndUnpaid).not.toHaveBeenCalled();
+      expect(result).toEqual(paidOrder);
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', paidOrder);
+    });
+
+    it('throws InvalidStatusTransitionException when transitionStatusIfMatchesAndUnpaid returns 0 (race)', async () => {
+      // Status read inside tx says CREATED, but by the time the optimistic
+      // UPDATE runs another concurrent payment already flipped isPaid=true
+      // (or the cashier cancelled the order). count=0 → reject the stale
+      // operation rather than silently succeeding.
+      stubTxWithOrder(makeOrder({ status: OrderStatus.CREATED, isPaid: false }));
+      mockOrderRepository.transitionStatusIfMatchesAndUnpaid.mockResolvedValue(0);
+
+      await expect(service.markAsPaid('o1', 'r1', 'CASH'))
+        .rejects.toThrow(InvalidStatusTransitionException);
+      expect(mockOrderEvents.emitOrderUpdated).not.toHaveBeenCalled();
+    });
+
+    it('throws OrderAlreadyCancelledException when order is CANCELLED', async () => {
+      stubTxWithOrder(makeOrder({ status: OrderStatus.CANCELLED, isPaid: false }));
+      // uses default mockOrderRepository.transitionStatusIfMatchesAndUnpaid (jest.fn() returns undefined)
+
+      await expect(service.markAsPaid('o1', 'r1', 'CASH'))
+        .rejects.toThrow(OrderAlreadyCancelledException);
+      expect(mockOrderRepository.transitionStatusIfMatchesAndUnpaid).not.toHaveBeenCalled();
+    });
+
+    it('throws OrderNotFoundException when order does not exist', async () => {
+      stubTxWithOrder(null);
+      await expect(service.markAsPaid('missing', 'r1', 'CASH'))
+        .rejects.toThrow(OrderNotFoundException);
     });
   });
 
@@ -258,19 +343,80 @@ describe('OrdersService', () => {
   });
 
   describe('unmarkAsPaid', () => {
-    it('calls markAsUnpaid and emits event', async () => {
-      const unpaid = makeOrder({ isPaid: false });
-      mockOrderRepository.findById.mockResolvedValue(makeOrder({ isPaid: true }));
-      mockOrderRepository.markAsUnpaid.mockResolvedValue(unpaid);
-      const result = await service.unmarkAsPaid('o1', 'r1');
-      expect(mockOrderRepository.markAsUnpaid).toHaveBeenCalledWith('o1');
-      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', unpaid);
-      expect(result.isPaid).toBe(false);
+    // Refactored unmarkAsPaid (audit H-06) reads the order inside a tx via
+    // tx.order.findFirst, so the default $transaction stub (cb => cb(mockPrisma))
+    // does not expose `order.findFirst` properly. We override $transaction per
+    // test, then restore the global default in afterEach so other describe
+    // blocks keep their original tx semantics.
+    const stubTxWithOrder = (txOrder: any) => {
+      mockPrisma.$transaction.mockImplementationOnce(async (cb: any) =>
+        cb({
+          order: { findFirst: jest.fn().mockResolvedValue(txOrder) },
+        }),
+      );
+    };
+
+    afterEach(() => {
+      // Drain any unused mockImplementationOnce queued by stubTxWithOrder so
+      // it can't leak into subsequent describe blocks. (clearAllMocks does
+      // not flush the once-queue.)
+      mockPrisma.$transaction.mockReset();
+      mockPrisma.$transaction.mockImplementation((cb: (tx: any) => any) => cb(mockPrisma));
     });
 
-    it('throws OrderNotFoundException when order not found', async () => {
-      mockOrderRepository.findById.mockResolvedValue(null);
-      await expect(service.unmarkAsPaid('o1', 'r1')).rejects.toThrow(OrderNotFoundException);
+    it('clears isPaid, emits updated event and returns re-fetched order', async () => {
+      const seed = makeOrder({ status: OrderStatus.CONFIRMED, isPaid: true });
+      const unpaid = makeOrder({ status: OrderStatus.CONFIRMED, isPaid: false });
+      stubTxWithOrder(seed);
+      mockOrderRepository.unmarkAsPaidIfPaid.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(unpaid);
+
+      const result = await service.unmarkAsPaid('o1', 'r1');
+      expect(mockOrderRepository.unmarkAsPaidIfPaid).toHaveBeenCalledWith(
+        expect.anything(), 'o1', 'r1',
+      );
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', unpaid);
+      expect(result).toEqual(unpaid);
+    });
+
+    it('rejects COMPLETED orders', async () => {
+      stubTxWithOrder(makeOrder({ status: OrderStatus.COMPLETED, isPaid: true }));
+
+      await expect(service.unmarkAsPaid('o1', 'r1'))
+        .rejects.toThrow(InvalidStatusTransitionException);
+      expect(mockOrderRepository.unmarkAsPaidIfPaid).not.toHaveBeenCalled();
+      expect(mockOrderEvents.emitOrderUpdated).not.toHaveBeenCalled();
+    });
+
+    it('is idempotent when order is not paid — skips the helper', async () => {
+      const unpaidSeed = makeOrder({ status: OrderStatus.CONFIRMED, isPaid: false });
+      stubTxWithOrder(unpaidSeed);
+      mockOrderRepository.findById.mockResolvedValue(unpaidSeed);
+
+      const result = await service.unmarkAsPaid('o1', 'r1');
+      expect(mockOrderRepository.unmarkAsPaidIfPaid).not.toHaveBeenCalled();
+      expect(result).toEqual(unpaidSeed);
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', unpaidSeed);
+    });
+
+    it('throws InvalidStatusTransitionException when unmarkAsPaidIfPaid returns 0 (race)', async () => {
+      // Status read inside tx says CONFIRMED+isPaid=true, but by the time the
+      // optimistic UPDATE runs another concurrent transaction already flipped
+      // isPaid=false. count=0 → reject the stale operation rather than
+      // silently succeeding.
+      stubTxWithOrder(makeOrder({ status: OrderStatus.CONFIRMED, isPaid: true }));
+      mockOrderRepository.unmarkAsPaidIfPaid.mockResolvedValue(0);
+
+      await expect(service.unmarkAsPaid('o1', 'r1'))
+        .rejects.toThrow(InvalidStatusTransitionException);
+      expect(mockOrderEvents.emitOrderUpdated).not.toHaveBeenCalled();
+    });
+
+    it('throws OrderNotFoundException when order does not exist', async () => {
+      stubTxWithOrder(null);
+      await expect(service.unmarkAsPaid('missing', 'r1'))
+        .rejects.toThrow(OrderNotFoundException);
+      expect(mockOrderRepository.unmarkAsPaidIfPaid).not.toHaveBeenCalled();
     });
   });
 
@@ -285,6 +431,7 @@ describe('OrdersService', () => {
     beforeEach(() => {
       mockPrisma.cashShift.update.mockResolvedValue({ lastOrderNumber: 1 });
       mockOrderRepository.createWithItems.mockResolvedValue(makeOrder());
+      mockCashShiftRepository.lockShiftById.mockResolvedValue(CashShiftStatus.OPEN);
     });
 
     it('creates an order successfully with sufficient stock', async () => {
@@ -449,26 +596,79 @@ describe('OrdersService', () => {
       );
     });
 
-    it('increments the order counter before the main transaction starts', async () => {
+    it('increments the order counter inside the main transaction (after lock acquisition)', async () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1', restaurantId: 'r1', price: 5, stock: null, name: 'Widget',
       });
 
       await service.createOrder('r1', 'session1', baseDto as any);
 
-      expect(mockPrisma.cashShift.update.mock.invocationCallOrder[0])
-        .toBeLessThan(mockPrisma.$transaction.mock.invocationCallOrder[0]);
-    });
-
-    it('increments the counter even when the main transaction fails — gap is acceptable', async () => {
-      mockPrisma.product.findUnique.mockResolvedValue(null);
-
-      await expect(service.createOrder('r1', 'session1', baseDto as any)).rejects.toThrow(
-        StockInsufficientException,
+      // The counter increment now happens inside the tx, AFTER lockShiftById.
+      // This fixes the H-09 write-skew race with closeSession.
+      expect(mockCashShiftRepository.lockShiftById).toHaveBeenCalledWith(
+        expect.anything(), 'session1',
       );
-
       expect(mockPrisma.cashShift.update).toHaveBeenCalledWith({
         where: { id: 'session1' },
+        data: { lastOrderNumber: { increment: 1 } },
+        select: { lastOrderNumber: true },
+      });
+      // Lock must be acquired before the counter increment runs.
+      expect(mockCashShiftRepository.lockShiftById.mock.invocationCallOrder[0])
+        .toBeLessThan(mockPrisma.cashShift.update.mock.invocationCallOrder[0]);
+    });
+
+    it('does NOT increment the counter when lockShiftById returns null (transaction rolls back before update)', async () => {
+      mockCashShiftRepository.lockShiftById.mockResolvedValue(null);
+
+      await expect(service.createOrder('r1', 'session1', baseDto as any)).rejects.toThrow(
+        RegisterNotOpenException,
+      );
+
+      expect(mockPrisma.cashShift.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createOrder lock (H-09)', () => {
+    const baseDto = {
+      items: [],
+      paymentMethod: 'cash',
+      customerEmail: undefined,
+      expectedTotal: undefined,
+    };
+
+    it('throws RegisterNotOpenException when lockShiftById returns null', async () => {
+      mockCashShiftRepository.lockShiftById.mockResolvedValue(null);
+
+      await expect(
+        service.createOrder('r1', 's1', baseDto as any),
+      ).rejects.toThrow(RegisterNotOpenException);
+
+      // The increment must NOT happen when the lock check fails.
+      expect(mockPrisma.cashShift.update).not.toHaveBeenCalled();
+      expect(mockOrderRepository.createWithItems).not.toHaveBeenCalled();
+    });
+
+    it('throws RegisterNotOpenException when locked shift status is CLOSED', async () => {
+      mockCashShiftRepository.lockShiftById.mockResolvedValue(CashShiftStatus.CLOSED);
+
+      await expect(
+        service.createOrder('r1', 's1', baseDto as any),
+      ).rejects.toThrow(RegisterNotOpenException);
+
+      expect(mockPrisma.cashShift.update).not.toHaveBeenCalled();
+      expect(mockOrderRepository.createWithItems).not.toHaveBeenCalled();
+    });
+
+    it('continues to increment lastOrderNumber when status is OPEN', async () => {
+      mockCashShiftRepository.lockShiftById.mockResolvedValue(CashShiftStatus.OPEN);
+      mockPrisma.cashShift.update.mockResolvedValue({ lastOrderNumber: 1 });
+      mockOrderRepository.createWithItems.mockResolvedValue(makeOrder());
+
+      await service.createOrder('r1', 's1', baseDto as any);
+
+      expect(mockPrisma.cashShift.update).toHaveBeenCalledWith({
+        where: { id: 's1' },
         data: { lastOrderNumber: { increment: 1 } },
         select: { lastOrderNumber: true },
       });
@@ -513,43 +713,77 @@ describe('OrdersService', () => {
   });
 
   describe('kitchenAdvanceStatus', () => {
+    // Helper: wires the $transaction mock so that tx.order.findFirst returns
+    // the supplied order. The default $transaction mock (cb => cb(mockPrisma))
+    // is not used here because the refactored kitchenAdvanceStatus needs a tx
+    // client with an `order.findFirst` method (audit H-13).
+    const stubTxWithOrder = (txOrder: any) => {
+      mockPrisma.$transaction.mockImplementationOnce(async (cb: any) =>
+        cb({
+          order: { findFirst: jest.fn().mockResolvedValue(txOrder) },
+        }),
+      );
+    };
+
     it('advances CONFIRMED → PROCESSING without isPaid check', async () => {
-      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CONFIRMED }));
-      mockOrderRepository.updateStatus.mockResolvedValue(makeOrder({ status: OrderStatus.PROCESSING }));
+      const seed = makeOrder({ status: OrderStatus.CONFIRMED });
+      stubTxWithOrder(seed);
+      mockOrderRepository.transitionStatusIfMatches.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.PROCESSING }));
       const result = await service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.PROCESSING);
       expect(result.status).toBe(OrderStatus.PROCESSING);
-      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalled();
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', result);
     });
 
     it('throws InvalidStatusTransitionException when CREATED → PROCESSING (must confirm first)', async () => {
-      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CREATED }));
+      stubTxWithOrder(makeOrder({ status: OrderStatus.CREATED }));
       await expect(service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.PROCESSING))
         .rejects.toThrow(InvalidStatusTransitionException);
     });
 
     it('advances PROCESSING → SERVED without isPaid check', async () => {
-      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.PROCESSING, isPaid: false }));
-      mockOrderRepository.updateStatus.mockResolvedValue(makeOrder({ status: OrderStatus.SERVED }));
+      stubTxWithOrder(makeOrder({ status: OrderStatus.PROCESSING, isPaid: false }));
+      mockOrderRepository.transitionStatusIfMatches.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.SERVED }));
       const result = await service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.SERVED);
       expect(result.status).toBe(OrderStatus.SERVED);
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', result);
     });
 
     it('throws on skip attempt (CREATED → COMPLETED)', async () => {
-      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CREATED }));
+      stubTxWithOrder(makeOrder({ status: OrderStatus.CREATED }));
       await expect(service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.COMPLETED))
         .rejects.toThrow(InvalidStatusTransitionException);
     });
 
     it('throws if order is already cancelled', async () => {
-      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CANCELLED }));
+      stubTxWithOrder(makeOrder({ status: OrderStatus.CANCELLED }));
       await expect(service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.PROCESSING))
         .rejects.toThrow(OrderAlreadyCancelledException);
     });
 
     it('throws InvalidStatusTransitionException when SERVED → COMPLETED via kitchen (cap exceeded)', async () => {
-      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.SERVED, isPaid: false }));
+      stubTxWithOrder(makeOrder({ status: OrderStatus.SERVED, isPaid: false }));
       await expect(service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.COMPLETED))
         .rejects.toThrow(InvalidStatusTransitionException);
+    });
+
+    describe('race detection (H-13)', () => {
+      it('throws InvalidStatusTransitionException when updateMany count=0 (status drifted)', async () => {
+        // The status read in tx says PROCESSING (a perfectly valid +1
+        // transition target SERVED), but by the time the optimistic UPDATE
+        // runs, another transaction has already advanced (or cancelled)
+        // the row. transitionStatusIfMatches returns 0 and the service
+        // must reject the now-stale advance instead of silently no-op'ing.
+        stubTxWithOrder(makeOrder({ status: OrderStatus.PROCESSING }));
+        mockOrderRepository.transitionStatusIfMatches.mockResolvedValue(0);
+
+        await expect(
+          service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.SERVED),
+        ).rejects.toThrow(InvalidStatusTransitionException);
+
+        expect(mockOrderEvents.emitOrderUpdated).not.toHaveBeenCalled();
+      });
     });
   });
 
@@ -562,6 +796,7 @@ describe('OrdersService', () => {
 
     it('calls createOrder with orderSource STAFF when shift is open', async () => {
       mockCashShiftRepository.findOpen.mockResolvedValue({ id: 'shift1' });
+      mockCashShiftRepository.lockShiftById.mockResolvedValue(CashShiftStatus.OPEN);
       mockPrisma.cashShift.update.mockResolvedValue({ lastOrderNumber: 1 });
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1', restaurantId: 'r1', price: BigInt(1000), stock: 10, name: 'Pizza',

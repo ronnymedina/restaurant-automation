@@ -43,12 +43,12 @@ const mockRegisterSessionRepository = {
   findOpenWithOrderCount: jest.fn(),
   findOpenId: jest.fn(),
   findById: jest.fn(),
+  lockOpenShift: jest.fn(),
 };
 
 // tx mock used inside $transaction callbacks for closeSession tests
 const mockTx = {
   cashShift: {
-    findFirst: jest.fn(),
     update: jest.fn(),
   },
   order: {
@@ -167,7 +167,7 @@ describe('CashRegisterService', () => {
 
   describe('closeSession', () => {
     it('should throw NoOpenCashRegisterException when no open session exists', async () => {
-      mockTx.cashShift.findFirst.mockResolvedValue(null);
+      mockRegisterSessionRepository.lockOpenShift.mockResolvedValue(null);
 
       await expect(
         service.closeSession('restaurant-uuid-1'),
@@ -178,7 +178,7 @@ describe('CashRegisterService', () => {
 
     it('should throw PendingOrdersException when session has CREATED, CONFIRMED, PROCESSING, or SERVED orders', async () => {
       const session = mockSession();
-      mockTx.cashShift.findFirst.mockResolvedValue(session);
+      mockRegisterSessionRepository.lockOpenShift.mockResolvedValue(session.id);
       mockTx.order.count.mockResolvedValue(2);
 
       await expect(
@@ -192,7 +192,7 @@ describe('CashRegisterService', () => {
       const session = mockSession();
       const closedSession = mockSession({ status: CashShiftStatus.CLOSED, closedAt: new Date() });
 
-      mockTx.cashShift.findFirst.mockResolvedValue(session);
+      mockRegisterSessionRepository.lockOpenShift.mockResolvedValue(session.id);
       mockTx.order.aggregate.mockResolvedValue({
         _sum: { totalAmount: 350n },
         _count: { id: 2 },
@@ -201,9 +201,10 @@ describe('CashRegisterService', () => {
 
       const result = await service.closeSession('restaurant-uuid-1');
 
-      expect(mockTx.cashShift.findFirst).toHaveBeenCalledWith({
-        where: { restaurantId: 'restaurant-uuid-1', status: CashShiftStatus.OPEN },
-      });
+      expect(mockRegisterSessionRepository.lockOpenShift).toHaveBeenCalledWith(
+        mockTx,
+        'restaurant-uuid-1',
+      );
       expect(mockTx.cashShift.update).toHaveBeenCalledWith({
         where: { id: session.id },
         data: expect.objectContaining({
@@ -219,7 +220,7 @@ describe('CashRegisterService', () => {
       const session = mockSession();
       const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
 
-      mockTx.cashShift.findFirst.mockResolvedValue(session);
+      mockRegisterSessionRepository.lockOpenShift.mockResolvedValue(session.id);
       mockTx.order.aggregate.mockResolvedValue({
         _sum: { totalAmount: 150n },
         _count: { id: 3 },
@@ -235,7 +236,7 @@ describe('CashRegisterService', () => {
       const session = mockSession();
       const closedSession = mockSession({ status: CashShiftStatus.CLOSED, closedBy: 'manager-uuid-1' });
 
-      mockTx.cashShift.findFirst.mockResolvedValue(session);
+      mockRegisterSessionRepository.lockOpenShift.mockResolvedValue(session.id);
       mockTx.order.aggregate.mockResolvedValue({
         _sum: { totalAmount: 0n },
         _count: { id: 0 },
@@ -255,7 +256,7 @@ describe('CashRegisterService', () => {
       const session = mockSession();
       const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
 
-      mockTx.cashShift.findFirst.mockResolvedValue(session);
+      mockRegisterSessionRepository.lockOpenShift.mockResolvedValue(session.id);
       mockTx.order.aggregate.mockResolvedValue({
         _sum: { totalAmount: 200n },
         _count: { id: 2 },
@@ -275,7 +276,7 @@ describe('CashRegisterService', () => {
       const session = mockSession();
       const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
 
-      mockTx.cashShift.findFirst.mockResolvedValue(session);
+      mockRegisterSessionRepository.lockOpenShift.mockResolvedValue(session.id);
       mockTx.order.aggregate.mockResolvedValue({
         _sum: { totalAmount: null },
         _count: { id: 0 },
@@ -291,6 +292,44 @@ describe('CashRegisterService', () => {
           data: expect.objectContaining({ totalOrders: 0, totalSales: 0n }),
         }),
       );
+    });
+
+    describe('closeSession lock', () => {
+      it('calls lockOpenShift inside the transaction before counting pending orders', async () => {
+        const session = mockSession();
+        const closedSession = mockSession({ status: CashShiftStatus.CLOSED });
+
+        mockRegisterSessionRepository.lockOpenShift.mockResolvedValue(session.id);
+        mockTx.order.aggregate.mockResolvedValue({
+          _sum: { totalAmount: 0n },
+          _count: { id: 0 },
+        });
+        mockTx.cashShift.update.mockResolvedValue(closedSession);
+
+        await service.closeSession('restaurant-uuid-1', 'user-uuid-1');
+
+        expect(mockRegisterSessionRepository.lockOpenShift).toHaveBeenCalledWith(
+          mockTx,
+          'restaurant-uuid-1',
+        );
+
+        // lockOpenShift must be called before tx.order.count (pending check)
+        const lockOrder =
+          mockRegisterSessionRepository.lockOpenShift.mock.invocationCallOrder[0];
+        const countOrder = mockTx.order.count.mock.invocationCallOrder[0];
+        expect(lockOrder).toBeLessThan(countOrder);
+      });
+
+      it('throws NoOpenCashRegisterException when lockOpenShift returns null', async () => {
+        mockRegisterSessionRepository.lockOpenShift.mockResolvedValue(null);
+
+        await expect(
+          service.closeSession('restaurant-uuid-1', 'user-uuid-1'),
+        ).rejects.toThrow(NoOpenCashRegisterException);
+
+        expect(mockTx.order.count).not.toHaveBeenCalled();
+        expect(mockTx.cashShift.update).not.toHaveBeenCalled();
+      });
     });
   });
 

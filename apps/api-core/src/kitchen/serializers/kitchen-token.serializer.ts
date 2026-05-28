@@ -1,11 +1,11 @@
 import { Exclude, Expose } from 'class-transformer';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 @Exclude()
 export class KitchenTokenSerializer {
-  @ApiPropertyOptional({ type: String, nullable: true })
+  @ApiProperty({ type: Boolean })
   @Expose()
-  kitchenUrl: string | null;
+  hasToken: boolean;
 
   @ApiPropertyOptional({ type: String, nullable: true, format: 'date-time' })
   @Expose()

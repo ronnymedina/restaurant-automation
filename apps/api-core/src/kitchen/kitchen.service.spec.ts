@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OrderStatus } from '@prisma/client';
 import { UnauthorizedException } from '@nestjs/common';
 import { KitchenService } from './kitchen.service';
+import { KitchenTokenService } from './kitchen-token.service';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { OrdersService } from '../orders/orders.service';
 import { OrderRepository } from '../orders/order.repository';
@@ -31,7 +32,7 @@ const makeRestaurant = (overrides = {}) => ({
   slug: 'test-restaurant',
   name: 'Test Restaurant',
   settings: {
-    kitchenToken: 'token123',
+    kitchenTokenHash: 'a'.repeat(64),
     kitchenTokenExpiresAt: new Date(Date.now() + 86400000),
   },
   ...overrides,
@@ -45,6 +46,7 @@ describe('KitchenService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         KitchenService,
+        KitchenTokenService,
         { provide: RestaurantsService, useValue: mockRestaurantsService },
         { provide: OrdersService, useValue: mockOrdersService },
         { provide: OrderRepository, useValue: mockOrderRepository },
@@ -92,21 +94,86 @@ describe('KitchenService', () => {
     });
   });
 
-  describe('generateToken', () => {
-    it('generates a token and returns kitchenUrl', async () => {
+  describe('generateToken (H-14)', () => {
+    it('persists tokenHash (not plain) to settings and returns plain token to caller', async () => {
       mockRestaurantsService.findById.mockResolvedValue(makeRestaurant());
       mockRestaurantsService.upsertSettings.mockResolvedValue({});
-      const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const futureDate = new Date(Date.now() + 7 * 86_400_000).toISOString();
+
       const result = await service.generateToken('r1', futureDate);
-      expect(result.token).toHaveLength(64); // 32 bytes hex = 64 chars
-      expect(result.kitchenUrl).toContain('/kitchen?slug=test-restaurant&token=');
+
+      expect(result.token).toMatch(/^[A-Za-z0-9_-]{43}$/); // 43-char URL-safe base64
+      expect(result.kitchenUrl).toContain(`/kitchen?slug=test-restaurant&token=${result.token}`);
       expect(result.expiresAt).toBeInstanceOf(Date);
+
+      expect(mockRestaurantsService.upsertSettings).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({
+          kitchenTokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+          kitchenTokenExpiresAt: expect.any(Date),
+        }),
+      );
+
+      // upsert should NOT include kitchenToken (plain)
+      const payload = mockRestaurantsService.upsertSettings.mock.calls[0][1];
+      expect(payload).not.toHaveProperty('kitchenToken');
     });
 
     it('throws UnauthorizedException if restaurant not found', async () => {
       mockRestaurantsService.findById.mockResolvedValue(null);
-      const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const futureDate = new Date(Date.now() + 7 * 86_400_000).toISOString();
       await expect(service.generateToken('bad-id', futureDate)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('throws BadRequestException if expiresAt is in the past or today', async () => {
+      mockRestaurantsService.findById.mockResolvedValue(makeRestaurant());
+      const pastDate = new Date(Date.now() - 86_400_000).toISOString();
+      await expect(service.generateToken('r1', pastDate)).rejects.toThrow();
+    });
+  });
+
+  describe('getTokenInfo (H-14)', () => {
+    it('returns hasToken=true without exposing plain when kitchenTokenHash is set and not expired', async () => {
+      mockRestaurantsService.findByIdWithSettings.mockResolvedValue({
+        id: 'r1',
+        slug: 'mi-rest',
+        settings: {
+          kitchenTokenHash: 'a'.repeat(64),
+          kitchenTokenExpiresAt: new Date(Date.now() + 86_400_000),
+        },
+      });
+
+      const result = await service.getTokenInfo('r1');
+      expect(result).toEqual({
+        hasToken: true,
+        expiresAt: expect.any(Date),
+      });
+      expect(result).not.toHaveProperty('kitchenUrl');
+    });
+
+    it('returns hasToken=false when no hash exists', async () => {
+      mockRestaurantsService.findByIdWithSettings.mockResolvedValue({
+        id: 'r1',
+        slug: 'mi-rest',
+        settings: { kitchenTokenHash: null },
+      });
+
+      const result = await service.getTokenInfo('r1');
+      expect(result).toEqual({ hasToken: false, expiresAt: null });
+    });
+
+    it('returns hasToken=false when token is expired', async () => {
+      mockRestaurantsService.findByIdWithSettings.mockResolvedValue({
+        id: 'r1',
+        slug: 'mi-rest',
+        settings: {
+          kitchenTokenHash: 'a'.repeat(64),
+          kitchenTokenExpiresAt: new Date(Date.now() - 1000),
+        },
+      });
+
+      const result = await service.getTokenInfo('r1');
+      expect(result).toEqual({ hasToken: false, expiresAt: null });
     });
   });
 
