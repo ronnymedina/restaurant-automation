@@ -487,5 +487,40 @@ describe('CashRegisterService', () => {
         expect(mockStatsService.getSummary).not.toHaveBeenCalled();
       });
     });
+
+    describe('CashRegisterService.getSessionSummary (H-31)', () => {
+      it('cachea el summary de turnos CLOSED — 2nd call no recomputa', async () => {
+        const closed = {
+          id: 's1',
+          restaurantId: 'r1',
+          status: 'CLOSED',
+          openedAt: new Date(),
+          closedAt: new Date(),
+          user: { id: 'u', email: 'u@e.com' },
+        };
+        mockRegisterSessionRepository.findById.mockResolvedValue(closed as any);
+        mockStatsService.getSummary.mockResolvedValue({
+          counts: { total: 0, pending: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 0, cancelled: 0 },
+          revenue: { completed: 0n, pending: 0n, averageTicket: 0n },
+          byPaymentMethod: [],
+          byOrderType: [],
+          byOrderSource: [],
+          topProducts: [],
+        });
+
+        await service.getSessionSummary('r1', 's1');
+        await service.getSessionSummary('r1', 's1');
+        expect(mockStatsService.getSummary).toHaveBeenCalledTimes(1);
+      });
+
+      it('NO cachea el summary de turnos OPEN — recomputa siempre', async () => {
+        const open = { id: 's2', restaurantId: 'r1', status: 'OPEN', user: { id: 'u', email: 'u@e.com' } };
+        mockRegisterSessionRepository.findById.mockResolvedValue(open as any);
+        mockStatsService.getSummary.mockResolvedValue({} as any);
+        await service.getSessionSummary('r1', 's2');
+        await service.getSessionSummary('r1', 's2');
+        expect(mockStatsService.getSummary).toHaveBeenCalledTimes(2);
+      });
+    });
   });
 });

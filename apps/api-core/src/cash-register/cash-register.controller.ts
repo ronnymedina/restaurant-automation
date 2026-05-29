@@ -24,6 +24,7 @@ import { Role } from '@prisma/client';
 import { CashRegisterService } from './cash-register.service';
 import { CashRegisterStatsService } from './cash-register-stats.service';
 import { TimezoneService } from '../restaurants/timezone.service';
+import { OrderShiftReportRepository } from '../orders/order-shift-report.repository';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CashShiftGuard } from './guards/cash-shift.guard';
@@ -32,7 +33,10 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { CashShiftSerializer } from './serializers/cash-shift.serializer';
 import { CashShiftWithCountSerializer } from './serializers/cash-shift-with-count.serializer';
-import { ShiftSummarySerializer } from './serializers/cash-register-stats.serializer';
+import {
+  ShiftSummarySerializer,
+  StatsTopProductSerializer,
+} from './serializers/cash-register-stats.serializer';
 import { PaginatedCashShiftsSerializer } from './serializers/paginated-cash-shifts.serializer';
 import {
   TopProductsResponseDto,
@@ -52,6 +56,7 @@ export class CashRegisterController {
     private readonly registerService: CashRegisterService,
     private readonly statsService: CashRegisterStatsService,
     private readonly timezoneService: TimezoneService,
+    private readonly orderShiftReport: OrderShiftReportRepository,
   ) {}
 
   @Post('open')
@@ -171,8 +176,10 @@ export class CashRegisterController {
     @CurrentUser() user: { restaurantId: string },
     @Req() req: Request & { cashShift: { id: string } },
   ) {
-    const summary = await this.statsService.getSummary(user.restaurantId, req.cashShift.id);
-    const serialized = new ShiftSummarySerializer(summary);
-    return { topProducts: serialized.topProducts };
+    const rows = await this.orderShiftReport.getTopProductsWithNamesByShift(
+      user.restaurantId,
+      req.cashShift.id,
+    );
+    return { topProducts: rows.map((p) => new StatsTopProductSerializer(p)) };
   }
 }

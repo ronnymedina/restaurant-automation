@@ -11,10 +11,14 @@ import {
 import { DEFAULT_PAGE_SIZE } from '../config';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import { PrismaService } from '../prisma/prisma.service';
-import { CashRegisterStatsService } from './cash-register-stats.service';
+import { CashRegisterStatsService, ShiftSummary } from './cash-register-stats.service';
+
+const CLOSED_SUMMARY_CACHE_MAX = 200;
 
 @Injectable()
 export class CashRegisterService {
+  private readonly closedSummaryCache = new Map<string, ShiftSummary>();
+
   constructor(
     private readonly registerSessionRepository: CashShiftRepository,
     private readonly prisma: PrismaService,
@@ -129,7 +133,25 @@ export class CashRegisterService {
     if (!session || session.restaurantId !== restaurantId) {
       throw new CashRegisterNotFoundException(sessionId);
     }
+
+    if (session.status === CashShiftStatus.CLOSED) {
+      const cached = this.closedSummaryCache.get(sessionId);
+      if (cached) return { session, summary: cached };
+
+      const summary = await this.statsService.getSummary(restaurantId, sessionId);
+      this.rememberSummary(sessionId, summary);
+      return { session, summary };
+    }
+
     const summary = await this.statsService.getSummary(restaurantId, sessionId);
     return { session, summary };
+  }
+
+  private rememberSummary(sessionId: string, summary: ShiftSummary): void {
+    if (this.closedSummaryCache.size >= CLOSED_SUMMARY_CACHE_MAX) {
+      const firstKey = this.closedSummaryCache.keys().next().value;
+      if (firstKey !== undefined) this.closedSummaryCache.delete(firstKey);
+    }
+    this.closedSummaryCache.set(sessionId, summary);
   }
 }

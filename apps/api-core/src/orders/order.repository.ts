@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { OrderStatus, Prisma, PaymentMethod } from '@prisma/client';
+import { OrderStatus, Prisma, PaymentMethod, CashShiftStatus } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderSerializer } from './serializers/order.serializer';
@@ -87,9 +87,13 @@ export class OrderRepository {
 
   async findActiveOrders(restaurantId: string, statuses: OrderStatus[]) {
     const orders = await this.prisma.order.findMany({
-      where: { restaurantId, status: { in: statuses } },
+      where: {
+        restaurantId,
+        status: { in: statuses },
+        cashShift: { status: CashShiftStatus.OPEN },
+      },
       include: ORDER_WITH_ITEMS,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'asc' }, { orderNumber: 'asc' }],
     });
     return orders.map((o) => new OrderSerializer(o));
   }

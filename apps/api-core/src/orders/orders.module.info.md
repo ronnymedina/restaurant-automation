@@ -391,3 +391,19 @@ Toda la lógica de transición de estados de orden vive en `order-state-machine.
 | `assertCanCancel(from, isPaid)` | Cualquier estado pre-COMPLETED, `!isPaid`. |
 
 Cualquier nuevo flujo de transición debe llamar al método correspondiente — **no** duplicar checks inline.
+
+### `listOrders` lanza 409 sin caja abierta (audit H-24)
+
+`OrdersService.listOrders` devuelve `409 NO_OPEN_CASH_REGISTER` cuando no hay
+turno de caja abierto. Esto es una **decisión de producto consciente** (no un
+bug — auditoría H-24, revisada 2026-05-29):
+
+- El dashboard solo muestra órdenes del turno actual; sin caja abierta no hay
+  noción de "actuales".
+- Órdenes huérfanas entre turnos (caso defendido por H-09 — ya cerrado) no
+  son visibles vía este endpoint pero **sí** vía `/v1/orders/history` con
+  filtros de fecha.
+
+Si en el futuro se decide cambiar a "lista vacía cuando no hay caja", revisar
+también el frontend (`OrdersPanel.tsx`) que hoy maneja explícitamente el 409
+para mostrar un CTA de abrir caja.
