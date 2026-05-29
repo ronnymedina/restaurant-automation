@@ -75,7 +75,7 @@ export class CashRegisterService {
       });
     });
 
-    const summary = await this.statsService.getSummary(closedSession.id);
+    const summary = await this.statsService.getSummary(restaurantId, closedSession.id);
     return { session: closedSession, summary };
   }
 
@@ -116,11 +116,12 @@ export class CashRegisterService {
     return session || {};
   }
 
-  async getSessionSummary(sessionId: string) {
-    const [summary, session] = await Promise.all([
-      this.statsService.getSummary(sessionId),
-      this.registerSessionRepository.findById(sessionId),
-    ]);
-    return { session: session!, summary };
+  async getSessionSummary(restaurantId: string, sessionId: string) {
+    const session = await this.registerSessionRepository.findById(sessionId);
+    if (!session || session.restaurantId !== restaurantId) {
+      throw new CashRegisterNotFoundException(sessionId);
+    }
+    const summary = await this.statsService.getSummary(restaurantId, sessionId);
+    return { session, summary };
   }
 }

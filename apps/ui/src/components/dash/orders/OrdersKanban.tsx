@@ -9,31 +9,31 @@ const COLUMNS = [
     bg: 'bg-yellow-50',
     border: 'border-yellow-200',
     text: 'text-yellow-800',
-    badgeBg: 'bg-yellow-200',
+    badgeBg: 'bg-yellow-400',
   },
   {
     status: 'CONFIRMED',
     label: 'Confirmado',
-    bg: 'bg-purple-50',
-    border: 'border-purple-200',
-    text: 'text-purple-800',
-    badgeBg: 'bg-purple-200',
+    bg: 'bg-blue-50',
+    border: 'border-blue-200',
+    text: 'text-blue-800',
+    badgeBg: 'bg-blue-500',
   },
   {
     status: 'PROCESSING',
     label: 'En Proceso',
-    bg: 'bg-blue-50',
-    border: 'border-blue-200',
-    text: 'text-blue-800',
-    badgeBg: 'bg-blue-200',
+    bg: 'bg-indigo-50',
+    border: 'border-indigo-200',
+    text: 'text-indigo-800',
+    badgeBg: 'bg-indigo-500',
   },
   {
     status: 'SERVED',
     label: 'Listo para servir o entregar',
-    bg: 'bg-orange-50',
-    border: 'border-orange-200',
-    text: 'text-orange-800',
-    badgeBg: 'bg-orange-200',
+    bg: 'bg-green-50',
+    border: 'border-green-200',
+    text: 'text-green-800',
+    badgeBg: 'bg-green-600',
   },
 ];
 
@@ -53,7 +53,7 @@ export default function OrdersKanban({ orders, onConfirm, onAdvance, onPay, onUn
           <div key={status} className="flex flex-col">
             <div className={`${bg} border ${border} rounded-t-xl px-4 py-3 flex items-center justify-between`}>
               <h3 className={`font-bold ${text}`}>{label}</h3>
-              <span className={`text-xs font-medium ${badgeBg} ${text} px-2 py-0.5 rounded-full`}>
+              <span className={`text-xs font-medium ${badgeBg} text-white px-2 py-0.5 rounded-full`}>
                 {col.length}
               </span>
             </div>

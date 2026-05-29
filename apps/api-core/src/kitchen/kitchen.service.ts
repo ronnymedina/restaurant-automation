@@ -78,8 +78,4 @@ export class KitchenService {
       kitchenUrl: `/kitchen?slug=${restaurant.slug}&token=${plainToken}`,
     };
   }
-
-  async notifyOffline(restaurant: Restaurant) {
-    this.sseService.emitToRestaurant(restaurant.id, 'kitchen:offline', {});
-  }
 }

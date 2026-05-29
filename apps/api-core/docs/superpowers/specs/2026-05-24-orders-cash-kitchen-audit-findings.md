@@ -25,7 +25,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 | Severidad | Cantidad | IDs |
 |-----------|----------|-----|
 | 🔴 CRÍTICO | 4 | H-01 ✅, H-02 ✅, H-03 ✅, H-04 ⏳ |
-| 🟠 ALTO    | 16 | H-05 ✅, H-06 ✅, H-09 ✅, H-13 ✅, H-14 ✅, H-07, H-08, H-10…H-12, H-15…H-20 |
+| 🟠 ALTO    | 16 | H-05 ✅, H-06 ✅, H-07 ✅, H-08 ✅, H-09 ✅, H-11 ✅, H-12 ✅, H-13 ✅, H-14 ✅, H-15 ✅, H-10, H-16…H-20 |
 | 🟡 MEDIO   | 19 | H-21, H-22 ✅, H-23 … H-39 |
 | 🟢 BAJO    | 13 | H-40 … H-52 |
 | **Total**  | **52** | |
@@ -36,6 +36,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 - ✅ H-03 implementado (2026-05-25) — XSS de cocina cerrado vía DOM API + módulo de recibo (dashboard + backend) eliminado por ser dead code + `@MaxLength` en campos de texto libre del DTO de orden
 - ✅ H-22 parcial (2026-05-25) — `fromCents` aplicado en `serializeOrder`; refactor estructural a Serializer dedicado sigue pendiente
 - ✅ H-05, H-06, H-09, H-13, H-14 implementados (2026-05-27) — race conditions de order/cash-shift transitions (markAsPaid, unmarkAsPaid, createOrder, closeSession, kitchenAdvanceStatus) y hardening del kitchen token (hash sha256 + timingSafeEqual + header X-Kitchen-Token). Ver `2026-05-27-orders-cashshift-kitchen-token-hardening-design.md` y plan asociado.
+- ✅ H-07, H-08, H-11, H-12, H-15 implementados (2026-05-28) — `FindHistoryDto` con tope de 90 días y `limit ≤ 100`; defensa en profundidad por `restaurantId` en `OrderShiftReportRepository` + `CashRegisterStatsService` + `CashRegisterService.getSessionSummary` (404 cross-tenant); eliminación de `CashShiftRepository.close` (0 callers, firma con `totalSales: number` rompía convención BigInt); eliminación del feature `notifyOffline` (dead-end — emitía a un canal sin listener UI). Ver `2026-05-28-orders-cashshift-kitchen-hardening-batch2-design.md` y plan asociado.
 - ⏳ H-04 deferred (2026-05-27) — scope acotado a "esta semana"; requiere diseño separado del mecanismo sse-ticket y refactor del cliente SSE (dashboard + cocina). Tracker como follow-up.
 - ➕ Hallazgo adicional descubierto y arreglado: contrato roto entre backend `/cash-register/summary` y frontend `RegisterHistoryIsland`. Ver sección "Hallazgos adicionales".
 
@@ -300,6 +301,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 
 **Fix:** Crear `FindHistoryDto` con `@IsInt`, `@IsEnum(OrderStatus)`, `@IsDateString()`, `@IsInt() @Min(1) @Max(100) limit`, `@MaxDateRange(90)` custom validator.
 
+**Estado:** ✅ Implementado (2026-05-28)
+**Plan asociado:** `docs/superpowers/plans/2026-05-28-orders-cashshift-kitchen-hardening-batch2-plan.md`
+
 ---
 
 ### H-08 — `OrderShiftReportRepository` no filtra por `restaurantId`
@@ -310,6 +314,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 **Descripción:** `groupOrdersByShift` y `getTopProductsWithNamesByShift` filtran solo por `cashShiftId`. Si un futuro endpoint pasa `sessionId` recibido del cliente sin validar pertenencia, fuga reportes entre tenants.
 
 **Fix:** Aceptar `restaurantId` y agregar `cashShift: { restaurantId }` al `where`.
+
+**Estado:** ✅ Implementado (2026-05-28)
+**Plan asociado:** `docs/superpowers/plans/2026-05-28-orders-cashshift-kitchen-hardening-batch2-plan.md`
 
 ---
 
@@ -347,6 +354,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 
 **Fix:** Cambiar a `totalSales: bigint`, o eliminar el método.
 
+**Estado:** ✅ Implementado (2026-05-28) — método eliminado (0 callers en src + test).
+**Plan asociado:** `docs/superpowers/plans/2026-05-28-orders-cashshift-kitchen-hardening-batch2-plan.md`
+
 ---
 
 ### H-12 — `getSessionStats`/`getStats` no filtran por `restaurantId`
@@ -359,6 +369,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 **Descripción:** Hoy salvado por `CashShiftGuard` en el controller. Si alguien añade un endpoint nuevo que llame estos métodos sin el guard, expone datos cross-tenant.
 
 **Fix:** Aceptar `restaurantId` en ambos métodos y filtrar en la query base.
+
+**Estado:** ✅ Implementado (2026-05-28) — `CashRegisterStatsService.getSummary(restaurantId, sessionId)` y `CashRegisterService.getSessionSummary(restaurantId, sessionId)` con validación de pertenencia; 404 cross-tenant.
+**Plan asociado:** `docs/superpowers/plans/2026-05-28-orders-cashshift-kitchen-hardening-batch2-plan.md`
 
 ---
 
@@ -400,6 +413,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 **Descripción:** Debería notificar al dashboard según `info.md`, pero publica en `restaurant$` que es escuchado por kiosk, cocina y todos los clientes del restaurante.
 
 **Fix:** Crear canal/evento específico para dashboard o filtrar por tipo de cliente (`dashboard`, `kiosk`, `kitchen`).
+
+**Estado:** ✅ Implementado (2026-05-28) — feature eliminado completo (endpoint + service method + spec + llamada UI). Diagnóstico revisado: el evento iba al canal correcto (restaurant SSE stream con `event: 'kitchen:offline'`) pero ningún cliente UI tenía listener registrado. Se borra todo en lugar de cablear un listener nuevo (YAGNI).
+**Plan asociado:** `docs/superpowers/plans/2026-05-28-orders-cashshift-kitchen-hardening-batch2-plan.md`
 
 ---
 
@@ -620,7 +636,7 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 |--------|-----------|
 | **Hoy / hotfix** | ~~H-01 (kiosk roto)~~ ✅, ~~H-02 (precios wizard)~~ ✅, ~~H-03 (XSS)~~ ✅, H-04 (tokens en URL) ⏳ deferred, ~~H-AUX-01 (contrato cash-register)~~ ✅ |
 | **Esta semana** | ~~H-05 (markAsPaid TX)~~ ✅, ~~H-06 (unmarkAsPaid)~~ ✅, ~~H-09 (closeSession race)~~ ✅, ~~H-13 (kitchen race)~~ ✅, ~~H-14 (kitchen token)~~ ✅ |
-| **Próximo sprint** | H-07 (findHistory DTO), H-11 (BigInt cash-shift), H-08/H-12 (filtros restaurantId), H-15 (notifyOffline canal) |
+| **Próximo sprint** | ~~H-07 (findHistory DTO)~~ ✅, ~~H-11 (BigInt cash-shift)~~ ✅, ~~H-08/H-12 (filtros restaurantId)~~ ✅, ~~H-15 (notifyOffline canal)~~ ✅ |
 | **Backlog técnico** | H-17 a H-20 + todos los MEDIOS |
 | **Limpieza** | Todos los BAJOS |
 | **Deuda colateral descubierta** | E2e del módulo `kiosk` con SQLite (stack overflow al inicializar NestJS). Preexistente, no relacionado con H-01. |

@@ -31,19 +31,29 @@ type TopProductRow = {
 export class OrderShiftReportRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  groupOrdersByShift(sessionId: string): Promise<OrderGroupRow[]> {
+  groupOrdersByShift(restaurantId: string, sessionId: string): Promise<OrderGroupRow[]> {
     return this.prisma.order.groupBy({
       by: [status, paymentMethod, orderType, orderSource],
-      where: { cashShiftId: sessionId },
+      where: { cashShiftId: sessionId, cashShift: { restaurantId } },
       _sum: { totalAmount: true },
       _count: { id: true },
     }) as unknown as Promise<OrderGroupRow[]>;
   }
 
-  async getTopProductsWithNamesByShift(sessionId: string, take = 5): Promise<TopProductWithName[]> {
+  async getTopProductsWithNamesByShift(
+    restaurantId: string,
+    sessionId: string,
+    take = 5,
+  ): Promise<TopProductWithName[]> {
     const rows = await this.prisma.orderItem.groupBy({
       by: [productId],
-      where: { order: { cashShiftId: sessionId, status: { not: OrderStatus.CANCELLED } } },
+      where: {
+        order: {
+          cashShiftId: sessionId,
+          cashShift: { restaurantId },
+          status: { not: OrderStatus.CANCELLED },
+        },
+      },
       _sum: { quantity: true, subtotal: true },
       orderBy: { _sum: { quantity: 'desc' } },
       take,
@@ -52,11 +62,10 @@ export class OrderShiftReportRepository {
     if (rows.length === 0) return [];
 
     const products = await this.prisma.product.findMany({
-      where: { id: { in: rows.map((r) => r.productId) } },
+      where: { id: { in: rows.map((r) => r.productId) }, restaurantId },
       select: { id: true, name: true },
     });
 
-    
     const nameMap = Object.fromEntries(products.map((p) => [p.id, p.name]));
 
     return rows.map((r) => ({

@@ -35,6 +35,64 @@ describe('GET /v1/orders/history - orderHistory (e2e)', () => {
     adminTokenB = await login(app, restB.admin.email);
   });
 
+  describe('Validación de query params (H-07)', () => {
+    it('rechaza limit no-numérico con 400', async () => {
+      await request(app.getHttpServer())
+        .get('/v1/orders/history?limit=abc')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+    });
+
+    it('rechaza limit > 100 con 400', async () => {
+      await request(app.getHttpServer())
+        .get('/v1/orders/history?limit=999')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+    });
+
+    it('rechaza dateFrom no-ISO con 400', async () => {
+      await request(app.getHttpServer())
+        .get('/v1/orders/history?dateFrom=hoy')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+    });
+
+    it('rechaza dateFrom > dateTo con 400', async () => {
+      await request(app.getHttpServer())
+        .get('/v1/orders/history?dateFrom=2026-02-01&dateTo=2026-01-01')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+    });
+
+    it('rechaza rango > 90 días con 400', async () => {
+      await request(app.getHttpServer())
+        .get('/v1/orders/history?dateFrom=2026-01-01&dateTo=2026-06-30')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+    });
+
+    it('rechaza status fuera del enum con 400', async () => {
+      await request(app.getHttpServer())
+        .get('/v1/orders/history?status=BLAH')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+    });
+
+    it('rechaza orderNumber no-numérico con 400', async () => {
+      await request(app.getHttpServer())
+        .get('/v1/orders/history?orderNumber=abc')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+    });
+
+    it('acepta query válida con 200', async () => {
+      await request(app.getHttpServer())
+        .get('/v1/orders/history?dateFrom=2026-01-01&dateTo=2026-01-31&limit=10&page=1')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+    });
+  });
+
   afterAll(async () => {
     await app.close();
   });

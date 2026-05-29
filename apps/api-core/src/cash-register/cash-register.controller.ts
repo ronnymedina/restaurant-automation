@@ -117,7 +117,7 @@ export class CashRegisterController {
     if (!sessionId) {
       return { summary: ShiftSummarySerializer.empty() };
     }
-    const summary = await this.statsService.getSummary(sessionId);
+    const summary = await this.statsService.getSummary(user.restaurantId, sessionId);
     return { summary: new ShiftSummarySerializer(summary) };
   }
 
@@ -149,7 +149,7 @@ export class CashRegisterController {
     @Req() req: Request & { cashShift: { id: string } },
   ) {
     const [result, tz] = await Promise.all([
-      this.registerService.getSessionSummary(req.cashShift.id),
+      this.registerService.getSessionSummary(user.restaurantId, req.cashShift.id),
       this.timezoneService.getTimezone(user.restaurantId),
     ]);
     return {
@@ -167,9 +167,10 @@ export class CashRegisterController {
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN o MANAGER)' })
   async topProducts(
+    @CurrentUser() user: { restaurantId: string },
     @Req() req: Request & { cashShift: { id: string } },
   ) {
-    const summary = await this.statsService.getSummary(req.cashShift.id);
+    const summary = await this.statsService.getSummary(user.restaurantId, req.cashShift.id);
     const serialized = new ShiftSummarySerializer(summary);
     return { topProducts: serialized.topProducts };
   }

@@ -15,6 +15,7 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
   let adminToken: string;
   let basicToken: string;
   let shiftId: string;
+  let otherTenantShiftId: string;
 
   beforeAll(async () => {
     ({ app, prisma } = await bootstrapApp());
@@ -27,6 +28,10 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'COMPLETED');
     await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'COMPLETED');
     await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'CANCELLED');
+
+    const restB = await seedRestaurant(prisma, 'B');
+    const adminTokenB = await login(app, restB.admin.email);
+    otherTenantShiftId = await openCashShiftViaApi(app, adminTokenB);
   });
 
   afterAll(async () => {
@@ -139,5 +144,14 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     expect(Array.isArray(summary.byOrderType)).toBe(true);
     expect(Array.isArray(summary.byOrderSource)).toBe(true);
     expect(Array.isArray(summary.topProducts)).toBe(true);
+  });
+
+  describe('Cross-tenant (H-12)', () => {
+    it('admin del restaurante A pidiendo summary de un sessionId del restaurante B recibe 404', async () => {
+      await request(app.getHttpServer())
+        .get(`/v1/cash-register/summary/${otherTenantShiftId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(404);
+    });
   });
 });

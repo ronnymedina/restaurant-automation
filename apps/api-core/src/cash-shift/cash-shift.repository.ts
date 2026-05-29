@@ -44,22 +44,6 @@ export class CashShiftRepository {
     });
   }
 
-  async close(
-    id: string,
-    data: { totalSales: number; totalOrders: number; closedBy?: string },
-  ): Promise<CashShift> {
-    return this.prisma.cashShift.update({
-      where: { id },
-      data: {
-        status: CashShiftStatus.CLOSED,
-        closedAt: new Date(),
-        totalSales: data.totalSales,
-        totalOrders: data.totalOrders,
-        closedBy: data.closedBy,
-      },
-    });
-  }
-
   async findByRestaurantIdPaginated(
     restaurantId: string,
     skip: number,

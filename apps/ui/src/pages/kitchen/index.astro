@@ -144,7 +144,6 @@ import KitchenConfirmModal from '../../components/kitchen/KitchenConfirmModal';
   const tabCreatedBadge = document.getElementById('tabCreatedBadge')!;
   const tabProcessingBadge = document.getElementById('tabProcessingBadge')!;
 
-  let notifiedOffline = false;
   const ordersMap = new Map<string, any>();
 
   // ── Tab switching ─────────────────────────────────────────────────
@@ -215,16 +214,11 @@ import KitchenConfirmModal from '../../components/kitchen/KitchenConfirmModal';
     connDot.style.background = '#4ade80';
     hideBanner();
     offlineOverlay.style.display = 'none';
-    notifiedOffline = false;
   }
 
   function setOffline() {
     connDot.style.background = '#f87171';
     offlineOverlay.style.display = 'flex';
-    if (!notifiedOffline) {
-      notifiedOffline = true;
-      kitchenFetch(`/v1/kitchen/${slug}/notify-offline`, { method: 'POST' }).catch(() => {});
-    }
   }
 
   let errorToastTimer: ReturnType<typeof setTimeout> | null = null;

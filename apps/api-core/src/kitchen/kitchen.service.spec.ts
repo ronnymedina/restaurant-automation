@@ -177,14 +177,4 @@ describe('KitchenService', () => {
     });
   });
 
-  describe('notifyOffline', () => {
-    it('emits kitchen:offline to restaurant room', async () => {
-      await service.notifyOffline(makeRestaurant() as any);
-      expect(mockSseService.emitToRestaurant).toHaveBeenCalledWith(
-        'r1',
-        'kitchen:offline',
-        {},
-      );
-    });
-  });
 });

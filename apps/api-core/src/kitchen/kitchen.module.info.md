@@ -62,7 +62,6 @@
 | `POST` | `/v1/kitchen/token/generate` | JWT | ADMIN | `KitchenGeneratedTokenSerializer` | Genera o renueva el token |
 | `GET` | `/v1/kitchen/:slug/orders` | Kitchen token (query param) | — | `KitchenOrderSerializer[]` | Pedidos CONFIRMED y PROCESSING |
 | `PATCH` | `/v1/kitchen/:slug/orders/:id/status` | Kitchen token (query param) | — | `KitchenOrderSerializer` | Avanza estado del pedido |
-| `POST` | `/v1/kitchen/:slug/notify-offline` | Kitchen token (query param) | — | `{ notified: true }` | Notifica que la pantalla está offline |
 
 ---
 
@@ -118,17 +117,6 @@ Transiciones permitidas: `CONFIRMED → PROCESSING`, `PROCESSING → SERVED`. La
 | Estado ya CANCELLED | 400 | `OrderAlreadyCancelledException` |
 | Transición inválida (ej: PROCESSING → COMPLETED) | 400 | `InvalidStatusTransitionException` — máximo kitchen es SERVED |
 | OK | 200 | `KitchenOrderSerializer` con nuevo status |
-
----
-
-#### Notify Offline — `POST /v1/kitchen/:slug/notify-offline?token=...`
-
-Emite el evento SSE `kitchen:offline` al dashboard del restaurante vía `SseService`.
-
-| Caso | Status | Detalle |
-|---|---|---|
-| Token inválido/expirado | 401 | KitchenTokenGuard |
-| OK | 201 | `{ notified: true }` |
 
 ---
 
