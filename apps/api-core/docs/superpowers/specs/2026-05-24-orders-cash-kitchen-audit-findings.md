@@ -25,7 +25,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 | Severidad | Cantidad | IDs |
 |-----------|----------|-----|
 | 🔴 CRÍTICO | 4 | H-01 ✅, H-02 ✅, H-03 ✅, H-04 ⏳ |
-| 🟠 ALTO    | 16 | H-05 ✅, H-06 ✅, H-07 ✅, H-08 ✅, H-09 ✅, H-11 ✅, H-12 ✅, H-13 ✅, H-14 ✅, H-15 ✅, H-10, H-16…H-20 |
+| 🟠 ALTO    | 16 | H-05 ✅, H-06 ✅, H-07 ✅, H-08 ✅, H-09 ✅, H-11 ✅, H-12 ✅, H-13 ✅, H-14 ✅, H-15 ✅, H-19 ❌, H-10, H-16, H-17, H-18, H-20 |
 | 🟡 MEDIO   | 19 | H-21, H-22 ✅, H-23 … H-39 |
 | 🟢 BAJO    | 13 | H-40 … H-52 |
 | **Total**  | **52** | |
@@ -38,6 +38,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 - ✅ H-05, H-06, H-09, H-13, H-14 implementados (2026-05-27) — race conditions de order/cash-shift transitions (markAsPaid, unmarkAsPaid, createOrder, closeSession, kitchenAdvanceStatus) y hardening del kitchen token (hash sha256 + timingSafeEqual + header X-Kitchen-Token). Ver `2026-05-27-orders-cashshift-kitchen-token-hardening-design.md` y plan asociado.
 - ✅ H-07, H-08, H-11, H-12, H-15 implementados (2026-05-28) — `FindHistoryDto` con tope de 90 días y `limit ≤ 100`; defensa en profundidad por `restaurantId` en `OrderShiftReportRepository` + `CashRegisterStatsService` + `CashRegisterService.getSessionSummary` (404 cross-tenant); eliminación de `CashShiftRepository.close` (0 callers, firma con `totalSales: number` rompía convención BigInt); eliminación del feature `notifyOffline` (dead-end — emitía a un canal sin listener UI). Ver `2026-05-28-orders-cashshift-kitchen-hardening-batch2-design.md` y plan asociado.
 - ⏳ H-04 deferred (2026-05-27) — scope acotado a "esta semana"; requiere diseño separado del mecanismo sse-ticket y refactor del cliente SSE (dashboard + cocina). Tracker como follow-up.
+- ❌ H-19 descartado (2026-05-28) — el módulo de recibo del dashboard se borró completamente en H-03 (dead code + XSS cleanup). No hay código que arreglar.
 - ➕ Hallazgo adicional descubierto y arreglado: contrato roto entre backend `/cash-register/summary` y frontend `RegisterHistoryIsland`. Ver sección "Hallazgos adicionales".
 - ➕ Hallazgo adicional descubierto (2026-05-28): patrón SSE → full refetch en dashboard y cocina. N eventos = N refetches completos. Ver H-AUX-02 en "Hallazgos adicionales".
 
@@ -536,11 +537,11 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 ### H-19 — `handleReceipt` falla silenciosamente si popup bloqueado
 
 **Categoría:** error (frontend)
-**Archivo:** `apps/ui/src/components/dash/orders/OrdersPanel.tsx:174-193`
+**Archivo:** ~~`apps/ui/src/components/dash/orders/OrdersPanel.tsx:174-193`~~ (eliminado)
 
-**Descripción:** `window.open` devuelve `null` si bloqueado (común en Safari). El cajero no se entera de que el recibo no se imprimió.
-
-**Fix:** Si `win === null`, mostrar toast "Habilita popups para imprimir".
+**Estado:** ❌ Descartado (2026-05-28)
+**Decisión:** El módulo de recibo del dashboard se borró completamente durante H-03 (cleanup del XSS + dead code). `handleReceipt`, `onReceipt` y el endpoint `POST /v1/print/receipt/:id` ya no existen. El bug que H-19 describía está físicamente removido — no hay código que arreglar.
+**Verificación:** `grep -rn "handleReceipt\|onReceipt" apps/ui/src/components/dash/orders/` retorna 0 resultados (2026-05-28).
 
 ---
 
