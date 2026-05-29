@@ -11,7 +11,6 @@ import {
   StockInsufficientException,
   InvalidStatusTransitionException,
   OrderAlreadyCancelledException,
-  OrderNotPaidException,
   RegisterNotOpenException,
   CannotCancelPaidOrderException,
 } from './exceptions/orders.exceptions';
@@ -22,14 +21,7 @@ import { OrderEventsService } from '../events/orders.events';
 import { TimezoneService } from '../restaurants/timezone.service';
 import { toUtcBoundary } from '../common/date.utils';
 import { CashShiftRepository } from '../cash-shift/cash-shift.repository';
-
-const STATUS_ORDER: OrderStatus[] = [
-  OrderStatus.CREATED,
-  OrderStatus.CONFIRMED,
-  OrderStatus.PROCESSING,
-  OrderStatus.SERVED,
-  OrderStatus.COMPLETED,
-];
+import { OrderStateMachine } from './order-state-machine';
 
 type OrderItemEntry = {
   productId: string;
@@ -152,14 +144,10 @@ export class OrdersService {
 
     if (order.status === OrderStatus.CANCELLED) throw new OrderAlreadyCancelledException(id);
 
-    const currentIdx = STATUS_ORDER.indexOf(order.status);
-    const targetIdx = STATUS_ORDER.indexOf(newStatus);
-    if (targetIdx === -1 || targetIdx !== currentIdx + 1) {
-      throw new InvalidStatusTransitionException(order.status, newStatus);
-    }
+    OrderStateMachine.assertCanAdvance(order.status, newStatus, 'cashier');
 
-    if (newStatus === OrderStatus.COMPLETED && !order.isPaid) {
-      throw new OrderNotPaidException(id);
+    if (newStatus === OrderStatus.COMPLETED) {
+      OrderStateMachine.assertCanComplete(order.status, order.isPaid, order.id);
     }
 
     const updated = await this.orderRepository.updateStatus(id, newStatus);
@@ -205,12 +193,7 @@ export class OrdersService {
       if (!order) throw new OrderNotFoundException(id);
       if (order.status === OrderStatus.CANCELLED) throw new OrderAlreadyCancelledException(id);
 
-      const currentIdx = STATUS_ORDER.indexOf(order.status);
-      const targetIdx = STATUS_ORDER.indexOf(newStatus);
-      const KITCHEN_MAX_IDX = STATUS_ORDER.indexOf(OrderStatus.SERVED);
-      if (targetIdx === -1 || targetIdx !== currentIdx + 1 || targetIdx > KITCHEN_MAX_IDX) {
-        throw new InvalidStatusTransitionException(order.status, newStatus);
-      }
+      OrderStateMachine.assertCanAdvance(order.status, newStatus, 'kitchen');
 
       const count = await this.orderRepository.transitionStatusIfMatches(
         tx, id, restaurantId, order.status, newStatus,
