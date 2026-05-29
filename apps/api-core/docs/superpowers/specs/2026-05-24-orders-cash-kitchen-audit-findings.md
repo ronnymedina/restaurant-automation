@@ -39,6 +39,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 - ✅ H-07, H-08, H-11, H-12, H-15 implementados (2026-05-28) — `FindHistoryDto` con tope de 90 días y `limit ≤ 100`; defensa en profundidad por `restaurantId` en `OrderShiftReportRepository` + `CashRegisterStatsService` + `CashRegisterService.getSessionSummary` (404 cross-tenant); eliminación de `CashShiftRepository.close` (0 callers, firma con `totalSales: number` rompía convención BigInt); eliminación del feature `notifyOffline` (dead-end — emitía a un canal sin listener UI). Ver `2026-05-28-orders-cashshift-kitchen-hardening-batch2-design.md` y plan asociado.
 - ⏳ H-04 deferred (2026-05-27) — scope acotado a "esta semana"; requiere diseño separado del mecanismo sse-ticket y refactor del cliente SSE (dashboard + cocina). Tracker como follow-up.
 - ➕ Hallazgo adicional descubierto y arreglado: contrato roto entre backend `/cash-register/summary` y frontend `RegisterHistoryIsland`. Ver sección "Hallazgos adicionales".
+- ➕ Hallazgo adicional descubierto (2026-05-28): patrón SSE → full refetch en dashboard y cocina. N eventos = N refetches completos. Ver H-AUX-02 en "Hallazgos adicionales".
 
 ---
 
@@ -80,6 +81,82 @@ Naming rules nuevas (clave para evitar el drift futuro):
 Documentación: `cash-register.module.info.md` reescrito con el nuevo contrato.
 
 **Verificación:** 38 unit tests + 45 e2e cash-register en verde. Smoke test manual confirmado por el usuario (`summary.revenue.completed = 125` para la orden de prueba $100 + $25).
+
+---
+
+### H-AUX-02 — Patrón SSE → full refetch (N eventos = N fetches completos)
+
+**Categoría:** rendimiento · arquitectura SSE
+**Severidad:** 🟠 ALTO (degradación a escala — un kiosk con tráfico pico dispara N×fetch en el dashboard y cocina)
+**Estado:** ⏳ Pendiente
+
+**Descripción:** El backend emite eventos SSE con **payload vacío** (`{}`), y los dos clientes que escuchan (dashboard + cocina) usan cada evento como señal de "algo cambió" y disparan un fetch REST completo de la lista de órdenes. No hay reconciliación local con el delta.
+
+**Evidencia:**
+
+Backend — el `_order` recibido se descarta:
+```ts
+// apps/api-core/src/events/orders.events.ts:14-22
+emitOrderCreated(restaurantId: string, _order: Order): void {
+  this.sseService.emitToRestaurant(restaurantId, ORDER_EVENTS.NEW, {});  // ← payload vacío
+  this.sseService.emitToKitchen(restaurantId, ORDER_EVENTS.NEW, {});
+}
+emitOrderUpdated(restaurantId: string, _order: Order): void {
+  this.sseService.emitToRestaurant(restaurantId, ORDER_EVENTS.UPDATED, {});
+  this.sseService.emitToKitchen(restaurantId, ORDER_EVENTS.UPDATED, {});
+}
+```
+
+Dashboard — refetch completo en cada evento:
+```tsx
+// apps/ui/src/components/dash/orders/OrdersPanel.tsx:90-94
+const reload = () => {
+  if (!activeFilter) fetchOrders(null);  // ← GET /v1/orders?limit=100
+};
+es.addEventListener(ORDER_EVENTS.NEW, reload);
+es.addEventListener(ORDER_EVENTS.UPDATED, reload);
+```
+
+Cocina — mismo patrón:
+```ts
+// apps/ui/src/pages/kitchen/index.astro:374-375
+es.addEventListener(ORDER_EVENTS.NEW, () => loadOrders());
+es.addEventListener(ORDER_EVENTS.UPDATED, () => loadOrders());
+```
+
+**Impacto a escala:**
+- 100 órdenes nuevas en ráfaga (rush hour de un kiosk) → 100 eventos → 100 `GET /v1/orders?limit=100` desde **cada cliente conectado** (dashboard + cocinas). En un restaurante con 3 pantallas, son 300 requests + 300 serializaciones backend para mostrar lo mismo.
+- Latencia visible: cada cambio requiere 2 round-trips (SSE + REST).
+- Coste de ancho de banda: el payload de 100 órdenes serializadas se transfiere repetidamente cuando bastaba con el delta de 1.
+- Race sutil: si 2 eventos llegan en <100ms, dispara 2 fetches solapados; el último en resolver gana (puede pisar el más reciente si el orden de resolución difiere del orden de emisión).
+
+**Fix propuesto:**
+
+1. **Backend** (`orders.events.ts`): emitir el payload de la orden serializada. Reutilizar el serializer existente (`serializeOrder` para dashboard, `KitchenOrderSerializer` para cocina) para garantizar que los montos viajen en pesos y que campos sensibles queden excluidos. Auditar que multi-tenant ya está garantizado (cada cliente solo recibe eventos de su `restaurantId`, vía `SseService.emitToRestaurant`).
+
+2. **Dashboard** (`OrdersPanel.tsx`): parsear `e.data` y hacer patch local con `setOrders`:
+   ```tsx
+   es.addEventListener(ORDER_EVENTS.NEW, (e) => {
+     const order = JSON.parse(e.data) as Order;
+     setOrders((prev) => [order, ...prev]);
+   });
+   es.addEventListener(ORDER_EVENTS.UPDATED, (e) => {
+     const order = JSON.parse(e.data) as Order;
+     setOrders((prev) => prev.map((o) => o.id === order.id ? order : o));
+   });
+   ```
+
+3. **Cocina** (`kitchen/index.astro`): mismo patrón con `renderCard(order)` + `replaceChildren` del nodo correspondiente.
+
+4. **Fallback a refetch completo**: mantener `loadOrders()` para la conexión inicial y reconexión (cuando `es.onopen` dispara). Así un cliente que estuvo offline durante eventos vuelve a estado consistente.
+
+**Trade-offs:**
+- ✅ Reduce N requests por ráfaga a 0 (solo el evento SSE original).
+- ✅ Latencia visible ≈ latencia del SSE (1 round-trip menos).
+- ⚠️ Si se pierde un evento (red intermitente), el cliente queda desincronizado hasta la siguiente reconexión. Mitigable agregando un evento periódico de heartbeat con timestamp para que el cliente detecte gaps y refetchee.
+- ⚠️ Cambia el contrato del SSE — requiere coordinar deploy del backend antes del frontend, o feature flag.
+
+**Relacionado:** [[H-17]] (reconexión SSE en cambio de filtro) trabaja la misma superficie de código. Implementar H-17 primero (incluido en el spec actual de ALTOS 2026-05-28), después abordar H-AUX-02 como spec separado.
 
 ---
 
