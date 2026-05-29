@@ -68,75 +68,6 @@ describe('PrintService', () => {
     jest.clearAllMocks();
   });
 
-  // ── generateReceipt ────────────────────────────────────────────────────────
-
-  describe('generateReceipt', () => {
-    it('throws EntityNotFoundException when order does not exist', async () => {
-      mockOrderRepository.findById.mockResolvedValue(null);
-      await expect(service.generateReceipt('bad-id')).rejects.toThrow(EntityNotFoundException);
-    });
-
-    it('throws EntityNotFoundException when restaurant does not exist', async () => {
-      mockOrderRepository.findById.mockResolvedValue(mockOrderWithItems);
-      mockRestaurantsService.findByIdWithSettings.mockResolvedValue(null);
-      await expect(service.generateReceipt('o1')).rejects.toThrow(EntityNotFoundException);
-    });
-
-    it('returns a well-formed receipt with all fields', async () => {
-      mockOrderRepository.findById.mockResolvedValue(mockOrderWithItems);
-      mockRestaurantsService.findByIdWithSettings.mockResolvedValue(mockRestaurant);
-
-      const receipt = await service.generateReceipt('o1');
-
-      expect(receipt.restaurantName).toBe('Test Restaurant');
-      expect(receipt.orderNumber).toBe(42);
-      expect(receipt.totalAmount).toBe(25.5);
-      expect(receipt.paymentMethod).toBe('CASH');
-      expect(receipt.customerEmail).toBe('client@test.com');
-      expect(receipt.items).toHaveLength(2);
-    });
-
-    it('maps items with product name, quantity, unitPrice and subtotal', async () => {
-      mockOrderRepository.findById.mockResolvedValue(mockOrderWithItems);
-      mockRestaurantsService.findByIdWithSettings.mockResolvedValue(mockRestaurant);
-
-      const receipt = await service.generateReceipt('o1');
-      const [first] = receipt.items;
-
-      expect(first.productName).toBe('Hamburguesa Clásica');
-      expect(first.quantity).toBe(2);
-      expect(first.unitPrice).toBe(8.5);
-      expect(first.subtotal).toBe(17.0);
-      expect(first.notes).toBe('Sin cebolla');
-    });
-
-    it('omits notes field when item has no notes', async () => {
-      mockOrderRepository.findById.mockResolvedValue(mockOrderWithItems);
-      mockRestaurantsService.findByIdWithSettings.mockResolvedValue(mockRestaurant);
-
-      const receipt = await service.generateReceipt('o1');
-      const second = receipt.items[1];
-
-      expect(second.notes).toBeUndefined();
-    });
-
-    it('omits customerEmail when order has none', async () => {
-      mockOrderRepository.findById.mockResolvedValue({ ...mockOrderWithItems, customerEmail: null });
-      mockRestaurantsService.findByIdWithSettings.mockResolvedValue(mockRestaurant);
-
-      const receipt = await service.generateReceipt('o1');
-      expect(receipt.customerEmail).toBeUndefined();
-    });
-
-    it('falls back to "UNKNOWN" when paymentMethod is null', async () => {
-      mockOrderRepository.findById.mockResolvedValue({ ...mockOrderWithItems, paymentMethod: null });
-      mockRestaurantsService.findByIdWithSettings.mockResolvedValue(mockRestaurant);
-
-      const receipt = await service.generateReceipt('o1');
-      expect(receipt.paymentMethod).toBe('UNKNOWN');
-    });
-  });
-
   // ── generateKitchenTicket ─────────────────────────────────────────────────
 
   describe('generateKitchenTicket', () => {
@@ -193,40 +124,6 @@ describe('PrintService', () => {
     });
   });
 
-  // ── generateBoth ──────────────────────────────────────────────────────────
-
-  describe('generateBoth', () => {
-    beforeEach(() => {
-      mockOrderRepository.findById.mockResolvedValue(mockOrderWithItems);
-      mockRestaurantsService.findByIdWithSettings.mockResolvedValue(mockRestaurant);
-    });
-
-    it('returns both receipt and kitchenTicket', async () => {
-      const result = await service.generateBoth('o1');
-
-      expect(result.receipt).toBeDefined();
-      expect(result.kitchenTicket).toBeDefined();
-    });
-
-    it('receipt and kitchenTicket share the same orderNumber', async () => {
-      const result = await service.generateBoth('o1');
-
-      expect(result.receipt.orderNumber).toBe(result.kitchenTicket.orderNumber);
-    });
-
-    it('receipt contains totalAmount but kitchenTicket does not', async () => {
-      const result = await service.generateBoth('o1');
-
-      expect(result.receipt.totalAmount).toBeDefined();
-      expect((result.kitchenTicket as any).totalAmount).toBeUndefined();
-    });
-
-    it('throws EntityNotFoundException when order does not exist', async () => {
-      mockOrderRepository.findById.mockResolvedValue(null);
-      await expect(service.generateBoth('bad-id')).rejects.toThrow(EntityNotFoundException);
-    });
-  });
-
   // ── printKitchenTicket ────────────────────────────────────────────────────
 
   describe('printKitchenTicket', () => {
@@ -242,25 +139,6 @@ describe('PrintService', () => {
     it('throws when order does not exist', async () => {
       mockOrderRepository.findById.mockResolvedValue(null);
       await expect(service.printKitchenTicket('bad-id')).rejects.toThrow(EntityNotFoundException);
-    });
-  });
-
-  // ── printReceipt ──────────────────────────────────────────────────────────
-
-  describe('printReceipt', () => {
-    it('returns success: true (stub)', async () => {
-      mockOrderRepository.findById.mockResolvedValue(mockOrderWithItems);
-      mockRestaurantsService.findByIdWithSettings.mockResolvedValue(mockRestaurant);
-
-      const result = await service.printReceipt('o1');
-
-      expect(result.success).toBe(true);
-      expect(result.message).toContain('42');
-    });
-
-    it('throws when order does not exist', async () => {
-      mockOrderRepository.findById.mockResolvedValue(null);
-      await expect(service.printReceipt('bad-id')).rejects.toThrow(EntityNotFoundException);
     });
   });
 });

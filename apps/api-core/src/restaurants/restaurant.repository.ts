@@ -107,7 +107,7 @@ export class RestaurantRepository {
 
   async upsertSettings(
     restaurantId: string,
-    data: { kitchenToken?: string; kitchenTokenExpiresAt?: Date },
+    data: { kitchenTokenHash?: string; kitchenTokenExpiresAt?: Date },
   ) {
     return this.prisma.restaurantSettings.upsert({
       where: { restaurantId },

@@ -39,14 +39,12 @@ export class CashRegisterService {
 
   async closeSession(restaurantId: string, closedBy?: string) {
     const closedSession = await this.prisma.$transaction(async (tx) => {
-      const session = await tx.cashShift.findFirst({
-        where: { restaurantId, status: CashShiftStatus.OPEN },
-      });
-      if (!session) throw new NoOpenCashRegisterException();
+      const sessionId = await this.registerSessionRepository.lockOpenShift(tx, restaurantId);
+      if (!sessionId) throw new NoOpenCashRegisterException();
 
       const pendingCount = await tx.order.count({
         where: {
-          cashShiftId: session.id,
+          cashShiftId: sessionId,
           status: {
             in: [
               OrderStatus.CREATED,
@@ -60,13 +58,13 @@ export class CashRegisterService {
       if (pendingCount > 0) throw new PendingOrdersException(pendingCount);
 
       const agg = await tx.order.aggregate({
-        where: { cashShiftId: session.id, status: OrderStatus.COMPLETED },
+        where: { cashShiftId: sessionId, status: OrderStatus.COMPLETED },
         _sum: { totalAmount: true },
         _count: { id: true },
       });
 
       return tx.cashShift.update({
-        where: { id: session.id },
+        where: { id: sessionId },
         data: {
           status: CashShiftStatus.CLOSED,
           closedAt: new Date(),
@@ -77,8 +75,8 @@ export class CashRegisterService {
       });
     });
 
-    const stats = await this.statsService.getStats(closedSession.id);
-    return { session: closedSession, stats };
+    const summary = await this.statsService.getSummary(restaurantId, closedSession.id);
+    return { session: closedSession, summary };
   }
 
   async getSessionHistory(
@@ -118,11 +116,12 @@ export class CashRegisterService {
     return session || {};
   }
 
-  async getSessionStats(sessionId: string) {
-    const [stats, session] = await Promise.all([
-      this.statsService.getStats(sessionId),
-      this.registerSessionRepository.findById(sessionId),
-    ]);
-    return { session: session!, stats };
+  async getSessionSummary(restaurantId: string, sessionId: string) {
+    const session = await this.registerSessionRepository.findById(sessionId);
+    if (!session || session.restaurantId !== restaurantId) {
+      throw new CashRegisterNotFoundException(sessionId);
+    }
+    const summary = await this.statsService.getSummary(restaurantId, sessionId);
+    return { session, summary };
   }
 }

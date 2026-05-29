@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { OrderStatus, Prisma, PaymentMethod } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { fromCents } from '../common/helpers/money';
 
 const ORDER_WITH_ITEMS = {
   items: {
@@ -9,24 +10,31 @@ const ORDER_WITH_ITEMS = {
   },
 } as const;
 
-/** Convert BigInt monetary fields to numbers so JSON serialization works. */
+/**
+ * Convert BigInt monetary fields (stored as centavos) to decimal pesos
+ * before returning to the API layer. JSON does not support BigInt and
+ * the convention across the API is to expose money in pesos.
+ *
+ * Applies to: totalAmount, items[].unitPrice, items[].subtotal,
+ * items[].product.price, items[].menuItem.priceOverride.
+ */
 function serializeOrder<T extends Record<string, any>>(order: T): T {
   const result: Record<string, any> = { ...order };
 
   if (typeof result['totalAmount'] === 'bigint') {
-    result['totalAmount'] = Number(result['totalAmount']);
+    result['totalAmount'] = fromCents(result['totalAmount']);
   }
 
   if (Array.isArray(result['items'])) {
     result['items'] = result['items'].map((item: Record<string, any>) => {
       const si: Record<string, any> = { ...item };
-      if (typeof si['unitPrice'] === 'bigint') si['unitPrice'] = Number(si['unitPrice']);
-      if (typeof si['subtotal'] === 'bigint') si['subtotal'] = Number(si['subtotal']);
+      if (typeof si['unitPrice'] === 'bigint') si['unitPrice'] = fromCents(si['unitPrice']);
+      if (typeof si['subtotal'] === 'bigint') si['subtotal'] = fromCents(si['subtotal']);
       if (si['product'] && typeof si['product']['price'] === 'bigint') {
-        si['product'] = { ...si['product'], price: Number(si['product']['price']) };
+        si['product'] = { ...si['product'], price: fromCents(si['product']['price']) };
       }
       if (si['menuItem'] && typeof si['menuItem']['priceOverride'] === 'bigint') {
-        si['menuItem'] = { ...si['menuItem'], priceOverride: Number(si['menuItem']['priceOverride']) };
+        si['menuItem'] = { ...si['menuItem'], priceOverride: fromCents(si['menuItem']['priceOverride']) };
       }
       return si;
     });
@@ -149,27 +157,6 @@ export class OrderRepository {
     return serializeOrder(order);
   }
 
-  async markAsPaid(id: string, paymentMethod?: string) {
-    const order = await this.prisma.order.update({
-      where: { id },
-      data: {
-        isPaid: true,
-        ...(paymentMethod ? { paymentMethod: paymentMethod as PaymentMethod } : {}),
-      },
-      include: ORDER_WITH_ITEMS,
-    });
-    return serializeOrder(order);
-  }
-
-  async markAsUnpaid(id: string) {
-    const order = await this.prisma.order.update({
-      where: { id },
-      data: { isPaid: false },
-      include: ORDER_WITH_ITEMS,
-    });
-    return serializeOrder(order);
-  }
-
   async cancelOrder(id: string, reason: string) {
     const order = await this.prisma.order.update({
       where: { id },
@@ -236,5 +223,95 @@ export class OrderRepository {
       include: ORDER_WITH_ITEMS,
     });
     return orders.map(serializeOrder);
+  }
+
+  /**
+   * Atomically transitions an order's status, but only if the row's current
+   * status still matches `expectedStatus`. Returns the number of rows updated
+   * (0 if another transaction changed the status first, 1 on success).
+   *
+   * This is the optimistic-concurrency primitive used by kitchen flows. Under
+   * READ COMMITTED, `updateMany` implicitly acquires FOR NO KEY UPDATE on each
+   * matching row for the duration of the surrounding transaction; concurrent
+   * transactions that target the same row block, then re-evaluate their WHERE
+   * clause against the post-commit state — yielding count = 0 if the status
+   * has already advanced.
+   *
+   * Used by:
+   *   - OrdersService.kitchenAdvanceStatus — prevents double-advance from
+   *     multi-screen KDS, and prevents kitchen from overwriting a concurrent
+   *     cashier cancellation. See audit finding H-13.
+   *
+   * @param tx              - active Prisma transaction client
+   * @param id              - order UUID
+   * @param restaurantId    - tenant guard (defense in depth)
+   * @param expectedStatus  - the status the caller observed before deciding to
+   *                          transition; the UPDATE is a no-op if the row has
+   *                          since drifted away from this value
+   * @param newStatus       - the status to transition to
+   * @returns 1 if the transition committed, 0 if the status changed concurrently
+   */
+  async transitionStatusIfMatches(
+    tx: Prisma.TransactionClient,
+    id: string,
+    restaurantId: string,
+    expectedStatus: OrderStatus,
+    newStatus: OrderStatus,
+  ): Promise<number> {
+    const result = await tx.order.updateMany({
+      where: { id, restaurantId, status: expectedStatus },
+      data: { status: newStatus },
+    });
+    return result.count;
+  }
+
+  /**
+   * Variant of `transitionStatusIfMatches` for the markAsPaid flow.
+   * Atomically transitions status, sets isPaid=true and paymentMethod, but
+   * only if the row's status matches `expectedStatus` AND isPaid is currently
+   * false. The latter guard makes the operation idempotent under concurrent
+   * payment attempts.
+   *
+   * See audit finding H-05.
+   *
+   * @returns 1 if the transition committed, 0 if status drifted or already paid
+   */
+  async transitionStatusIfMatchesAndUnpaid(
+    tx: Prisma.TransactionClient,
+    id: string,
+    restaurantId: string,
+    expectedStatus: OrderStatus,
+    newStatus: OrderStatus,
+    paymentMethod: string | undefined,
+  ): Promise<number> {
+    const result = await tx.order.updateMany({
+      where: { id, restaurantId, status: expectedStatus, isPaid: false },
+      data: {
+        status: newStatus,
+        isPaid: true,
+        paymentMethod: paymentMethod as PaymentMethod | undefined,
+      },
+    });
+    return result.count;
+  }
+
+  /**
+   * Companion to the unmarkAsPaid flow. Atomically clears isPaid only if the
+   * row is currently paid; no-op if already unpaid (idempotent).
+   *
+   * See audit finding H-06.
+   *
+   * @returns 1 if cleared, 0 if already unpaid
+   */
+  async unmarkAsPaidIfPaid(
+    tx: Prisma.TransactionClient,
+    id: string,
+    restaurantId: string,
+  ): Promise<number> {
+    const result = await tx.order.updateMany({
+      where: { id, restaurantId, isPaid: true },
+      data: { isPaid: false, paymentMethod: null },
+    });
+    return result.count;
   }
 }

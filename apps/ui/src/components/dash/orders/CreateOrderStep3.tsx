@@ -5,6 +5,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCreateOrderStore, selectTotal } from './create-order-store';
 import type { OrderType } from './CreateOrderStep2';
+import { useRestaurantSettings } from '../../../lib/restaurant-settings';
+import { formatMoney } from '../../../lib/money';
 
 export type Step3Values = {
   customerName: string;
@@ -61,6 +63,8 @@ const ORDER_TYPE_LABELS: Record<OrderType, string> = {
 export default function CreateOrderStep3({ orderType, onBack, onSubmit, isSubmitting }: Props) {
   const items = useCreateOrderStore((s) => s.items);
   const total = useCreateOrderStore(selectTotal);
+  const { data: settings } = useRestaurantSettings();
+  const formatPrice = (amount: number) => formatMoney(amount, settings);
 
   const schema = useMemo(() => makeSchema(orderType), [orderType]);
 
@@ -175,12 +179,12 @@ export default function CreateOrderStep3({ orderType, onBack, onSubmit, isSubmit
             <span>
               {item.name} × {item.quantity}
             </span>
-            <span>${((item.price * item.quantity) / 100).toFixed(2)}</span>
+            <span>{formatPrice(item.price * item.quantity)}</span>
           </div>
         ))}
         <div className="flex justify-between font-semibold text-slate-800 mt-2 pt-2 border-t border-slate-200">
           <span>Total</span>
-          <span>${(total / 100).toFixed(2)}</span>
+          <span>{formatPrice(total)}</span>
         </div>
       </div>
 

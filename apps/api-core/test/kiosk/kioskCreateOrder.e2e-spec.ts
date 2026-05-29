@@ -113,4 +113,38 @@ describe('POST /v1/kiosk/:slug/orders - kioskCreateOrder (e2e) [PUBLIC]', () => 
       .send({ items: [{ productId, quantity: 0 }] })
       .expect(400);
   });
+
+  it('expectedTotal en pesos coincide con el total → 201 (H-01 regression)', async () => {
+    // seedProduct price is BigInt(1000) centavos = $10. 2 units = $20 expected.
+    const res = await request(app.getHttpServer())
+      .post(`/v1/kiosk/${slug}/orders`)
+      .send({ items: [{ productId, quantity: 2 }], expectedTotal: 20 })
+      .expect(201);
+
+    expect(res.body.order.totalAmount).toBe(20); // serialized in pesos
+  });
+
+  it('expectedTotal en pesos NO coincide → 400 (H-01 regression)', async () => {
+    // Product is $10. Sending expectedTotal: 5 (pesos) for 1 unit should fail.
+    await request(app.getHttpServer())
+      .post(`/v1/kiosk/${slug}/orders`)
+      .send({ items: [{ productId, quantity: 1 }], expectedTotal: 5 })
+      .expect(400);
+  });
+
+  it('notes >500 caracteres → 400 (H-03 regression)', async () => {
+    // Defense in depth — frontend should escape, but backend caps free-text fields
+    // to bound DoS via huge payloads and limit blast radius of any future renderer mistake.
+    await request(app.getHttpServer())
+      .post(`/v1/kiosk/${slug}/orders`)
+      .send({ items: [{ productId, quantity: 1, notes: 'x'.repeat(501) }] })
+      .expect(400);
+  });
+
+  it('notes exactamente 500 caracteres → 201 (H-03 regression boundary)', async () => {
+    await request(app.getHttpServer())
+      .post(`/v1/kiosk/${slug}/orders`)
+      .send({ items: [{ productId, quantity: 1, notes: 'x'.repeat(500) }] })
+      .expect(201);
+  });
 });

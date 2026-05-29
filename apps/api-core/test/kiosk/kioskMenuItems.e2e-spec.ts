@@ -76,4 +76,15 @@ describe('GET /v1/kiosk/:slug/menus/:menuId/items - kioskMenuItems (e2e) [PUBLIC
     expect(typeof item.price).toBe('number');
     expect(item.stockStatus).toBeDefined();
   });
+
+  it('Precio devuelto en pesos, no en centavos (H-01 regression)', async () => {
+    // seedProduct stores price as BigInt(1000) centavos = $10 pesos
+    const res = await request(app.getHttpServer())
+      .get(`/v1/kiosk/${slug}/menus/${menuId}/items`)
+      .expect(200);
+
+    const sectionKeys = Object.keys(res.body.sections);
+    const item = res.body.sections[sectionKeys[0]][0];
+    expect(item.price).toBe(10); // pesos, NOT 1000 (centavos)
+  });
 });

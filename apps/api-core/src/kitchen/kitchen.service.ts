@@ -1,14 +1,13 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { OrderStatus, Restaurant } from '@prisma/client';
 
-import { randomBytes } from 'crypto';
-
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { OrdersService } from '../orders/orders.service';
 import { OrderRepository } from '../orders/order.repository';
 import { SseService } from '../events/sse.service';
 import { TimezoneService } from '../restaurants/timezone.service';
 import { KitchenOrderSerializer } from './serializers/kitchen-order.serializer';
+import { KitchenTokenService } from './kitchen-token.service';
 
 @Injectable()
 export class KitchenService {
@@ -18,6 +17,7 @@ export class KitchenService {
     private readonly orderRepository: OrderRepository,
     private readonly sseService: SseService,
     private readonly timezoneService: TimezoneService,
+    private readonly tokenService: KitchenTokenService,
   ) {}
 
   async getActiveOrders(restaurant: Restaurant) {
@@ -35,17 +35,17 @@ export class KitchenService {
     return new KitchenOrderSerializer(order, tz);
   }
 
-  async getTokenInfo(restaurantId: string): Promise<{ kitchenUrl: string | null; expiresAt: Date | null }> {
+  async getTokenInfo(restaurantId: string): Promise<{ hasToken: boolean; expiresAt: Date | null }> {
     const restaurant = await this.restaurantsService.findByIdWithSettings(restaurantId);
     const settings = restaurant?.settings;
-    if (!settings?.kitchenToken || !settings.kitchenTokenExpiresAt) {
-      return { kitchenUrl: null, expiresAt: null };
+    if (!settings?.kitchenTokenHash || !settings.kitchenTokenExpiresAt) {
+      return { hasToken: false, expiresAt: null };
     }
     if (new Date() > settings.kitchenTokenExpiresAt) {
-      return { kitchenUrl: null, expiresAt: null };
+      return { hasToken: false, expiresAt: null };
     }
     return {
-      kitchenUrl: `/kitchen?slug=${restaurant!.slug}&token=${settings.kitchenToken}`,
+      hasToken: true,
       expiresAt: settings.kitchenTokenExpiresAt,
     };
   }
@@ -57,8 +57,6 @@ export class KitchenService {
     const restaurant = await this.restaurantsService.findById(restaurantId);
     if (!restaurant) throw new UnauthorizedException();
 
-    const token = randomBytes(32).toString('hex');
-
     const expiresAtDate = new Date(expiresAt);
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -67,19 +65,17 @@ export class KitchenService {
       throw new BadRequestException('La fecha de vencimiento debe ser al menos mañana');
     }
 
+    const { plainToken, tokenHash } = this.tokenService.generate();
+
     await this.restaurantsService.upsertSettings(restaurantId, {
-      kitchenToken: token,
+      kitchenTokenHash: tokenHash,
       kitchenTokenExpiresAt: expiresAtDate,
     });
 
     return {
-      token,
+      token: plainToken,
       expiresAt: expiresAtDate,
-      kitchenUrl: `/kitchen?slug=${restaurant.slug}&token=${token}`,
+      kitchenUrl: `/kitchen?slug=${restaurant.slug}&token=${plainToken}`,
     };
-  }
-
-  async notifyOffline(restaurant: Restaurant) {
-    this.sseService.emitToRestaurant(restaurant.id, 'kitchen:offline', {});
   }
 }

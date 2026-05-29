@@ -30,6 +30,14 @@ export default tseslint.config(
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
       "prettier/prettier": ["error", { endOfLine: "auto" }],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "MemberExpression[property.name='$queryRawUnsafe']",
+          message:
+            'Use $queryRaw with tagged template literals. $queryRawUnsafe is vulnerable to SQL injection.',
+        },
+      ],
     },
   },
 );

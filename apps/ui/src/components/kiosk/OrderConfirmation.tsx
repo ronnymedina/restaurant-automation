@@ -27,13 +27,16 @@ export function OrderConfirmation({ orderNumber, items, total, onNewOrder, theme
           </p>
         </div>
 
-        <div className="text-left text-sm md:text-base text-slate-600 space-y-1">
+        <div className="text-left text-sm md:text-base text-slate-600 space-y-2">
           {items.map((item) => (
-            <div key={`${item.productId}:${item.menuItemId ?? ''}`} className="flex justify-between">
-              <span>
-                {item.quantity}x {item.name}
-              </span>
-              <span>${(item.price * item.quantity).toFixed(2)}</span>
+            <div key={`${item.productId}:${item.menuItemId ?? ''}`} className="flex justify-between items-start">
+              <div className="flex-1 pr-3">
+                <p className="text-slate-700">{item.name}</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {item.quantity} × ${item.price.toFixed(2)}
+                </p>
+              </div>
+              <span className="whitespace-nowrap">${(item.price * item.quantity).toFixed(2)}</span>
             </div>
           ))}
           <div className="flex justify-between font-bold border-t border-slate-200 pt-2 mt-2">

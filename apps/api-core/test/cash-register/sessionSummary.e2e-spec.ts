@@ -15,6 +15,7 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
   let adminToken: string;
   let basicToken: string;
   let shiftId: string;
+  let otherTenantShiftId: string;
 
   beforeAll(async () => {
     ({ app, prisma } = await bootstrapApp());
@@ -27,6 +28,10 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'COMPLETED');
     await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'COMPLETED');
     await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'CANCELLED');
+
+    const restB = await seedRestaurant(prisma, 'B');
+    const adminTokenB = await login(app, restB.admin.email);
+    otherTenantShiftId = await openCashShiftViaApi(app, adminTokenB);
   });
 
   afterAll(async () => {
@@ -55,7 +60,7 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     expect(res.body.code).toBe('REGISTER_NOT_FOUND');
   });
 
-  it('Retorna session y stats', async () => {
+  it('Retorna session y summary (no stats, no orders)', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
@@ -63,8 +68,8 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
 
     expect(res.body.session).toBeDefined();
     expect(res.body.session.id).toBe(shiftId);
-    expect(res.body.stats).toBeDefined();
-    expect(res.body.summary).toBeUndefined();
+    expect(res.body.summary).toBeDefined();
+    expect(res.body.stats).toBeUndefined();
     expect(res.body.orders).toBeUndefined();
   });
 
@@ -85,38 +90,39 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     expect(session.totalOrders).toBeUndefined();
   });
 
-  it('stats.counts refleja las órdenes correctamente', async () => {
+  it('summary.counts es un objeto con keys por status', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    const { counts } = res.body.stats;
+    const { counts } = res.body.summary;
     expect(counts).toBeDefined();
+    expect(counts.total).toBe(3);
     expect(counts.completed).toBe(2);
     expect(counts.cancelled).toBe(1);
-    expect(counts.total).toBe(3);
+    expect(counts.pending).toBe(0); // total - completed - cancelled
   });
 
-  it('stats.revenue.completed refleja el total de órdenes COMPLETED en pesos', async () => {
+  it('summary.revenue.completed refleja el total de órdenes COMPLETED en pesos', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    const { revenue } = res.body.stats;
+    const { revenue } = res.body.summary;
     expect(revenue).toBeDefined();
     // 2 orders × 1000 centavos = 2000 centavos = 20 pesos
     expect(revenue.completed).toBeCloseTo(20, 2);
   });
 
-  it('stats.byPaymentMethod es un array con {method, count, total}', async () => {
+  it('summary.byPaymentMethod es un array con {method, count, total}', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    const { byPaymentMethod } = res.body.stats;
+    const { byPaymentMethod } = res.body.summary;
     expect(Array.isArray(byPaymentMethod)).toBe(true);
     for (const item of byPaymentMethod) {
       expect(typeof item.method).toBe('string');
@@ -125,18 +131,27 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     }
   });
 
-  it('stats tiene counts, revenue, byPaymentMethod, byOrderType, byOrderSource, topProducts', async () => {
+  it('summary tiene counts, revenue, byPaymentMethod, byOrderType, byOrderSource, topProducts', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    const { stats } = res.body;
-    expect(stats.counts).toBeDefined();
-    expect(stats.revenue).toBeDefined();
-    expect(Array.isArray(stats.byPaymentMethod)).toBe(true);
-    expect(Array.isArray(stats.byOrderType)).toBe(true);
-    expect(Array.isArray(stats.byOrderSource)).toBe(true);
-    expect(Array.isArray(stats.topProducts)).toBe(true);
+    const { summary } = res.body;
+    expect(summary.counts).toBeDefined();
+    expect(summary.revenue).toBeDefined();
+    expect(Array.isArray(summary.byPaymentMethod)).toBe(true);
+    expect(Array.isArray(summary.byOrderType)).toBe(true);
+    expect(Array.isArray(summary.byOrderSource)).toBe(true);
+    expect(Array.isArray(summary.topProducts)).toBe(true);
+  });
+
+  describe('Cross-tenant (H-12)', () => {
+    it('admin del restaurante A pidiendo summary de un sessionId del restaurante B recibe 404', async () => {
+      await request(app.getHttpServer())
+        .get(`/v1/cash-register/summary/${otherTenantShiftId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(404);
+    });
   });
 });

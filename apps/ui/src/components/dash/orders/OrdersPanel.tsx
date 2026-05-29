@@ -121,9 +121,9 @@ export default function OrdersPanel() {
     await fetchOrders(activeFilter);
   }
 
-  async function handlePay(id: string) {
+  async function handlePay(id: string, paymentMethod?: string) {
     if (!session) return;
-    const result = await markOrderPaid(id);
+    const result = await markOrderPaid(id, paymentMethod);
     if (!result.ok) {
       showToast(result.error.message ?? 'Error al marcar pagado', true);
       return;
@@ -164,34 +164,6 @@ export default function OrdersPanel() {
     showToast('Este pedido está marcado como pagado. Desmarca el pago antes de cancelarlo.', true);
   }
 
-  async function handleReceipt(id: string) {
-    const token = getAccessToken();
-    const res = await fetch(`${config.apiUrl}/v1/print/receipt/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) { showToast('Error al obtener recibo', true); return; }
-    const receipt = await res.json();
-    const win = window.open('', '_blank', 'width=400,height=600');
-    if (win) {
-      win.document.write(`
-        <html><head><title>Recibo #${receipt.orderNumber}</title>
-        <style>body{font-family:monospace;padding:20px;max-width:350px;margin:0 auto}table{width:100%;border-collapse:collapse}td,th{padding:4px 0;text-align:left}th:last-child,td:last-child{text-align:right}.total{border-top:2px solid #000;font-weight:bold;font-size:1.2em}</style>
-        </head><body>
-        <h2>${receipt.restaurantName}</h2>
-        <p>Pedido #${receipt.orderNumber}<br>${receipt.date}</p>
-        <table>
-          <tr><th>Producto</th><th>Cant</th><th>Subtotal</th></tr>
-          ${(receipt.items ?? []).map((i: any) => `<tr><td>${i.productName}</td><td>${i.quantity}</td><td>$${i.subtotal.toFixed(2)}</td></tr>${i.notes ? `<tr><td colspan="3" style="color:#666;font-size:0.9em">${i.notes}</td></tr>` : ''}`).join('')}
-        </table>
-        <p class="total">Total: $${receipt.totalAmount.toFixed(2)}</p>
-        <p>Pago: ${receipt.paymentMethod}</p>
-        </body></html>
-      `);
-      win.document.close();
-      win.print();
-    }
-  }
-
   async function handleApplyFilter(filters: FilterValues) {
     const hasFilter = filters.orderNumber !== undefined || filters.statuses.length > 0;
     if (!hasFilter) {
@@ -216,7 +188,6 @@ export default function OrdersPanel() {
     onUnpay: handleUnpay,
     onCancel: (id: string) => setCancelOrderId(id),
     onCancelBlocked: handleCancelBlocked,
-    onReceipt: handleReceipt,
   };
 
   if (status === ORDERS_STATUS.LOADING) {

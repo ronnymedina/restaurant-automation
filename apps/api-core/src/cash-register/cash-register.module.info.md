@@ -4,19 +4,19 @@
 ### Reglas de negocio
 
 - Solo puede existir una sesión `OPEN` por restaurante a la vez. Cualquier ADMIN o MANAGER puede abrir o cerrar la sesión activa, sin importar quién la abrió.
-- **No se puede cerrar la caja con pedidos en `CREATED` o `PROCESSING`** — el endpoint lanza `PENDING_ORDERS_ON_SHIFT` (409) indicando cuántos pedidos quedan pendientes.
+- **No se puede cerrar la caja con pedidos en `CREATED`, `CONFIRMED`, `PROCESSING` o `SERVED`** — el endpoint lanza `PENDING_ORDERS_ON_SHIFT` (409) indicando cuántos pedidos quedan pendientes.
 - Al cerrar, solo existen pedidos `COMPLETED` o `CANCELLED` en la sesión:
   - `COMPLETED` = pedido entregado, dinero en caja. Cuenta en el total.
   - `CANCELLED` = devolución realizada. El dinero regresó al cliente. **No cuenta en el total**; el historial conserva el registro como evidencia.
 - **Pedido pagado no recogido por el cliente → debe marcarse `COMPLETED`, no cancelarse.** El restaurante cobró y preparó el pedido; el dinero queda en caja. Esta distinción se refuerza con confirmaciones claras en la UI de cocina.
 - El `restaurantId` viene del JWT — toda operación está aislada por restaurante.
-- `paymentBreakdown` siempre refleja solo órdenes `COMPLETED`.
+- `byPaymentMethod` siempre refleja solo órdenes `COMPLETED`.
 
 ---
 
 ### Respuestas serializadas
 
-**`CashShiftDto`** — usado en `POST /open`, `GET /current`, `GET /history`, `GET /summary/:sessionId`:
+**`CashShiftDto`** — usado en `POST /open`, `GET /current`, `GET /history`, embebido en `POST /close` y `GET /summary/:sessionId`:
 
 ```json
 {
@@ -36,110 +36,98 @@
 
 ---
 
-**`CloseSessionResponseDto`** — usado en `POST /close`:
+### Contrato unificado `ShiftSummary`
+
+Los endpoints `POST /close`, `GET /summary/:sessionId` y `GET /stats` devuelven todos el mismo shape `summary` (envuelto, dependiendo del endpoint, en `{ session, summary }` o solo `{ summary }`). El status de la caja (open/closed) no cambia la forma — solo qué campos pueden estar en cero.
 
 ```json
 {
-  "session": { "...": "CashShiftDto" },
   "summary": {
-    "totalOrders": 2,
-    "totalSales": 20.0,
-    "paymentBreakdown": [
-      { "method": "CASH", "count": 1, "total": 10.0 },
-      { "method": "CARD", "count": 1, "total": 10.0 }
+    "counts": {
+      "total": 12,
+      "pending": 5,
+      "created": 1,
+      "confirmed": 2,
+      "processing": 1,
+      "served": 1,
+      "completed": 6,
+      "cancelled": 1
+    },
+    "revenue": {
+      "completed": 120.50,
+      "pending": 45.00,
+      "averageTicket": 20.08
+    },
+    "byPaymentMethod": [
+      { "method": "CASH", "count": 3, "total": 60.00 },
+      { "method": "CARD", "count": 3, "total": 60.50 }
+    ],
+    "byOrderType": [
+      { "type": "PICKUP", "count": 8 },
+      { "type": "DELIVERY", "count": 4 }
+    ],
+    "byOrderSource": [
+      { "source": "STAFF", "count": 7 },
+      { "source": "KIOSK", "count": 5 }
+    ],
+    "topProducts": [
+      { "id": "uuid", "name": "Burger Clásica", "quantity": 15, "total": 75.00 }
     ]
   }
 }
 ```
 
-- `summary.totalOrders` y `summary.totalSales` reflejan solo órdenes `COMPLETED`.
-- `paymentBreakdown` es un array de `{ method, count, total }`.
+**Reglas de naming (importante):**
+
+- `count` siempre es número de órdenes (entero).
+- `total` dentro de `byPaymentMethod[].total` y `topProducts[].total` siempre es **dinero en pesos** (decimal).
+- `counts` es un objeto plano con una key por status + `total` + `pending` (todos enteros, ninguno es dinero).
+- `revenue` es un objeto con todos los valores **monetarios** en pesos.
+
+**Reglas de cálculo:**
+
+- `counts.total` = suma de todos los `counts` por status (CREATED + CONFIRMED + PROCESSING + SERVED + COMPLETED + CANCELLED).
+- `counts.pending` = `counts.total` − `counts.completed` − `counts.cancelled` (incluye CREATED, CONFIRMED, PROCESSING, SERVED).
+- `revenue.completed` = sum(totalAmount) donde status = COMPLETED.
+- `revenue.pending` = sum(totalAmount) donde status NOT IN [COMPLETED, CANCELLED].
+- `revenue.averageTicket` = `revenue.completed` / `counts.completed`; `0` si `counts.completed = 0`.
+- `byPaymentMethod` = solo órdenes COMPLETED (dinero real en caja).
+- `byOrderType` / `byOrderSource` = todas las órdenes (incluye CANCELLED — refleja intención original del pedido).
+- `topProducts` = top 5 por quantity; excluye items de órdenes CANCELLED; máx 5 elementos.
 
 ---
 
-**`SessionSummaryResponseDto`** — usado en `GET /summary/:sessionId`:
+### Wrappers de respuesta por endpoint
 
+**`POST /close` → `CloseSessionResponseDto`:**
 ```json
-{
-  "session": { "...": "CashShiftDto" },
-  "summary": {
-    "completed": { "count": 2, "total": 20.0 },
-    "cancelled": { "count": 1 },
-    "paymentBreakdown": [
-      { "method": "CASH", "count": 1, "total": 10.0 },
-      { "method": "CARD", "count": 1, "total": 10.0 }
-    ]
-  }
-}
+{ "session": { "...": "CashShiftDto" }, "summary": { "...": "ShiftSummary" } }
 ```
 
-- `completed`: pedidos entregados y cobrados. `total` es el ingreso real de la sesión.
-- `cancelled`: pedidos devueltos. Solo se expone `count`; no hay `total` porque el dinero fue reintegrado al cliente.
-- `paymentBreakdown`: desglose por método de pago, solo de `COMPLETED`.
-- `CREATED` y `PROCESSING` no aparecen — son estructuralmente imposibles en una sesión cerrada.
+**`GET /summary/:sessionId` → `SessionSummaryResponseDto`:**
+```json
+{ "session": { "...": "CashShiftDto" }, "summary": { "...": "ShiftSummary" } }
+```
 
----
+**`GET /stats` → `LiveStatsResponseDto`:**
+```json
+{ "summary": { "...": "ShiftSummary" } }
+```
 
-**`TopProductsResponseDto`** — usado en `GET /top-products/:sessionId`:
+Sin sesión abierta, `/stats` devuelve `summary` con todos los valores en cero (no lanza error).
 
+**`GET /top-products/:sessionId` → `TopProductsResponseDto`:**
 ```json
 {
   "topProducts": [
-    { "id": "string", "name": "Burger", "quantity": 15, "total": 75.0 }
+    { "id": "uuid", "name": "Burger", "quantity": 15, "total": 75.0 }
   ]
 }
 ```
 
 ---
 
-**`CashShiftStatsDto`** — usado en `GET /stats` y `POST /close` (reemplaza `summary` anterior):
-
-```json
-{
-  "counts": {
-    "total": 12,
-    "created": 1,
-    "confirmed": 2,
-    "processing": 1,
-    "served": 1,
-    "completed": 6,
-    "cancelled": 1,
-    "pending": 5
-  },
-  "revenue": {
-    "completed": 120.50,
-    "pending": 45.00,
-    "averageTicket": 20.08
-  },
-  "byPaymentMethod": [
-    { "method": "CASH", "count": 3, "total": 60.00 },
-    { "method": "CARD", "count": 3, "total": 60.50 }
-  ],
-  "byOrderType": [
-    { "type": "PICKUP", "count": 8 },
-    { "type": "DELIVERY", "count": 4 }
-  ],
-  "byOrderSource": [
-    { "source": "STAFF", "count": 7 },
-    { "source": "KIOSK", "count": 5 }
-  ],
-  "topProducts": [
-    { "id": "uuid", "name": "Burger Clásica", "quantity": 15, "total": 75.00 }
-  ]
-}
-```
-
-- `counts.pending` = total − completed − cancelled
-- `revenue.completed` = sum(totalAmount) donde status = COMPLETED
-- `revenue.pending` = sum(totalAmount) donde status NOT IN [COMPLETED, CANCELLED]
-- `revenue.averageTicket` = completed.revenue / counts.completed; 0 si counts.completed = 0
-- `byPaymentMethod` = solo órdenes COMPLETED (dinero real en caja)
-- `byOrderType` = todas las órdenes (incluso CANCELLED — refleja intención original del pedido)
-- `topProducts` = top 5 por quantity; excluye items de órdenes CANCELLED; máx 5 elementos
-
----
-
-**Historial paginado** — usado en `GET /history`:
+**Historial paginado** — `GET /history`:
 
 ```json
 {
@@ -160,18 +148,18 @@
 | Método | Ruta | Roles | Respuesta | Descripción |
 |--------|------|-------|-----------|-------------|
 | `POST` | `/v1/cash-register/open` | ADMIN, MANAGER | `CashShiftDto` (201) | Abrir sesión de caja |
-| `POST` | `/v1/cash-register/close` | ADMIN, MANAGER | `{ session, stats }` (200) | Cerrar sesión activa |
-| `GET` | `/v1/cash-register/stats` | ADMIN, MANAGER, BASIC | `CashShiftStatsDto` | Stats en vivo de la sesión activa |
+| `POST` | `/v1/cash-register/close` | ADMIN, MANAGER | `CloseSessionResponseDto` (200) | Cerrar sesión activa |
+| `GET` | `/v1/cash-register/stats` | ADMIN, MANAGER, BASIC | `LiveStatsResponseDto` | Resumen en vivo de la sesión activa |
 | `GET` | `/v1/cash-register/current` | ADMIN, MANAGER, BASIC | `CashShiftDto` o `{}` | Sesión actualmente abierta |
 | `GET` | `/v1/cash-register/history` | ADMIN, MANAGER | `{ data: CashShiftDto[], meta }` | Historial paginado |
-| `GET` | `/v1/cash-register/summary/:sessionId` | ADMIN, MANAGER | `SessionSummaryResponseDto` | Resumen detallado de sesión (delegado a StatsService) |
-| `GET` | `/v1/cash-register/top-products/:sessionId` | ADMIN, MANAGER | `TopProductsResponseDto` | Top 5 productos de la sesión (delegado a StatsService) |
+| `GET` | `/v1/cash-register/summary/:sessionId` | ADMIN, MANAGER | `SessionSummaryResponseDto` | Resumen detallado de sesión cerrada |
+| `GET` | `/v1/cash-register/top-products/:sessionId` | ADMIN, MANAGER | `TopProductsResponseDto` | Top 5 productos de la sesión |
 
 ---
 
 #### Open — `POST /v1/cash-register/open`
 
-E2E: ✅ `test/cash-register/openCashRegister.e2e-spec.ts`
+E2E: ✅ `test/cash-register/openSession.e2e-spec.ts`
 
 | Caso | Status | Detalle |
 |------|--------|---------|
@@ -194,20 +182,20 @@ E2E: ✅ `test/cash-register/closeSession.e2e-spec.ts`
 | ADMIN cierra sesión | 200 | Retorna `CloseSessionResponseDto` |
 | MANAGER cierra sesión | 200 | Retorna `CloseSessionResponseDto` |
 | No hay sesión abierta | 409 | `NO_OPEN_REGISTER` |
-| Hay pedidos en `CREATED` o `PROCESSING` | 409 | `PENDING_ORDERS_ON_SHIFT` — `details.pendingCount` indica cuántos quedan |
-| `summary.totalSales` solo refleja `COMPLETED` | 200 | `CANCELLED` excluidas del total |
-| `paymentBreakdown` como array | 200 | `[{ method, count, total }]` |
+| Hay pedidos en `CREATED`, `CONFIRMED`, `PROCESSING` o `SERVED` | 409 | `PENDING_ORDERS_ON_SHIFT` — `details.pendingCount` indica cuántos quedan |
+| `summary.revenue.completed` solo refleja `COMPLETED` | 200 | `CANCELLED` excluidas del total |
+| `summary.byPaymentMethod` como array | 200 | `[{ method, count, total }]` |
 
 ---
 
 #### Current — `GET /v1/cash-register/current`
 
-E2E: ✅ `test/cash-register/currentCashRegister.e2e-spec.ts`
+E2E: ✅ `test/cash-register/currentSession.e2e-spec.ts`
 
 | Caso | Status | Detalle |
 |------|--------|---------|
 | Sin token | 401 | Unauthenticated |
-| BASIC intenta consultar | 403 | Solo ADMIN o MANAGER |
+| BASIC consulta sesión activa | 200 | Acceso abierto a todos los roles |
 | Con sesión abierta | 200 | Retorna `CashShiftDto` con `status = OPEN` |
 | Sin sesión abierta | 200 | Retorna `{}` (objeto vacío) |
 | Incluye conteo de órdenes | 200 | `_count.orders` incluido |
@@ -216,7 +204,7 @@ E2E: ✅ `test/cash-register/currentCashRegister.e2e-spec.ts`
 
 #### History — `GET /v1/cash-register/history`
 
-E2E: ✅ `test/cash-register/cashRegisterHistory.e2e-spec.ts`
+E2E: ✅ `test/cash-register/sessionHistory.e2e-spec.ts`
 
 | Caso | Status | Detalle |
 |------|--------|---------|
@@ -231,7 +219,7 @@ E2E: ✅ `test/cash-register/cashRegisterHistory.e2e-spec.ts`
 
 #### Stats — `GET /v1/cash-register/stats`
 
-E2E: `test/cash-register/cashRegisterStats.e2e-spec.ts`
+E2E: ✅ `test/cash-register/cashRegisterStats.e2e-spec.ts`
 
 | Caso | Status | Detalle |
 |------|--------|---------|
@@ -239,31 +227,30 @@ E2E: `test/cash-register/cashRegisterStats.e2e-spec.ts`
 | BASIC puede ver stats | 200 | Acceso abierto a todos los roles |
 | MANAGER puede ver stats | 200 | |
 | ADMIN puede ver stats | 200 | |
-| Sin caja abierta | 200 | Retorna estructura con todos los valores en 0, no error |
+| Sin caja abierta | 200 | Retorna `{ summary }` con todos los valores en cero |
 | Con sesión activa y órdenes mixtas | 200 | Counts correctos por status |
-| `counts.pending` correcto | 200 | Excluye COMPLETED y CANCELLED |
+| `counts.pending` correcto | 200 | `total − completed − cancelled` |
 | `revenue.completed` correcto | 200 | Suma solo órdenes COMPLETED |
 | `revenue.pending` correcto | 200 | Suma excluye COMPLETED y CANCELLED |
 | `revenue.averageTicket` con 0 completados | 200 | Retorna 0, sin dividir por cero |
 | `byPaymentMethod` solo COMPLETED | 200 | Método de pago de canceladas no aparece |
 | Top 5 productos, ordenados por quantity | 200 | CANCELLED excluidas |
-| Stats consistentes con resumen de cierre | 200 | Stats activos == stats del `POST /close` |
 | Aislamiento por restaurante | 200 | `restaurantId` del JWT — no ve stats de otro restaurante |
 
 ---
 
 #### Summary — `GET /v1/cash-register/summary/:sessionId`
 
-E2E: ✅ `test/cash-register/cashRegisterSummary.e2e-spec.ts`
+E2E: ✅ `test/cash-register/sessionSummary.e2e-spec.ts`
 
 | Caso | Status | Detalle |
 |------|--------|---------|
 | Sin token | 401 | Unauthenticated |
 | BASIC intenta consultar | 403 | Solo ADMIN o MANAGER |
 | Sesión cerrada | 200 | Retorna `SessionSummaryResponseDto` |
-| `summary.completed` refleja solo `COMPLETED` | 200 | `count` y `total` de pedidos entregados |
-| `summary.cancelled` solo tiene `count` | 200 | Sin `total` — dinero fue devuelto al cliente |
-| `paymentBreakdown` como array | 200 | Solo de `COMPLETED`, `[{ method, count, total }]` |
+| `summary.counts` es objeto con keys por status | 200 | `{total, pending, created, ..., completed, cancelled}` |
+| `summary.revenue.completed` refleja solo `COMPLETED` | 200 | Convertido a pesos vía `fromCents` |
+| `summary.byPaymentMethod` como array | 200 | Solo de `COMPLETED`, `[{ method, count, total }]` |
 | Sesión no encontrada | 404 | `REGISTER_NOT_FOUND` |
 
 ---
@@ -285,13 +272,15 @@ E2E: ✅ `test/cash-register/topProducts.e2e-spec.ts`
 ### Notas de implementación
 
 - Solo puede existir una sesión `OPEN` por restaurante. Reforzado con partial index en PostgreSQL: `CREATE UNIQUE INDEX "one_open_shift_per_restaurant" ON "CashShift"("restaurantId") WHERE status = 'OPEN';` (debe crearse manualmente al hacer deploy — Prisma no lo gestiona automáticamente).
-- El cierre de sesión es atómico via `$transaction` de Prisma: verifica pedidos pendientes, actualiza la sesión. Las stats se calculan fuera de la transacción via `CashRegisterStatsService.getStats()`.
+- El cierre de sesión es atómico via `$transaction` de Prisma: verifica pedidos pendientes, actualiza la sesión. El summary se calcula fuera de la transacción via `CashRegisterStatsService.getSummary()`.
 - `totalSales` se almacena como `BigInt` en la BD (centavos). Se convierte con `fromCents()` antes de enviar al cliente.
 - `GET /current` retorna `{}` cuando no hay sesión abierta — no lanza 404.
-- `GET /stats` retorna estructura con zeros cuando no hay sesión abierta — no lanza error.
+- `GET /stats` retorna `{ summary }` con valores en cero cuando no hay sesión abierta — no lanza error.
 - `displayOpenedAt` / `displayClosedAt` se calculan en el constructor de `CashShiftSerializer` usando `Intl.DateTimeFormat` con el timezone del restaurante, obtenido via `TimezoneService` (con caché en Redis/memory).
-- **`CashRegisterStatsService`** centraliza toda la lógica de agregación de métricas. Usa 2 queries en paralelo: (1) `Order.groupBy(['status','paymentMethod','orderType','orderSource'])` para todos los counts y totales; (2) `OrderItem.groupBy(['productId'])` para top products. `getSessionSummary` y `getTopProducts` de `CashRegisterService` se eliminan y se delegan a este servicio.
-- `OrderItem` requiere `@@index([orderId])` — sin este índice el join para top products hace seq scan. Se agrega en la misma migración de este feature. Ver spec: `docs/superpowers/specs/2026-05-21-cash-register-stats-design.md`.
+- **`CashRegisterStatsService.getSummary(restaurantId, sessionId)`** centraliza toda la lógica de agregación de métricas. Usa 2 queries en paralelo: (1) `Order.groupBy(['status','paymentMethod','orderType','orderSource'])` para todos los counts y totales; (2) `OrderItem.groupBy(['productId'])` para top products. Ambas queries filtran por `cashShift.restaurantId` (audit H-08, H-12) — defensa en profundidad sobre `CashShiftGuard`. Si el `sessionId` no pertenece al `restaurantId`, las agregaciones devuelven 0/[] sin throw.
+- **`CashRegisterService.getSessionSummary(restaurantId, sessionId)`** valida explícitamente que la sesión pertenezca al `restaurantId` antes de calcular el summary (audit H-12). Si la sesión no existe o pertenece a otro restaurante, lanza `CashRegisterNotFoundException` (404 `REGISTER_NOT_FOUND`). El chequeo es secuencial (no `Promise.all`) — el costo extra es despreciable y evita ejecutar agregaciones caras sobre input rechazado.
+- **Contrato unificado**: los 3 endpoints que exponen métricas (`/close`, `/summary/:id`, `/stats`) usan el mismo shape `ShiftSummary`. El estado de la caja (open/closed) no cambia la forma — solo qué campos pueden estar en cero. Esto evita drift entre frontend y backend (problema previo: existían 3 shapes distintos documentados pero el código unificaba todo en un cuarto shape divergente).
+- `OrderItem` requiere `@@index([orderId])` — sin este índice el join para top products hace seq scan. Ver spec: `docs/superpowers/specs/2026-05-21-cash-register-stats-design.md`.
 
 ---
 
@@ -303,12 +292,78 @@ E2E: ✅ `test/cash-register/topProducts.e2e-spec.ts`
 
 #### Contención bajo carga concurrente (ERR-05)
 
-Bajo alta concurrencia, el `UPDATE CashShift.lastOrderNumber` genera contención. **Solución implementada (Opción A):** el increment se extrae a una transacción corta independiente, liberando el lock en ~2ms.
+**Estado actual (post-H-09):** El increment de `lastOrderNumber` corre dentro
+de la `$transaction` principal de `createOrder`, después de adquirir el
+`FOR UPDATE` lock sobre la fila de `CashShift`. La contención queda acotada
+por la duración del lock (que de todos modos serializa creates concurrentes
+contra el mismo turno) y la consistencia transaccional es ahora atómica:
+si la inserción de la orden falla, el contador se rollback automáticamente.
 
 | Opción | Descripción | Estado |
 |--------|-------------|--------|
-| **A — Dos transacciones** | Tx1 corta solo para increment; Tx2 para stock + INSERT | ✅ Elegida |
+| **A — Increment dentro de la TX principal** | Una sola transacción con `FOR UPDATE` lock + increment + INSERT | ✅ Actual (post-H-09) |
 | **B — PostgreSQL SEQUENCE** | `nextval()` fuera de cualquier tx; contención prácticamente cero | Reservada para alta escala |
-| **C — Redis INCR** | Contador atómico externo | Descartada |
+| **C — Increment en TX separada** | Tx1 corta solo para increment; Tx2 para stock + INSERT | Descartada (pre-H-09, generaba huecos no transaccionales) |
 
-Ver spec completo en `docs/superpowers/specs/2026-05-06-cashshift-order-number-design.md`.
+Ver spec completo de la fix de H-09: `docs/superpowers/specs/2026-05-27-orders-cashshift-kitchen-token-hardening-design.md`.
+
+---
+
+### Concurrency model — cashShift row lock (audit H-09)
+
+Both `closeSession` and `createOrder` acquire a pessimistic `FOR UPDATE` lock
+on the target `cashShift` row at the start of their `$transaction`. The row
+acts as the coordination point: any transition that depends on
+`status = 'OPEN'` must take the lock first. This prevents the write-skew race
+where a new order could be created in a shift that was concurrently being
+closed.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as createOrder TX-A
+    participant DB as Postgres (CashShift row)
+    participant B as closeSession TX-B
+
+    rect rgba(120, 180, 255, 0.08)
+    note over A,B: Scenario A — createOrder wins the lock
+    A->>DB: BEGIN
+    A->>DB: SELECT status FROM CashShift WHERE id=S FOR UPDATE
+    DB-->>A: row locked
+    B->>DB: BEGIN
+    B->>DB: SELECT id FROM CashShift WHERE restaurantId=R AND status='OPEN' FOR UPDATE
+    Note right of DB: TX-B suspended on lock
+    A->>DB: UPDATE lastOrderNumber += 1
+    A->>DB: INSERT INTO Order (...)
+    A->>DB: COMMIT
+    Note right of DB: lock released
+    DB-->>B: row locked (WHERE re-evaluated, still matches)
+    B->>DB: SELECT count(*) pending
+    DB-->>B: 1 (sees just-committed order)
+    B-->>B: throw PendingOrdersException
+    B->>DB: ROLLBACK
+    end
+
+    rect rgba(255, 180, 120, 0.08)
+    note over A,B: Scenario B — closeSession wins the lock
+    B->>DB: BEGIN
+    B->>DB: SELECT id FROM CashShift WHERE restaurantId=R AND status='OPEN' FOR UPDATE
+    DB-->>B: row locked
+    A->>DB: BEGIN
+    A->>DB: SELECT status FROM CashShift WHERE id=S FOR UPDATE
+    Note right of DB: TX-A suspended on lock
+    B->>DB: count(pending) = 0
+    B->>DB: UPDATE status='CLOSED'
+    B->>DB: COMMIT
+    Note right of DB: lock released
+    DB-->>A: row locked (WHERE re-evaluated)
+    A-->>A: status='CLOSED' → throw RegisterNotOpenException
+    A->>DB: ROLLBACK
+    end
+```
+
+Implementation lives in `CashShiftRepository.lockOpenShift` and
+`CashShiftRepository.lockShiftById`. Both use Prisma's tagged-template
+`$queryRaw`, which parameterizes the interpolated value via the driver and is
+safe against SQL injection. Do not change either to `$queryRawUnsafe` (the
+ESLint config flags this).
