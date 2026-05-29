@@ -41,15 +41,33 @@ export class KitchenOrderSerializer {
   tableNumber: string | null;
 
   constructor(partial: any, timezone = 'UTC') {
-    Object.assign(this, partial);
-    this.displayTime = new Intl.DateTimeFormat('es', {
+    this.id = partial.id;
+    this.orderNumber = partial.orderNumber;
+    this.status = partial.status;
+    this.totalAmount = partial.totalAmount;
+    this.orderType = partial.orderType;
+    this.tableNumber = partial.tableNumber ?? null;
+    this.items = Array.isArray(partial.items)
+      ? partial.items.map((item: unknown) => new KitchenOrderItemSerializer(item as any))
+      : [];
+    this.displayTime = formatKitchenTime(partial.createdAt, timezone);
+  }
+}
+
+function formatKitchenTime(createdAt: Date | string, timezone: string): string {
+  try {
+    return new Intl.DateTimeFormat('es', {
       timeZone: timezone,
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
-    }).format(new Date(partial.createdAt));
-    if (partial.items) {
-      this.items = (partial.items as any[]).map((item) => new KitchenOrderItemSerializer(item));
-    }
+    }).format(new Date(createdAt));
+  } catch {
+    return new Intl.DateTimeFormat('es', {
+      timeZone: 'UTC',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(new Date(createdAt));
   }
 }

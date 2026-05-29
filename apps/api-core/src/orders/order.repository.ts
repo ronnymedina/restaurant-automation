@@ -48,7 +48,7 @@ export interface CreateOrderData {
   totalAmount: number;
   restaurantId: string;
   cashShiftId: string;
-  paymentMethod?: string;
+  paymentMethod?: PaymentMethod;
   customerEmail?: string;
   customerName?: string;
   customerPhone?: string;
@@ -80,7 +80,7 @@ export class OrderRepository {
         totalAmount: data.totalAmount,
         restaurantId: data.restaurantId,
         cashShiftId: data.cashShiftId,
-        paymentMethod: data.paymentMethod as PaymentMethod,
+        paymentMethod: data.paymentMethod,
         customerEmail: data.customerEmail,
         customerName: data.customerName,
         customerPhone: data.customerPhone,

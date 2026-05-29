@@ -1,4 +1,6 @@
 import { KitchenOrderSerializer } from './kitchen-order.serializer';
+import { OrderStatus } from '@prisma/client';
+import { instanceToPlain } from 'class-transformer';
 
 describe('KitchenOrderSerializer', () => {
   it('formats displayTime in UTC when no timezone provided', () => {
@@ -29,5 +31,37 @@ describe('KitchenOrderSerializer', () => {
     const serializer = new KitchenOrderSerializer(order, 'UTC');
     expect(serializer.items).toHaveLength(1);
     expect(serializer.items[0].quantity).toBe(2);
+  });
+});
+
+describe('KitchenOrderSerializer (H-34)', () => {
+  it('NO copia restaurantId/cashShiftId/isPaid si vienen en el payload', () => {
+    const partial = {
+      id: 'o1',
+      orderNumber: 42,
+      status: OrderStatus.PROCESSING,
+      totalAmount: 5000n,
+      orderType: 'DINE_IN',
+      tableNumber: '7',
+      createdAt: new Date('2026-05-29T12:00:00Z'),
+      restaurantId: 'should-not-be-here',
+      cashShiftId: 'should-not-be-here',
+      isPaid: true,
+      customerEmail: 'leak@example.com',
+      items: [],
+    };
+    const instance = new KitchenOrderSerializer(partial as any, 'UTC');
+    expect((instance as any).restaurantId).toBeUndefined();
+    expect((instance as any).cashShiftId).toBeUndefined();
+    expect((instance as any).isPaid).toBeUndefined();
+    expect((instance as any).customerEmail).toBeUndefined();
+    const plain = instanceToPlain(instance) as Record<string, unknown>;
+    expect(plain.restaurantId).toBeUndefined();
+    expect(plain.cashShiftId).toBeUndefined();
+    expect(plain.isPaid).toBeUndefined();
+    expect(plain.customerEmail).toBeUndefined();
+    expect(plain.id).toBe('o1');
+    expect(plain.orderNumber).toBe(42);
+    expect(plain.totalAmount).toBe(50); // 5000 centavos → 50 pesos
   });
 });

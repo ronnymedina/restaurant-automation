@@ -31,6 +31,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { CashShiftSerializer } from './serializers/cash-shift.serializer';
+import { CashShiftWithCountSerializer } from './serializers/cash-shift-with-count.serializer';
 import { ShiftSummarySerializer } from './serializers/cash-register-stats.serializer';
 import { PaginatedCashShiftsSerializer } from './serializers/paginated-cash-shifts.serializer';
 import {
@@ -102,7 +103,7 @@ export class CashRegisterController {
       this.timezoneService.getTimezone(user.restaurantId),
     ]);
     return new PaginatedCashShiftsSerializer({
-      data: result.data.map((s) => new CashShiftSerializer(s, tz)),
+      data: result.data.map((s) => new CashShiftWithCountSerializer(s, tz)),
       meta: result.meta,
     });
   }
