@@ -41,6 +41,7 @@ export default function CancelOrderModal({ orderId, onConfirm, onClose }: Cancel
             value={reason}
             onChange={(e) => { setReason(e.target.value); setError(false); }}
             placeholder="Ej: Pedido duplicado, error del cliente..."
+            maxLength={500}
             className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
               error ? 'border-red-400 ring-red-400' : 'border-slate-300 focus:ring-slate-400'
             }`}
@@ -49,6 +50,9 @@ export default function CancelOrderModal({ orderId, onConfirm, onClose }: Cancel
           {error && (
             <p className="mt-1 text-xs text-red-500">El motivo es requerido</p>
           )}
+          <p className="mt-1 text-[10px] text-slate-400 text-right">
+            {reason.length}/500
+          </p>
         </div>
         <div className="flex gap-3">
           <button
