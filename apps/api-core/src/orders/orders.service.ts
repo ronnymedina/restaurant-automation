@@ -181,6 +181,16 @@ export class OrdersService {
     return cancelled;
   }
 
+  /**
+   * Avanza el estado de una orden desde la cocina (CONFIRMED → PROCESSING → SERVED).
+   *
+   * IMPORTANTE — Multi-tenant safety (audit H-20): `restaurantId` DEBE provenir
+   * del actor autenticado (JWT del cajero o `KitchenTokenGuard.KITCHEN_RESTAURANT_KEY`),
+   * nunca del body del request. La protección por `findFirst({ where: { id,
+   * restaurantId } })` depende 100% de que el caller respete esta convención.
+   * Cualquier endpoint nuevo que llame este método debe derivar `restaurantId`
+   * del JWT/guard, jamás del cliente.
+   */
   async kitchenAdvanceStatus(id: string, restaurantId: string, newStatus: OrderStatus) {
     // Race-safe kitchen advance (audit H-13). Multiple KDS screens can
     // attempt to advance the same order simultaneously, and the cashier
