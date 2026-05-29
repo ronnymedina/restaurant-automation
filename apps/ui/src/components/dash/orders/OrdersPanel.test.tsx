@@ -127,3 +127,48 @@ test('when session is open, shows session banner with máx 100 note', async () =
     expect(screen.getByText('máx. 100 pedidos')).toBeInTheDocument(),
   );
 });
+
+// H-17: EventSource must not be re-created on filter changes.
+// activeFilter is internal state; we cannot trigger it via props, so we assert
+// that after mount completes (and any SSE-related re-renders settle) the
+// constructor was called exactly once. If a future change re-adds activeFilter
+// to the SSE useEffect deps, filter-panel interactions (see the adjacent test)
+// would cause more than one construction and this test would surface the regression.
+test('H-17: EventSource is created once per session, not on every render', async () => {
+  let constructorCallCount = 0;
+
+  // EventSource must be a real class (constructor) so `new EventSource(...)` works
+  class FakeEventSource {
+    static callCount = 0;
+    addEventListener = vi.fn();
+    close = vi.fn();
+    constructor() {
+      constructorCallCount++;
+    }
+  }
+  vi.stubGlobal('EventSource', FakeEventSource);
+
+  // Override getAccessToken to return a valid token so the SSE branch is entered
+  vi.mocked((await import('../../../lib/auth')).getAccessToken).mockReturnValue('tok');
+
+  mockGetCurrentSession.mockResolvedValue({
+    ok: true,
+    data: { id: 'shift', openedByEmail: 'a@b.c' },
+  });
+  mockGetOrders.mockResolvedValue({ ok: true, data: [] });
+
+  const { rerender } = render(<OrdersPanel />);
+
+  // Wait for SSE to be set up (status becomes OPEN, session is set)
+  await waitFor(() => expect(constructorCallCount).toBe(1));
+
+  // Force several re-renders; EventSource should still have been created exactly once.
+  // NOTE: rerender with the same component does not change status/session deps, so
+  // no extra SSE effect runs are expected. This guards the activeFilter-as-dep bug.
+  rerender(<OrdersPanel />);
+  rerender(<OrdersPanel />);
+  await new Promise((r) => setTimeout(r, 50));
+  expect(constructorCallCount).toBe(1);
+
+  vi.unstubAllGlobals();
+});

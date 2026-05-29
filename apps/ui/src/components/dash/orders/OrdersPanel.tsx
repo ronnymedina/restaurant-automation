@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getAccessToken } from '../../../lib/auth';
 import { config } from '../../../config';
 import { ORDER_EVENTS } from '../../../lib/sse-events';
@@ -30,6 +30,15 @@ export default function OrdersPanel() {
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
+
+  // Keep a ref in sync with activeFilter so the SSE reload callback can read the
+  // current value without being a closure dependency of the SSE useEffect.
+  // This prevents the SSE connection from being torn down and reopened on every
+  // filter change (H-17).
+  const activeFilterRef = useRef<ActiveFilter | null>(null);
+  useEffect(() => {
+    activeFilterRef.current = activeFilter;
+  }, [activeFilter]);
 
   function showToast(message: string, isError = false) {
     setToast({ message, isError });
@@ -81,19 +90,22 @@ export default function OrdersPanel() {
     loadSession();
   }, []);
 
-  // SSE: reload orders in kanban mode only (filter mode ignores SSE to avoid clobbering the search)
+  // SSE: reload orders in kanban mode only (filter mode ignores SSE to avoid clobbering the search).
+  // activeFilter is intentionally NOT in the deps array — it is read via activeFilterRef.current
+  // so the connection stays open across filter changes (H-17).
   useEffect(() => {
     if (status !== ORDERS_STATUS.OPEN || !session) return;
     const token = getAccessToken();
     if (!token) return;
     const es = new EventSource(`${config.apiUrl}/v1/events/dashboard?token=${token}`);
     const reload = () => {
-      if (!activeFilter) fetchOrders(null);
+      if (!activeFilterRef.current) fetchOrders(null);
     };
     es.addEventListener(ORDER_EVENTS.NEW, reload);
     es.addEventListener(ORDER_EVENTS.UPDATED, reload);
     return () => es.close();
-  }, [status, session, activeFilter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, session]);
 
   async function handleAdvance(id: string, nextStatus: string) {
     if (!session) return;
