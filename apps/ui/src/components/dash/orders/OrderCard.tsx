@@ -64,7 +64,9 @@ export default function OrderCard({
   const isActive = ACTIVE_STATUSES.has(order.status);
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
+  const [paymentError, setPaymentError] = useState(false);
   const hasCustomerData = order.customerEmail || order.customerPhone || order.deliveryAddress;
+  const hasPaymentMethod = !!(order.paymentMethod || selectedPaymentMethod);
 
   return (
     <div className={`bg-white rounded-xl border border-slate-200 border-l-4 ${border} shadow-sm`}>
@@ -91,11 +93,15 @@ export default function OrderCard({
           </span>
           {isActive && !order.paymentMethod ? (
             <div className="flex items-center gap-1">
-              <span className="text-amber-600 text-xs">⚠</span>
+              <span className={`text-xs ${paymentError ? 'text-red-500' : 'text-amber-600'}`}>⚠</span>
               <select
                 value={selectedPaymentMethod}
-                onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                className="border border-amber-300 bg-amber-50 text-amber-800 text-xs rounded px-1.5 py-0.5 cursor-pointer"
+                onChange={(e) => { setSelectedPaymentMethod(e.target.value); setPaymentError(false); }}
+                className={`text-xs rounded px-1.5 py-0.5 cursor-pointer border ${
+                  paymentError
+                    ? 'border-red-400 bg-red-50 text-red-800'
+                    : 'border-amber-300 bg-amber-50 text-amber-800'
+                }`}
               >
                 <option value="" disabled>— Asignar método —</option>
                 <option value="CASH">Efectivo</option>
@@ -140,14 +146,21 @@ export default function OrderCard({
         )}
         {isActive && (
           <div className="border-t border-slate-200 pt-2 space-y-1.5">
+            {paymentError && (
+              <p className="text-xs text-red-500">Selecciona un método de pago para continuar</p>
+            )}
             <button
               type="button"
               onClick={() => {
                 if (order.status === 'CREATED') onConfirm(order.id);
-                else if (order.status === 'CONFIRMED') onAdvance(order.id, 'PROCESSING');
-                else if (order.status === 'PROCESSING') onAdvance(order.id, 'SERVED');
-                else if (order.status === 'SERVED' && !order.isPaid) onPay(order.id, selectedPaymentMethod || undefined);
-                else if (order.status === 'SERVED' && order.isPaid) onAdvance(order.id, 'COMPLETED');
+                else if (order.status === 'CONFIRMED') {
+                  if (!hasPaymentMethod) { setPaymentError(true); return; }
+                  onAdvance(order.id, 'PROCESSING');
+                } else if (order.status === 'PROCESSING') onAdvance(order.id, 'SERVED');
+                else if (order.status === 'SERVED' && !order.isPaid) {
+                  if (!hasPaymentMethod) { setPaymentError(true); return; }
+                  onPay(order.id, selectedPaymentMethod || undefined);
+                } else if (order.status === 'SERVED' && order.isPaid) onAdvance(order.id, 'COMPLETED');
               }}
               className={`w-full py-2 text-sm font-bold text-white rounded-lg cursor-pointer border-none ${PRIMARY_CONFIGS[order.status]?.color ?? ''}`}
             >
@@ -159,7 +172,10 @@ export default function OrderCard({
               {!order.isPaid && order.status !== 'SERVED' && (
                 <button
                   type="button"
-                  onClick={() => onPay(order.id, selectedPaymentMethod || undefined)}
+                  onClick={() => {
+                    if (!hasPaymentMethod) { setPaymentError(true); return; }
+                    onPay(order.id, selectedPaymentMethod || undefined);
+                  }}
                   className="flex-1 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md cursor-pointer text-green-600 hover:bg-slate-50"
                 >
                   ✓ Marcar Pagado
