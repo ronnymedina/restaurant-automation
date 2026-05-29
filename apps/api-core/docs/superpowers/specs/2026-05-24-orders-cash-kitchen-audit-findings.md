@@ -25,7 +25,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 | Severidad | Cantidad | IDs |
 |-----------|----------|-----|
 | 🔴 CRÍTICO | 4 | H-01 ✅, H-02 ✅, H-03 ✅, H-04 ⏳ |
-| 🟠 ALTO    | 16 | H-05 ✅, H-06 ✅, H-07 ✅, H-08 ✅, H-09 ✅, H-11 ✅, H-12 ✅, H-13 ✅, H-14 ✅, H-15 ✅, H-19 ❌, H-10, H-16, H-17, H-18, H-20 |
+| 🟠 ALTO    | 16 | H-05 ✅, H-06 ✅, H-07 ✅, H-08 ✅, H-09 ✅, H-10 ✅, H-11 ✅, H-12 ✅, H-13 ✅, H-14 ✅, H-15 ✅, H-16 ✅, H-17 ✅, H-18 ✅, H-19 ❌, H-20 ✅ |
 | 🟡 MEDIO   | 19 | H-21, H-22 ✅, H-23 … H-39 |
 | 🟢 BAJO    | 13 | H-40 … H-52 |
 | **Total**  | **52** | |
@@ -41,6 +41,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 - ❌ H-19 descartado (2026-05-28) — el módulo de recibo del dashboard se borró completamente en H-03 (dead code + XSS cleanup). No hay código que arreglar.
 - ➕ Hallazgo adicional descubierto y arreglado: contrato roto entre backend `/cash-register/summary` y frontend `RegisterHistoryIsland`. Ver sección "Hallazgos adicionales".
 - ➕ Hallazgo adicional descubierto (2026-05-28): patrón SSE → full refetch en dashboard y cocina. N eventos = N refetches completos. Ver H-AUX-02 en "Hallazgos adicionales".
+- ✅ H-10, H-16, H-17, H-18, H-20 implementados (2026-05-28) — batch 3 ALTOS: `closedBy` requerido en `closeSession`, clase `OrderStateMachine` centraliza transiciones, SSE no reconecta en filter change, doble submit bloqueado en OrderCard (con propagación a Kanban + FilteredList), multi-tenant invariant documentada. Ver plan `2026-05-28-orders-cashshift-kitchen-altos-plan.md`.
 
 ---
 
@@ -421,6 +422,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 
 **Fix:** Marcar `closedBy: string` requerido. Opcional: validar que pertenece al mismo restaurante.
 
+**Estado:** ✅ Implementado (2026-05-28) — firma cambiada a `closedBy: string` requerido en `cash-register.service.ts:40`; JSDoc anota que callers no-HTTP deben pasar un identificador único de proceso.
+**Plan asociado:** `docs/superpowers/plans/2026-05-28-orders-cashshift-kitchen-altos-plan.md`
+
 ---
 
 ### H-11 — `CashShiftRepository.close()` declara `totalSales: number`
@@ -508,6 +512,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 
 **Fix:** Revisar el chequeo dual o consolidar a una sola fuente de verdad (state machine explícita).
 
+**Estado:** ✅ Implementado (2026-05-28) — nueva clase `OrderStateMachine` en `apps/api-core/src/orders/order-state-machine.ts` centraliza transiciones; `assertCanAdvance(from, to, actor)` consolida el chequeo dual frágil; `UpdateKitchenStatusDto` y `orders.service.ts` consumen `KITCHEN_ALLOWED_TARGETS` como única fuente de verdad. Spec dedicado `order-state-machine.spec.ts` cubre matriz exhaustiva.
+**Plan asociado:** `docs/superpowers/plans/2026-05-28-orders-cashshift-kitchen-altos-plan.md`
+
 ---
 
 ### H-17 — EventSource se reabre en cada cambio de filtro
@@ -518,6 +525,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 **Descripción:** `activeFilter` en deps del `useEffect` que crea el EventSource → cada filtrado cierra/reabre conexión SSE (handshake completo, posible pérdida de eventos).
 
 **Fix:** Mover `activeFilter` a un `useRef` y leerlo dentro del callback.
+
+**Estado:** ✅ Implementado (2026-05-28) — `activeFilter` movido a `useRef`; el `useEffect` del SSE ya no lo tiene en deps. Conexión queda abierta a través de cambios de filtro. Test regression en `OrdersPanel.test.tsx`.
+**Plan asociado:** `docs/superpowers/plans/2026-05-28-orders-cashshift-kitchen-altos-plan.md`
 
 ---
 
@@ -531,6 +541,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 **Descripción:** Ningún botón (Confirmar, Procesar, Entregar, Pagar) se deshabilita mientras la mutación está en vuelo. Click rápido emite dos PATCH.
 
 **Fix:** Mantener `Set<string>` de IDs en vuelo y deshabilitar botones del card correspondiente.
+
+**Estado:** ✅ Implementado (2026-05-28) — `OrdersPanel` rastrea ids en vuelo en un `Set<string>`; `withInFlight(id, fn)` envuelve cada handler; `OrderCard` recibe `inFlightIds`, computa `isBusy = inFlightIds.has(order.id)` y deshabilita todos los botones de acción (`disabled={isBusy}` + `aria-busy`); `OrdersKanban` y `OrdersFilteredList` forwardean el set. Test regression cubre doble click y disable-during-mutation en ambas vistas.
+**Plan asociado:** `docs/superpowers/plans/2026-05-28-orders-cashshift-kitchen-altos-plan.md`
 
 ---
 
@@ -553,6 +566,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 **Descripción:** El método protege multi-tenant vía `findById(id, restaurantId)` — OK siempre que `restaurantId` venga del JWT (no del body). Hay que confirmar que `KitchenController` lo deriva de `@CurrentUser()` y no acepta del body.
 
 **Fix:** Auditar `kitchen.controller.ts` y agregar comentario explícito en el service: "restaurantId DEBE venir del JWT".
+
+**Estado:** ✅ Implementado (2026-05-28) — auditoría confirma que `kitchen.controller.ts` deriva `restaurantId` de `KITCHEN_RESTAURANT_KEY` (guard), no del body. JSDoc en `kitchenAdvanceStatus` + comentario inline en el controller documentan explícitamente la invariante.
+**Plan asociado:** `docs/superpowers/plans/2026-05-28-orders-cashshift-kitchen-altos-plan.md`
 
 ---
 
@@ -715,7 +731,7 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 | **Hoy / hotfix** | ~~H-01 (kiosk roto)~~ ✅, ~~H-02 (precios wizard)~~ ✅, ~~H-03 (XSS)~~ ✅, H-04 (tokens en URL) ⏳ deferred, ~~H-AUX-01 (contrato cash-register)~~ ✅ |
 | **Esta semana** | ~~H-05 (markAsPaid TX)~~ ✅, ~~H-06 (unmarkAsPaid)~~ ✅, ~~H-09 (closeSession race)~~ ✅, ~~H-13 (kitchen race)~~ ✅, ~~H-14 (kitchen token)~~ ✅ |
 | **Próximo sprint** | ~~H-07 (findHistory DTO)~~ ✅, ~~H-11 (BigInt cash-shift)~~ ✅, ~~H-08/H-12 (filtros restaurantId)~~ ✅, ~~H-15 (notifyOffline canal)~~ ✅ |
-| **Backlog técnico** | H-17 a H-20 + todos los MEDIOS |
+| **Backlog técnico** | ~~H-17, H-18, H-20~~ ✅, H-AUX-02, todos los MEDIOS |
 | **Limpieza** | Todos los BAJOS |
 | **Deuda colateral descubierta** | E2e del módulo `kiosk` con SQLite (stack overflow al inicializar NestJS). Preexistente, no relacionado con H-01. |
 

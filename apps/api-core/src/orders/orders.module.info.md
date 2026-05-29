@@ -372,3 +372,22 @@ overwrite an advance that committed milliseconds earlier. This is observable
 but not corrupting: the final persisted state is always a valid terminal
 state ({CANCELLED, SERVED, COMPLETED}). Hardening `cancelOrder` to the same
 optimistic pattern is a backlog follow-up.
+
+---
+
+### Máquina de estados (OrderStateMachine)
+
+Toda la lógica de transición de estados de orden vive en `order-state-machine.ts`. Es la **única fuente de verdad** para:
+
+- `STATUS_ORDER` — secuencia canónica `CREATED → CONFIRMED → PROCESSING → SERVED → COMPLETED`.
+- `KITCHEN_ALLOWED_TARGETS` — `[PROCESSING, SERVED]`. El DTO de cocina (`UpdateKitchenStatusDto`) lo consume.
+
+#### Métodos de la clase
+
+| Método | Reglas |
+|--------|--------|
+| `assertCanAdvance(from, to, actor)` | Avance +1 estricto. Kitchen adicionalmente debe targetear `KITCHEN_ALLOWED_TARGETS`. |
+| `assertCanComplete(from, isPaid)` | `from === SERVED` && `isPaid === true`. |
+| `assertCanCancel(from, isPaid)` | Cualquier estado pre-COMPLETED, `!isPaid`. |
+
+Cualquier nuevo flujo de transición debe llamar al método correspondiente — **no** duplicar checks inline.
