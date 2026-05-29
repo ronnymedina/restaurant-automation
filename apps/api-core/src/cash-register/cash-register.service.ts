@@ -121,9 +121,7 @@ export class CashRegisterService {
   }
 
   async getCurrentSession(restaurantId: string) {
-    const session =
-      await this.registerSessionRepository.findOpenWithOrderCount(restaurantId);
-    return session || {};
+    return this.registerSessionRepository.findOpenWithOrderCount(restaurantId);
   }
 
   async getSessionSummary(restaurantId: string, sessionId: string) {

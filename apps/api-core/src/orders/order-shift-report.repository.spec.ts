@@ -1,4 +1,8 @@
-import { OrderShiftReportRepository } from './order-shift-report.repository';
+import {
+  OrderShiftReportRepository,
+  OrderGroupRow,
+  TopProductWithName,
+} from './order-shift-report.repository';
 import { PrismaService } from '../prisma/prisma.service';
 
 describe('OrderShiftReportRepository — restaurantId filter (H-08)', () => {
@@ -51,5 +55,21 @@ describe('OrderShiftReportRepository — restaurantId filter (H-08)', () => {
         }),
       );
     });
+  });
+});
+
+describe('OrderShiftReportRepository (H-23)', () => {
+  it('groupOrdersByShift retorna `Promise<OrderGroupRow[]>` sin doble coerción', () => {
+    const fn: OrderShiftReportRepository['groupOrdersByShift'] = (_r, _s) =>
+      Promise.resolve<OrderGroupRow[]>([]);
+    expect(typeof fn).toBe('function');
+  });
+
+  it('getTopProductsWithNamesByShift retorna `Promise<TopProductWithName[]>`', () => {
+    const fn: OrderShiftReportRepository['getTopProductsWithNamesByShift'] = (
+      _r,
+      _s,
+    ) => Promise.resolve<TopProductWithName[]>([]);
+    expect(typeof fn).toBe('function');
   });
 });

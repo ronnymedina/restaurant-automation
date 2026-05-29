@@ -125,7 +125,7 @@ export class CashRegisterController {
   @Get('current')
   @Roles(Role.ADMIN, Role.MANAGER, Role.BASIC)
   @ApiOperation({ summary: 'Sesión de caja actualmente abierta' })
-  @ApiResponse({ status: 200, type: CashShiftSerializer })
+  @ApiResponse({ status: 200, type: CashShiftWithCountSerializer, description: 'Sesión activa (null si no hay)' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN, MANAGER o BASIC)' })
   async current(@CurrentUser() user: { restaurantId: string }) {
@@ -133,8 +133,8 @@ export class CashRegisterController {
       this.registerService.getCurrentSession(user.restaurantId),
       this.timezoneService.getTimezone(user.restaurantId),
     ]);
-    if (!('id' in session)) return {};
-    return new CashShiftSerializer(session as any, tz);
+    if (!session) return null;
+    return new CashShiftWithCountSerializer(session, tz);
   }
 
   @Get('summary/:sessionId')

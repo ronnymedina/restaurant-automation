@@ -123,4 +123,41 @@ describe('CashRegisterController', () => {
       expect(result.summary.counts.completed).toBe(4);
     });
   });
+
+  describe('GET /v1/cash-register/current (H-27)', () => {
+    it('retorna null cuando no hay sesión abierta', async () => {
+      mockRegisterService.getCurrentSession.mockResolvedValue(null);
+      mockTimezoneService.getTimezone.mockResolvedValue('UTC');
+
+      const result = await controller.current({ restaurantId: RESTAURANT_ID });
+
+      expect(result).toBeNull();
+    });
+
+    it('retorna CashShiftWithCountSerializer cuando hay sesión abierta', async () => {
+      const session = {
+        id: 's1',
+        restaurantId: RESTAURANT_ID,
+        userId: 'u',
+        lastOrderNumber: 0,
+        openingBalance: 0n,
+        totalSales: null,
+        totalOrders: null,
+        openedAt: new Date('2026-05-29T10:00:00Z'),
+        closedAt: null,
+        status: 'OPEN',
+        closedBy: null,
+        user: { id: 'u', email: 'u@e.com' },
+        _count: { orders: 3 },
+      };
+      mockRegisterService.getCurrentSession.mockResolvedValue(session);
+      mockTimezoneService.getTimezone.mockResolvedValue('UTC');
+
+      const result = await controller.current({ restaurantId: RESTAURANT_ID });
+      const plain = instanceToPlain(result);
+
+      expect((result as any).id).toBe('s1');
+      expect(plain._count).toEqual({ orders: 3 });
+    });
+  });
 });

@@ -412,12 +412,12 @@ describe('CashRegisterService', () => {
       expect(result).toEqual(sessionWithCount);
     });
 
-    it('should return empty object {} when no open session', async () => {
+    it('should return null when no open session (H-27)', async () => {
       mockRegisterSessionRepository.findOpenWithOrderCount.mockResolvedValue(null);
 
       const result = await service.getCurrentSession('restaurant-uuid-1');
 
-      expect(result).toEqual({});
+      expect(result).toBeNull();
     });
   });
 
