@@ -37,7 +37,17 @@ export class CashRegisterService {
     }
   }
 
-  async closeSession(restaurantId: string, closedBy?: string) {
+  /**
+   * Cierra el turno abierto del restaurante. Aplica garantías race-safe vía
+   * `lockOpenShift` (SELECT ... FOR UPDATE) y rechaza si hay órdenes
+   * pendientes (CREATED/CONFIRMED/PROCESSING/SERVED).
+   *
+   * @param closedBy Identificador del actor que cierra. DEBE ser el id del
+   * user JWT en flujos HTTP, o un identificador único de proceso en jobs
+   * internos (ej. "system:reconciliation"). La columna `closedById` queda
+   * garantizada non-null para auditoría financiera (audit H-10).
+   */
+  async closeSession(restaurantId: string, closedBy: string) {
     const closedSession = await this.prisma.$transaction(async (tx) => {
       const sessionId = await this.registerSessionRepository.lockOpenShift(tx, restaurantId);
       if (!sessionId) throw new NoOpenCashRegisterException();

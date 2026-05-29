@@ -169,7 +169,7 @@ describe('CashRegisterService', () => {
       mockRegisterSessionRepository.lockOpenShift.mockResolvedValue(null);
 
       await expect(
-        service.closeSession('restaurant-uuid-1'),
+        service.closeSession('restaurant-uuid-1', 'user-uuid-1'),
       ).rejects.toThrow(NoOpenCashRegisterException);
 
       expect(mockTx.cashShift.update).not.toHaveBeenCalled();
@@ -181,7 +181,7 @@ describe('CashRegisterService', () => {
       mockTx.order.count.mockResolvedValue(2);
 
       await expect(
-        service.closeSession('restaurant-uuid-1'),
+        service.closeSession('restaurant-uuid-1', 'user-uuid-1'),
       ).rejects.toThrow(PendingOrdersException);
 
       expect(mockTx.cashShift.update).not.toHaveBeenCalled();
@@ -198,7 +198,7 @@ describe('CashRegisterService', () => {
       });
       mockTx.cashShift.update.mockResolvedValue(closedSession);
 
-      const result = await service.closeSession('restaurant-uuid-1');
+      const result = await service.closeSession('restaurant-uuid-1', 'user-uuid-1');
 
       expect(mockRegisterSessionRepository.lockOpenShift).toHaveBeenCalledWith(
         mockTx,
@@ -226,7 +226,7 @@ describe('CashRegisterService', () => {
       });
       mockTx.cashShift.update.mockResolvedValue(closedSession);
 
-      await service.closeSession('restaurant-uuid-1');
+      await service.closeSession('restaurant-uuid-1', 'user-uuid-1');
 
       expect(mockStatsService.getSummary).toHaveBeenCalledWith('restaurant-uuid-1', closedSession.id);
     });
@@ -262,7 +262,7 @@ describe('CashRegisterService', () => {
       });
       mockTx.cashShift.update.mockResolvedValue(closedSession);
 
-      await service.closeSession('restaurant-uuid-1');
+      await service.closeSession('restaurant-uuid-1', 'user-uuid-1');
 
       expect(mockTx.order.aggregate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -282,7 +282,7 @@ describe('CashRegisterService', () => {
       });
       mockTx.cashShift.update.mockResolvedValue(closedSession);
 
-      const result = await service.closeSession('restaurant-uuid-1');
+      const result = await service.closeSession('restaurant-uuid-1', 'user-uuid-1');
 
       expect(result.session).toEqual(closedSession);
       expect(result.summary).toEqual(mockStatsResult);
