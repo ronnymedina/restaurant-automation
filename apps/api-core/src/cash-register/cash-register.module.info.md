@@ -273,6 +273,14 @@ E2E: ✅ `test/cash-register/topProducts.e2e-spec.ts`
 
 - Solo puede existir una sesión `OPEN` por restaurante. Reforzado con partial index en PostgreSQL: `CREATE UNIQUE INDEX "one_open_shift_per_restaurant" ON "CashShift"("restaurantId") WHERE status = 'OPEN';` (debe crearse manualmente al hacer deploy — Prisma no lo gestiona automáticamente).
 - El cierre de sesión es atómico via `$transaction` de Prisma: verifica pedidos pendientes, actualiza la sesión. El summary se calcula fuera de la transacción via `CashRegisterStatsService.getSummary()`.
+
+#### `closeSession(restaurantId, closedBy)`
+
+Cierra el turno abierto del restaurante. **`closedBy` es requerido** (audit H-10) — todos los callers deben identificarse:
+- En flujos HTTP: `user.id` del JWT autenticado.
+- En jobs/CLI internos: un identificador único de proceso (ej. `"system:reconciliation"`).
+
+Garantiza `cashShift.closedById` non-null para auditoría financiera.
 - `totalSales` se almacena como `BigInt` en la BD (centavos). Se convierte con `fromCents()` antes de enviar al cliente.
 - `GET /current` retorna `{}` cuando no hay sesión abierta — no lanza 404.
 - `GET /stats` retorna `{ summary }` con valores en cero cuando no hay sesión abierta — no lanza error.

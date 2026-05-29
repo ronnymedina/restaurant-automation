@@ -97,7 +97,7 @@ export class KitchenController {
     @Body() dto: UpdateKitchenStatusDto,
   ) {
     return this.kitchenService.advanceStatus(
-      (req as any)[KITCHEN_RESTAURANT_KEY],
+      (req as any)[KITCHEN_RESTAURANT_KEY],  // setteado por KitchenTokenGuard — no del body (audit H-20)
       id,
       dto.status,
     );

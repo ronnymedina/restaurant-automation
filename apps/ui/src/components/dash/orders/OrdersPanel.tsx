@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getAccessToken } from '../../../lib/auth';
 import { config } from '../../../config';
 import { ORDER_EVENTS } from '../../../lib/sse-events';
@@ -30,6 +30,35 @@ export default function OrdersPanel() {
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
+
+  // Keep a ref in sync with activeFilter so the SSE reload callback can read the
+  // current value without being a closure dependency of the SSE useEffect.
+  // This prevents the SSE connection from being torn down and reopened on every
+  // filter change (H-17).
+  const activeFilterRef = useRef<ActiveFilter | null>(null);
+  useEffect(() => {
+    activeFilterRef.current = activeFilter;
+  }, [activeFilter]);
+
+  // H-18: Track in-flight order mutations to prevent double-submit.
+  // We use a ref (not state) for the Set so that the synchronous guard check
+  // `inFlightRef.current.has(id)` sees the latest value even inside React 18's
+  // concurrent batching. A separate version counter forces re-renders so that
+  // OrderCard receives an updated reference and re-disables/re-enables buttons.
+  const inFlightRef = useRef<Set<string>>(new Set());
+  const [inFlightVersion, setInFlightVersion] = useState(0);
+
+  const withInFlight = useCallback(async (id: string, fn: () => Promise<void>): Promise<void> => {
+    if (inFlightRef.current.has(id)) return; // synchronous guard — prevents double-submit
+    inFlightRef.current.add(id);
+    setInFlightVersion((v) => v + 1);
+    try {
+      await fn();
+    } finally {
+      inFlightRef.current.delete(id);
+      setInFlightVersion((v) => v + 1);
+    }
+  }, []);
 
   function showToast(message: string, isError = false) {
     setToast({ message, isError });
@@ -81,83 +110,96 @@ export default function OrdersPanel() {
     loadSession();
   }, []);
 
-  // SSE: reload orders in kanban mode only (filter mode ignores SSE to avoid clobbering the search)
+  // SSE: reload orders in kanban mode only (filter mode ignores SSE to avoid clobbering the search).
+  // activeFilter is intentionally NOT in the deps array — it is read via activeFilterRef.current
+  // so the connection stays open across filter changes (H-17).
   useEffect(() => {
     if (status !== ORDERS_STATUS.OPEN || !session) return;
     const token = getAccessToken();
     if (!token) return;
     const es = new EventSource(`${config.apiUrl}/v1/events/dashboard?token=${token}`);
     const reload = () => {
-      if (!activeFilter) fetchOrders(null);
+      if (!activeFilterRef.current) fetchOrders(null);
     };
     es.addEventListener(ORDER_EVENTS.NEW, reload);
     es.addEventListener(ORDER_EVENTS.UPDATED, reload);
     return () => es.close();
-  }, [status, session, activeFilter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, session]);
 
   async function handleAdvance(id: string, nextStatus: string) {
-    if (!session) return;
-    const order = orders.find((o) => o.id === id);
-    if (nextStatus === 'COMPLETED' && !order?.isPaid) {
-      showToast('El pedido debe estar pagado antes de completarse', true);
-      return;
-    }
-    const result = await updateOrderStatus(id, nextStatus);
-    if (!result.ok) {
-      showToast(result.error.message ?? 'Error al actualizar', true);
-      return;
-    }
-    await fetchOrders(activeFilter);
+    await withInFlight(id, async () => {
+      if (!session) return;
+      const order = orders.find((o) => o.id === id);
+      if (nextStatus === 'COMPLETED' && !order?.isPaid) {
+        showToast('El pedido debe estar pagado antes de completarse', true);
+        return;
+      }
+      const result = await updateOrderStatus(id, nextStatus);
+      if (!result.ok) {
+        showToast(result.error.message ?? 'Error al actualizar', true);
+        return;
+      }
+      await fetchOrders(activeFilter);
+    });
   }
 
   async function handleConfirm(id: string) {
-    if (!session) return;
-    const result = await confirmOrder(id);
-    if (!result.ok) {
-      showToast(result.error.message ?? 'Error al confirmar', true);
-      return;
-    }
-    showToast('Pedido confirmado');
-    await fetchOrders(activeFilter);
+    await withInFlight(id, async () => {
+      if (!session) return;
+      const result = await confirmOrder(id);
+      if (!result.ok) {
+        showToast(result.error.message ?? 'Error al confirmar', true);
+        return;
+      }
+      showToast('Pedido confirmado');
+      await fetchOrders(activeFilter);
+    });
   }
 
   async function handlePay(id: string, paymentMethod?: string) {
-    if (!session) return;
-    const result = await markOrderPaid(id, paymentMethod);
-    if (!result.ok) {
-      showToast(result.error.message ?? 'Error al marcar pagado', true);
-      return;
-    }
-    showToast('Marcado como pagado');
-    await fetchOrders(activeFilter);
+    await withInFlight(id, async () => {
+      if (!session) return;
+      const result = await markOrderPaid(id, paymentMethod);
+      if (!result.ok) {
+        showToast(result.error.message ?? 'Error al marcar pagado', true);
+        return;
+      }
+      showToast('Marcado como pagado');
+      await fetchOrders(activeFilter);
+    });
   }
 
   async function handleUnpay(id: string) {
-    if (!session) return;
-    const result = await unmarkOrderPaid(id);
-    if (!result.ok) {
-      showToast(result.error.message ?? 'Error al desmarcar pago', true);
-      return;
-    }
-    showToast('Pago desmarcado');
-    await fetchOrders(activeFilter);
+    await withInFlight(id, async () => {
+      if (!session) return;
+      const result = await unmarkOrderPaid(id);
+      if (!result.ok) {
+        showToast(result.error.message ?? 'Error al desmarcar pago', true);
+        return;
+      }
+      showToast('Pago desmarcado');
+      await fetchOrders(activeFilter);
+    });
   }
 
   async function handleCancelConfirm(id: string, reason: string) {
-    if (!session) return;
-    const order = orders.find((o) => o.id === id);
-    const result = await cancelOrder(id, reason);
-    if (!result.ok) {
-      showToast(result.error.message ?? 'Error al cancelar', true);
-      return;
-    }
-    setCancelOrderId(null);
-    if (order?.status === 'PROCESSING') {
-      showToast('⚠️ Pedido cancelado. Recuerda notificar a tu cocina.', false);
-    } else {
-      showToast('Pedido cancelado');
-    }
-    await fetchOrders(activeFilter);
+    await withInFlight(id, async () => {
+      if (!session) return;
+      const order = orders.find((o) => o.id === id);
+      const result = await cancelOrder(id, reason);
+      if (!result.ok) {
+        showToast(result.error.message ?? 'Error al cancelar', true);
+        return;
+      }
+      setCancelOrderId(null);
+      if (order?.status === 'PROCESSING') {
+        showToast('⚠️ Pedido cancelado. Recuerda notificar a tu cocina.', false);
+      } else {
+        showToast('Pedido cancelado');
+      }
+      await fetchOrders(activeFilter);
+    });
   }
 
   function handleCancelBlocked(_id: string) {
@@ -181,6 +223,9 @@ export default function OrdersPanel() {
     await fetchOrders(filter);
   }
 
+  // inFlightVersion is read here so that the cardCallbacks object is re-created
+  // whenever the in-flight set changes, triggering a re-render in child components.
+  void inFlightVersion;
   const cardCallbacks = {
     onConfirm: handleConfirm,
     onAdvance: handleAdvance,
@@ -188,6 +233,7 @@ export default function OrdersPanel() {
     onUnpay: handleUnpay,
     onCancel: (id: string) => setCancelOrderId(id),
     onCancelBlocked: handleCancelBlocked,
+    inFlightIds: inFlightRef.current,
   };
 
   if (status === ORDERS_STATUS.LOADING) {

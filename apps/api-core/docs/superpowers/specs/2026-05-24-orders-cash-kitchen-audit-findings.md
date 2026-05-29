@@ -25,7 +25,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 | Severidad | Cantidad | IDs |
 |-----------|----------|-----|
 | 🔴 CRÍTICO | 4 | H-01 ✅, H-02 ✅, H-03 ✅, H-04 ⏳ |
-| 🟠 ALTO    | 16 | H-05 ✅, H-06 ✅, H-07 ✅, H-08 ✅, H-09 ✅, H-11 ✅, H-12 ✅, H-13 ✅, H-14 ✅, H-15 ✅, H-10, H-16…H-20 |
+| 🟠 ALTO    | 16 | H-05 ✅, H-06 ✅, H-07 ✅, H-08 ✅, H-09 ✅, H-10 ✅, H-11 ✅, H-12 ✅, H-13 ✅, H-14 ✅, H-15 ✅, H-16 ✅, H-17 ✅, H-18 ✅, H-19 ❌, H-20 ✅ |
 | 🟡 MEDIO   | 19 | H-21, H-22 ✅, H-23 … H-39 |
 | 🟢 BAJO    | 13 | H-40 … H-52 |
 | **Total**  | **52** | |
@@ -38,7 +38,10 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 - ✅ H-05, H-06, H-09, H-13, H-14 implementados (2026-05-27) — race conditions de order/cash-shift transitions (markAsPaid, unmarkAsPaid, createOrder, closeSession, kitchenAdvanceStatus) y hardening del kitchen token (hash sha256 + timingSafeEqual + header X-Kitchen-Token). Ver `2026-05-27-orders-cashshift-kitchen-token-hardening-design.md` y plan asociado.
 - ✅ H-07, H-08, H-11, H-12, H-15 implementados (2026-05-28) — `FindHistoryDto` con tope de 90 días y `limit ≤ 100`; defensa en profundidad por `restaurantId` en `OrderShiftReportRepository` + `CashRegisterStatsService` + `CashRegisterService.getSessionSummary` (404 cross-tenant); eliminación de `CashShiftRepository.close` (0 callers, firma con `totalSales: number` rompía convención BigInt); eliminación del feature `notifyOffline` (dead-end — emitía a un canal sin listener UI). Ver `2026-05-28-orders-cashshift-kitchen-hardening-batch2-design.md` y plan asociado.
 - ⏳ H-04 deferred (2026-05-27) — scope acotado a "esta semana"; requiere diseño separado del mecanismo sse-ticket y refactor del cliente SSE (dashboard + cocina). Tracker como follow-up.
+- ❌ H-19 descartado (2026-05-28) — el módulo de recibo del dashboard se borró completamente en H-03 (dead code + XSS cleanup). No hay código que arreglar.
 - ➕ Hallazgo adicional descubierto y arreglado: contrato roto entre backend `/cash-register/summary` y frontend `RegisterHistoryIsland`. Ver sección "Hallazgos adicionales".
+- ➕ Hallazgo adicional descubierto (2026-05-28): patrón SSE → full refetch en dashboard y cocina. N eventos = N refetches completos. Ver H-AUX-02 en "Hallazgos adicionales".
+- ✅ H-10, H-16, H-17, H-18, H-20 implementados (2026-05-28) — batch 3 ALTOS: `closedBy` requerido en `closeSession`, clase `OrderStateMachine` centraliza transiciones, SSE no reconecta en filter change, doble submit bloqueado en OrderCard (con propagación a Kanban + FilteredList), multi-tenant invariant documentada. Ver plan `2026-05-28-orders-cashshift-kitchen-altos-plan.md`.
 
 ---
 
@@ -80,6 +83,82 @@ Naming rules nuevas (clave para evitar el drift futuro):
 Documentación: `cash-register.module.info.md` reescrito con el nuevo contrato.
 
 **Verificación:** 38 unit tests + 45 e2e cash-register en verde. Smoke test manual confirmado por el usuario (`summary.revenue.completed = 125` para la orden de prueba $100 + $25).
+
+---
+
+### H-AUX-02 — Patrón SSE → full refetch (N eventos = N fetches completos)
+
+**Categoría:** rendimiento · arquitectura SSE
+**Severidad:** 🟠 ALTO (degradación a escala — un kiosk con tráfico pico dispara N×fetch en el dashboard y cocina)
+**Estado:** ⏳ Pendiente
+
+**Descripción:** El backend emite eventos SSE con **payload vacío** (`{}`), y los dos clientes que escuchan (dashboard + cocina) usan cada evento como señal de "algo cambió" y disparan un fetch REST completo de la lista de órdenes. No hay reconciliación local con el delta.
+
+**Evidencia:**
+
+Backend — el `_order` recibido se descarta:
+```ts
+// apps/api-core/src/events/orders.events.ts:14-22
+emitOrderCreated(restaurantId: string, _order: Order): void {
+  this.sseService.emitToRestaurant(restaurantId, ORDER_EVENTS.NEW, {});  // ← payload vacío
+  this.sseService.emitToKitchen(restaurantId, ORDER_EVENTS.NEW, {});
+}
+emitOrderUpdated(restaurantId: string, _order: Order): void {
+  this.sseService.emitToRestaurant(restaurantId, ORDER_EVENTS.UPDATED, {});
+  this.sseService.emitToKitchen(restaurantId, ORDER_EVENTS.UPDATED, {});
+}
+```
+
+Dashboard — refetch completo en cada evento:
+```tsx
+// apps/ui/src/components/dash/orders/OrdersPanel.tsx:90-94
+const reload = () => {
+  if (!activeFilter) fetchOrders(null);  // ← GET /v1/orders?limit=100
+};
+es.addEventListener(ORDER_EVENTS.NEW, reload);
+es.addEventListener(ORDER_EVENTS.UPDATED, reload);
+```
+
+Cocina — mismo patrón:
+```ts
+// apps/ui/src/pages/kitchen/index.astro:374-375
+es.addEventListener(ORDER_EVENTS.NEW, () => loadOrders());
+es.addEventListener(ORDER_EVENTS.UPDATED, () => loadOrders());
+```
+
+**Impacto a escala:**
+- 100 órdenes nuevas en ráfaga (rush hour de un kiosk) → 100 eventos → 100 `GET /v1/orders?limit=100` desde **cada cliente conectado** (dashboard + cocinas). En un restaurante con 3 pantallas, son 300 requests + 300 serializaciones backend para mostrar lo mismo.
+- Latencia visible: cada cambio requiere 2 round-trips (SSE + REST).
+- Coste de ancho de banda: el payload de 100 órdenes serializadas se transfiere repetidamente cuando bastaba con el delta de 1.
+- Race sutil: si 2 eventos llegan en <100ms, dispara 2 fetches solapados; el último en resolver gana (puede pisar el más reciente si el orden de resolución difiere del orden de emisión).
+
+**Fix propuesto:**
+
+1. **Backend** (`orders.events.ts`): emitir el payload de la orden serializada. Reutilizar el serializer existente (`serializeOrder` para dashboard, `KitchenOrderSerializer` para cocina) para garantizar que los montos viajen en pesos y que campos sensibles queden excluidos. Auditar que multi-tenant ya está garantizado (cada cliente solo recibe eventos de su `restaurantId`, vía `SseService.emitToRestaurant`).
+
+2. **Dashboard** (`OrdersPanel.tsx`): parsear `e.data` y hacer patch local con `setOrders`:
+   ```tsx
+   es.addEventListener(ORDER_EVENTS.NEW, (e) => {
+     const order = JSON.parse(e.data) as Order;
+     setOrders((prev) => [order, ...prev]);
+   });
+   es.addEventListener(ORDER_EVENTS.UPDATED, (e) => {
+     const order = JSON.parse(e.data) as Order;
+     setOrders((prev) => prev.map((o) => o.id === order.id ? order : o));
+   });
+   ```
+
+3. **Cocina** (`kitchen/index.astro`): mismo patrón con `renderCard(order)` + `replaceChildren` del nodo correspondiente.
+
+4. **Fallback a refetch completo**: mantener `loadOrders()` para la conexión inicial y reconexión (cuando `es.onopen` dispara). Así un cliente que estuvo offline durante eventos vuelve a estado consistente.
+
+**Trade-offs:**
+- ✅ Reduce N requests por ráfaga a 0 (solo el evento SSE original).
+- ✅ Latencia visible ≈ latencia del SSE (1 round-trip menos).
+- ⚠️ Si se pierde un evento (red intermitente), el cliente queda desincronizado hasta la siguiente reconexión. Mitigable agregando un evento periódico de heartbeat con timestamp para que el cliente detecte gaps y refetchee.
+- ⚠️ Cambia el contrato del SSE — requiere coordinar deploy del backend antes del frontend, o feature flag.
+
+**Relacionado:** [[H-17]] (reconexión SSE en cambio de filtro) trabaja la misma superficie de código. Implementar H-17 primero (incluido en el spec actual de ALTOS 2026-05-28), después abordar H-AUX-02 como spec separado.
 
 ---
 
@@ -343,6 +422,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 
 **Fix:** Marcar `closedBy: string` requerido. Opcional: validar que pertenece al mismo restaurante.
 
+**Estado:** ✅ Implementado (2026-05-28) — firma cambiada a `closedBy: string` requerido en `cash-register.service.ts:40`; JSDoc anota que callers no-HTTP deben pasar un identificador único de proceso.
+**Plan asociado:** `docs/superpowers/plans/2026-05-28-orders-cashshift-kitchen-altos-plan.md`
+
 ---
 
 ### H-11 — `CashShiftRepository.close()` declara `totalSales: number`
@@ -430,6 +512,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 
 **Fix:** Revisar el chequeo dual o consolidar a una sola fuente de verdad (state machine explícita).
 
+**Estado:** ✅ Implementado (2026-05-28) — nueva clase `OrderStateMachine` en `apps/api-core/src/orders/order-state-machine.ts` centraliza transiciones; `assertCanAdvance(from, to, actor)` consolida el chequeo dual frágil; `UpdateKitchenStatusDto` y `orders.service.ts` consumen `KITCHEN_ALLOWED_TARGETS` como única fuente de verdad. Spec dedicado `order-state-machine.spec.ts` cubre matriz exhaustiva.
+**Plan asociado:** `docs/superpowers/plans/2026-05-28-orders-cashshift-kitchen-altos-plan.md`
+
 ---
 
 ### H-17 — EventSource se reabre en cada cambio de filtro
@@ -440,6 +525,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 **Descripción:** `activeFilter` en deps del `useEffect` que crea el EventSource → cada filtrado cierra/reabre conexión SSE (handshake completo, posible pérdida de eventos).
 
 **Fix:** Mover `activeFilter` a un `useRef` y leerlo dentro del callback.
+
+**Estado:** ✅ Implementado (2026-05-28) — `activeFilter` movido a `useRef`; el `useEffect` del SSE ya no lo tiene en deps. Conexión queda abierta a través de cambios de filtro. Test regression en `OrdersPanel.test.tsx`.
+**Plan asociado:** `docs/superpowers/plans/2026-05-28-orders-cashshift-kitchen-altos-plan.md`
 
 ---
 
@@ -454,16 +542,19 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 
 **Fix:** Mantener `Set<string>` de IDs en vuelo y deshabilitar botones del card correspondiente.
 
+**Estado:** ✅ Implementado (2026-05-28) — `OrdersPanel` rastrea ids en vuelo en un `Set<string>`; `withInFlight(id, fn)` envuelve cada handler; `OrderCard` recibe `inFlightIds`, computa `isBusy = inFlightIds.has(order.id)` y deshabilita todos los botones de acción (`disabled={isBusy}` + `aria-busy`); `OrdersKanban` y `OrdersFilteredList` forwardean el set. Test regression cubre doble click y disable-during-mutation en ambas vistas.
+**Plan asociado:** `docs/superpowers/plans/2026-05-28-orders-cashshift-kitchen-altos-plan.md`
+
 ---
 
 ### H-19 — `handleReceipt` falla silenciosamente si popup bloqueado
 
 **Categoría:** error (frontend)
-**Archivo:** `apps/ui/src/components/dash/orders/OrdersPanel.tsx:174-193`
+**Archivo:** ~~`apps/ui/src/components/dash/orders/OrdersPanel.tsx:174-193`~~ (eliminado)
 
-**Descripción:** `window.open` devuelve `null` si bloqueado (común en Safari). El cajero no se entera de que el recibo no se imprimió.
-
-**Fix:** Si `win === null`, mostrar toast "Habilita popups para imprimir".
+**Estado:** ❌ Descartado (2026-05-28)
+**Decisión:** El módulo de recibo del dashboard se borró completamente durante H-03 (cleanup del XSS + dead code). `handleReceipt`, `onReceipt` y el endpoint `POST /v1/print/receipt/:id` ya no existen. El bug que H-19 describía está físicamente removido — no hay código que arreglar.
+**Verificación:** `grep -rn "handleReceipt\|onReceipt" apps/ui/src/components/dash/orders/` retorna 0 resultados (2026-05-28).
 
 ---
 
@@ -475,6 +566,9 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 **Descripción:** El método protege multi-tenant vía `findById(id, restaurantId)` — OK siempre que `restaurantId` venga del JWT (no del body). Hay que confirmar que `KitchenController` lo deriva de `@CurrentUser()` y no acepta del body.
 
 **Fix:** Auditar `kitchen.controller.ts` y agregar comentario explícito en el service: "restaurantId DEBE venir del JWT".
+
+**Estado:** ✅ Implementado (2026-05-28) — auditoría confirma que `kitchen.controller.ts` deriva `restaurantId` de `KITCHEN_RESTAURANT_KEY` (guard), no del body. JSDoc en `kitchenAdvanceStatus` + comentario inline en el controller documentan explícitamente la invariante.
+**Plan asociado:** `docs/superpowers/plans/2026-05-28-orders-cashshift-kitchen-altos-plan.md`
 
 ---
 
@@ -637,7 +731,7 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 | **Hoy / hotfix** | ~~H-01 (kiosk roto)~~ ✅, ~~H-02 (precios wizard)~~ ✅, ~~H-03 (XSS)~~ ✅, H-04 (tokens en URL) ⏳ deferred, ~~H-AUX-01 (contrato cash-register)~~ ✅ |
 | **Esta semana** | ~~H-05 (markAsPaid TX)~~ ✅, ~~H-06 (unmarkAsPaid)~~ ✅, ~~H-09 (closeSession race)~~ ✅, ~~H-13 (kitchen race)~~ ✅, ~~H-14 (kitchen token)~~ ✅ |
 | **Próximo sprint** | ~~H-07 (findHistory DTO)~~ ✅, ~~H-11 (BigInt cash-shift)~~ ✅, ~~H-08/H-12 (filtros restaurantId)~~ ✅, ~~H-15 (notifyOffline canal)~~ ✅ |
-| **Backlog técnico** | H-17 a H-20 + todos los MEDIOS |
+| **Backlog técnico** | ~~H-17, H-18, H-20~~ ✅, H-AUX-02, todos los MEDIOS |
 | **Limpieza** | Todos los BAJOS |
 | **Deuda colateral descubierta** | E2e del módulo `kiosk` con SQLite (stack overflow al inicializar NestJS). Preexistente, no relacionado con H-01. |
 

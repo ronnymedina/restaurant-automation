@@ -161,3 +161,18 @@ Transiciones permitidas: `CONFIRMED → PROCESSING`, `PROCESSING → SERVED`. La
 
 #### Modelo elegido: shared secret vs JWT
 - Shared secret per-restaurant elegido sobre JWT. Razón: las sesiones de cocina son long-lived (meses) y los admins necesitan revocación inmediata al regenerar. Per-restaurant secret también acota el blast radius (un leak compromete un restaurante, no todos). Detalles en el spec referenciado en `docs/superpowers/specs/2026-05-27-orders-cashshift-kitchen-token-hardening-design.md`.
+
+---
+
+### Transiciones permitidas para cocina
+
+Definidas como única fuente de verdad en `apps/api-core/src/orders/order-state-machine.ts`:
+
+    KITCHEN_ALLOWED_TARGETS = [PROCESSING, SERVED]
+
+El DTO `UpdateKitchenStatusDto` consume esta constante con `@IsEnum`. El service `OrdersService.kitchenAdvanceStatus` consume `OrderStateMachine.assertCanAdvance(from, to, 'kitchen')` que combina el avance +1 con la restricción de targets.
+
+Cocina nunca puede:
+- Avanzar a `COMPLETED` (cierre es del cajero, requiere `isPaid`).
+- Cancelar pedidos.
+- Confirmar pedidos (`CREATED → CONFIRMED` es del cajero).
