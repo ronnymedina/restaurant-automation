@@ -158,11 +158,7 @@ export class OrdersService {
   async cancelOrder(id: string, restaurantId: string, reason: string) {
     const order = await this.findById(id, restaurantId);
 
-    if (order.status === OrderStatus.CANCELLED) throw new OrderAlreadyCancelledException(id);
-    if (order.status === OrderStatus.COMPLETED) {
-      throw new InvalidStatusTransitionException(order.status, OrderStatus.CANCELLED);
-    }
-    if (order.isPaid) throw new CannotCancelPaidOrderException(id);
+    OrderStateMachine.assertCanCancel(order.status, order.isPaid, id);
 
     const cancelled = await this.orderRepository.cancelOrder(id, reason);
     this.orderEventsService.emitOrderUpdated(restaurantId, cancelled);
