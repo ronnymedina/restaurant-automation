@@ -128,6 +128,31 @@ test('when session is open, shows session banner with máx 100 note', async () =
   );
 });
 
+test('H-18: rapid double-click on Confirmar dispatches confirmOrder once', async () => {
+  const { confirmOrder } = await import('./api');
+  vi.mocked(confirmOrder).mockImplementation(
+    () => new Promise((r) => setTimeout(() => r({ ok: true, data: {} as any }), 50)),
+  );
+
+  mockGetCurrentSession.mockResolvedValue({ ok: true, data: { id: 'shift', openedByEmail: 'a@b.c' } });
+  mockGetOrders.mockResolvedValue({
+    ok: true,
+    data: [{
+      id: 'o1', orderNumber: 1, status: 'CREATED', isPaid: false,
+      items: [], totalAmount: 100, orderSource: 'KIOSK', orderType: 'DINE_IN',
+      displayTime: '12:00', paymentMethod: null,
+    } as any],
+  });
+
+  render(<OrdersPanel />);
+  const confirmBtn = await screen.findByText('Confirmar');
+
+  fireEvent.click(confirmBtn);
+  fireEvent.click(confirmBtn); // rapid double-click before resolve
+
+  await waitFor(() => expect(vi.mocked(confirmOrder)).toHaveBeenCalledTimes(1));
+});
+
 // H-17: EventSource must not be re-created on filter changes.
 // activeFilter is internal state; we cannot trigger it via props, so we assert
 // that after mount completes (and any SSE-related re-renders settle) the

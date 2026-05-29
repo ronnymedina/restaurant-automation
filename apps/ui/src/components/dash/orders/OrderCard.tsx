@@ -51,6 +51,8 @@ export interface OrderCardCallbacks {
   onUnpay: (id: string) => void;
   onCancel: (id: string) => void;
   onCancelBlocked: (id: string) => void;
+  /** Set of order IDs currently awaiting a mutation response (H-18). */
+  inFlightIds?: Set<string>;
 }
 
 interface OrderCardProps extends OrderCardCallbacks {
@@ -59,6 +61,7 @@ interface OrderCardProps extends OrderCardCallbacks {
 
 export default function OrderCard({
   order, onConfirm, onAdvance, onPay, onUnpay, onCancel, onCancelBlocked,
+  inFlightIds = new Set(),
 }: OrderCardProps) {
   const border = BORDER_COLORS[order.status] ?? 'border-l-slate-300';
   const isActive = ACTIVE_STATUSES.has(order.status);
@@ -67,9 +70,13 @@ export default function OrderCard({
   const [paymentError, setPaymentError] = useState(false);
   const hasCustomerData = order.customerEmail || order.customerPhone || order.deliveryAddress;
   const hasPaymentMethod = !!(order.paymentMethod || selectedPaymentMethod);
+  const isBusy = inFlightIds.has(order.id);
 
   return (
-    <div className={`bg-white rounded-xl border border-slate-200 border-l-4 ${border} shadow-sm`}>
+    <div
+      className={`bg-white rounded-xl border border-slate-200 border-l-4 ${border} shadow-sm`}
+      aria-busy={isBusy}
+    >
       <div className="p-3 space-y-2">
         <div className="flex items-center justify-between">
           <span className="font-bold text-slate-800">#{order.orderNumber}</span>
@@ -151,6 +158,7 @@ export default function OrderCard({
             )}
             <button
               type="button"
+              disabled={isBusy}
               onClick={() => {
                 if (order.status === 'CREATED') onConfirm(order.id);
                 else if (order.status === 'CONFIRMED') {
@@ -162,7 +170,7 @@ export default function OrderCard({
                   onPay(order.id, selectedPaymentMethod || undefined);
                 } else if (order.status === 'SERVED' && order.isPaid) onAdvance(order.id, 'COMPLETED');
               }}
-              className={`w-full py-2 text-sm font-bold text-white rounded-lg cursor-pointer border-none ${PRIMARY_CONFIGS[order.status]?.color ?? ''}`}
+              className={`w-full py-2 text-sm font-bold text-white rounded-lg cursor-pointer border-none disabled:opacity-60 disabled:cursor-not-allowed ${PRIMARY_CONFIGS[order.status]?.color ?? ''}`}
             >
               {order.status === 'SERVED'
                 ? (order.isPaid ? 'Completar' : 'Cobrar y Completar')
@@ -172,11 +180,12 @@ export default function OrderCard({
               {!order.isPaid && order.status !== 'SERVED' && (
                 <button
                   type="button"
+                  disabled={isBusy}
                   onClick={() => {
                     if (!hasPaymentMethod) { setPaymentError(true); return; }
                     onPay(order.id, selectedPaymentMethod || undefined);
                   }}
-                  className="flex-1 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md cursor-pointer text-green-600 hover:bg-slate-50"
+                  className="flex-1 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md cursor-pointer text-green-600 hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   ✓ Marcar Pagado
                 </button>
@@ -184,8 +193,9 @@ export default function OrderCard({
               {order.isPaid && (
                 <button
                   type="button"
+                  disabled={isBusy}
                   onClick={() => onUnpay(order.id)}
-                  className="flex-1 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md cursor-pointer text-amber-600 hover:bg-slate-50"
+                  className="flex-1 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md cursor-pointer text-amber-600 hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   ↩ Desmarcar Pago
                 </button>
@@ -193,8 +203,9 @@ export default function OrderCard({
               {!order.isPaid && (
                 <button
                   type="button"
+                  disabled={isBusy}
                   onClick={() => onCancel(order.id)}
-                  className="flex-1 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md cursor-pointer text-red-600 hover:bg-slate-50"
+                  className="flex-1 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md cursor-pointer text-red-600 hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   ✕ Cancelar
                 </button>
@@ -202,8 +213,9 @@ export default function OrderCard({
               {order.isPaid && (
                 <button
                   type="button"
+                  disabled={isBusy}
                   onClick={() => onCancelBlocked(order.id)}
-                  className="flex-1 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md cursor-pointer text-red-600 hover:bg-slate-50"
+                  className="flex-1 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md cursor-pointer text-red-600 hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
                   title="Desmarca el pago antes de cancelar"
                 >
                   ✕ Cancelar
