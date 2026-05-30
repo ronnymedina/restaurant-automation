@@ -14,7 +14,6 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
 import type { ConfigType } from '@nestjs/config';
@@ -27,6 +26,7 @@ import {
   COOKIE_NAMES,
   buildAccessCookieOptions,
   buildRefreshCookieOptions,
+  buildClearOptions,
 } from './cookies/auth-cookies';
 import {
   LoginDto,
@@ -72,6 +72,25 @@ export class AuthController {
     );
   }
 
+  private clearAuthCookies(res: Response): void {
+    res.clearCookie(
+      COOKIE_NAMES.access,
+      buildClearOptions({
+        domain: this.cfg.cookieDomain,
+        secure: this.cfg.cookieSecure,
+        name: 'access',
+      }),
+    );
+    res.clearCookie(
+      COOKIE_NAMES.refresh,
+      buildClearOptions({
+        domain: this.cfg.cookieDomain,
+        secure: this.cfg.cookieSecure,
+        name: 'refresh',
+      }),
+    );
+  }
+
   @Post('login')
   @ApiOperation({ summary: 'Authenticate a user and set auth cookies' })
   @ApiBody({ type: LoginDto })
@@ -112,10 +131,9 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Return the profile of the currently authenticated user' })
   @ApiResponse({ status: 200, description: 'User profile returned', type: ProfileResponseDto })
-  @ApiResponse({ status: 401, description: 'Missing or invalid Bearer token' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid auth cookie' })
   @ApiResponse({ status: 404, description: 'User or associated restaurant not found' })
   async me(@CurrentUser() user: { id: string }): Promise<ProfileResponseDto | null> {
     return this.authService.getProfile(user.id);
@@ -123,12 +141,14 @@ export class AuthController {
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Revoke all refresh tokens for the currently authenticated user' })
-  @ApiResponse({ status: 201, description: 'Logout successful — all refresh tokens revoked', type: LogoutResponseDto })
-  @ApiResponse({ status: 401, description: 'Missing or invalid Bearer token' })
-  async logout(@CurrentUser() user: { id: string }): Promise<LogoutResponseDto> {
+  @ApiOperation({ summary: 'Revoke all refresh tokens and clear auth cookies' })
+  @ApiResponse({ status: 201, description: 'Logout successful', type: LogoutResponseDto })
+  async logout(
+    @CurrentUser() user: { id: string },
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LogoutResponseDto> {
     await this.authService.revokeAllTokens(user.id);
+    this.clearAuthCookies(res);
     return { message: 'Logged out successfully' };
   }
 

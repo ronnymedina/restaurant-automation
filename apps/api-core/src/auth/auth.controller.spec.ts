@@ -127,14 +127,33 @@ describe('AuthController', () => {
     });
   });
 
-  describe('logout', () => {
-    it('calls revokeAllTokens and returns success message', async () => {
-      mockAuthService.revokeAllTokens.mockResolvedValue(undefined);
+  describe('AuthController.logout', () => {
+    let controller: AuthController;
+    let service: AuthService;
+    const clearMock = jest.fn();
+    const res = { clearCookie: clearMock } as unknown as Response;
 
-      const result = await controller.logout({ id: 'user-uuid-1' });
+    beforeEach(async () => {
+      clearMock.mockReset();
+      const moduleRef = await Test.createTestingModule({
+        controllers: [AuthController],
+        providers: [
+          { provide: AuthService, useValue: { revokeAllTokens: jest.fn().mockResolvedValue(undefined) } },
+          { provide: authConfig.KEY, useValue: { cookieDomain: '.daikulab.com', cookieSecure: true, cookieAccessMaxAge: 900_000, cookieRefreshMaxAge: 604_800_000 } },
+        ],
+      })
+        .overrideGuard(EmailThrottlerGuard)
+        .useValue({ canActivate: () => true })
+        .compile();
+      controller = moduleRef.get(AuthController);
+      service = moduleRef.get(AuthService);
+    });
 
-      expect(mockAuthService.revokeAllTokens).toHaveBeenCalledWith('user-uuid-1');
-      expect(result).toEqual({ message: 'Logged out successfully' });
+    it('revokes refresh tokens and clears both cookies with matching paths', async () => {
+      await controller.logout({ id: 'u1' }, res);
+      expect(service.revokeAllTokens).toHaveBeenCalledWith('u1');
+      expect(clearMock).toHaveBeenCalledWith('access_token', expect.objectContaining({ path: '/', domain: '.daikulab.com' }));
+      expect(clearMock).toHaveBeenCalledWith('refresh_token', expect.objectContaining({ path: '/v1/auth', domain: '.daikulab.com' }));
     });
   });
 });
