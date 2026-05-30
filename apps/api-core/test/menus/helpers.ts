@@ -5,6 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import cookieParser from 'cookie-parser';
 
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
@@ -24,6 +25,7 @@ export async function bootstrapApp(
   }).compile();
 
   const app = moduleFixture.createNestApplication<INestApplication<App>>();
+  app.use(cookieParser());
   app.enableVersioning({ type: VersioningType.URI });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
