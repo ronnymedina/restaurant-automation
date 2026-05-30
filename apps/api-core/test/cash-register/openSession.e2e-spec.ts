@@ -50,23 +50,23 @@ describe('POST /v1/cash-register/open - openSession (e2e)', () => {
     expect(res.body.openedAt).toBeUndefined();
   });
 
-  it('Sesión ya abierta → 409 REGISTER_ALREADY_OPEN', async () => {
+  it('Sesión ya abierta → 409 CASH_REGISTER_ALREADY_OPEN', async () => {
     // adminToken already has an open session from the previous test
     const res = await request(app.getHttpServer())
       .post('/v1/cash-register/open')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(409);
 
-    expect(res.body.code).toBe('REGISTER_ALREADY_OPEN');
+    expect(res.body.code).toBe('CASH_REGISTER_ALREADY_OPEN');
   });
 
-  it('Con sesión global abierta → MANAGER recibe 409 REGISTER_ALREADY_OPEN', async () => {
+  it('Con sesión global abierta → MANAGER recibe 409 CASH_REGISTER_ALREADY_OPEN', async () => {
     // adminToken already has an open session from the previous test
     const res = await request(app.getHttpServer())
       .post('/v1/cash-register/open')
       .set('Authorization', `Bearer ${managerToken}`)
       .expect(409);
 
-    expect(res.body.code).toBe('REGISTER_ALREADY_OPEN');
+    expect(res.body.code).toBe('CASH_REGISTER_ALREADY_OPEN');
   });
 });

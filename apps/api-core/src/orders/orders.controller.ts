@@ -40,7 +40,7 @@ export class OrdersController {
   @ApiResponse({ status: 400, description: 'Parámetro inválido' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos' })
-  @ApiResponse({ status: 409, description: 'No hay caja abierta', schema: { example: { code: 'REGISTER_NOT_OPEN' } } })
+  @ApiResponse({ status: 409, description: 'No hay caja abierta', schema: { example: { code: 'NO_OPEN_CASH_REGISTER' } } })
   async findAll(
     @CurrentUser() user: { restaurantId: string },
     @Query('statuses', new ParseEnumArrayPipe(OrderStatus)) statuses?: OrderStatus[],

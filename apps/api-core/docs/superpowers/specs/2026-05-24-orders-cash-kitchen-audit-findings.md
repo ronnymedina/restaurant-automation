@@ -27,7 +27,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 | 🔴 CRÍTICO | 4 | H-01 ✅, H-02 ✅, H-03 ✅, H-04 ⏳ |
 | 🟠 ALTO    | 16 | H-05 ✅, H-06 ✅, H-07 ✅, H-08 ✅, H-09 ✅, H-10 ✅, H-11 ✅, H-12 ✅, H-13 ✅, H-14 ✅, H-15 ✅, H-16 ✅, H-17 ✅, H-18 ✅, H-19 ❌, H-20 ✅ |
 | 🟡 MEDIO   | 19 | H-21 ✅, H-22 ✅, H-23 ✅, H-24 🔄, H-25 ✅, H-26 ✅, H-27 ✅, H-28 ✅, H-29 ✅, H-30 ✅, H-31 ✅, H-32 ✅, H-33 ✅, H-34 ✅, H-35 ✅, H-36 ✅, H-37 ✅, H-38 ✅, H-39 🔄 |
-| 🟢 BAJO    | 13 | H-40 … H-52 |
+| 🟢 BAJO    | 13 | H-40 ✅, H-41 🔄, H-42 🔄, H-43 ✅, H-44 ✅, H-45 ✅, H-46 ❌, H-47 ❌, H-48 ❌, H-49 ✅, H-50 ✅, H-51 ✅, H-52 ✅ |
 | **Total**  | **52** | |
 
 **Progreso:**
@@ -45,6 +45,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 - ✅ H-21, H-22 (completo), H-23, H-25, H-26, H-27, H-28, H-29, H-30, H-31, H-32, H-33, H-34, H-35, H-36, H-37, H-38 implementados (2026-05-29) — batch de MEDIOS dividido en 4 commits independientes. Ver plan `2026-05-29-orders-cashshift-kitchen-medios-plan.md`.
 - 🔄 H-24 documentado como decisión consciente (2026-05-29). Se mantiene `409 NO_OPEN_CASH_REGISTER` en `listOrders` por diseño del dashboard; órdenes huérfanas son visibles vía `/orders/history`.
 - 🔄 H-39 diferido (2026-05-29). `apps/ui` corre con Astro `output: 'static'` sin adapter, por lo que `prerender = false` per-page rompe el build. Requiere migración a `hybrid`/`server` con adapter (decisión arquitectónica fuera del scope del batch de MEDIOS). Mitigación temporal: la auth del dashboard se enforza client-side por `apiFetch` (redirige a `/login` en 401), así que el bundle pre-renderizado no expone datos sensibles, solo estructura.
+- ✅ Batch BAJOS cerrado (2026-05-29): H-40 ✅, H-43 ✅, H-44 ✅, H-45 ✅, H-49 ✅, H-50 ✅, H-51 ✅, H-52 ✅ implementados. H-41 🔄 y H-42 🔄 documentados como decisiones conscientes (cancel desde SERVED permitido, stock no se restaura). H-46/H-47/H-48 ❌ descartados — ya estaban resueltos por refactors previos (H-14, H-15).
 
 ---
 
@@ -726,45 +727,90 @@ Cambios aplicados:
 **Archivo:** `apps/api-core/src/orders/orders.service.ts:19`
 **Descripción:** `EmailService`, `ForbiddenAccessException` importados/inyectados sin uso.
 
+**Estado:** ✅ Implementado (2026-05-29) — `ForbiddenAccessException` removido del import; `EmailService` removido del import + constructor; `EmailModule` removido del `imports` de `orders.module.ts` (era arrastrado solo por la inyección sin uso). Spec `orders.service.spec.ts` actualizado para no proveer `EmailService` mock.
+**Plan asociado:** `docs/superpowers/specs/2026-05-24-orders-cash-kitchen-audit-findings.md` (batch BAJOS).
+
 ### H-41 — `cancelOrder` permite cancelar desde `SERVED`
 **Archivo:** `apps/api-core/src/orders/orders.service.ts:166-178`
 **Descripción:** Confirmar con producto si tiene sentido.
+
+**Estado:** 🔄 Decisión consciente (2026-05-29). Se **mantiene** la posibilidad de cancelar desde `SERVED`. Justificación: caso real de cajero cuando el cliente se arrepiente al recibir el pedido. La protección crítica (no cancelar órdenes ya pagadas) sigue activa vía `OrderStateMachine.assertCanCancel` (lanza `CannotCancelPaidOrderException` si `isPaid=true`).
+**Plan asociado:** `docs/superpowers/specs/2026-05-24-orders-cash-kitchen-audit-findings.md` (batch BAJOS).
 
 ### H-42 — No se restaura stock al cancelar
 **Archivo:** `apps/api-core/src/orders/orders.service.ts:166-178`
 **Descripción:** Decisión consciente o bug — documentar.
 
+**Estado:** 🔄 Decisión consciente (2026-05-29). Cancelar **no** restaura stock. Justificación: en operativa real, el producto típicamente ya se preparó (o se descartó) al momento del cancel, así que devolverlo al inventario disponible introduciría una mentira contable. El ajuste de inventario por descarte se hace por flujo separado (manual). Si en el futuro se observa drift relevante, abrir spec dedicado para distinguir cancelaciones pre-cocina vs post-cocina.
+**Plan asociado:** `docs/superpowers/specs/2026-05-24-orders-cash-kitchen-audit-findings.md` (batch BAJOS).
+
 ### H-43 — Códigos de error inconsistentes (`REGISTER_*` vs `CASH_REGISTER_*`)
 **Archivos:** `cash-register.exceptions.ts:9`, `cash-register.controller.ts:59,143,165`
 
+**Estado:** ✅ Implementado (2026-05-29) — unificación completa al prefijo `CASH_REGISTER_*`. Renombres:
+- `REGISTER_ALREADY_OPEN` → `CASH_REGISTER_ALREADY_OPEN`
+- `REGISTER_NOT_FOUND` → `CASH_REGISTER_NOT_FOUND`
+- `NO_OPEN_REGISTER` → `NO_OPEN_CASH_REGISTER`
+- `REGISTER_NOT_OPEN` (orders) → `NO_OPEN_CASH_REGISTER` (consolidado con el de cash-register; eran el mismo evento)
+- `PENDING_ORDERS_ON_SHIFT` (sin cambios, no es prefijo register)
+
+Cambios: `cash-register.exceptions.ts`, `orders.exceptions.ts`, `orders.controller.ts` (Swagger), e2e specs (`openSession`, `closeSession`, `sessionSummary`, `topProducts`, `listOrders`, `createOrderFromDashboard`, `kioskCreateOrder`), `OrdersPanel.tsx` + su test, `cash-register.module.info.md`, `orders.module.info.md`.
+**Plan asociado:** `docs/superpowers/specs/2026-05-24-orders-cash-kitchen-audit-findings.md` (batch BAJOS).
+
 ### H-44 — `CashRegisterModule` importa `OrdersModule` completo solo para un repo
 **Archivo:** `apps/api-core/src/cash-register/cash-register.module.ts:8,12`
+
+**Estado:** ✅ Implementado (2026-05-29) — nuevo `OrderReportsModule` en `apps/api-core/src/orders/order-reports.module.ts` provee y exporta solo `OrderShiftReportRepository`. `OrdersModule` lo importa y lo re-exporta para no romper consumers existentes; `CashRegisterModule` cambió `OrdersModule` → `OrderReportsModule` (footprint reducido: ya no arrastra OrdersService, OrdersController, PrintModule, EventsModule, RestaurantsModule, CashShiftModule, ni el `forwardRef` con PrintModule).
+**Plan asociado:** `docs/superpowers/specs/2026-05-24-orders-cash-kitchen-audit-findings.md` (batch BAJOS).
 
 ### H-45 — Constraint "un turno abierto por restaurante" no versionado en Prisma
 **Archivo:** `apps/api-core/prisma/schema.postgresql.prisma:243-244` (comentario)
 **Descripción:** Índice parcial manual. Si falta en un ambiente nuevo, `openSession` permite duplicados.
 
+**Estado:** ✅ Implementado (2026-05-29) — nueva migración `20260529173000_add_one_open_shift_per_restaurant_index/migration.sql`. Crea el índice parcial único `one_open_shift_per_restaurant` con `IF NOT EXISTS` (idempotente) y dropea el viejo `one_open_shift_per_user_per_restaurant` si existe. Comentarios del schema (`.prisma` y `.postgresql.prisma`) actualizados para apuntar a la migración. SQLite no soporta índices parciales — sigue confiando en la verificación a nivel app.
+**Plan asociado:** `docs/superpowers/specs/2026-05-24-orders-cash-kitchen-audit-findings.md` (batch BAJOS).
+
 ### H-46 — `notifyOffline` declarado `async` sin await
-**Archivo:** `apps/api-core/src/kitchen/kitchen.service.ts:82-84`
+**Archivo:** ~~`apps/api-core/src/kitchen/kitchen.service.ts:82-84`~~ (eliminado)
+
+**Estado:** ❌ Descartado (2026-05-29). El método `notifyOffline` fue borrado completamente como parte de H-15 (feature dead-end sin listener UI). El bug que H-46 describía está físicamente removido — no hay código que arreglar.
+**Verificación:** `grep -n "notifyOffline" apps/api-core/src/kitchen/kitchen.service.ts` retorna 0 resultados.
 
 ### H-47 — `restaurant!.slug` con non-null assertion frágil
 **Archivo:** `apps/api-core/src/kitchen/kitchen.service.ts:47-48`
 
+**Estado:** ❌ Descartado (2026-05-29). El refactor del kitchen-token (H-14) reescribió la rutina: el código actual en `kitchen.service.ts:57-58` lanza `UnauthorizedException` si `restaurant` es null antes de acceder a `.slug` (línea 78), sin usar non-null assertion. No queda `!` en el archivo.
+**Verificación:** `grep -n "restaurant!" apps/api-core/src/kitchen/kitchen.service.ts` retorna 0 resultados.
+
 ### H-48 — `generateToken` valida `expiresAt` después de generar
 **Archivo:** `apps/api-core/src/kitchen/kitchen.service.ts:57-73`
+
+**Estado:** ❌ Descartado (2026-05-29). El refactor del kitchen-token (H-14) reordenó el flujo: en el código actual `generateToken` valida `expiresAt < tomorrow` (líneas 64-66, `BadRequestException`) **antes** de llamar `tokenService.generate()` (línea 68). El bug que H-48 describía ya no aplica.
 
 ### H-49 — `apiFetch` sin dedup en refresh token concurrente
 **Archivo:** `apps/ui/src/lib/api.ts:41`
 **Descripción:** Dos requests con 401 al mismo tiempo disparan dos `/auth/refresh` en cascada.
 
+**Estado:** ✅ Implementado (2026-05-29) — `apps/ui/src/lib/api.ts` refactorizado con un singleton `refreshInFlight: Promise<RefreshResult> | null`. Si ya hay un refresh en curso, los callers concurrentes hacen `await` sobre el mismo promise y reusan el `accessToken` resultante para reintentar su request original. `finally` libera el slot para futuros 401.
+**Plan asociado:** `docs/superpowers/specs/2026-05-24-orders-cash-kitchen-audit-findings.md` (batch BAJOS).
+
 ### H-50 — `OrderFilterPanel.tsx:35` acepta `orderNumber` negativo (pegado)
 **Descripción:** `min={1}` no protege contra paste.
+
+**Estado:** ✅ Implementado (2026-05-29) — `handleApply` ahora parsea con `Number.isFinite(parsed) && parsed > 0` antes de aceptar el valor; cualquier negativo, cero o NaN se convierte en `undefined` (sin filtro). `min={1}` se conserva como hint UX en el `<input>`.
+**Plan asociado:** `docs/superpowers/specs/2026-05-24-orders-cash-kitchen-audit-findings.md` (batch BAJOS).
 
 ### H-51 — `aria-label` faltante en botón cerrar de `OrderFilterPanel`
 **Archivo:** `OrderFilterPanel.tsx:58`
 
+**Estado:** ✅ Implementado (2026-05-29) — `aria-label="Cerrar filtros"` añadido al `<button>` del ✕.
+**Plan asociado:** `docs/superpowers/specs/2026-05-24-orders-cash-kitchen-audit-findings.md` (batch BAJOS).
+
 ### H-52 — `displayTime?` opcional pero JSX no contempla `undefined`
 **Archivo:** `apps/ui/src/components/dash/orders/OrderCard.tsx:61`
+
+**Estado:** ✅ Implementado (2026-05-29) — `{order.displayTime ?? ''}` en `OrderCard.tsx`. React ya manejaba `undefined` correctamente (no renderiza), pero el `??` deja la intención explícita y elimina el warning de TS sobre el opcional sin manejar.
+**Plan asociado:** `docs/superpowers/specs/2026-05-24-orders-cash-kitchen-audit-findings.md` (batch BAJOS).
 
 ---
 
@@ -788,8 +834,8 @@ Cambios aplicados:
 | **Esta semana** | ~~H-05 (markAsPaid TX)~~ ✅, ~~H-06 (unmarkAsPaid)~~ ✅, ~~H-09 (closeSession race)~~ ✅, ~~H-13 (kitchen race)~~ ✅, ~~H-14 (kitchen token)~~ ✅ |
 | **Próximo sprint** | ~~H-07 (findHistory DTO)~~ ✅, ~~H-11 (BigInt cash-shift)~~ ✅, ~~H-08/H-12 (filtros restaurantId)~~ ✅, ~~H-15 (notifyOffline canal)~~ ✅ |
 | **Backlog técnico** | ~~H-17, H-18, H-20~~ ✅, ~~todos los MEDIOS~~ ✅ (2026-05-29, H-24 🔄 + H-39 🔄), H-AUX-02 |
-| **Limpieza** | Todos los BAJOS |
-| **Deuda colateral descubierta** | E2e del módulo `kiosk` con SQLite (stack overflow al inicializar NestJS). Preexistente, no relacionado con H-01. |
+| **Limpieza** | ~~Todos los BAJOS~~ ✅ (2026-05-29: 8 implementados, 2 decisiones conscientes, 3 descartados por refactors previos) |
+| **Deuda colateral descubierta** | ~~E2e del módulo `kiosk` con SQLite~~ — descartado, no se va a trabajar en este tema (decisión 2026-05-29). |
 
 ---
 

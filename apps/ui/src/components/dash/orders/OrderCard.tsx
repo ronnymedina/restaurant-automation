@@ -83,7 +83,7 @@ export default function OrderCard({
       <div className="p-3 space-y-2">
         <div className="flex items-center justify-between">
           <span className="font-bold text-slate-800">#{order.orderNumber}</span>
-          <span className="text-xs text-slate-500">{order.displayTime}</span>
+          <span className="text-xs text-slate-500">{order.displayTime ?? ''}</span>
         </div>
         <div className="space-y-0.5">
           {(order.items ?? []).map((item) => (

@@ -4,9 +4,9 @@ import { BaseException } from '../../common/exceptions';
 export class CashRegisterAlreadyOpenException extends BaseException {
   constructor() {
     super(
-      'A register session is already open',
+      'A cash register session is already open',
       HttpStatus.CONFLICT,
-      'REGISTER_ALREADY_OPEN',
+      'CASH_REGISTER_ALREADY_OPEN',
     );
   }
 }
@@ -14,9 +14,9 @@ export class CashRegisterAlreadyOpenException extends BaseException {
 export class CashRegisterNotFoundException extends BaseException {
   constructor(sessionId: string) {
     super(
-      `Register session '${sessionId}' not found`,
+      `Cash register session '${sessionId}' not found`,
       HttpStatus.NOT_FOUND,
-      'REGISTER_NOT_FOUND',
+      'CASH_REGISTER_NOT_FOUND',
       { sessionId },
     );
   }
@@ -25,9 +25,9 @@ export class CashRegisterNotFoundException extends BaseException {
 export class NoOpenCashRegisterException extends BaseException {
   constructor() {
     super(
-      'No register session is currently open',
+      'No cash register session is currently open',
       HttpStatus.CONFLICT,
-      'NO_OPEN_REGISTER',
+      'NO_OPEN_CASH_REGISTER',
     );
   }
 }

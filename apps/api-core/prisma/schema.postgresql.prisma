@@ -248,9 +248,10 @@ model OrderItem {
   @@index([orderId])
 }
 
-// PostgreSQL partial unique index must be created manually:
+// PostgreSQL partial unique index — managed by migration
+// `20260529173000_add_one_open_shift_per_restaurant_index` (audit H-45).
 // CREATE UNIQUE INDEX "one_open_shift_per_restaurant" ON "CashShift"("restaurantId") WHERE status = 'OPEN';
-// (Replaces the old per-user index "one_open_shift_per_user_per_restaurant" — drop it if it exists)
+// Prisma does not model partial indexes, so the migration lives as raw SQL.
 model CashShift {
   id              String          @id @default(uuid())
   status          CashShiftStatus @default(OPEN)

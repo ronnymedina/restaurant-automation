@@ -51,13 +51,13 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
       .expect(403);
   });
 
-  it('Sesión inexistente → 404 REGISTER_NOT_FOUND', async () => {
+  it('Sesión inexistente → 404 CASH_REGISTER_NOT_FOUND', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/summary/non-existent-id')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(404);
 
-    expect(res.body.code).toBe('REGISTER_NOT_FOUND');
+    expect(res.body.code).toBe('CASH_REGISTER_NOT_FOUND');
   });
 
   it('Retorna session y summary (no stats, no orders)', async () => {

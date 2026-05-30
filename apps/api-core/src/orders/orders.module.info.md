@@ -108,7 +108,7 @@ Query params:
 | Con `?limit=100` | 200 | Retorna máximo 100 pedidos más recientes |
 | Sin `?limit` | 200 | Retorna máximo 100 pedidos (default) |
 | Con `?statuses=INVALID` | 400 | Valor de estado inválido |
-| Sin caja abierta | 409 | `{ code: "REGISTER_NOT_OPEN" }` |
+| Sin caja abierta | 409 | `{ code: "NO_OPEN_CASH_REGISTER" }` |
 | Solo órdenes del propio restaurante | 200 | Aislamiento por `restaurantId` del JWT |
 | `totalAmount` como number | 200 | BigInt serializado a number |
 
@@ -256,7 +256,7 @@ flowchart TD
         L -- Válido --> N{RolesGuard\nADMIN · MANAGER}
         N -- BASIC --> O[403 Forbidden]
         N -- OK --> P{¿Caja abierta?\nCashShiftRepository}
-        P -- No --> Q[409 REGISTER_NOT_OPEN]
+        P -- No --> Q[409 NO_OPEN_CASH_REGISTER]
         P -- Sí --> R{¿DTO válido?\nDelivery → address req.}
         R -- No --> S[400 Validation Error]
         R -- Sí --> T
@@ -289,7 +289,7 @@ flowchart TD
 
 ### Notas de implementación
 
-- `GET /v1/orders` resuelve el turno activo internamente desde el `restaurantId` del JWT. Si no hay caja abierta devuelve 409 `REGISTER_NOT_OPEN`. Aplica `limit` de 100 por defecto (máximo 100). Para reportes históricos completos usar `/history`
+- `GET /v1/orders` resuelve el turno activo internamente desde el `restaurantId` del JWT. Si no hay caja abierta devuelve 409 `NO_OPEN_CASH_REGISTER`. Aplica `limit` de 100 por defecto (máximo 100). Para reportes históricos completos usar `/history`
 - `displayTime` se formatea en el timezone del restaurante server-side. El campo `createdAt` se mantiene en ISO8601
 - El `restaurantId` viene del JWT — toda operación está aislada por restaurante
 - `totalAmount`, `unitPrice` y `subtotal` se almacenan como `BigInt` en PostgreSQL (centavos). El helper `serializeOrder` (en `order.repository.ts`) aplica `fromCents` antes de devolver, de modo que la respuesta JSON expone los montos en **pesos** (decimal). Mismo criterio para `items[].product.price` y `items[].menuItem.priceOverride`. JSON no soporta `BigInt` nativo.

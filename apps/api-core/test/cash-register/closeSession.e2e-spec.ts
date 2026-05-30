@@ -42,7 +42,7 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
       .expect(403);
   });
 
-  it('Sin sesión abierta → 409 NO_OPEN_REGISTER', async () => {
+  it('Sin sesión abierta → 409 NO_OPEN_CASH_REGISTER', async () => {
     // Use a fresh restaurant with no open session
     const restFresh = await seedRestaurant(prisma, 'NoSession');
     const freshToken = await login(app, restFresh.admin.email);
@@ -52,7 +52,7 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
       .set('Authorization', `Bearer ${freshToken}`)
       .expect(409);
 
-    expect(res.body.code).toBe('NO_OPEN_REGISTER');
+    expect(res.body.code).toBe('NO_OPEN_CASH_REGISTER');
   });
 
   it('Con pedidos pendientes (CREATED/PROCESSING) → 409 PENDING_ORDERS_ON_SHIFT', async () => {
