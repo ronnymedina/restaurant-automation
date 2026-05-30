@@ -120,6 +120,13 @@ export async function openCashShift(
   restaurantId: string,
   userId: string,
 ) {
+  // Honor the "one OPEN shift per restaurant" invariant (audit H-45). See
+  // orders.helpers.ts for the full rationale — close any pre-existing OPEN
+  // shift before creating a new one so the partial unique index is happy.
+  await prisma.cashShift.updateMany({
+    where: { restaurantId, status: 'OPEN' },
+    data: { status: 'CLOSED', closedAt: new Date() },
+  });
   return prisma.cashShift.create({
     data: { restaurantId, userId },
   });

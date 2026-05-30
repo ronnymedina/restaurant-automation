@@ -57,7 +57,7 @@ describe('POST /v1/orders - createOrderFromDashboard (e2e)', () => {
       .expect(403);
   });
 
-  it('Sin caja abierta → 409 REGISTER_NOT_OPEN', async () => {
+  it('Sin caja abierta → 409 NO_OPEN_CASH_REGISTER', async () => {
     const product = await seedProduct(prisma, closedRestaurantId, closedCategoryId);
     await request(app.getHttpServer())
       .post('/v1/orders')

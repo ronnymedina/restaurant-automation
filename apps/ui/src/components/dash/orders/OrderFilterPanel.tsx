@@ -31,8 +31,9 @@ export default function OrderFilterPanel({ onApply, onClose }: OrderFilterPanelP
   }
 
   function handleApply() {
+    const parsed = orderNumber ? parseInt(orderNumber, 10) : NaN;
     onApply({
-      orderNumber: orderNumber ? parseInt(orderNumber, 10) : undefined,
+      orderNumber: Number.isFinite(parsed) && parsed > 0 ? parsed : undefined,
       statuses,
     });
   }
@@ -58,6 +59,7 @@ export default function OrderFilterPanel({ onApply, onClose }: OrderFilterPanelP
           <button
             type="button"
             onClick={onClose}
+            aria-label="Cerrar filtros"
             className="text-slate-400 hover:text-slate-600 cursor-pointer p-1"
           >
             ✕

@@ -54,14 +54,14 @@ describe('POST /v1/kiosk/:slug/orders - kioskCreateOrder (e2e) [PUBLIC]', () => 
       .expect(404);
   });
 
-  it('Sin caja abierta → 409 REGISTER_NOT_OPEN', async () => {
+  it('Sin caja abierta → 409 NO_OPEN_CASH_REGISTER', async () => {
     // PUBLIC — no token needed
     const res = await request(app.getHttpServer())
       .post(`/v1/kiosk/${slugNoShift}/orders`)
       .send({ items: [{ productId, quantity: 1 }] })
       .expect(409);
 
-    expect(res.body.code).toBe('REGISTER_NOT_OPEN');
+    expect(res.body.code).toBe('NO_OPEN_CASH_REGISTER');
   });
 
   it('Crea orden exitosamente → 201', async () => {

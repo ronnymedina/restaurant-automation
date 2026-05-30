@@ -26,9 +26,9 @@ export class StockInsufficientException extends BaseException {
 export class RegisterNotOpenException extends BaseException {
   constructor() {
     super(
-      'No register session is currently open. Open a register before creating orders.',
+      'No cash register session is currently open. Open a register before creating orders.',
       HttpStatus.CONFLICT,
-      'REGISTER_NOT_OPEN',
+      'NO_OPEN_CASH_REGISTER',
     );
   }
 }

@@ -4,7 +4,6 @@ import { OrdersService } from './orders.service';
 import { OrderRepository } from './order.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderEventsService } from '../events/orders.events';
-import { EmailService } from '../email/email.service';
 import { PrintService } from '../print/print.service';
 import {
   OrderNotFoundException,
@@ -44,7 +43,6 @@ const mockOrderEvents = {
   emitOrderCreated: jest.fn(),
   emitOrderUpdated: jest.fn(),
 };
-const mockEmail = {};
 const mockPrint = {
   printKitchenTicket: jest.fn().mockResolvedValue({ success: true, message: '' }),
 };
@@ -69,7 +67,6 @@ describe('OrdersService', () => {
         { provide: OrderRepository, useValue: mockOrderRepository },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: OrderEventsService, useValue: mockOrderEvents },
-        { provide: EmailService, useValue: mockEmail },
         { provide: PrintService, useValue: mockPrint },
         { provide: TimezoneService, useValue: mockTimezoneService },
         { provide: CashShiftRepository, useValue: mockCashShiftRepository },

@@ -167,7 +167,7 @@ E2E: ✅ `test/cash-register/openSession.e2e-spec.ts`
 | BASIC intenta abrir | 403 | Solo ADMIN o MANAGER |
 | ADMIN abre sesión | 201 | Retorna `CashShiftDto` con `status = OPEN` |
 | MANAGER abre sesión | 201 | Retorna `CashShiftDto` con `status = OPEN` |
-| Ya existe sesión abierta | 409 | `REGISTER_ALREADY_OPEN` |
+| Ya existe sesión abierta | 409 | `CASH_REGISTER_ALREADY_OPEN` |
 
 ---
 
@@ -181,7 +181,7 @@ E2E: ✅ `test/cash-register/closeSession.e2e-spec.ts`
 | BASIC intenta cerrar | 403 | Solo ADMIN o MANAGER |
 | ADMIN cierra sesión | 200 | Retorna `CloseSessionResponseDto` |
 | MANAGER cierra sesión | 200 | Retorna `CloseSessionResponseDto` |
-| No hay sesión abierta | 409 | `NO_OPEN_REGISTER` |
+| No hay sesión abierta | 409 | `NO_OPEN_CASH_REGISTER` |
 | Hay pedidos en `CREATED`, `CONFIRMED`, `PROCESSING` o `SERVED` | 409 | `PENDING_ORDERS_ON_SHIFT` — `details.pendingCount` indica cuántos quedan |
 | `summary.revenue.completed` solo refleja `COMPLETED` | 200 | `CANCELLED` excluidas del total |
 | `summary.byPaymentMethod` como array | 200 | `[{ method, count, total }]` |
@@ -251,7 +251,7 @@ E2E: ✅ `test/cash-register/sessionSummary.e2e-spec.ts`
 | `summary.counts` es objeto con keys por status | 200 | `{total, pending, created, ..., completed, cancelled}` |
 | `summary.revenue.completed` refleja solo `COMPLETED` | 200 | Convertido a pesos vía `fromCents` |
 | `summary.byPaymentMethod` como array | 200 | Solo de `COMPLETED`, `[{ method, count, total }]` |
-| Sesión no encontrada | 404 | `REGISTER_NOT_FOUND` |
+| Sesión no encontrada | 404 | `CASH_REGISTER_NOT_FOUND` |
 
 ---
 
@@ -265,7 +265,7 @@ E2E: ✅ `test/cash-register/topProducts.e2e-spec.ts`
 | BASIC intenta consultar | 403 | Solo ADMIN o MANAGER |
 | Sesión válida | 200 | `topProducts` array, máx 5 elementos |
 | Órdenes `CANCELLED` excluidas | 200 | Solo items de órdenes no canceladas |
-| Sesión no encontrada | 404 | `REGISTER_NOT_FOUND` |
+| Sesión no encontrada | 404 | `CASH_REGISTER_NOT_FOUND` |
 
 ---
 
@@ -286,7 +286,7 @@ Garantiza `cashShift.closedById` non-null para auditoría financiera.
 - `GET /stats` retorna `{ summary }` con valores en cero cuando no hay sesión abierta — no lanza error.
 - `displayOpenedAt` / `displayClosedAt` se calculan en el constructor de `CashShiftSerializer` usando `Intl.DateTimeFormat` con el timezone del restaurante, obtenido via `TimezoneService` (con caché en Redis/memory).
 - **`CashRegisterStatsService.getSummary(restaurantId, sessionId)`** centraliza toda la lógica de agregación de métricas. Usa 2 queries en paralelo: (1) `Order.groupBy(['status','paymentMethod','orderType','orderSource'])` para todos los counts y totales; (2) `OrderItem.groupBy(['productId'])` para top products. Ambas queries filtran por `cashShift.restaurantId` (audit H-08, H-12) — defensa en profundidad sobre `CashShiftGuard`. Si el `sessionId` no pertenece al `restaurantId`, las agregaciones devuelven 0/[] sin throw.
-- **`CashRegisterService.getSessionSummary(restaurantId, sessionId)`** valida explícitamente que la sesión pertenezca al `restaurantId` antes de calcular el summary (audit H-12). Si la sesión no existe o pertenece a otro restaurante, lanza `CashRegisterNotFoundException` (404 `REGISTER_NOT_FOUND`). El chequeo es secuencial (no `Promise.all`) — el costo extra es despreciable y evita ejecutar agregaciones caras sobre input rechazado.
+- **`CashRegisterService.getSessionSummary(restaurantId, sessionId)`** valida explícitamente que la sesión pertenezca al `restaurantId` antes de calcular el summary (audit H-12). Si la sesión no existe o pertenece a otro restaurante, lanza `CashRegisterNotFoundException` (404 `CASH_REGISTER_NOT_FOUND`). El chequeo es secuencial (no `Promise.all`) — el costo extra es despreciable y evita ejecutar agregaciones caras sobre input rechazado.
 
 ### Caché de summary para turnos CLOSED (H-31)
 

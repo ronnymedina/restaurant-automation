@@ -66,6 +66,12 @@ export async function seedRestaurantWithToken(prisma: PrismaService, suffix: str
 }
 
 export async function openCashShift(prisma: PrismaService, restaurantId: string, userId: string) {
+  // Honor the "one OPEN shift per restaurant" invariant (audit H-45). See
+  // orders.helpers.ts for the full rationale.
+  await prisma.cashShift.updateMany({
+    where: { restaurantId, status: 'OPEN' },
+    data: { status: 'CLOSED', closedAt: new Date() },
+  });
   return prisma.cashShift.create({ data: { restaurantId, userId } });
 }
 

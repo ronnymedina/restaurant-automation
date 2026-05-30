@@ -56,12 +56,12 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
     await request(app.getHttpServer()).get('/v1/orders').expect(401);
   });
 
-  it('Sin caja abierta recibe 409 con code REGISTER_NOT_OPEN', async () => {
+  it('Sin caja abierta recibe 409 con code NO_OPEN_CASH_REGISTER', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders')
       .set('Authorization', `Bearer ${adminTokenNoShift}`)
       .expect(409);
-    expect(res.body.code).toBe('REGISTER_NOT_OPEN');
+    expect(res.body.code).toBe('NO_OPEN_CASH_REGISTER');
   });
 
   it('ADMIN puede listar órdenes → 200 array', async () => {
