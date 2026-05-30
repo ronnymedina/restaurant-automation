@@ -105,7 +105,7 @@ test('when filter is applied with statuses, fetches orders with filter statuses'
   );
 });
 
-test('when getOrders returns 409 REGISTER_NOT_OPEN, sets status to CLOSED', async () => {
+test('when getOrders returns 409 NO_OPEN_CASH_REGISTER, sets status to CLOSED', async () => {
   mockGetCurrentSession.mockResolvedValue({
     ok: true,
     data: { id: 'shift-xyz', openedByEmail: 'staff@test.com' },
@@ -113,7 +113,7 @@ test('when getOrders returns 409 REGISTER_NOT_OPEN, sets status to CLOSED', asyn
   mockGetOrders.mockResolvedValue({
     ok: false,
     httpStatus: 409,
-    error: { code: 'REGISTER_NOT_OPEN' },
+    error: { code: 'NO_OPEN_CASH_REGISTER' },
   });
 
   render(<OrdersPanel />);

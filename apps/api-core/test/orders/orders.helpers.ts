@@ -120,6 +120,16 @@ export async function openCashShift(
   restaurantId: string,
   userId: string,
 ) {
+  // Honor the "one OPEN shift per restaurant" invariant (audit H-45). The
+  // partial unique index `one_open_shift_per_restaurant` forbids creating a
+  // second OPEN shift while another is still open, so the helper must close
+  // any pre-existing OPEN shift before opening a new one. Tests typically
+  // share `restaurantId` across iterations of a describe block — this keeps
+  // each iteration starting from a known-good single-OPEN state.
+  await prisma.cashShift.updateMany({
+    where: { restaurantId, status: 'OPEN' },
+    data: { status: 'CLOSED', closedAt: new Date() },
+  });
   return prisma.cashShift.create({
     data: { restaurantId, userId },
   });

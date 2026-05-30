@@ -14,8 +14,6 @@ import {
   RegisterNotOpenException,
   CannotCancelPaidOrderException,
 } from './exceptions/orders.exceptions';
-import { ForbiddenAccessException } from '../common/exceptions';
-import { EmailService } from '../email/email.service';
 import { PrintService } from '../print/print.service';
 import { OrderEventsService } from '../events/orders.events';
 import { TimezoneService } from '../restaurants/timezone.service';
@@ -45,7 +43,6 @@ export class OrdersService {
     private readonly orderRepository: OrderRepository,
     private readonly prisma: PrismaService,
     private readonly orderEventsService: OrderEventsService,
-    private readonly emailService: EmailService,
     @Inject(forwardRef(() => PrintService))
     private readonly printService: PrintService,
     private readonly timezoneService: TimezoneService,

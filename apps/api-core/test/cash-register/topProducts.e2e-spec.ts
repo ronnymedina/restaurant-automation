@@ -45,13 +45,13 @@ describe('GET /v1/cash-register/top-products/:sessionId (e2e)', () => {
       .expect(403);
   });
 
-  it('Sesión inexistente → 404 REGISTER_NOT_FOUND', async () => {
+  it('Sesión inexistente → 404 CASH_REGISTER_NOT_FOUND', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/top-products/non-existent-id')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(404);
 
-    expect(res.body.code).toBe('REGISTER_NOT_FOUND');
+    expect(res.body.code).toBe('CASH_REGISTER_NOT_FOUND');
   });
 
   it('Retorna topProducts array con máx 5 elementos', async () => {

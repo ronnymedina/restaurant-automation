@@ -78,7 +78,7 @@ export default function OrdersPanel() {
 
     const result = await getOrders(params);
     if (!result.ok) {
-      if (result.httpStatus === 409 && result.error?.code === 'REGISTER_NOT_OPEN') {
+      if (result.httpStatus === 409 && result.error?.code === 'NO_OPEN_CASH_REGISTER') {
         setStatus(ORDERS_STATUS.CLOSED);
       }
       return;

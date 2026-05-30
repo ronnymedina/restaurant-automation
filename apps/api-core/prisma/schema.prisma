@@ -243,7 +243,7 @@ model OrderItem {
 }
 
 // Note: In PostgreSQL, enforce one open shift per restaurant with a partial index.
-// Run manually on prod: CREATE UNIQUE INDEX "one_open_shift_per_restaurant" ON "CashShift"("restaurantId") WHERE status = 'OPEN';
+// Managed by migration `20260529173000_add_one_open_shift_per_restaurant_index` (audit H-45).
 // SQLite does not support partial indexes; uniqueness is enforced at the application layer (openSession checks findOpen before creating).
 model CashShift {
   id              String          @id @default(uuid())
