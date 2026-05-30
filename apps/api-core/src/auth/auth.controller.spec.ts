@@ -4,6 +4,7 @@ import { Response } from 'express';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { authConfig } from './auth.config';
+import { InvalidRefreshTokenException } from './exceptions/auth.exceptions';
 import { EmailThrottlerGuard } from './guards/email-throttler.guard';
 
 const mockProfile = {
@@ -102,7 +103,7 @@ describe('AuthController', () => {
 
     it('returns 401 when refresh cookie is missing', async () => {
       const req = { cookies: {} } as any;
-      await expect(controller.refresh(req, res)).rejects.toMatchObject({ status: 401 });
+      await expect(controller.refresh(req, res)).rejects.toBeInstanceOf(InvalidRefreshTokenException);
     });
   });
 

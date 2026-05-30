@@ -9,7 +9,6 @@ import {
   Res,
   Req,
   Inject,
-  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -38,6 +37,7 @@ import {
   ResetPasswordDto,
   ResetPasswordResponseDto,
 } from './dto';
+import { InvalidRefreshTokenException } from './exceptions/auth.exceptions';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { EmailThrottlerGuard } from './guards/email-throttler.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -51,18 +51,7 @@ export class AuthController {
     private readonly cfg: ConfigType<typeof authConfig>,
   ) {}
 
-  @Post('login')
-  @ApiOperation({ summary: 'Authenticate a user and set auth cookies' })
-  @ApiBody({ type: LoginDto })
-  @ApiResponse({ status: 201, description: 'Login successful — cookies set', type: AuthLoginResponseDto })
-  @ApiResponse({ status: 401, description: 'Invalid credentials or inactive account' })
-  async login(
-    @Body() dto: LoginDto,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthLoginResponseDto> {
-    const { accessToken, refreshToken, timezone } =
-      await this.authService.login(dto.email, dto.password);
-
+  private setAuthCookies(res: Response, accessToken: string, refreshToken: string): void {
     res.cookie(
       COOKIE_NAMES.access,
       accessToken,
@@ -81,6 +70,21 @@ export class AuthController {
         refreshMaxAge: this.cfg.cookieRefreshMaxAge,
       }),
     );
+  }
+
+  @Post('login')
+  @ApiOperation({ summary: 'Authenticate a user and set auth cookies' })
+  @ApiBody({ type: LoginDto })
+  @ApiResponse({ status: 201, description: 'Login successful — cookies set', type: AuthLoginResponseDto })
+  @ApiResponse({ status: 401, description: 'Invalid credentials or inactive account' })
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthLoginResponseDto> {
+    const { accessToken, refreshToken, timezone } =
+      await this.authService.login(dto.email, dto.password);
+
+    this.setAuthCookies(res, accessToken, refreshToken);
 
     return { timezone };
   }
@@ -95,30 +99,13 @@ export class AuthController {
   ): Promise<AuthLoginResponseDto> {
     const refreshCookie = req.cookies?.[COOKIE_NAMES.refresh] as string | undefined;
     if (!refreshCookie) {
-      throw new UnauthorizedException('REFRESH_TOKEN_MISSING');
+      throw new InvalidRefreshTokenException();
     }
 
     const { accessToken, refreshToken, timezone } =
       await this.authService.refreshTokens(refreshCookie);
 
-    res.cookie(
-      COOKIE_NAMES.access,
-      accessToken,
-      buildAccessCookieOptions({
-        domain: this.cfg.cookieDomain,
-        secure: this.cfg.cookieSecure,
-        accessMaxAge: this.cfg.cookieAccessMaxAge,
-      }),
-    );
-    res.cookie(
-      COOKIE_NAMES.refresh,
-      refreshToken,
-      buildRefreshCookieOptions({
-        domain: this.cfg.cookieDomain,
-        secure: this.cfg.cookieSecure,
-        refreshMaxAge: this.cfg.cookieRefreshMaxAge,
-      }),
-    );
+    this.setAuthCookies(res, accessToken, refreshToken);
 
     return { timezone };
   }
