@@ -26,7 +26,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 |-----------|----------|-----|
 | 🔴 CRÍTICO | 4 | H-01 ✅, H-02 ✅, H-03 ✅, H-04 ⏳ |
 | 🟠 ALTO    | 16 | H-05 ✅, H-06 ✅, H-07 ✅, H-08 ✅, H-09 ✅, H-10 ✅, H-11 ✅, H-12 ✅, H-13 ✅, H-14 ✅, H-15 ✅, H-16 ✅, H-17 ✅, H-18 ✅, H-19 ❌, H-20 ✅ |
-| 🟡 MEDIO   | 19 | H-21, H-22 ✅, H-23 … H-39 |
+| 🟡 MEDIO   | 19 | H-21 ✅, H-22 ✅, H-23 ✅, H-24 🔄, H-25 ✅, H-26 ✅, H-27 ✅, H-28 ✅, H-29 ✅, H-30 ✅, H-31 ✅, H-32 ✅, H-33 ✅, H-34 ✅, H-35 ✅, H-36 ✅, H-37 ✅, H-38 ✅, H-39 🔄 |
 | 🟢 BAJO    | 13 | H-40 … H-52 |
 | **Total**  | **52** | |
 
@@ -42,6 +42,9 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 - ➕ Hallazgo adicional descubierto y arreglado: contrato roto entre backend `/cash-register/summary` y frontend `RegisterHistoryIsland`. Ver sección "Hallazgos adicionales".
 - ➕ Hallazgo adicional descubierto (2026-05-28): patrón SSE → full refetch en dashboard y cocina. N eventos = N refetches completos. Ver H-AUX-02 en "Hallazgos adicionales".
 - ✅ H-10, H-16, H-17, H-18, H-20 implementados (2026-05-28) — batch 3 ALTOS: `closedBy` requerido en `closeSession`, clase `OrderStateMachine` centraliza transiciones, SSE no reconecta en filter change, doble submit bloqueado en OrderCard (con propagación a Kanban + FilteredList), multi-tenant invariant documentada. Ver plan `2026-05-28-orders-cashshift-kitchen-altos-plan.md`.
+- ✅ H-21, H-22 (completo), H-23, H-25, H-26, H-27, H-28, H-29, H-30, H-31, H-32, H-33, H-34, H-35, H-36, H-37, H-38 implementados (2026-05-29) — batch de MEDIOS dividido en 4 commits independientes. Ver plan `2026-05-29-orders-cashshift-kitchen-medios-plan.md`.
+- 🔄 H-24 documentado como decisión consciente (2026-05-29). Se mantiene `409 NO_OPEN_CASH_REGISTER` en `listOrders` por diseño del dashboard; órdenes huérfanas son visibles vía `/orders/history`.
+- 🔄 H-39 diferido (2026-05-29). `apps/ui` corre con Astro `output: 'static'` sin adapter, por lo que `prerender = false` per-page rompe el build. Requiere migración a `hybrid`/`server` con adapter (decisión arquitectónica fuera del scope del batch de MEDIOS). Mitigación temporal: la auth del dashboard se enforza client-side por `apiFetch` (redirige a `/login` en 401), así que el bundle pre-renderizado no expone datos sensibles, solo estructura.
 
 ---
 
@@ -578,89 +581,142 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 **Archivos:** `apps/api-core/src/orders/dto/create-order.dto.ts:47-50`, `order.repository.ts:75`
 **Descripción:** DTO valida con `@IsEnum`, pero el repo hace `as PaymentMethod`. Llamada interna que no use el DTO acepta string arbitrario.
 
+**Estado:** ✅ Implementado (2026-05-29) — `CreateOrderData.paymentMethod` tipado como `PaymentMethod | undefined`; eliminado `as PaymentMethod` en `createWithItems`. Compile-time test `order.repository.spec.ts` verifica que strings arbitrarios no son asignables.
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
+
 ### H-22 — `serializeOrder` con `Record<string, any>` + `as T`
 **Archivo:** `apps/api-core/src/orders/order.repository.ts:12-36`
 **Descripción:** Oculta errores de tipo. Debería ser un Serializer dedicado con `@Transform(fromCents)`.
 
-**Estado:** ✅ Parcial (2026-05-25) — la causa crítica está arreglada; el refactor estructural sigue pendiente.
+**Estado:** ✅ Implementado completo (fix crítico 2026-05-25 + refactor estructural 2026-05-29).
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
 
-**Diagnóstico:** durante el smoke test del fix de H-01 apareció un bug visible: el kiosk mostraba `Total: $5000.00` para una orden real de $50 (2 unidades × $25). Causa raíz: `serializeOrder` aplicaba `Number(BigInt)` sin `fromCents`, así que `totalAmount`, `unitPrice`, `subtotal` y `product.price` salían en centavos crudos. El mismo bug afectaba al dashboard (`OrderCard.tsx:77`, `OrdersPanel.tsx:184, 186`) — todos esos puntos también mostraban totales 100× inflados; no se había notado porque las cifras en CLP/ARS parecen razonables.
+**Fase 1 — fix crítico (2026-05-25):** durante el smoke test del fix de H-01 apareció un bug visible: el kiosk mostraba `Total: $5000.00` para una orden real de $50 (2 unidades × $25). Causa raíz: `serializeOrder` aplicaba `Number(BigInt)` sin `fromCents`, así que `totalAmount`, `unitPrice`, `subtotal` y `product.price` salían en centavos crudos. El mismo bug afectaba al dashboard (`OrderCard.tsx:77`, `OrdersPanel.tsx:184, 186`) — todos esos puntos también mostraban totales 100× inflados; no se había notado porque las cifras en CLP/ARS parecen razonables.
 
-**Cambios aplicados (fix crítico):**
+Cambios aplicados:
 - `apps/api-core/src/orders/order.repository.ts:13-44` — `serializeOrder` ahora aplica `fromCents()` a `totalAmount`, `items[].unitPrice`, `items[].subtotal`, `items[].product.price`, `items[].menuItem.priceOverride`.
-- `apps/ui/src/components/kiosk/OrderConfirmation.tsx` — rediseñado el detalle del item para mostrar precio unitario explícito (`2 × $25.00`) además del subtotal, así el cliente sabe cuánto cuesta cada producto.
+- `apps/ui/src/components/kiosk/OrderConfirmation.tsx` — rediseñado el detalle del item para mostrar precio unitario explícito (`2 × $25.00`) además del subtotal.
 - `apps/api-core/src/orders/orders.module.info.md` — documentado que la respuesta expone montos en pesos.
 
-**Verificación:** 420 unit tests del backend en verde. 7 archivos de e2e de orders también en verde, incluido `createOrderFromDashboard`. Smoke test del kiosk confirma `Total: $50.00` para orden de 2× $25.
-
-**Lo que sigue pendiente:** el refactor estructural — reemplazar la función `serializeOrder<T>` (con `Record<string, any>` + `as T`) por una clase Serializer dedicada con `@Exclude/@Expose/@Transform`, equivalente a `ProductListSerializer`. Es deuda técnica de tipos, no de comportamiento.
+**Fase 2 — refactor estructural (2026-05-29):** función `serializeOrder<T>` (con `Record<string, any>` + `as T`) reemplazada por clase Serializer dedicada `OrderSerializer` + `OrderItemSerializer` (nested `OrderItemProductSerializer`, `OrderItemMenuItemSerializer`) con `@Exclude/@Expose` y conversión eager `fromCents` en el constructor. La eager-conversion en el constructor es deliberada — preserva la forma del shape previo para `OrdersController.findAll` y `KioskController.getOrderStatus`, que leen `.totalAmount` directo sin `ClassSerializerInterceptor`. Función `serializeOrder<T>` eliminada del repo. Tests: `order.serializer.spec.ts` (5 specs) + verificación e2e contra `orders` y `kioskCreateOrder`.
 
 ### H-23 — `groupBy` Prisma con `as unknown as` (doble coerción)
 **Archivo:** `apps/api-core/src/orders/order-shift-report.repository.ts:40, 50`
+
+**Estado:** ✅ Implementado (2026-05-29) — `groupOrdersByShift` ahora hace `as OrderGroupRow[]` directo. `getTopProductsWithNamesByShift` conserva `as unknown as TopProductRow[]` con comentario explicativo (Prisma `orderItem.groupBy` infiere un tipo intersección incompatible con el row deseado; un refactor completo via `Prisma.GetOrderItemGroupByPayload<...>` queda como deuda menor).
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
 
 ### H-24 — `listOrders` lanza 409 si no hay caja abierta (bloquea visibilidad)
 **Archivo:** `apps/api-core/src/orders/orders.service.ts:107-116`
 **Descripción:** Una orden huérfana entre turnos no es visible. Decisión de diseño — confirmar con producto.
 
+**Estado:** 🔄 Decisión consciente (2026-05-29). Se **mantiene** `409 NO_OPEN_CASH_REGISTER`. Justificación documentada en `apps/api-core/src/orders/orders.module.info.md`: el dashboard solo muestra órdenes del turno actual; sin caja abierta no hay noción de "actuales". Órdenes huérfanas son visibles vía `/orders/history`.
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
+
 ### H-25 — `CashShiftSerializer` mantiene `bigint` sin `@Transform(fromCents)` defensivo
 **Archivo:** `apps/api-core/src/cash-register/serializers/cash-shift.serializer.ts:13-22`
 **Descripción:** Confía solo en `@Exclude()` de clase. Si alguien añade `@Expose()` por error, sale BigInt serializado mal.
+
+**Estado:** ✅ Implementado (2026-05-29) — `@Transform(({ value }) => typeof value === 'bigint' ? fromCents(value) : value)` agregado defensivamente a `openingBalance` y `totalSales`. Si alguien añade `@Expose()` por error, el valor sale en pesos en vez de filtrar BigInt crudo (que rompería `JSON.stringify`).
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
 
 ### H-26 — `_count.orders` siempre expuesto, presente solo en algunos endpoints
 **Archivo:** `apps/api-core/src/cash-register/serializers/cash-shift.serializer.ts:44-45`
 **Descripción:** Cliente recibe `_count: undefined`. Romper en dos serializers o filtrar condicional.
 
+**Estado:** ✅ Implementado (2026-05-29) — split en dos serializers: `CashShiftSerializer` (base, sin `_count`) y `CashShiftWithCountSerializer` (hereda y expone `_count.orders`). Controller usa el variante con count en `/history` y `/current`; el variant base sigue disponible para futuros endpoints que no necesiten el conteo.
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
+
 ### H-27 — `getCurrentSession` devuelve `{}` y usa `as any`
 **Archivo:** `apps/api-core/src/cash-register/cash-register.controller.ts:129-136`
 **Descripción:** Rompe contrato Swagger. Devolver `null`.
+
+**Estado:** ✅ Implementado (2026-05-29) — service retorna `CashShiftWithUserAndCount | null` directo; controller responde `null` (status 200 con body vacío) cuando no hay sesión, y `CashShiftWithCountSerializer` cuando sí. UI callers en `dash/register/api.ts` y `dash/orders/api.ts` actualizados para tolerar el body vacío.
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
 
 ### H-28 — `topProducts` ejecuta el stats completo solo para el top-N
 **Archivo:** `apps/api-core/src/cash-register/cash-register.controller.ts:160-174`
 **Descripción:** Desperdicia 90% del cálculo. Llamar `getTopProductsWithNamesByShift` directamente.
 
+**Estado:** ✅ Implementado (2026-05-29) — controller inyecta `OrderShiftReportRepository` (vía `OrdersModule` ya importado) y llama directo a `getTopProductsWithNamesByShift`. Misma shape de respuesta (vía `StatsTopProductSerializer`).
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
+
 ### H-29 — `displayOpenedAt` no maneja `timeZone` inválida ni `openedAt` undefined
 **Archivo:** `apps/api-core/src/cash-register/serializers/cash-shift.serializer.ts:52-67`
 **Descripción:** `Intl.DateTimeFormat` lanza `RangeError` con TZ corrupta → 500 opaco.
+
+**Estado:** ✅ Implementado (2026-05-29) — extraído a `safeFormatter(timezone)` con `try/catch` que cae a UTC si la TZ es inválida. Patrón replicado en `formatKitchenTime` para `KitchenOrderSerializer`.
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
 
 ### H-30 — `averageTicket` con división entera BigInt (puede no satisfacer `avg * count == total`)
 **Archivo:** `apps/api-core/src/cash-register/cash-register-stats.service.ts:103-105`
 **Descripción:** Documentar comportamiento o redondear consistentemente.
 
+**Estado:** ✅ Implementado (2026-05-29) — JSDoc agregado a `calculateRevenue` explicando que `averageTicket` es BigInt floor division en centavos, con cota de error ≤ `(N-1)/100` pesos por turno. La discrepancia siempre cae dentro del último decimal redondeado por la UI.
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
+
 ### H-31 — Stats sin caché para turnos CLOSED
 **Archivo:** `apps/api-core/src/cash-register/cash-register.service.ts:84-109`
 **Descripción:** Stats de turnos cerrados son inmutables → cacheables.
+
+**Estado:** ✅ Implementado (2026-05-29) — `CashRegisterService` mantiene `Map<sessionId, ShiftSummary>` con cap 200 FIFO. Solo cachea turnos CLOSED (data inmutable por garantía de H-09). Documentado en `cash-register.module.info.md`.
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
 
 ### H-32 — Cola de cocina ignora `cashShift.status=OPEN`
 **Archivo:** `apps/api-core/src/orders/order.repository.ts:113-120`
 **Descripción:** Órdenes huérfanas de turnos cerrados reaparecen al día siguiente.
 
+**Estado:** ✅ Implementado (2026-05-29) — `findActiveOrders` ahora filtra `cashShift: { status: CashShiftStatus.OPEN }`.
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
+
 ### H-33 — Cola de cocina ordena `createdAt desc` (contraintuitivo para FIFO)
 **Archivo:** `apps/api-core/src/orders/order.repository.ts:117`
 **Descripción:** Cocina normalmente es FIFO. Cambiar a `asc` + tiebreaker `orderNumber asc`, o documentar la razón del `desc`.
+
+**Estado:** ✅ Implementado (2026-05-29) — `orderBy: [{ createdAt: 'asc' }, { orderNumber: 'asc' }]`.
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
 
 ### H-34 — Mass-assignment vía `Object.assign(this, partial)` en serializers
 **Archivos:** `apps/api-core/src/kitchen/serializers/kitchen-order.serializer.ts:43-54`, `kitchen-order-item.serializer.ts:53-58`
 **Descripción:** Copia `restaurantId`, `cashShiftId`, `isPaid`, etc. Filtrado depende del interceptor; `JSON.stringify` directo expone todo.
 
+**Estado:** ✅ Implementado (2026-05-29) — `Object.assign(this, partial)` reemplazado por asignación explícita campo a campo en `KitchenOrderSerializer`, `KitchenOrderItemSerializer` y `KitchenProductSerializer`. Test verifica que `restaurantId`/`cashShiftId`/`isPaid`/`customerEmail` no salen ni en el instance ni en `instanceToPlain`.
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
+
 ### H-35 — Validación de cancelación solo en cliente, sin `maxLength`
 **Archivo:** `apps/ui/src/components/dash/orders/CancelOrderModal.tsx:14-22`
 **Descripción:** Cajero puede enviar 100KB de motivo. Backend debe validar; cliente debe limitar UX.
+
+**Estado:** ✅ Implementado (2026-05-29) — Backend: `@MaxLength(500)` en `CancelOrderDto.reason`. Frontend: `maxLength={500}` en el input + contador `0/500`.
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
 
 ### H-36 — Wizard puede confirmar `items: []`
 **Archivo:** `apps/ui/src/components/dash/orders/CreateOrderModal.tsx:98`
 **Descripción:** Step3 no revalida que haya items en el carrito.
 
+**Estado:** ✅ Implementado (2026-05-29) — Guard `items.length === 0` al inicio de `handleConfirm` con mensaje de error.
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
+
 ### H-37 — `parseInt(e.target.value)` sin radix; cantidad NaN se vuelve 0
 **Archivos:** `CreateOrderStep1.tsx:98`, `OrderFilterPanel.tsx:35`
 **Descripción:** Borrar el input elimina el item silenciosamente.
+
+**Estado:** ✅ Implementado (2026-05-29) — `parseInt(e.target.value, 10)` en `CreateOrderStep1.tsx`. `OrderFilterPanel.tsx:35` ya usaba radix 10.
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
 
 ### H-38 — `toFixed(2)` en lugar de `Intl.NumberFormat`
 **Archivos:** `OrderCard.tsx:77`, `OrdersPanel.tsx:184, 186`
 **Descripción:** CLP/COP no usan decimales; muestra "$300.00" mal.
 
+**Estado:** ✅ Implementado (2026-05-29) — `OrderCard.tsx` ahora usa `formatMoney(Number(order.totalAmount), settings)` con `useRestaurantSettings()`. Side effect: agrega dependencia de `QueryClientProvider`; tests aislados `OrdersFilteredList.test.tsx` y `OrdersPanel.test.tsx` mockean `restaurant-settings`.
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
+
 ### H-39 — `prerender = true` en `dash/orders.astro`
 **Archivo:** `apps/ui/src/pages/dash/orders.astro:2`
 **Descripción:** Hoy no expone datos porque toda la UI es client-side, pero contradice un dashboard autenticado. Riesgo futuro si se añade SSR de datos.
+
+**Estado:** 🔄 Diferido (2026-05-29). `apps/ui` corre con Astro `output: 'static'` sin adapter, así que `prerender = false` per-page rompe el build (`NoAdapterInstalled`). Requiere migración a `output: 'hybrid'` o `'server'` con adapter (`@astrojs/node` u otro) — decisión arquitectónica fuera del scope del batch MEDIOS. Mitigación temporal: la auth se enforza client-side por `apiFetch` (redirige a `/login` en 401); el bundle estático no expone datos sensibles, solo estructura HTML.
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
 
 ---
 
@@ -731,7 +787,7 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 | **Hoy / hotfix** | ~~H-01 (kiosk roto)~~ ✅, ~~H-02 (precios wizard)~~ ✅, ~~H-03 (XSS)~~ ✅, H-04 (tokens en URL) ⏳ deferred, ~~H-AUX-01 (contrato cash-register)~~ ✅ |
 | **Esta semana** | ~~H-05 (markAsPaid TX)~~ ✅, ~~H-06 (unmarkAsPaid)~~ ✅, ~~H-09 (closeSession race)~~ ✅, ~~H-13 (kitchen race)~~ ✅, ~~H-14 (kitchen token)~~ ✅ |
 | **Próximo sprint** | ~~H-07 (findHistory DTO)~~ ✅, ~~H-11 (BigInt cash-shift)~~ ✅, ~~H-08/H-12 (filtros restaurantId)~~ ✅, ~~H-15 (notifyOffline canal)~~ ✅ |
-| **Backlog técnico** | ~~H-17, H-18, H-20~~ ✅, H-AUX-02, todos los MEDIOS |
+| **Backlog técnico** | ~~H-17, H-18, H-20~~ ✅, ~~todos los MEDIOS~~ ✅ (2026-05-29, H-24 🔄 + H-39 🔄), H-AUX-02 |
 | **Limpieza** | Todos los BAJOS |
 | **Deuda colateral descubierta** | E2e del módulo `kiosk` con SQLite (stack overflow al inicializar NestJS). Preexistente, no relacionado con H-01. |
 

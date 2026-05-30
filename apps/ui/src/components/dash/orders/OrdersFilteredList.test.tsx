@@ -2,6 +2,15 @@ import { render, screen } from '@testing-library/react';
 import OrdersFilteredList from './OrdersFilteredList';
 import type { Order } from './api';
 
+// OrderCard (rendered for each order) calls useRestaurantSettings which needs
+// a QueryClientProvider in the tree. Mocking the hook keeps the test isolated
+// from react-query infrastructure.
+vi.mock('../../../lib/restaurant-settings', () => ({
+  useRestaurantSettings: () => ({
+    data: { decimalSeparator: ',', thousandsSeparator: '.' },
+  }),
+}));
+
 const makeOrder = (i: number): Order => ({
   id: `order-${i}`,
   orderNumber: i + 1,

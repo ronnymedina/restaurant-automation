@@ -108,7 +108,7 @@ export default function CreateOrderStep1({ onNext }: Props) {
                 type="number"
                 min={1}
                 value={item.quantity}
-                onChange={(e) => updateQuantity(item.productId, parseInt(e.target.value) || 0)}
+                onChange={(e) => updateQuantity(item.productId, parseInt(e.target.value, 10) || 0)}
                 className="w-14 border border-slate-300 rounded-lg px-2 py-1 text-center text-sm"
               />
               <span className="w-16 text-right text-slate-700">{formatPrice(item.price * item.quantity)}</span>

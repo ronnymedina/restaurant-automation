@@ -1,12 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { PaginationMetaDto } from '../../common/dto/pagination-meta.dto';
-import { CashShiftSerializer } from './cash-shift.serializer';
+import { CashShiftWithCountSerializer } from './cash-shift-with-count.serializer';
 
 export class PaginatedCashShiftsSerializer {
-  @ApiProperty({ type: [CashShiftSerializer] })
-  @Type(() => CashShiftSerializer)
-  data: CashShiftSerializer[];
+  @ApiProperty({ type: [CashShiftWithCountSerializer] })
+  @Type(() => CashShiftWithCountSerializer)
+  data: CashShiftWithCountSerializer[];
 
   @ApiProperty({ type: PaginationMetaDto })
   meta: PaginationMetaDto;

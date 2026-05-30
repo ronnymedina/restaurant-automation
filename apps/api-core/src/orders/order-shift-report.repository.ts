@@ -31,13 +31,14 @@ type TopProductRow = {
 export class OrderShiftReportRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  groupOrdersByShift(restaurantId: string, sessionId: string): Promise<OrderGroupRow[]> {
-    return this.prisma.order.groupBy({
+  async groupOrdersByShift(restaurantId: string, sessionId: string): Promise<OrderGroupRow[]> {
+    const rows = await this.prisma.order.groupBy({
       by: [status, paymentMethod, orderType, orderSource],
       where: { cashShiftId: sessionId, cashShift: { restaurantId } },
       _sum: { totalAmount: true },
       _count: { id: true },
-    }) as unknown as Promise<OrderGroupRow[]>;
+    });
+    return rows as OrderGroupRow[];
   }
 
   async getTopProductsWithNamesByShift(
@@ -45,7 +46,11 @@ export class OrderShiftReportRepository {
     sessionId: string,
     take = 5,
   ): Promise<TopProductWithName[]> {
-    const rows = await this.prisma.orderItem.groupBy({
+    // Prisma's orderItem.groupBy return type does not structurally match TopProductRow
+    // (Prisma's inferred result type uses Decimal/branded literal-keyed selections),
+    // so a single-step `as TopProductRow[]` cast fails. Keep `as unknown as` for this
+    // one site — H-23 targets the OrderGroupRow cast above which is now a single cast.
+    const rows = (await this.prisma.orderItem.groupBy({
       by: [productId],
       where: {
         order: {
@@ -57,7 +62,7 @@ export class OrderShiftReportRepository {
       _sum: { quantity: true, subtotal: true },
       orderBy: { _sum: { quantity: 'desc' } },
       take,
-    }) as unknown as TopProductRow[];
+    })) as unknown as TopProductRow[];
 
     if (rows.length === 0) return [];
 

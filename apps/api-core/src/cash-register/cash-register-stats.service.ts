@@ -104,6 +104,15 @@ export class CashRegisterStatsService {
    * - How much money entered the register? → completed (COMPLETED orders only)
    * - How much money is committed but not yet collected? → pending (active orders; excludes CANCELLED since those will never be collected)
    * - How much does the average paying customer spend? → averageTicket (completed revenue / number of completed orders)
+   *
+   * `averageTicket` (audit H-30): es BigInt floor division en centavos. La
+   * pérdida es como mucho `completedCount - 1` centavos por turno (≤ N-1 / 100
+   * pesos en CLP/UYU). Documentado en vez de redondear porque el serializer
+   * final aplica `fromCents` y la UI muestra 2 decimales — la "discrepancia"
+   * `avg * count != total` cae siempre dentro del último decimal redondeado.
+   *
+   * Si en el futuro una integración contable necesita el float exacto, calcular
+   * `Number(completedRevenue) / completedCount / 100` en el caller.
    */
   private calculateRevenue(byStatus: StatusAccumulator): ShiftRevenue {
     const completed = byStatus[OrderStatus.COMPLETED];

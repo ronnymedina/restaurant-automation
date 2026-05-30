@@ -22,7 +22,7 @@ describe('GET /v1/cash-register/current - currentSession (e2e)', () => {
     await request(app.getHttpServer()).get('/v1/cash-register/current').expect(401);
   });
 
-  it('Sin sesión abierta → 200 objeto vacío {}', async () => {
+  it('Sin sesión abierta → 200 null (H-27)', async () => {
     const restA = await seedRestaurant(prisma, 'A');
     const token = await login(app, restA.admin.email);
 
@@ -31,6 +31,10 @@ describe('GET /v1/cash-register/current - currentSession (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
+    // NestJS serializes a `null` return as an empty response body.
+    // supertest parses an empty body to `{}`; we assert no `id` field
+    // is present (the only contract callers care about — see H-27).
+    expect(res.body.id).toBeUndefined();
     expect(Object.keys(res.body)).toHaveLength(0);
   });
 
@@ -72,7 +76,8 @@ describe('GET /v1/cash-register/current - currentSession (e2e)', () => {
       .set('Authorization', `Bearer ${basicToken}`)
       .expect(200);
 
-    // No active session → empty object
+    // No active session → null (H-27); empty response body
+    expect(res.body.id).toBeUndefined();
     expect(Object.keys(res.body)).toHaveLength(0);
   });
 });

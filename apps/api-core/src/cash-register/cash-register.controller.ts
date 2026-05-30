@@ -24,6 +24,7 @@ import { Role } from '@prisma/client';
 import { CashRegisterService } from './cash-register.service';
 import { CashRegisterStatsService } from './cash-register-stats.service';
 import { TimezoneService } from '../restaurants/timezone.service';
+import { OrderShiftReportRepository } from '../orders/order-shift-report.repository';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CashShiftGuard } from './guards/cash-shift.guard';
@@ -31,7 +32,11 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { CashShiftSerializer } from './serializers/cash-shift.serializer';
-import { ShiftSummarySerializer } from './serializers/cash-register-stats.serializer';
+import { CashShiftWithCountSerializer } from './serializers/cash-shift-with-count.serializer';
+import {
+  ShiftSummarySerializer,
+  StatsTopProductSerializer,
+} from './serializers/cash-register-stats.serializer';
 import { PaginatedCashShiftsSerializer } from './serializers/paginated-cash-shifts.serializer';
 import {
   TopProductsResponseDto,
@@ -51,6 +56,7 @@ export class CashRegisterController {
     private readonly registerService: CashRegisterService,
     private readonly statsService: CashRegisterStatsService,
     private readonly timezoneService: TimezoneService,
+    private readonly orderShiftReport: OrderShiftReportRepository,
   ) {}
 
   @Post('open')
@@ -102,7 +108,7 @@ export class CashRegisterController {
       this.timezoneService.getTimezone(user.restaurantId),
     ]);
     return new PaginatedCashShiftsSerializer({
-      data: result.data.map((s) => new CashShiftSerializer(s, tz)),
+      data: result.data.map((s) => new CashShiftWithCountSerializer(s, tz)),
       meta: result.meta,
     });
   }
@@ -124,7 +130,7 @@ export class CashRegisterController {
   @Get('current')
   @Roles(Role.ADMIN, Role.MANAGER, Role.BASIC)
   @ApiOperation({ summary: 'Sesión de caja actualmente abierta' })
-  @ApiResponse({ status: 200, type: CashShiftSerializer })
+  @ApiResponse({ status: 200, type: CashShiftWithCountSerializer, description: 'Sesión activa (null si no hay)' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @ApiResponse({ status: 403, description: 'Sin permisos (requiere ADMIN, MANAGER o BASIC)' })
   async current(@CurrentUser() user: { restaurantId: string }) {
@@ -132,8 +138,8 @@ export class CashRegisterController {
       this.registerService.getCurrentSession(user.restaurantId),
       this.timezoneService.getTimezone(user.restaurantId),
     ]);
-    if (!('id' in session)) return {};
-    return new CashShiftSerializer(session as any, tz);
+    if (!session) return null;
+    return new CashShiftWithCountSerializer(session, tz);
   }
 
   @Get('summary/:sessionId')
@@ -170,8 +176,10 @@ export class CashRegisterController {
     @CurrentUser() user: { restaurantId: string },
     @Req() req: Request & { cashShift: { id: string } },
   ) {
-    const summary = await this.statsService.getSummary(user.restaurantId, req.cashShift.id);
-    const serialized = new ShiftSummarySerializer(summary);
-    return { topProducts: serialized.topProducts };
+    const rows = await this.orderShiftReport.getTopProductsWithNamesByShift(
+      user.restaurantId,
+      req.cashShift.id,
+    );
+    return { topProducts: rows.map((p) => new StatsTopProductSerializer(p)) };
   }
 }
