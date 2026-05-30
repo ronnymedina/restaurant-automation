@@ -5,8 +5,9 @@ import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import * as express from 'express';
-import { NODE_ENV, PORT, FRONTEND_URL, UPLOADS_PATH } from './config';
+import { NODE_ENV, PORT, FRONTEND_URL, UPLOADS_PATH, CORS_ORIGIN } from './config';
 
 const isProduction = NODE_ENV === 'production';
 const port = PORT;
@@ -17,9 +18,10 @@ async function bootstrap() {
   app.use('/uploads', express.static(UPLOADS_PATH));
 
   app.use(helmet());
+  app.use(cookieParser());
 
   app.enableCors({
-    origin: isProduction ? FRONTEND_URL : true,
+    origin: CORS_ORIGIN.length > 0 ? CORS_ORIGIN : FRONTEND_URL,
     credentials: true,
   });
 
