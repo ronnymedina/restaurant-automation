@@ -143,6 +143,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Revoke all refresh tokens and clear auth cookies' })
   @ApiResponse({ status: 201, description: 'Logout successful', type: LogoutResponseDto })
+  @ApiResponse({ status: 401, description: 'Missing or invalid auth cookie' })
   async logout(
     @CurrentUser() user: { id: string },
     @Res({ passthrough: true }) res: Response,
