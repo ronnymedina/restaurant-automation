@@ -1,4 +1,16 @@
-import { Controller, Post, Put, Get, Body, UseGuards, HttpCode, Res, Inject } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Put,
+  Get,
+  Body,
+  UseGuards,
+  HttpCode,
+  Res,
+  Req,
+  Inject,
+  UnauthorizedException,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -8,7 +20,7 @@ import {
 } from '@nestjs/swagger';
 import type { ConfigType } from '@nestjs/config';
 import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 
 import { AuthService } from './auth.service';
 import { authConfig } from './auth.config';
@@ -19,7 +31,6 @@ import {
 } from './cookies/auth-cookies';
 import {
   LoginDto,
-  RefreshTokenDto,
   AuthLoginResponseDto,
   ProfileResponseDto,
   LogoutResponseDto,
@@ -75,13 +86,41 @@ export class AuthController {
   }
 
   @Post('refresh')
-  @ApiOperation({ summary: 'Rotate refresh token and issue a new access + refresh token pair' })
-  @ApiBody({ type: RefreshTokenDto })
-  @ApiResponse({ status: 201, description: 'Token rotation successful', type: AuthLoginResponseDto })
-  @ApiResponse({ status: 400, description: 'Validation error — refreshToken must be a string' })
-  @ApiResponse({ status: 401, description: 'Refresh token is invalid or expired' })
-  async refresh(@Body() dto: RefreshTokenDto): Promise<{ accessToken: string; refreshToken: string }> {
-    return this.authService.refreshTokens(dto.refreshToken);
+  @ApiOperation({ summary: 'Rotate auth cookies using the refresh cookie' })
+  @ApiResponse({ status: 201, description: 'Rotation successful — cookies refreshed', type: AuthLoginResponseDto })
+  @ApiResponse({ status: 401, description: 'Refresh cookie missing, invalid, or expired' })
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthLoginResponseDto> {
+    const refreshCookie = req.cookies?.[COOKIE_NAMES.refresh] as string | undefined;
+    if (!refreshCookie) {
+      throw new UnauthorizedException('REFRESH_TOKEN_MISSING');
+    }
+
+    const { accessToken, refreshToken, timezone } =
+      await this.authService.refreshTokens(refreshCookie);
+
+    res.cookie(
+      COOKIE_NAMES.access,
+      accessToken,
+      buildAccessCookieOptions({
+        domain: this.cfg.cookieDomain,
+        secure: this.cfg.cookieSecure,
+        accessMaxAge: this.cfg.cookieAccessMaxAge,
+      }),
+    );
+    res.cookie(
+      COOKIE_NAMES.refresh,
+      refreshToken,
+      buildRefreshCookieOptions({
+        domain: this.cfg.cookieDomain,
+        secure: this.cfg.cookieSecure,
+        refreshMaxAge: this.cfg.cookieRefreshMaxAge,
+      }),
+    );
+
+    return { timezone };
   }
 
   @Get('me')

@@ -6,7 +6,6 @@ import { AuthService } from './auth.service';
 import { authConfig } from './auth.config';
 import { EmailThrottlerGuard } from './guards/email-throttler.guard';
 
-const mockTokens = { accessToken: 'access-token', refreshToken: 'refresh-token' };
 const mockProfile = {
   id: 'user-uuid-1',
   email: 'chef@restaurant.com',
@@ -78,13 +77,32 @@ describe('AuthController', () => {
   });
 
   describe('refresh', () => {
-    it('delegates to authService.refreshTokens and returns new tokens', async () => {
-      mockAuthService.refreshTokens.mockResolvedValue(mockTokens);
+    const cookieMock = jest.fn();
+    const res = { cookie: cookieMock } as unknown as Response;
 
-      const result = await controller.refresh({ refreshToken: 'old-refresh-token' });
+    beforeEach(() => {
+      cookieMock.mockReset();
+    });
 
-      expect(mockAuthService.refreshTokens).toHaveBeenCalledWith('old-refresh-token');
-      expect(result).toEqual(mockTokens);
+    it('rotates tokens using the refresh cookie and re-sets both cookies', async () => {
+      mockAuthService.refreshTokens.mockResolvedValue({
+        accessToken: 'new-jwt',
+        refreshToken: 'new-uuid',
+        timezone: 'UTC',
+      });
+      const req = { cookies: { refresh_token: 'old-uuid' } } as any;
+
+      const result = await controller.refresh(req, res);
+
+      expect(mockAuthService.refreshTokens).toHaveBeenCalledWith('old-uuid');
+      expect(result).toEqual({ timezone: 'UTC' });
+      expect(cookieMock).toHaveBeenCalledWith('access_token', 'new-jwt', expect.any(Object));
+      expect(cookieMock).toHaveBeenCalledWith('refresh_token', 'new-uuid', expect.any(Object));
+    });
+
+    it('returns 401 when refresh cookie is missing', async () => {
+      const req = { cookies: {} } as any;
+      await expect(controller.refresh(req, res)).rejects.toMatchObject({ status: 401 });
     });
   });
 
