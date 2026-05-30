@@ -588,21 +588,17 @@ fetch(`${API_URL}${path}${sep}token=${token}`, ...);
 **Archivo:** `apps/api-core/src/orders/order.repository.ts:12-36`
 **Descripción:** Oculta errores de tipo. Debería ser un Serializer dedicado con `@Transform(fromCents)`.
 
-**Estado:** ✅ Parcial (2026-05-25) — la causa crítica está arreglada; el refactor estructural sigue pendiente.
+**Estado:** ✅ Implementado completo (fix crítico 2026-05-25 + refactor estructural 2026-05-29).
+**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
 
-**Diagnóstico:** durante el smoke test del fix de H-01 apareció un bug visible: el kiosk mostraba `Total: $5000.00` para una orden real de $50 (2 unidades × $25). Causa raíz: `serializeOrder` aplicaba `Number(BigInt)` sin `fromCents`, así que `totalAmount`, `unitPrice`, `subtotal` y `product.price` salían en centavos crudos. El mismo bug afectaba al dashboard (`OrderCard.tsx:77`, `OrdersPanel.tsx:184, 186`) — todos esos puntos también mostraban totales 100× inflados; no se había notado porque las cifras en CLP/ARS parecen razonables.
+**Fase 1 — fix crítico (2026-05-25):** durante el smoke test del fix de H-01 apareció un bug visible: el kiosk mostraba `Total: $5000.00` para una orden real de $50 (2 unidades × $25). Causa raíz: `serializeOrder` aplicaba `Number(BigInt)` sin `fromCents`, así que `totalAmount`, `unitPrice`, `subtotal` y `product.price` salían en centavos crudos. El mismo bug afectaba al dashboard (`OrderCard.tsx:77`, `OrdersPanel.tsx:184, 186`) — todos esos puntos también mostraban totales 100× inflados; no se había notado porque las cifras en CLP/ARS parecen razonables.
 
-**Cambios aplicados (fix crítico):**
+Cambios aplicados:
 - `apps/api-core/src/orders/order.repository.ts:13-44` — `serializeOrder` ahora aplica `fromCents()` a `totalAmount`, `items[].unitPrice`, `items[].subtotal`, `items[].product.price`, `items[].menuItem.priceOverride`.
-- `apps/ui/src/components/kiosk/OrderConfirmation.tsx` — rediseñado el detalle del item para mostrar precio unitario explícito (`2 × $25.00`) además del subtotal, así el cliente sabe cuánto cuesta cada producto.
+- `apps/ui/src/components/kiosk/OrderConfirmation.tsx` — rediseñado el detalle del item para mostrar precio unitario explícito (`2 × $25.00`) además del subtotal.
 - `apps/api-core/src/orders/orders.module.info.md` — documentado que la respuesta expone montos en pesos.
 
-**Verificación:** 420 unit tests del backend en verde. 7 archivos de e2e de orders también en verde, incluido `createOrderFromDashboard`. Smoke test del kiosk confirma `Total: $50.00` para orden de 2× $25.
-
-**Lo que sigue pendiente:** ~~el refactor estructural~~ — completado el 2026-05-29.
-
-**Estado:** ✅ Implementado completo (2026-05-29). La parte crítica (`fromCents` en `serializeOrder`) ya estaba en 2026-05-25; el refactor estructural a `OrderSerializer` + `OrderItemSerializer` (con `@Exclude/@Expose` y eager `fromCents` en constructor) se completó en este batch. Función `serializeOrder<T>` eliminada del repo.
-**Plan asociado:** `docs/superpowers/plans/2026-05-29-orders-cashshift-kitchen-medios-plan.md`
+**Fase 2 — refactor estructural (2026-05-29):** función `serializeOrder<T>` (con `Record<string, any>` + `as T`) reemplazada por clase Serializer dedicada `OrderSerializer` + `OrderItemSerializer` (nested `OrderItemProductSerializer`, `OrderItemMenuItemSerializer`) con `@Exclude/@Expose` y conversión eager `fromCents` en el constructor. La eager-conversion en el constructor es deliberada — preserva la forma del shape previo para `OrdersController.findAll` y `KioskController.getOrderStatus`, que leen `.totalAmount` directo sin `ClassSerializerInterceptor`. Función `serializeOrder<T>` eliminada del repo. Tests: `order.serializer.spec.ts` (5 specs) + verificación e2e contra `orders` y `kioskCreateOrder`.
 
 ### H-23 — `groupBy` Prisma con `as unknown as` (doble coerción)
 **Archivo:** `apps/api-core/src/orders/order-shift-report.repository.ts:40, 50`
