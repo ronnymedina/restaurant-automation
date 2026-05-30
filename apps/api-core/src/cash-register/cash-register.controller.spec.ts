@@ -6,6 +6,7 @@ import { CashRegisterService } from './cash-register.service';
 import { CashRegisterStatsService } from './cash-register-stats.service';
 import { TimezoneService } from '../restaurants/timezone.service';
 import { CashShiftRepository } from '../cash-shift/cash-shift.repository';
+import { OrderShiftReportRepository } from '../orders/order-shift-report.repository';
 
 const RESTAURANT_ID = 'restaurant-uuid';
 const SESSION_ID    = 'session-uuid';
@@ -22,6 +23,7 @@ const mockRegisterService = {
 const mockStatsService    = { getSummary: jest.fn() };
 const mockTimezoneService = { getTimezone: jest.fn() };
 const mockCashShiftRepo   = { findById: jest.fn() };
+const mockOrderShiftReportRepo = { getTopProductsWithNamesByShift: jest.fn(), groupOrdersByShift: jest.fn() };
 
 const emptySummary = () => ({
   counts: { total: 0, pending: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 0, cancelled: 0 },
@@ -43,6 +45,7 @@ describe('CashRegisterController', () => {
         { provide: CashRegisterStatsService, useValue: mockStatsService },
         { provide: TimezoneService,          useValue: mockTimezoneService },
         { provide: CashShiftRepository,      useValue: mockCashShiftRepo },
+        { provide: OrderShiftReportRepository, useValue: mockOrderShiftReportRepo },
       ],
     }).compile();
 
@@ -121,6 +124,72 @@ describe('CashRegisterController', () => {
       expect(result.summary.counts.total).toBe(7);
       expect(result.summary.counts.pending).toBe(3);
       expect(result.summary.counts.completed).toBe(4);
+    });
+  });
+
+  describe('GET /v1/cash-register/current (H-27)', () => {
+    it('retorna null cuando no hay sesión abierta', async () => {
+      mockRegisterService.getCurrentSession.mockResolvedValue(null);
+      mockTimezoneService.getTimezone.mockResolvedValue('UTC');
+
+      const result = await controller.current({ restaurantId: RESTAURANT_ID });
+
+      expect(result).toBeNull();
+    });
+
+    it('retorna CashShiftWithCountSerializer cuando hay sesión abierta', async () => {
+      const session = {
+        id: 's1',
+        restaurantId: RESTAURANT_ID,
+        userId: 'u',
+        lastOrderNumber: 0,
+        openingBalance: 0n,
+        totalSales: null,
+        totalOrders: null,
+        openedAt: new Date('2026-05-29T10:00:00Z'),
+        closedAt: null,
+        status: 'OPEN',
+        closedBy: null,
+        user: { id: 'u', email: 'u@e.com' },
+        _count: { orders: 3 },
+      };
+      mockRegisterService.getCurrentSession.mockResolvedValue(session);
+      mockTimezoneService.getTimezone.mockResolvedValue('UTC');
+
+      const result = await controller.current({ restaurantId: RESTAURANT_ID });
+      const plain = instanceToPlain(result);
+
+      expect((result as any).id).toBe('s1');
+      expect(plain._count).toEqual({ orders: 3 });
+    });
+  });
+
+  describe('GET /v1/cash-register/top-products/:sessionId (H-28)', () => {
+    it('llama directo a getTopProductsWithNamesByShift, no computa el summary completo', async () => {
+      mockOrderShiftReportRepo.getTopProductsWithNamesByShift.mockResolvedValue([
+        { id: 'p1', name: 'Burger', quantity: 5, total: 1500n },
+      ]);
+
+      const result = instanceToPlain(
+        await controller.topProducts(
+          { restaurantId: RESTAURANT_ID },
+          { cashShift: { id: SESSION_ID } } as any,
+        ),
+      );
+
+      expect(mockOrderShiftReportRepo.getTopProductsWithNamesByShift).toHaveBeenCalledWith(
+        RESTAURANT_ID,
+        SESSION_ID,
+      );
+      expect(mockStatsService.getSummary).not.toHaveBeenCalled();
+      expect(Array.isArray(result.topProducts)).toBe(true);
+      expect(result.topProducts).toHaveLength(1);
+      expect(result.topProducts[0]).toMatchObject({
+        id: 'p1',
+        name: 'Burger',
+        quantity: 5,
+        total: 15, // 1500n centavos → $15 pesos
+      });
     });
   });
 });

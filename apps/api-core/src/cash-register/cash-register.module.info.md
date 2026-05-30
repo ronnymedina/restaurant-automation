@@ -287,6 +287,19 @@ Garantiza `cashShift.closedById` non-null para auditoría financiera.
 - `displayOpenedAt` / `displayClosedAt` se calculan en el constructor de `CashShiftSerializer` usando `Intl.DateTimeFormat` con el timezone del restaurante, obtenido via `TimezoneService` (con caché en Redis/memory).
 - **`CashRegisterStatsService.getSummary(restaurantId, sessionId)`** centraliza toda la lógica de agregación de métricas. Usa 2 queries en paralelo: (1) `Order.groupBy(['status','paymentMethod','orderType','orderSource'])` para todos los counts y totales; (2) `OrderItem.groupBy(['productId'])` para top products. Ambas queries filtran por `cashShift.restaurantId` (audit H-08, H-12) — defensa en profundidad sobre `CashShiftGuard`. Si el `sessionId` no pertenece al `restaurantId`, las agregaciones devuelven 0/[] sin throw.
 - **`CashRegisterService.getSessionSummary(restaurantId, sessionId)`** valida explícitamente que la sesión pertenezca al `restaurantId` antes de calcular el summary (audit H-12). Si la sesión no existe o pertenece a otro restaurante, lanza `CashRegisterNotFoundException` (404 `REGISTER_NOT_FOUND`). El chequeo es secuencial (no `Promise.all`) — el costo extra es despreciable y evita ejecutar agregaciones caras sobre input rechazado.
+
+### Caché de summary para turnos CLOSED (H-31)
+
+`CashRegisterService` mantiene un `Map<sessionId, ShiftSummary>` con cap de 200
+entradas (LRU-ish). Justificación:
+
+- Las órdenes de un turno CLOSED son inmutables (garantía de H-09 via
+  `lockOpenShift`), así que el summary nunca cambia después del cierre.
+- El history de la UI puede abrir el modal del mismo turno cerrado N veces;
+  sin caché cada apertura ejecuta groupBy + topProducts.
+- Por proceso, no compartido — aceptable porque la data subyacente es inmutable.
+
+Para invalidar manualmente (no debería hacer falta), reiniciar el proceso.
 - **Contrato unificado**: los 3 endpoints que exponen métricas (`/close`, `/summary/:id`, `/stats`) usan el mismo shape `ShiftSummary`. El estado de la caja (open/closed) no cambia la forma — solo qué campos pueden estar en cero. Esto evita drift entre frontend y backend (problema previo: existían 3 shapes distintos documentados pero el código unificaba todo en un cuarto shape divergente).
 - `OrderItem` requiere `@@index([orderId])` — sin este índice el join para top products hace seq scan. Ver spec: `docs/superpowers/specs/2026-05-21-cash-register-stats-design.md`.
 

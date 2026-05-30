@@ -16,8 +16,10 @@ class KitchenProductSerializer {
   @Expose()
   imageUrl: string | null;
 
-  constructor(partial: Partial<KitchenProductSerializer>) {
-    Object.assign(this, partial);
+  constructor(partial: { id: string; name: string; imageUrl: string | null }) {
+    this.id = partial.id;
+    this.name = partial.name;
+    this.imageUrl = partial.imageUrl ?? null;
   }
 }
 
@@ -51,9 +53,13 @@ export class KitchenOrderItemSerializer {
   product: KitchenProductSerializer;
 
   constructor(partial: any) {
-    Object.assign(this, partial);
-    if (partial.product) {
-      this.product = new KitchenProductSerializer(partial.product);
-    }
+    this.id = partial.id;
+    this.quantity = partial.quantity;
+    this.unitPrice = partial.unitPrice;
+    this.subtotal = partial.subtotal;
+    this.notes = partial.notes ?? null;
+    this.product = partial.product
+      ? new KitchenProductSerializer(partial.product)
+      : (undefined as any);
   }
 }

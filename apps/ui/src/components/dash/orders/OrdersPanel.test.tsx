@@ -14,6 +14,15 @@ vi.mock('./api', () => ({
 vi.mock('../../../lib/auth', () => ({ getAccessToken: vi.fn(() => null) }));
 vi.mock('../../../config', () => ({ config: { apiUrl: 'http://localhost:3000' } }));
 
+// OrderCard (rendered for each order) calls useRestaurantSettings which needs
+// a QueryClientProvider in the tree. Mocking the hook keeps the test isolated
+// from react-query infrastructure.
+vi.mock('../../../lib/restaurant-settings', () => ({
+  useRestaurantSettings: () => ({
+    data: { decimalSeparator: ',', thousandsSeparator: '.' },
+  }),
+}));
+
 import { getCurrentSession, getOrders } from './api';
 const mockGetCurrentSession = vi.mocked(getCurrentSession);
 const mockGetOrders = vi.mocked(getOrders);

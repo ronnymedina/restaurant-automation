@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { OrderStatus, Prisma, PaymentMethod } from '@prisma/client';
+import { OrderStatus, Prisma, PaymentMethod, CashShiftStatus } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
-import { fromCents } from '../common/helpers/money';
+import { OrderSerializer } from './serializers/order.serializer';
 
 const ORDER_WITH_ITEMS = {
   items: {
@@ -10,45 +10,12 @@ const ORDER_WITH_ITEMS = {
   },
 } as const;
 
-/**
- * Convert BigInt monetary fields (stored as centavos) to decimal pesos
- * before returning to the API layer. JSON does not support BigInt and
- * the convention across the API is to expose money in pesos.
- *
- * Applies to: totalAmount, items[].unitPrice, items[].subtotal,
- * items[].product.price, items[].menuItem.priceOverride.
- */
-function serializeOrder<T extends Record<string, any>>(order: T): T {
-  const result: Record<string, any> = { ...order };
-
-  if (typeof result['totalAmount'] === 'bigint') {
-    result['totalAmount'] = fromCents(result['totalAmount']);
-  }
-
-  if (Array.isArray(result['items'])) {
-    result['items'] = result['items'].map((item: Record<string, any>) => {
-      const si: Record<string, any> = { ...item };
-      if (typeof si['unitPrice'] === 'bigint') si['unitPrice'] = fromCents(si['unitPrice']);
-      if (typeof si['subtotal'] === 'bigint') si['subtotal'] = fromCents(si['subtotal']);
-      if (si['product'] && typeof si['product']['price'] === 'bigint') {
-        si['product'] = { ...si['product'], price: fromCents(si['product']['price']) };
-      }
-      if (si['menuItem'] && typeof si['menuItem']['priceOverride'] === 'bigint') {
-        si['menuItem'] = { ...si['menuItem'], priceOverride: fromCents(si['menuItem']['priceOverride']) };
-      }
-      return si;
-    });
-  }
-
-  return result as T;
-}
-
 export interface CreateOrderData {
   orderNumber: number;
   totalAmount: number;
   restaurantId: string;
   cashShiftId: string;
-  paymentMethod?: string;
+  paymentMethod?: PaymentMethod;
   customerEmail?: string;
   customerName?: string;
   customerPhone?: string;
@@ -80,7 +47,7 @@ export class OrderRepository {
         totalAmount: data.totalAmount,
         restaurantId: data.restaurantId,
         cashShiftId: data.cashShiftId,
-        paymentMethod: data.paymentMethod as PaymentMethod,
+        paymentMethod: data.paymentMethod,
         customerEmail: data.customerEmail,
         customerName: data.customerName,
         customerPhone: data.customerPhone,
@@ -107,7 +74,7 @@ export class OrderRepository {
         },
       },
     });
-    return serializeOrder(order);
+    return new OrderSerializer(order);
   }
 
   async findById(id: string) {
@@ -115,16 +82,20 @@ export class OrderRepository {
       where: { id },
       include: ORDER_WITH_ITEMS,
     });
-    return order ? serializeOrder(order) : null;
+    return order ? new OrderSerializer(order) : null;
   }
 
   async findActiveOrders(restaurantId: string, statuses: OrderStatus[]) {
     const orders = await this.prisma.order.findMany({
-      where: { restaurantId, status: { in: statuses } },
+      where: {
+        restaurantId,
+        status: { in: statuses },
+        cashShift: { status: CashShiftStatus.OPEN },
+      },
       include: ORDER_WITH_ITEMS,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'asc' }, { orderNumber: 'asc' }],
     });
-    return orders.map(serializeOrder);
+    return orders.map((o) => new OrderSerializer(o));
   }
 
   async listOrders(
@@ -145,7 +116,7 @@ export class OrderRepository {
       orderBy: { createdAt: 'desc' },
       ...(limit ? { take: limit } : {}),
     });
-    return orders.map(serializeOrder);
+    return orders.map((o) => new OrderSerializer(o));
   }
 
   async updateStatus(id: string, status: OrderStatus) {
@@ -154,7 +125,7 @@ export class OrderRepository {
       data: { status },
       include: ORDER_WITH_ITEMS,
     });
-    return serializeOrder(order);
+    return new OrderSerializer(order);
   }
 
   async cancelOrder(id: string, reason: string) {
@@ -163,7 +134,7 @@ export class OrderRepository {
       data: { status: OrderStatus.CANCELLED, cancellationReason: reason },
       include: ORDER_WITH_ITEMS,
     });
-    return serializeOrder(order);
+    return new OrderSerializer(order);
   }
 
   async findHistory(
@@ -207,7 +178,7 @@ export class OrderRepository {
     ]);
 
     return {
-      data: data.map(serializeOrder),
+      data: data.map((o) => new OrderSerializer(o)),
       meta: {
         total,
         page: filters.page,
@@ -222,7 +193,7 @@ export class OrderRepository {
       where: { cashShiftId: sessionId, restaurantId },
       include: ORDER_WITH_ITEMS,
     });
-    return orders.map(serializeOrder);
+    return orders.map((o) => new OrderSerializer(o));
   }
 
   /**

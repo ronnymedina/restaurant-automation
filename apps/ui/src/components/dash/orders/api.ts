@@ -49,8 +49,11 @@ export async function getCurrentSession(): Promise<ApiResult<CurrentSession | nu
     const error = await res.json().catch(() => ({}));
     return { ok: false, error, httpStatus: res.status };
   }
-  const data = await res.json();
-  if (!data || !('id' in data)) return { ok: true, data: null };
+  // Backend returns `null` (no open session) or a `CurrentSession`. NestJS
+  // sends an empty body for `null` returns, so we tolerate JSON parse
+  // failure as the "no session" case (H-27).
+  const data = await res.json().catch(() => null);
+  if (!data) return { ok: true, data: null };
   return { ok: true, data: data as CurrentSession };
 }
 

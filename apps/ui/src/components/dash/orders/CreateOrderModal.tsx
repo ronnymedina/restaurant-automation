@@ -33,6 +33,10 @@ function ModalContent({ onClose, onCreated }: Props) {
   }
 
   async function handleConfirm(formValues: Step3Values) {
+    if (items.length === 0) {
+      setErrorMsg('Agrega al menos un producto antes de confirmar el pedido.');
+      return;
+    }
     setIsSubmitting(true);
     setErrorMsg(null);
     try {

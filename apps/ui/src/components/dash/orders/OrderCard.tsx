@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { Order } from './api';
 import { OrderCustomerModal } from './OrderCustomerModal';
+import { useRestaurantSettings } from '../../../lib/restaurant-settings';
+import { formatMoney } from '../../../lib/money';
 
 const PAYMENT_LABELS: Record<string, string> = {
   CASH: 'Efectivo',
@@ -71,6 +73,7 @@ export default function OrderCard({
   const hasCustomerData = order.customerEmail || order.customerPhone || order.deliveryAddress;
   const hasPaymentMethod = !!(order.paymentMethod || selectedPaymentMethod);
   const isBusy = inFlightIds.has(order.id);
+  const { data: settings } = useRestaurantSettings();
 
   return (
     <div
@@ -96,7 +99,7 @@ export default function OrderCard({
         </div>
         <div className="flex items-center justify-between pt-1 border-t border-slate-100">
           <span className="font-semibold text-sm text-slate-800">
-            ${Number(order.totalAmount).toFixed(2)}
+            {formatMoney(Number(order.totalAmount), settings)}
           </span>
           {isActive && !order.paymentMethod ? (
             <div className="flex items-center gap-1">
