@@ -26,3 +26,23 @@ export class InvalidRefreshTokenException extends BaseException {
     );
   }
 }
+
+export class OriginRequiredException extends BaseException {
+  constructor() {
+    super(
+      'Origin or Referer header is required for this request',
+      HttpStatus.FORBIDDEN,
+      'ORIGIN_REQUIRED',
+    );
+  }
+}
+
+export class OriginNotAllowedException extends BaseException {
+  constructor() {
+    super(
+      'Request Origin is not in the allowlist',
+      HttpStatus.FORBIDDEN,
+      'ORIGIN_NOT_ALLOWED',
+    );
+  }
+}

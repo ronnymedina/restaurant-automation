@@ -1,5 +1,6 @@
-import { ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { ExecutionContext } from '@nestjs/common';
 import { CsrfOriginGuard } from './csrf-origin.guard';
+import { OriginRequiredException, OriginNotAllowedException } from '../exceptions/auth.exceptions';
 
 function ctx(req: any): ExecutionContext {
   return { switchToHttp: () => ({ getRequest: () => req }) } as ExecutionContext;
@@ -27,11 +28,11 @@ describe('CsrfOriginGuard', () => {
     expect(() => guard.canActivate(ctx({
       method: 'POST',
       headers: { origin: 'https://malicioso.com' },
-    }))).toThrow(ForbiddenException);
+    }))).toThrow(OriginNotAllowedException);
   });
 
   it('rejects POST without Origin or Referer', () => {
-    expect(() => guard.canActivate(ctx({ method: 'POST', headers: {} }))).toThrow(ForbiddenException);
+    expect(() => guard.canActivate(ctx({ method: 'POST', headers: {} }))).toThrow(OriginRequiredException);
   });
 
   it('falls back to Referer origin when Origin is missing', () => {
@@ -45,6 +46,6 @@ describe('CsrfOriginGuard', () => {
     expect(() => guard.canActivate(ctx({
       method: 'POST',
       headers: { referer: 'not-a-url' },
-    }))).toThrow(ForbiddenException);
+    }))).toThrow(OriginRequiredException);
   });
 });

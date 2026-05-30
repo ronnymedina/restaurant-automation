@@ -1,10 +1,11 @@
 import {
-  CanActivate, ExecutionContext, ForbiddenException, Injectable, Inject,
+  CanActivate, ExecutionContext, Injectable, Inject,
 } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import type { Request } from 'express';
 
 import { csrfConfig } from '../csrf.config';
+import { OriginRequiredException, OriginNotAllowedException } from '../exceptions/auth.exceptions';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -24,9 +25,9 @@ export class CsrfOriginGuard implements CanActivate {
     if (SAFE_METHODS.has(req.method)) return true;
 
     const origin = this.resolveOrigin(req);
-    if (!origin) throw new ForbiddenException({ code: 'ORIGIN_REQUIRED' });
+    if (!origin) throw new OriginRequiredException();
     if (!this.allowed.has(origin)) {
-      throw new ForbiddenException({ code: 'ORIGIN_NOT_ALLOWED' });
+      throw new OriginNotAllowedException();
     }
     return true;
   }
