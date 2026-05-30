@@ -1,4 +1,4 @@
-import { Controller, Post, Put, Get, Body, UseGuards, HttpCode } from '@nestjs/common';
+import { Controller, Post, Put, Get, Body, UseGuards, HttpCode, Res, Inject } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -6,13 +6,21 @@ import {
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
+import type { ConfigType } from '@nestjs/config';
 import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
+import type { Response } from 'express';
 
 import { AuthService } from './auth.service';
+import { authConfig } from './auth.config';
+import {
+  COOKIE_NAMES,
+  buildAccessCookieOptions,
+  buildRefreshCookieOptions,
+} from './cookies/auth-cookies';
 import {
   LoginDto,
   RefreshTokenDto,
-  AuthTokensResponseDto,
+  AuthLoginResponseDto,
   ProfileResponseDto,
   LogoutResponseDto,
   RecoverDto,
@@ -26,25 +34,53 @@ import { CurrentUser } from './decorators/current-user.decorator';
 @ApiTags('Auth')
 @Controller('v1/auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    @Inject(authConfig.KEY)
+    private readonly cfg: ConfigType<typeof authConfig>,
+  ) {}
 
   @Post('login')
-  @ApiOperation({ summary: 'Authenticate a user and return access + refresh tokens' })
+  @ApiOperation({ summary: 'Authenticate a user and set auth cookies' })
   @ApiBody({ type: LoginDto })
-  @ApiResponse({ status: 201, description: 'Login successful', type: AuthTokensResponseDto })
-  @ApiResponse({ status: 400, description: 'Validation error — invalid email format or password too short' })
+  @ApiResponse({ status: 201, description: 'Login successful — cookies set', type: AuthLoginResponseDto })
   @ApiResponse({ status: 401, description: 'Invalid credentials or inactive account' })
-  async login(@Body() dto: LoginDto): Promise<AuthTokensResponseDto> {
-    return this.authService.login(dto.email, dto.password);
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthLoginResponseDto> {
+    const { accessToken, refreshToken, timezone } =
+      await this.authService.login(dto.email, dto.password);
+
+    res.cookie(
+      COOKIE_NAMES.access,
+      accessToken,
+      buildAccessCookieOptions({
+        domain: this.cfg.cookieDomain,
+        secure: this.cfg.cookieSecure,
+        accessMaxAge: this.cfg.cookieAccessMaxAge,
+      }),
+    );
+    res.cookie(
+      COOKIE_NAMES.refresh,
+      refreshToken,
+      buildRefreshCookieOptions({
+        domain: this.cfg.cookieDomain,
+        secure: this.cfg.cookieSecure,
+        refreshMaxAge: this.cfg.cookieRefreshMaxAge,
+      }),
+    );
+
+    return { timezone };
   }
 
   @Post('refresh')
   @ApiOperation({ summary: 'Rotate refresh token and issue a new access + refresh token pair' })
   @ApiBody({ type: RefreshTokenDto })
-  @ApiResponse({ status: 201, description: 'Token rotation successful', type: AuthTokensResponseDto })
+  @ApiResponse({ status: 201, description: 'Token rotation successful', type: AuthLoginResponseDto })
   @ApiResponse({ status: 400, description: 'Validation error — refreshToken must be a string' })
   @ApiResponse({ status: 401, description: 'Refresh token is invalid or expired' })
-  async refresh(@Body() dto: RefreshTokenDto): Promise<AuthTokensResponseDto> {
+  async refresh(@Body() dto: RefreshTokenDto): Promise<{ accessToken: string; refreshToken: string }> {
     return this.authService.refreshTokens(dto.refreshToken);
   }
 
