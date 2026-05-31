@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, uniqueEmail, registerUser } from './helpers';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 
 describe('POST /v1/auth/recover (e2e)', () => {
   let app: INestApplication<App>;
@@ -26,6 +27,7 @@ describe('POST /v1/auth/recover (e2e)', () => {
     const res = await request(app.getHttpServer())
       .post('/v1/auth/recover')
       .send({ email })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.message).toBe('Si el correo está registrado, recibirás un email en breve.');
@@ -48,6 +50,7 @@ describe('POST /v1/auth/recover (e2e)', () => {
     const res = await request(app.getHttpServer())
       .post('/v1/auth/recover')
       .send({ email })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.message).toBe('Si el correo está registrado, recibirás un email en breve.');
@@ -60,6 +63,7 @@ describe('POST /v1/auth/recover (e2e)', () => {
     const res = await request(app.getHttpServer())
       .post('/v1/auth/recover')
       .send({ email: uniqueEmail('ghost') })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.message).toBe('Si el correo está registrado, recibirás un email en breve.');
@@ -69,6 +73,7 @@ describe('POST /v1/auth/recover (e2e)', () => {
     await request(app.getHttpServer())
       .post('/v1/auth/recover')
       .send({ email: 'not-an-email' })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(400);
   });
 
@@ -80,12 +85,14 @@ describe('POST /v1/auth/recover (e2e)', () => {
       await request(app.getHttpServer())
         .post('/v1/auth/recover')
         .send({ email })
+        .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
     }
 
     await request(app.getHttpServer())
       .post('/v1/auth/recover')
       .send({ email })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(429);
   });
 });
