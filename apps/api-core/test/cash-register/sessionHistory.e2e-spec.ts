@@ -5,7 +5,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login, openCashShiftViaApi } from './cash-register.helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 describe('GET /v1/cash-register/history - sessionHistory (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
@@ -21,12 +21,14 @@ describe('GET /v1/cash-register/history - sessionHistory (e2e)', () => {
     await openCashShiftViaApi(app, adminToken);
     await request(app.getHttpServer())
       .post('/v1/cash-register/close')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
     await openCashShiftViaApi(app, adminToken);
     await request(app.getHttpServer())
       .post('/v1/cash-register/close')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const restB = await seedRestaurant(prisma, 'B');
@@ -44,7 +46,8 @@ describe('GET /v1/cash-register/history - sessionHistory (e2e)', () => {
   it('Retorna estructura paginada { data, meta }', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/history')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -56,7 +59,8 @@ describe('GET /v1/cash-register/history - sessionHistory (e2e)', () => {
   it('Paginación: page=1&limit=1 retorna 1 resultado', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/history?page=1&limit=1')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.data).toHaveLength(1);
@@ -67,7 +71,8 @@ describe('GET /v1/cash-register/history - sessionHistory (e2e)', () => {
   it('Aislamiento por restaurante (restB no ve sesiones de restA)', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/history')
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.meta.total).toBe(0);

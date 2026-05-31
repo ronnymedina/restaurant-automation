@@ -4,6 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 import {
   bootstrapApp, seedRestaurant, login,
   seedProduct, openCashShiftViaApi, seedOrderOnShift,
@@ -41,14 +42,16 @@ describe('GET /v1/cash-register/top-products/:sessionId (e2e)', () => {
   it('BASIC recibe 403', async () => {
     await request(app.getHttpServer())
       .get(`/v1/cash-register/top-products/${shiftId}`)
-      .set('Authorization', `Bearer ${basicToken}`)
+      .set('Cookie', basicToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(403);
   });
 
   it('Sesión inexistente → 404 CASH_REGISTER_NOT_FOUND', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/top-products/non-existent-id')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
 
     expect(res.body.code).toBe('CASH_REGISTER_NOT_FOUND');
@@ -57,7 +60,8 @@ describe('GET /v1/cash-register/top-products/:sessionId (e2e)', () => {
   it('Retorna topProducts array con máx 5 elementos', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/top-products/${shiftId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(Array.isArray(res.body.topProducts)).toBe(true);
@@ -67,7 +71,8 @@ describe('GET /v1/cash-register/top-products/:sessionId (e2e)', () => {
   it('Cada elemento tiene id, name, quantity (number) y total (pesos decimal)', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/top-products/${shiftId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     if (res.body.topProducts.length > 0) {
@@ -82,7 +87,8 @@ describe('GET /v1/cash-register/top-products/:sessionId (e2e)', () => {
   it('Excluye ítems de órdenes CANCELLED — solo 1 producto visible (del COMPLETED)', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/top-products/${shiftId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     // Both orders use the same product, but CANCELLED is excluded.
@@ -94,7 +100,8 @@ describe('GET /v1/cash-register/top-products/:sessionId (e2e)', () => {
   it('total está en pesos (1000 centavos → 10 pesos)', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/top-products/${shiftId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.topProducts[0].total).toBeCloseTo(10, 2);
