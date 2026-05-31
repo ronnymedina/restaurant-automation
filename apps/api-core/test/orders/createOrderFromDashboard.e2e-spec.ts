@@ -4,6 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 import {
   bootstrapApp, seedRestaurant, login,
   seedProduct, openCashShift,
@@ -46,13 +47,15 @@ describe('POST /v1/orders - createOrderFromDashboard (e2e)', () => {
     await request(app.getHttpServer())
       .post('/v1/orders')
       .send({ items: [], orderType: 'PICKUP' })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(401);
   });
 
   it('BASIC → 403', async () => {
     await request(app.getHttpServer())
       .post('/v1/orders')
-      .set('Authorization', `Bearer ${basicToken}`)
+      .set('Cookie', basicToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [], orderType: 'PICKUP' })
       .expect(403);
   });
@@ -61,7 +64,8 @@ describe('POST /v1/orders - createOrderFromDashboard (e2e)', () => {
     const product = await seedProduct(prisma, closedRestaurantId, closedCategoryId);
     await request(app.getHttpServer())
       .post('/v1/orders')
-      .set('Authorization', `Bearer ${closedAdminToken}`)
+      .set('Cookie', closedAdminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({
         items: [{ productId: product.id, quantity: 1 }],
         orderType: 'PICKUP',
@@ -74,7 +78,8 @@ describe('POST /v1/orders - createOrderFromDashboard (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .post('/v1/orders')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({
         items: [{ productId: product.id, quantity: 1 }],
         orderType: 'PICKUP',
@@ -91,7 +96,8 @@ describe('POST /v1/orders - createOrderFromDashboard (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .post('/v1/orders')
-      .set('Authorization', `Bearer ${managerToken}`)
+      .set('Cookie', managerToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({
         items: [{ productId: product.id, quantity: 1 }],
         orderType: 'PICKUP',
@@ -106,7 +112,8 @@ describe('POST /v1/orders - createOrderFromDashboard (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/v1/orders')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({
         items: [{ productId: product.id, quantity: 1 }],
         orderType: 'DELIVERY',
@@ -119,7 +126,8 @@ describe('POST /v1/orders - createOrderFromDashboard (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/v1/orders')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({
         items: [{ productId: product.id, quantity: 1 }],
         orderType: 'PICKUP',
@@ -132,7 +140,8 @@ describe('POST /v1/orders - createOrderFromDashboard (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .post('/v1/orders')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({
         items: [{ productId: product.id, quantity: 1 }],
         orderType: 'PICKUP',
@@ -168,13 +177,15 @@ describe('PATCH /v1/orders/:id/pay con paymentMethod (e2e)', () => {
 
     const created = await request(app.getHttpServer())
       .post('/v1/orders')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [{ productId: product.id, quantity: 1 }], orderType: 'PICKUP' })
       .expect(201);
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${created.body.order.id}/pay`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.isPaid).toBe(true);
@@ -186,13 +197,15 @@ describe('PATCH /v1/orders/:id/pay con paymentMethod (e2e)', () => {
 
     const created = await request(app.getHttpServer())
       .post('/v1/orders')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [{ productId: product.id, quantity: 1 }], orderType: 'PICKUP' })
       .expect(201);
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${created.body.order.id}/pay`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ paymentMethod: 'CASH' })
       .expect(200);
 
@@ -205,13 +218,15 @@ describe('PATCH /v1/orders/:id/pay con paymentMethod (e2e)', () => {
 
     const created = await request(app.getHttpServer())
       .post('/v1/orders')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [{ productId: product.id, quantity: 1 }], orderType: 'PICKUP' })
       .expect(201);
 
     await request(app.getHttpServer())
       .patch(`/v1/orders/${created.body.order.id}/pay`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ paymentMethod: 'BITCOIN' })
       .expect(400);
   });

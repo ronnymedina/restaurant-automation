@@ -4,6 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 import {
   bootstrapApp, seedRestaurant, login,
   seedProduct, openCashShift, seedOrder,
@@ -42,6 +43,7 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/status`)
       .send({ status: 'PROCESSING' })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(401);
   });
 
@@ -52,7 +54,8 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
 
     await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/status`)
-      .set('Authorization', `Bearer ${basicToken}`)
+      .set('Cookie', basicToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ status: 'PROCESSING' })
       .expect(403);
   });
@@ -64,7 +67,8 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ status: 'CONFIRMED' })
       .expect(200);
 
@@ -78,7 +82,8 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ status: 'CREATED' })
       .expect(400);
 
@@ -92,7 +97,8 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ status: 'COMPLETED' })
       .expect(409);
 
@@ -106,7 +112,8 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ status: 'PROCESSING' })
       .expect(409);
 
@@ -120,7 +127,8 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
 
     await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ status: 'INVALID_STATUS' })
       .expect(400);
   });
@@ -132,7 +140,8 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ status: 'PROCESSING' })
       .expect(200);
 
@@ -146,7 +155,8 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ status: 'SERVED' })
       .expect(200);
 
@@ -160,7 +170,8 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ status: 'COMPLETED' })
       .expect(200);
 
@@ -174,7 +185,8 @@ describe('PATCH /v1/orders/:id/status - updateOrderStatus (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ status: 'PROCESSING' })
       .expect(400);
 

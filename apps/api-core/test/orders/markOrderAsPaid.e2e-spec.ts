@@ -4,6 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 import {
   bootstrapApp, seedRestaurant, login,
   seedProduct, openCashShift, seedOrder,
@@ -48,6 +49,7 @@ describe('PATCH /v1/orders/:id/pay - markOrderAsPaid (e2e)', () => {
 
     await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/pay`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(401);
   });
 
@@ -58,7 +60,8 @@ describe('PATCH /v1/orders/:id/pay - markOrderAsPaid (e2e)', () => {
 
     await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/pay`)
-      .set('Authorization', `Bearer ${basicToken}`)
+      .set('Cookie', basicToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(403);
   });
 
@@ -69,7 +72,8 @@ describe('PATCH /v1/orders/:id/pay - markOrderAsPaid (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/pay`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.isPaid).toBe(true);
@@ -79,14 +83,16 @@ describe('PATCH /v1/orders/:id/pay - markOrderAsPaid (e2e)', () => {
   it('Orden de otro restaurante → 404', async () => {
     await request(app.getHttpServer())
       .patch(`/v1/orders/${orderIdFromB}/pay`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
   });
 
   it('Orden inexistente → 404', async () => {
     await request(app.getHttpServer())
       .patch('/v1/orders/non-existent-id/pay')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
   });
 
@@ -97,7 +103,8 @@ describe('PATCH /v1/orders/:id/pay - markOrderAsPaid (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/pay`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.isPaid).toBe(true);

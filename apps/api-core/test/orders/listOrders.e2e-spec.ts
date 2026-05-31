@@ -4,6 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 import {
   bootstrapApp, seedRestaurant, login,
   seedProduct, openCashShift, seedOrder,
@@ -59,7 +60,8 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
   it('Sin caja abierta recibe 409 con code NO_OPEN_CASH_REGISTER', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders')
-      .set('Authorization', `Bearer ${adminTokenNoShift}`)
+      .set('Cookie', adminTokenNoShift)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(409);
     expect(res.body.code).toBe('NO_OPEN_CASH_REGISTER');
   });
@@ -67,7 +69,8 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
   it('ADMIN puede listar órdenes → 200 array', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
@@ -75,7 +78,8 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
   it('MANAGER puede listar órdenes → 200 array', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders')
-      .set('Authorization', `Bearer ${managerToken}`)
+      .set('Cookie', managerToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
@@ -83,7 +87,8 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
   it('BASIC puede listar órdenes → 200 array', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders')
-      .set('Authorization', `Bearer ${basicToken}`)
+      .set('Cookie', basicToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
@@ -91,11 +96,13 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
   it('Solo retorna órdenes del propio restaurante (aislamiento)', async () => {
     const resA = await request(app.getHttpServer())
       .get('/v1/orders')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
     const resB = await request(app.getHttpServer())
       .get('/v1/orders')
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
     const idsA = resA.body.map((o: any) => o.id);
     const idsB = resB.body.map((o: any) => o.id);
@@ -105,7 +112,8 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
   it('?statuses=CREATED retorna solo órdenes CREATED', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders?statuses=CREATED')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
     expect(res.body.every((o: any) => o.status === 'CREATED')).toBe(true);
   });
@@ -113,7 +121,8 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
   it('?statuses=CREATED&statuses=PROCESSING retorna solo órdenes con esos estados', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders?statuses=CREATED&statuses=PROCESSING')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
     expect(Array.isArray(res.body)).toBe(true);
     const allowed = new Set(['CREATED', 'PROCESSING']);
@@ -123,7 +132,8 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
   it('Cada orden incluye items en la respuesta', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
     expect(res.body.length).toBeGreaterThan(0);
     expect(Array.isArray(res.body[0].items)).toBe(true);
@@ -132,7 +142,8 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
   it('Cada orden incluye displayTime en la respuesta', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
     expect(res.body.length).toBeGreaterThan(0);
     expect(typeof res.body[0].displayTime).toBe('string');
@@ -142,7 +153,8 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
   it('Retorna órdenes del turno activo (cashShiftId coincide con el turno abierto)', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
     expect(res.body.length).toBeGreaterThan(0);
     expect(res.body.every((o: any) => o.cashShiftId === shiftId)).toBe(true);
@@ -151,7 +163,8 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
   it('?orderNumber=1 → solo retorna órdenes con orderNumber=1', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders?orderNumber=1')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
     expect(res.body.length).toBeGreaterThan(0);
     expect(res.body.every((o: any) => o.orderNumber === 1)).toBe(true);
@@ -160,7 +173,8 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
   it('?limit=500 retorna máximo 100 órdenes', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders?limit=500')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
     expect(res.body.length).toBeGreaterThan(0);
     expect(res.body.length).toBeLessThanOrEqual(100);
@@ -169,7 +183,8 @@ describe('GET /v1/orders - listOrders (e2e)', () => {
   it('?statuses=INVALID_VALUE → 400', async () => {
     await request(app.getHttpServer())
       .get('/v1/orders?statuses=INVALID_VALUE')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(400);
   });
 });
