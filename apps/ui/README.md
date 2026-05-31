@@ -19,6 +19,19 @@ pnpm build        # genera dist/
 pnpm preview      # previsualiza el build estático
 ```
 
+## Auth flow
+
+El dashboard usa **cookies httpOnly** para autenticación (H-04). Al hacer login, el backend setea dos cookies: `access_token` (Path=/) y `refresh_token` (Path=/v1/auth). Ambas con `sameSite=lax`, `secure` en prod y `domain=.daikulab.com` para que se compartan entre `resapp.*` y `resapi.*`.
+
+- Los tokens **no son accesibles desde JavaScript**. `localStorage` solo cachea la timezone del restaurante.
+- Todos los fetches al API pasan por `apiFetch` en [`src/lib/api.ts`](./src/lib/api.ts), que setea `credentials: 'include'` para que el navegador envíe la cookie cross-origin. El auto-refresh sobre 401 también se mantiene.
+- El SSE del dashboard (`/v1/events/dashboard`) usa `new EventSource(url, { withCredentials: true })`.
+- El login (`/login`) hace `POST /v1/auth/login` con `credentials: 'include'`; la respuesta solo trae `{ timezone }` — las cookies vienen en `Set-Cookie`. El logout hace `POST /v1/auth/logout` y limpia la timezone cacheada.
+
+### Cocina
+
+La página `/kitchen` usa un mecanismo independiente: header `X-Kitchen-Token` tanto en REST (`kitchenFetch`) como en SSE (vía [`@microsoft/fetch-event-source`](https://www.npmjs.com/package/@microsoft/fetch-event-source), porque el `EventSource` nativo no soporta headers custom). El token se lee del query param al primer load y se persiste en `sessionStorage`.
+
 ## Deploy (Railway)
 
 El frontend se despliega en Railway como una imagen Docker con nginx.
