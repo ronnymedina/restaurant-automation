@@ -6,7 +6,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login } from './products.helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 const TEST_DB = path.resolve(__dirname, 'test-delete-product.db');
 
 describe('DELETE /v1/products/:id - deleteProduct (e2e)', () => {
@@ -48,14 +48,17 @@ describe('DELETE /v1/products/:id - deleteProduct (e2e)', () => {
 
   it('Sin token recibe 401', async () => {
     const id = await createProduct('Producto 401');
-    await request(app.getHttpServer()).delete(`/v1/products/${id}`).expect(401);
+    await request(app.getHttpServer()).delete(`/v1/products/${id}`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
+      .expect(401);
   });
 
   it('BASIC recibe 403', async () => {
     const id = await createProduct('Producto BASIC');
     await request(app.getHttpServer())
       .delete(`/v1/products/${id}`)
-      .set('Authorization', `Bearer ${basicTokenA}`)
+      .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(403);
   });
 
@@ -63,7 +66,8 @@ describe('DELETE /v1/products/:id - deleteProduct (e2e)', () => {
     const id = await createProduct('Producto Admin Delete');
     const res = await request(app.getHttpServer())
       .delete(`/v1/products/${id}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(204);
 
     expect(res.body).toEqual({});
@@ -74,7 +78,8 @@ describe('DELETE /v1/products/:id - deleteProduct (e2e)', () => {
     const id = await createProduct('Producto Manager Delete');
     const res = await request(app.getHttpServer())
       .delete(`/v1/products/${id}`)
-      .set('Authorization', `Bearer ${managerTokenA}`)
+      .set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(204);
 
     expect(res.body).toEqual({});
@@ -85,7 +90,8 @@ describe('DELETE /v1/products/:id - deleteProduct (e2e)', () => {
     const id = await createProduct('Producto Con DeletedAt');
     await request(app.getHttpServer())
       .delete(`/v1/products/${id}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(204);
 
     const product = await prisma.product.findUnique({ where: { id } });
@@ -97,12 +103,14 @@ describe('DELETE /v1/products/:id - deleteProduct (e2e)', () => {
     const id = await createProduct('Producto Para Listar');
     await request(app.getHttpServer())
       .delete(`/v1/products/${id}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(204);
 
     const res = await request(app.getHttpServer())
       .get('/v1/products')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const ids = res.body.data.map((p: any) => p.id);
@@ -113,19 +121,22 @@ describe('DELETE /v1/products/:id - deleteProduct (e2e)', () => {
     const id = await createProduct('Producto Para GET 404');
     await request(app.getHttpServer())
       .delete(`/v1/products/${id}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(204);
 
     await request(app.getHttpServer())
       .get(`/v1/products/${id}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
   });
 
   it('Producto no existe → 404', async () => {
     await request(app.getHttpServer())
       .delete('/v1/products/00000000-0000-0000-0000-000000000000')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
   });
 
@@ -133,7 +144,8 @@ describe('DELETE /v1/products/:id - deleteProduct (e2e)', () => {
     const id = await createProduct('Producto Aislamiento');
     await request(app.getHttpServer())
       .delete(`/v1/products/${id}`)
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
   });
 });

@@ -6,7 +6,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login } from './products.helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 const TEST_DB = path.resolve(__dirname, 'test-update-product.db');
 
 describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
@@ -65,13 +65,15 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/v1/products/${readOnlyProductId}`)
       .send({ name: 'Nuevo Nombre' })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(401);
   });
 
   it('BASIC recibe 403', async () => {
     await request(app.getHttpServer())
       .patch(`/v1/products/${readOnlyProductId}`)
-      .set('Authorization', `Bearer ${basicTokenA}`)
+      .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Intento BASIC' })
       .expect(403);
   });
@@ -80,7 +82,8 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
     const id = await createProduct('Producto Para Admin Update');
     const res = await request(app.getHttpServer())
       .patch(`/v1/products/${id}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Nombre Actualizado Admin' })
       .expect(200);
 
@@ -91,7 +94,8 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
     const id = await createProduct('Producto Para Manager Update');
     const res = await request(app.getHttpServer())
       .patch(`/v1/products/${id}`)
-      .set('Authorization', `Bearer ${managerTokenA}`)
+      .set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ price: 2000 })
       .expect(200);
 
@@ -103,7 +107,8 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
     const id = await createProduct('Producto Para Centavos Update');
     const res = await request(app.getHttpServer())
       .patch(`/v1/products/${id}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ price: 500 })
       .expect(200);
 
@@ -115,7 +120,8 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
     const id = await createProduct('Producto Para Serializer Check');
     const res = await request(app.getHttpServer())
       .patch(`/v1/products/${id}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Test Serializer Update' })
       .expect(200);
 
@@ -133,7 +139,8 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
   it('Producto no existe → 404', async () => {
     await request(app.getHttpServer())
       .patch('/v1/products/00000000-0000-0000-0000-000000000000')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'No importa' })
       .expect(404);
   });
@@ -141,7 +148,8 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
   it('Producto de otro restaurante → 404 (aislamiento)', async () => {
     await request(app.getHttpServer())
       .patch(`/v1/products/${readOnlyProductId}`)
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Hack intento' })
       .expect(404);
   });
@@ -149,7 +157,8 @@ describe('PATCH /v1/products/:id - updateProduct (e2e)', () => {
   it('categoryId de otro restaurante → 404 (aislamiento)', async () => {
     const res = await request(app.getHttpServer())
       .patch(`/v1/products/${readOnlyProductId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ categoryId: categoryIdB })
       .expect(404);
 

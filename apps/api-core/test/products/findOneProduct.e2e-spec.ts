@@ -6,7 +6,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login } from './products.helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 const TEST_DB = path.resolve(__dirname, 'test-findone-product.db');
 
 describe('GET /v1/products/:id - findOneProduct (e2e)', () => {
@@ -56,7 +56,8 @@ describe('GET /v1/products/:id - findOneProduct (e2e)', () => {
   it('ADMIN puede obtener un producto', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/products/${productId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.id).toBe(productId);
@@ -65,7 +66,8 @@ describe('GET /v1/products/:id - findOneProduct (e2e)', () => {
   it('MANAGER puede obtener un producto', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/products/${productId}`)
-      .set('Authorization', `Bearer ${managerTokenA}`)
+      .set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.id).toBe(productId);
@@ -74,7 +76,8 @@ describe('GET /v1/products/:id - findOneProduct (e2e)', () => {
   it('BASIC puede obtener un producto', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/products/${productId}`)
-      .set('Authorization', `Bearer ${basicTokenA}`)
+      .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.id).toBe(productId);
@@ -83,7 +86,8 @@ describe('GET /v1/products/:id - findOneProduct (e2e)', () => {
   it('Estructura ProductSerializer: price como number, sin category, sin updatedAt/deletedAt', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/products/${productId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.id).toBe(productId);
@@ -96,7 +100,8 @@ describe('GET /v1/products/:id - findOneProduct (e2e)', () => {
   it('Valida estrictamente las propiedades expuestas (opt-in)', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/products/${productId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const expectedKeys = [
@@ -111,7 +116,8 @@ describe('GET /v1/products/:id - findOneProduct (e2e)', () => {
   it('Devuelve price como number serializado desde centavos (1500 centavos → 15)', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/products/${productId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.price).toBe(15);
@@ -120,14 +126,16 @@ describe('GET /v1/products/:id - findOneProduct (e2e)', () => {
   it('Producto no existe → 404', async () => {
     await request(app.getHttpServer())
       .get('/v1/products/00000000-0000-0000-0000-000000000000')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
   });
 
   it('Producto de otro restaurante → 404 (aislamiento)', async () => {
     await request(app.getHttpServer())
       .get(`/v1/products/${productId}`)
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
   });
 });
