@@ -11,7 +11,6 @@ vi.mock('./api', () => ({
   confirmOrder: vi.fn(),
 }));
 
-vi.mock('../../../lib/auth', () => ({ getAccessToken: vi.fn(() => null) }));
 vi.mock('../../../config', () => ({ config: { apiUrl: 'http://localhost:3000' } }));
 
 // OrderCard (rendered for each order) calls useRestaurantSettings which needs
@@ -22,6 +21,16 @@ vi.mock('../../../lib/restaurant-settings', () => ({
     data: { decimalSeparator: ',', thousandsSeparator: '.' },
   }),
 }));
+
+// jsdom does not provide a global EventSource; stub a no-op class so the SSE
+// useEffect can construct one without throwing. Individual tests that need to
+// assert on EventSource calls may override this stub via vi.stubGlobal.
+class NoopEventSource {
+  addEventListener() {}
+  close() {}
+  constructor(_url: string, _init?: EventSourceInit) {}
+}
+vi.stubGlobal('EventSource', NoopEventSource);
 
 import { getCurrentSession, getOrders } from './api';
 const mockGetCurrentSession = vi.mocked(getCurrentSession);
@@ -225,20 +234,21 @@ test('H-18 (regression): Confirmar button is disabled while mutation is in-fligh
 // would cause more than one construction and this test would surface the regression.
 test('H-17: EventSource is created once per session, not on every render', async () => {
   let constructorCallCount = 0;
+  let lastUrl: string | undefined;
+  let lastInit: EventSourceInit | undefined;
 
   // EventSource must be a real class (constructor) so `new EventSource(...)` works
   class FakeEventSource {
     static callCount = 0;
     addEventListener = vi.fn();
     close = vi.fn();
-    constructor() {
+    constructor(url: string, init?: EventSourceInit) {
       constructorCallCount++;
+      lastUrl = url;
+      lastInit = init;
     }
   }
   vi.stubGlobal('EventSource', FakeEventSource);
-
-  // Override getAccessToken to return a valid token so the SSE branch is entered
-  vi.mocked((await import('../../../lib/auth')).getAccessToken).mockReturnValue('tok');
 
   mockGetCurrentSession.mockResolvedValue({
     ok: true,
@@ -251,6 +261,10 @@ test('H-17: EventSource is created once per session, not on every render', async
   // Wait for SSE to be set up (status becomes OPEN, session is set)
   await waitFor(() => expect(constructorCallCount).toBe(1));
 
+  // H-04: cookie-based auth — URL must not contain ?token=, must pass withCredentials
+  expect(lastUrl).toMatch(/\/v1\/events\/dashboard$/);
+  expect(lastInit).toEqual(expect.objectContaining({ withCredentials: true }));
+
   // Force several re-renders; EventSource should still have been created exactly once.
   // NOTE: rerender with the same component does not change status/session deps, so
   // no extra SSE effect runs are expected. This guards the activeFilter-as-dep bug.
@@ -258,6 +272,4 @@ test('H-17: EventSource is created once per session, not on every render', async
   rerender(<OrdersPanel />);
   await new Promise((r) => setTimeout(r, 50));
   expect(constructorCallCount).toBe(1);
-
-  vi.unstubAllGlobals();
 });
