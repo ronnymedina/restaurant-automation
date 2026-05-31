@@ -14,3 +14,17 @@ export class DuplicateRestaurantException extends BaseException {
     );
   }
 }
+
+/**
+ * Thrown when a restaurant is not found.
+ */
+export class RestaurantNotFoundException extends BaseException {
+  constructor(restaurantId: string) {
+    super(
+      `Restaurant '${restaurantId}' not found`,
+      HttpStatus.NOT_FOUND,
+      'RESTAURANT_NOT_FOUND',
+      { restaurantId },
+    );
+  }
+}
