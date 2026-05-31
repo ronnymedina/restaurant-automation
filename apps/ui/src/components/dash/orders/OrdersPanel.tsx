@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '../../commons/Providers';
 import { config } from '../../../config';
 import { ORDER_EVENTS } from '../../../lib/sse-events';
 import { EyeIcon, EyeOffIcon } from '../../commons/icons';
@@ -251,6 +253,7 @@ export default function OrdersPanel() {
   }
 
   return (
+    <QueryClientProvider client={queryClient}>
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-slate-800">Cocina (KDS)</h2>
@@ -340,5 +343,6 @@ export default function OrdersPanel() {
         </div>
       )}
     </div>
+    </QueryClientProvider>
   );
 }
