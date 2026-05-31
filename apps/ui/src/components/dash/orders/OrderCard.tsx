@@ -99,12 +99,12 @@ export default function OrderCard({
           <span className="font-semibold text-sm text-slate-800">
             {formatMoney(Number(order.totalAmount), settings)}
           </span>
-          {isActive && !order.isPaid ? (
+          {isActive ? (
             <div className="flex items-center gap-1">
-              <span className="text-xs text-amber-600">⚠</span>
+              {!order.isPaid && <span className="text-xs text-amber-600">⚠</span>}
               <select
                 disabled={isBusy}
-                value={payMethod}
+                value={order.paymentMethod ?? payMethod}
                 onChange={(e) => { setPayMethod(''); onPay(order.id, e.target.value); }}
                 className="text-xs rounded px-1.5 py-0.5 cursor-pointer border border-amber-300 bg-amber-50 text-amber-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >

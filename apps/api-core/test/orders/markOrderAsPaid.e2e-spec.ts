@@ -125,6 +125,23 @@ describe('PATCH /v1/orders/:id/pay - markOrderAsPaid (e2e)', () => {
       .expect(404);
   });
 
+  it('Orden ya pagada → actualiza paymentMethod sin cambiar estado', async () => {
+    const product = await seedProduct(prisma, restaurantId, categoryId);
+    const shift = await openCashShift(prisma, restaurantId, adminId);
+    const order = await seedOrder(prisma, restaurantId, shift.id, product.id, { isPaid: true, paymentMethod: 'CASH' });
+
+    const res = await request(app.getHttpServer())
+      .patch(`/v1/orders/${order.id}/pay`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
+      .send({ paymentMethod: 'CARD' })
+      .expect(200);
+
+    expect(res.body.isPaid).toBe(true);
+    expect(res.body.paymentMethod).toBe('CARD');
+    expect(res.body.status).toBe(order.status);
+  });
+
   it('Pagar orden en SERVED avanza automáticamente a COMPLETED → status: COMPLETED, isPaid: true', async () => {
     const product = await seedProduct(prisma, restaurantId, categoryId);
     const shift = await openCashShift(prisma, restaurantId, adminId);
