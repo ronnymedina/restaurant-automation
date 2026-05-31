@@ -1,7 +1,6 @@
 // test/orders/orders.helpers.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
-import request from 'supertest';
 import { App } from 'supertest/types';
 import * as bcrypt from 'bcryptjs';
 import { execSync } from 'child_process';
@@ -9,6 +8,7 @@ import cookieParser from 'cookie-parser';
 
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { loginCookie } from '../helpers/auth-cookie';
 
 export async function bootstrapApp(): Promise<{
   moduleFixture: TestingModule;
@@ -90,14 +90,8 @@ export async function login(
   app: INestApplication<App>,
   email: string,
 ): Promise<string> {
-  const res = await request(app.getHttpServer())
-    .post('/v1/auth/login')
-    .send({ email, password: 'Admin1234!' })
-    .expect((r) => {
-      if (r.status !== 200 && r.status !== 201)
-        throw new Error(`Login failed: ${r.status} ${JSON.stringify(r.body)}`);
-    });
-  return res.body.accessToken as string;
+  const { accessCookie } = await loginCookie(app, email);
+  return accessCookie;
 }
 
 export async function seedProduct(

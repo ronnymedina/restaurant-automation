@@ -9,6 +9,7 @@ import cookieParser from 'cookie-parser';
 
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { loginCookie, ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 
 export async function bootstrapApp(): Promise<{
   moduleFixture: TestingModule;
@@ -90,14 +91,8 @@ export async function login(
   app: INestApplication<App>,
   email: string,
 ): Promise<string> {
-  const res = await request(app.getHttpServer())
-    .post('/v1/auth/login')
-    .send({ email, password: 'Admin1234!' })
-    .expect((r) => {
-      if (r.status !== 200 && r.status !== 201)
-        throw new Error(`Login failed: ${r.status} ${JSON.stringify(r.body)}`);
-    });
-  return res.body.accessToken as string;
+  const { accessCookie } = await loginCookie(app, email);
+  return accessCookie;
 }
 
 export async function seedProduct(
@@ -118,11 +113,12 @@ export async function seedProduct(
 
 export async function openCashShiftViaApi(
   app: INestApplication<App>,
-  token: string,
+  cookie: string,
 ): Promise<string> {
   const res = await request(app.getHttpServer())
     .post('/v1/cash-register/open')
-    .set('Authorization', `Bearer ${token}`)
+    .set('Cookie', cookie)
+    .set('Origin', ALLOWED_TEST_ORIGIN)
     .expect(201);
   return res.body.id as string;
 }
