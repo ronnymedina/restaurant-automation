@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import OrdersPanel from './OrdersPanel';
 
 vi.mock('./api', () => ({
@@ -343,6 +343,42 @@ test('H-AUX-02: order:new prepends new order without calling getOrders again', a
 
   // Verify getOrders was NOT called again
   expect(mockGetOrders).not.toHaveBeenCalled();
+});
+
+// H-AUX-02 follow-up: first 'open' must NOT trigger a refetch (loadSession already loaded);
+// subsequent 'open' events (reconnections) MUST trigger a refetch to close event gaps.
+test('no refetcha en el primer open del SSE (loadSession ya cargó); refetcha solo en reconexiones posteriores', async () => {
+  let capturedHandlers: Record<string, (e: Event) => void> = {};
+
+  class SpyEventSource {
+    addEventListener = vi.fn((event: string, handler: (e: Event) => void) => {
+      capturedHandlers[event] = handler;
+    });
+    close = vi.fn();
+    constructor(_url: string, _init?: EventSourceInit) {}
+  }
+  vi.stubGlobal('EventSource', SpyEventSource);
+
+  mockGetCurrentSession.mockResolvedValue({
+    ok: true,
+    data: { id: 'shift-1', openedByEmail: 'staff@test.com' },
+  });
+  mockGetOrders.mockResolvedValue({ ok: true, data: [] });
+
+  render(<OrdersPanel />);
+
+  // Wait for initial fetch from loadSession
+  await waitFor(() => expect(mockGetOrders).toHaveBeenCalledTimes(1));
+
+  // First 'open' (initial SSE connection) — must NOT trigger a refetch
+  act(() => { capturedHandlers['open']?.(new Event('open')); });
+  await new Promise((r) => setTimeout(r, 0));
+  expect(mockGetOrders).toHaveBeenCalledTimes(1);
+
+  // Second 'open' (reconnection) — MUST trigger a refetch to close gap
+  mockGetOrders.mockResolvedValueOnce({ ok: true, data: [] });
+  act(() => { capturedHandlers['open']?.(new Event('open')); });
+  await waitFor(() => expect(mockGetOrders).toHaveBeenCalledTimes(2));
 });
 
 // H-17: EventSource must not be re-created on filter changes.

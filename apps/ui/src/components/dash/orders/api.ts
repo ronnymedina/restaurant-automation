@@ -13,7 +13,7 @@ export interface OrderItem {
 export interface Order {
   id: string;
   orderNumber: number;
-  cashShiftId: string;
+  cashShiftId?: string;
   status: string;
   totalAmount: number;
   isPaid: boolean;
@@ -21,7 +21,7 @@ export interface Order {
   cancellationReason?: string;
   orderSource: string;
   orderType: string;
-  createdAt: string;
+  createdAt?: string;
   displayTime?: string;
   customerEmail?: string;
   customerPhone?: string;

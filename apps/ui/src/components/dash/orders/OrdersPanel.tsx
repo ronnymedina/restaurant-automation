@@ -134,7 +134,7 @@ export default function OrdersPanel() {
         const payload = JSON.parse(e.data) as OrderCreatedPayload;
         if (!payload?.id) return;
         setOrders((prev) =>
-          prev.some((o) => o.id === payload.id) ? prev : [payload as unknown as Order, ...prev],
+          prev.some((o) => o.id === payload.id) ? prev : [payload as Order, ...prev],
         );
       } catch { /* ignore malformed payload */ }
     };
@@ -146,10 +146,14 @@ export default function OrdersPanel() {
         setOrders((prev) => prev.map((o) => (o.id === payload.id ? { ...o, ...payload } : o)));
       } catch { /* ignore malformed payload */ }
     };
+    // Skip refetch on the very first 'open' — loadSession() already fetched
+    // the initial orders. Subsequent opens (reconnections after a network
+    // blip) need to refetch to close the gap of events missed while
+    // disconnected.
+    let hasConnectedBefore = false;
     const handleOpen = () => {
-      // Reconexión — recuperar el estado completo para cerrar gaps de eventos
-      // perdidos mientras el EventSource estaba caído.
-      if (!activeFilterRef.current) fetchOrders(null);
+      if (hasConnectedBefore && !activeFilterRef.current) fetchOrders(null);
+      hasConnectedBefore = true;
     };
 
     es.addEventListener('open', handleOpen);
