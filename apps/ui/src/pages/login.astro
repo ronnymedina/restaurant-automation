@@ -98,11 +98,11 @@ import Layout from "../layouts/Layout.astro";
 
 <script>
   import { config } from '../config';
-  import { setTokens, isAuthenticated, setRestaurantTimezone } from '../lib/auth';
+  import { isAuthenticated, setRestaurantTimezone } from '../lib/auth';
   import { getErrorMessage } from '../lib/error-messages';
 
   // Redirect if already authenticated
-  if (isAuthenticated()) {
+  if (await isAuthenticated()) {
     window.location.href = '/dash';
   }
 
@@ -144,6 +144,7 @@ import Layout from "../layouts/Layout.astro";
     try {
       const response = await fetch(`${API_URL}/v1/auth/login`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
@@ -159,7 +160,6 @@ import Layout from "../layouts/Layout.astro";
       }
 
       const result = await response.json();
-      setTokens(result.accessToken, result.refreshToken);
       setRestaurantTimezone(result.timezone ?? 'UTC');
       window.location.href = '/dash';
     } catch (error) {
