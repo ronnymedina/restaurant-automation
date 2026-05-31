@@ -2,9 +2,16 @@
 
 **Fecha:** 2026-05-25
 **Módulos afectados:** `restaurants` (backend), `dash/settings` (UI)
-**Estado:** Pendiente revisión
+**Estado:** ⚠️ **Superseded** por [`2026-05-31-restaurant-settings-update-design.md`](./2026-05-31-restaurant-settings-update-design.md)
 **Tipo:** Feature spec (no implementación)
 **Autor:** Audit follow-up + UX request
+
+> **Nota (2026-05-31):** Este spec nunca se implementó. El diseño de reemplazo
+> simplifica el endpoint (un único `PATCH /settings` que incluye `name` y elimina
+> `PATCH /name`), bloquea `country` como read-only, deriva `thousandsSeparator`
+> del decimal, y liga la validación de `timezone` al `country` actual vía
+> `countries-and-timezones`. Las preguntas abiertas de este documento sobre
+> editar `name` y validar `currency↔country` quedan resueltas en el nuevo spec.
 
 ---
 
