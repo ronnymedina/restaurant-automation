@@ -87,7 +87,7 @@ export default function OrderCard({
           {(order.items ?? []).map((item) => (
             <div key={item.id}>
               <p className="text-sm text-slate-700">
-                <span className="font-medium">{item.quantity}x</span> {item.product?.name ?? '?'}
+                <span className="font-medium">{item.quantity}x</span> {item.product?.name ?? item.productName ?? '?'}
               </p>
               {item.notes && (
                 <p className="text-xs italic text-amber-600 ml-5">{item.notes}</p>

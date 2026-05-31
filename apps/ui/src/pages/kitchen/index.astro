@@ -145,7 +145,20 @@ import KitchenConfirmModal from '../../components/kitchen/KitchenConfirmModal';
   const tabCreatedBadge = document.getElementById('tabCreatedBadge')!;
   const tabProcessingBadge = document.getElementById('tabProcessingBadge')!;
 
-  const ordersMap = new Map<string, any>();
+  // ── Tipos del payload SSE (espejo de KitchenOrderPayload del backend) ──
+  // Audit H-AUX-02. Si modificás esto, sincronizá:
+  //   apps/api-core/src/events/payloads/order-event-payloads.ts
+
+  type KitchenOrderItem = { quantity: number; notes: string | null; productName: string };
+  type KitchenOrder = {
+    id: string;
+    orderNumber: number;
+    status: 'CREATED' | 'CONFIRMED' | 'PROCESSING' | 'SERVED' | 'COMPLETED' | 'CANCELLED';
+    displayTime: string;
+    items: KitchenOrderItem[];
+  };
+
+  const ordersMap = new Map<string, KitchenOrder>();
 
   // ── Tab switching ─────────────────────────────────────────────────
 
@@ -338,20 +351,23 @@ import KitchenConfirmModal from '../../components/kitchen/KitchenConfirmModal';
     });
   }
 
-  // ── Load orders ───────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────
+  // ordersMap es la fuente de verdad. loadOrders() (montaje/reconexión)
+  // y el listener SSE (patch local, H-AUX-02) actualizan el map; nadie
+  // pinta sin pasar por renderColumns().
 
-  async function loadOrders() {
-    const res = await kitchenFetch(`/v1/kitchen/${slug}/orders`).catch(() => null);
-    if (!res || !res.ok) return;
-
-    const orders: any[] = await res.json();
-
-    // Keep ordersMap in sync for the confirm modal
-    ordersMap.clear();
-    orders.forEach((o) => ordersMap.set(o.id, o));
-
-    const created = orders.filter((o) => o.status === 'CONFIRMED');
-    const processing = orders.filter((o) => o.status === 'PROCESSING');
+  function renderColumns() {
+    const created: KitchenOrder[] = [];
+    const processing: KitchenOrder[] = [];
+    for (const o of ordersMap.values()) {
+      if (o.status === 'CONFIRMED') created.push(o);
+      else if (o.status === 'PROCESSING') processing.push(o);
+    }
+    // FIFO: orderNumber asc dentro del mismo turno equivale a createdAt asc.
+    const byOrderNumberAsc = (a: KitchenOrder, b: KitchenOrder) =>
+      (a.orderNumber ?? 0) - (b.orderNumber ?? 0);
+    created.sort(byOrderNumberAsc);
+    processing.sort(byOrderNumberAsc);
 
     countCreated.textContent = String(created.length);
     countProcessing.textContent = String(processing.length);
@@ -367,6 +383,17 @@ import KitchenConfirmModal from '../../components/kitchen/KitchenConfirmModal';
 
     bindCardEvents(colCreated);
     bindCardEvents(colProcessing);
+  }
+
+  // ── Load orders ───────────────────────────────────────────────────
+
+  async function loadOrders() {
+    const res = await kitchenFetch(`/v1/kitchen/${slug}/orders`).catch(() => null);
+    if (!res || !res.ok) return;
+    const orders: KitchenOrder[] = await res.json();
+    ordersMap.clear();
+    orders.forEach((o) => ordersMap.set(o.id, o));
+    renderColumns();
   }
 
   // ── SSE ───────────────────────────────────────────────────────────
@@ -392,11 +419,26 @@ import KitchenConfirmModal from '../../components/kitchen/KitchenConfirmModal';
     },
     onerror() { setOffline(); /* allow library to retry */ },
     onmessage(msg) {
-      if (msg.event === ORDER_EVENTS.NEW || msg.event === ORDER_EVENTS.UPDATED) loadOrders();
+      if (msg.event !== ORDER_EVENTS.NEW && msg.event !== ORDER_EVENTS.UPDATED) return;
+      try {
+        const payload = JSON.parse(msg.data) as KitchenOrder;
+        if (!payload?.id) return;
+        // H-AUX-02: solo CONFIRMED/PROCESSING viven en cocina; cualquier otro
+        // status (SERVED/COMPLETED/CANCELLED/CREATED) se traduce en remover.
+        if (payload.status === 'CONFIRMED' || payload.status === 'PROCESSING') {
+          ordersMap.set(payload.id, payload);
+        } else {
+          ordersMap.delete(payload.id);
+        }
+        renderColumns();
+      } catch { /* ignore malformed payload */ }
     },
   }).catch(() => setOffline());
 
-  // Reload after confirmation modal confirms a SERVED transition
-  window.addEventListener('kitchen:order-updated', () => loadOrders());
-  loadOrders();
+  // Remove confirmed order from local map when KitchenConfirmModal reports SERVED
+  window.addEventListener('kitchen:order-updated', ((ev: CustomEvent) => {
+    const orderId = ev?.detail?.orderId as string | undefined;
+    if (orderId) ordersMap.delete(orderId);
+    renderColumns();
+  }) as EventListener);
 </script>

@@ -20,6 +20,11 @@ import { TimezoneService } from '../restaurants/timezone.service';
 import { toUtcBoundary } from '../common/date.utils';
 import { CashShiftRepository } from '../cash-shift/cash-shift.repository';
 import { OrderStateMachine } from './order-state-machine';
+import {
+  OrderCreatedPayload,
+  OrderUpdatedPayload,
+  KitchenOrderPayload,
+} from '../events/payloads/order-event-payloads';
 
 type OrderItemEntry = {
   productId: string;
@@ -82,7 +87,8 @@ export class OrdersService {
       );
     });
 
-    this.orderEventsService.emitOrderCreated(restaurantId, order);
+    const { dashboard, kitchen } = await this.buildOrderCreatedPayloads(restaurantId, order);
+    this.orderEventsService.emitOrderCreated(restaurantId, dashboard, kitchen);
 
     void this.printService.printKitchenTicket(order.id).catch((err) =>
       this.logger.warn(`Kitchen print failed for order #${order.orderNumber}: ${err.message}`),
@@ -148,7 +154,8 @@ export class OrdersService {
     }
 
     const updated = await this.orderRepository.updateStatus(id, newStatus);
-    this.orderEventsService.emitOrderUpdated(restaurantId, updated);
+    const { dashboard, kitchen } = await this.buildOrderUpdatedPayloads(restaurantId, updated);
+    this.orderEventsService.emitOrderUpdated(restaurantId, dashboard, kitchen);
     return updated;
   }
 
@@ -158,7 +165,8 @@ export class OrdersService {
     OrderStateMachine.assertCanCancel(order.status, order.isPaid, id);
 
     const cancelled = await this.orderRepository.cancelOrder(id, reason);
-    this.orderEventsService.emitOrderUpdated(restaurantId, cancelled);
+    const { dashboard, kitchen } = await this.buildOrderUpdatedPayloads(restaurantId, cancelled);
+    this.orderEventsService.emitOrderUpdated(restaurantId, dashboard, kitchen);
     return cancelled;
   }
 
@@ -208,7 +216,8 @@ export class OrdersService {
     const updated = await this.orderRepository.findById(id);
     if (!updated) throw new OrderNotFoundException(id);
 
-    this.orderEventsService.emitOrderUpdated(restaurantId, updated);
+    const { dashboard, kitchen } = await this.buildOrderUpdatedPayloads(restaurantId, updated);
+    this.orderEventsService.emitOrderUpdated(restaurantId, dashboard, kitchen);
     return updated;
   }
 
@@ -258,7 +267,8 @@ export class OrdersService {
     const updated = await this.orderRepository.findById(id);
     if (!updated) throw new OrderNotFoundException(id);
 
-    this.orderEventsService.emitOrderUpdated(restaurantId, updated);
+    const { dashboard, kitchen } = await this.buildOrderUpdatedPayloads(restaurantId, updated);
+    this.orderEventsService.emitOrderUpdated(restaurantId, dashboard, kitchen);
     return updated;
   }
 
@@ -268,7 +278,8 @@ export class OrdersService {
       throw new InvalidStatusTransitionException(order.status, OrderStatus.CONFIRMED);
     }
     const updated = await this.orderRepository.updateStatus(id, OrderStatus.CONFIRMED);
-    this.orderEventsService.emitOrderUpdated(restaurantId, updated);
+    const { dashboard, kitchen } = await this.buildOrderUpdatedPayloads(restaurantId, updated);
+    this.orderEventsService.emitOrderUpdated(restaurantId, dashboard, kitchen);
     return updated;
   }
 
@@ -310,7 +321,8 @@ export class OrdersService {
     const updated = await this.orderRepository.findById(id);
     if (!updated) throw new OrderNotFoundException(id);
 
-    this.orderEventsService.emitOrderUpdated(restaurantId, updated);
+    const { dashboard, kitchen } = await this.buildOrderUpdatedPayloads(restaurantId, updated);
+    this.orderEventsService.emitOrderUpdated(restaurantId, dashboard, kitchen);
     return updated;
   }
 
@@ -427,5 +439,110 @@ export class OrdersService {
       },
       tx,
     );
+  }
+
+  /**
+   * Builder para `order:new` — payload completo dashboard + payload completo cocina.
+   * Audit H-AUX-02.
+   */
+  private async buildOrderCreatedPayloads(
+    restaurantId: string,
+    order: { id: string; orderNumber: number; status: OrderStatus; isPaid: boolean;
+             totalAmount: number; paymentMethod: PaymentMethod | null;
+             cancellationReason: string | null;
+             customerEmail: string | null; customerPhone: string | null;
+             deliveryAddress: string | null; deliveryReferences: string | null;
+             orderSource: string; orderType: string; createdAt: Date;
+             items: Array<{ id: string; quantity: number; notes: string | null;
+                            product?: { name: string } | null;
+                            productName?: string }>; },
+  ): Promise<{ dashboard: OrderCreatedPayload; kitchen: KitchenOrderPayload }> {
+    const tz = await this.timezoneService.getTimezone(restaurantId);
+    const displayTime = formatDisplayTime(order.createdAt, tz);
+    const dashboardItems = order.items.map((i) => ({
+      id: i.id,
+      quantity: i.quantity,
+      notes: i.notes,
+      productName: i.product?.name ?? i.productName ?? '',
+    }));
+    const kitchenItems = order.items.map((i) => ({
+      quantity: i.quantity,
+      notes: i.notes,
+      productName: i.product?.name ?? i.productName ?? '',
+    }));
+    return {
+      dashboard: {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        isPaid: order.isPaid,
+        totalAmount: order.totalAmount,
+        paymentMethod: order.paymentMethod,
+        cancellationReason: order.cancellationReason,
+        customerEmail: order.customerEmail,
+        customerPhone: order.customerPhone,
+        deliveryAddress: order.deliveryAddress,
+        deliveryReferences: order.deliveryReferences,
+        orderSource: order.orderSource,
+        orderType: order.orderType,
+        displayTime,
+        items: dashboardItems,
+      },
+      kitchen: {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        displayTime,
+        items: kitchenItems,
+      },
+    };
+  }
+
+  /**
+   * Builder para `order:updated` — delta dashboard + payload completo cocina.
+   * Audit H-AUX-02.
+   */
+  private async buildOrderUpdatedPayloads(
+    restaurantId: string,
+    order: { id: string; orderNumber: number; status: OrderStatus; isPaid: boolean;
+             paymentMethod: PaymentMethod | null; cancellationReason: string | null;
+             createdAt: Date;
+             items: Array<{ quantity: number; notes: string | null;
+                            product?: { name: string } | null;
+                            productName?: string }>; },
+  ): Promise<{ dashboard: OrderUpdatedPayload; kitchen: KitchenOrderPayload }> {
+    const tz = await this.timezoneService.getTimezone(restaurantId);
+    return {
+      dashboard: {
+        id: order.id,
+        status: order.status,
+        isPaid: order.isPaid,
+        paymentMethod: order.paymentMethod,
+        cancellationReason: order.cancellationReason,
+      },
+      kitchen: {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        displayTime: formatDisplayTime(order.createdAt, tz),
+        items: order.items.map((i) => ({
+          quantity: i.quantity,
+          notes: i.notes,
+          productName: i.product?.name ?? i.productName ?? '',
+        })),
+      },
+    };
+  }
+}
+
+function formatDisplayTime(createdAt: Date | string, timezone: string): string {
+  try {
+    return new Intl.DateTimeFormat('es', {
+      timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(new Date(createdAt));
+  } catch {
+    return new Intl.DateTimeFormat('es', {
+      timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(new Date(createdAt));
   }
 }

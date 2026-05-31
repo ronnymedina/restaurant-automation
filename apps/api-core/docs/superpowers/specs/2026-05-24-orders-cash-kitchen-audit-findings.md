@@ -40,7 +40,7 @@ Cada hallazgo trae ID estable (`H-XX`) para referenciarse en discusión, severid
 - ✅ H-04 implementado (2026-05-30) — migración a cookies httpOnly + `sameSite` para el dashboard (access/refresh), `CsrfOriginGuard` global por `Origin`/`Referer`, SSE del dashboard con `withCredentials: true`, cocina migrada a header `X-Kitchen-Token` (REST + SSE via `@microsoft/fetch-event-source`). Ver `docs/superpowers/specs/2026-05-30-cookie-httponly-auth-migration-design.md` y plan `docs/superpowers/plans/2026-05-30-cookie-httponly-auth-migration.md`.
 - ❌ H-19 descartado (2026-05-28) — el módulo de recibo del dashboard se borró completamente en H-03 (dead code + XSS cleanup). No hay código que arreglar.
 - ➕ Hallazgo adicional descubierto y arreglado: contrato roto entre backend `/cash-register/summary` y frontend `RegisterHistoryIsland`. Ver sección "Hallazgos adicionales".
-- ➕ Hallazgo adicional descubierto (2026-05-28): patrón SSE → full refetch en dashboard y cocina. N eventos = N refetches completos. Ver H-AUX-02 en "Hallazgos adicionales".
+- ✅ H-AUX-02 implementado (2026-05-31) — backend emite payloads SSE tipados y mínimos (`OrderCreatedPayload`/`OrderUpdatedPayload` para dashboard; `KitchenOrderPayload` para cocina). Clientes aplican patch local (merge en dashboard updated, set/delete en cocina). Refetch sobrevive solo en montaje/reconexión. Ver plan `docs/superpowers/plans/2026-05-31-sse-payload-incremental-updates.md`.
 - ✅ H-10, H-16, H-17, H-18, H-20 implementados (2026-05-28) — batch 3 ALTOS: `closedBy` requerido en `closeSession`, clase `OrderStateMachine` centraliza transiciones, SSE no reconecta en filter change, doble submit bloqueado en OrderCard (con propagación a Kanban + FilteredList), multi-tenant invariant documentada. Ver plan `2026-05-28-orders-cashshift-kitchen-altos-plan.md`.
 - ✅ H-21, H-22 (completo), H-23, H-25, H-26, H-27, H-28, H-29, H-30, H-31, H-32, H-33, H-34, H-35, H-36, H-37, H-38 implementados (2026-05-29) — batch de MEDIOS dividido en 4 commits independientes. Ver plan `2026-05-29-orders-cashshift-kitchen-medios-plan.md`.
 - 🔄 H-24 documentado como decisión consciente (2026-05-29). Se mantiene `409 NO_OPEN_CASH_REGISTER` en `listOrders` por diseño del dashboard; órdenes huérfanas son visibles vía `/orders/history`.
@@ -94,7 +94,19 @@ Documentación: `cash-register.module.info.md` reescrito con el nuevo contrato.
 
 **Categoría:** rendimiento · arquitectura SSE
 **Severidad:** 🟠 ALTO (degradación a escala — un kiosk con tráfico pico dispara N×fetch en el dashboard y cocina)
-**Estado:** ⏳ Pendiente
+**Estado:** ✅ Implementado (2026-05-31)
+**Plan asociado:** `docs/superpowers/plans/2026-05-31-sse-payload-incremental-updates.md`
+**Resumen del fix:**
+- `SseService.streamFor*` preserva el `data` del evento (antes mapeaba a `{}`).
+- `OrderEventsService` reescrito con métodos tipados: `emitOrderCreated(rid, OrderCreatedPayload, KitchenOrderPayload)` y `emitOrderUpdated(rid, OrderUpdatedPayload, KitchenOrderPayload)`.
+- `OrdersService.buildOrderCreatedPayloads()` y `buildOrderUpdatedPayloads()` construyen los 3 shapes (dashboard NEW completo, dashboard UPDATED delta, kitchen completo) en cada transición. Llamados desde 7 call sites.
+- Test de contrato `order-event-payloads.spec.ts`: lista canónica de keys de cada interface, valida runtime vs declaración para impedir drift.
+- Dashboard (`OrdersPanel.tsx`): `setOrders` con prepend en NEW + merge `{...existing, ...delta}` en UPDATED. Refetch solo en montaje y `onopen` (reconexión, con guarda para no doble-fetchear en la conexión inicial). Tipos en `apps/ui/src/lib/sse-payloads.ts`. `Order.cashShiftId` y `Order.createdAt` ahora son opcionales (no los expone el SSE, no los consume el render).
+- Cocina (`kitchen/index.astro`): `ordersMap` como source-of-truth tipado `Map<string, KitchenOrder>`; SSE muta el map (`set` si CONFIRMED/PROCESSING, `delete` en otro caso). `renderColumns()` pinta desde el map, sort por `orderNumber` asc. Tipos `KitchenOrder` inline en el `<script>` Astro.
+- `KitchenConfirmModal` ahora dispatchea `CustomEvent('kitchen:order-updated', { detail: { orderId } })` para que el listener cocinero pueda hacer `ordersMap.delete(orderId)` sin esperar al SSE.
+- Tamaño de payload: `order:updated` dashboard ~100b (vs ~600b del OrderSerializer completo, -83%); `order:new` dashboard ~250b (-58%); kitchen ~140b en ambos eventos.
+- Trade-off conocido: si se pierde un evento (red flaky), el cliente queda desincronizado hasta el próximo `onopen`. Heartbeat con timestamp queda como mejora futura fuera de scope.
+- Follow-up conocido: en la cocina, el botón "EN PROCESO →" sigue haciendo `loadOrders()` directo tras el PATCH exitoso (coherente con el patrón del dashboard, pero podría reemplazarse por confianza en el SSE). Optimización fuera del scope original.
 
 **Descripción:** El backend emite eventos SSE con **payload vacío** (`{}`), y los dos clientes que escuchan (dashboard + cocina) usan cada evento como señal de "algo cambió" y disparan un fetch REST completo de la lista de órdenes. No hay reconciliación local con el delta.
 

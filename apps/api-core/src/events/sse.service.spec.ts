@@ -17,22 +17,24 @@ describe('SseService', () => {
   afterEach(() => module.close());
 
   describe('emitToRestaurant', () => {
-    it('emits to restaurant$ subject', async () => {
+    it('emits payload data to restaurant$ subject', async () => {
       const promise = firstValueFrom(service.streamForRestaurant('r1'));
-      service.emitToRestaurant('r1', 'order:new', { orderId: 'o1' });
+      const payload = { id: 'o1', status: 'CONFIRMED' };
+      service.emitToRestaurant('r1', 'order:new', payload);
       const msg = await promise;
       expect(msg.type).toBe('order:new');
-      expect(msg.data).toEqual({});
+      expect(msg.data).toEqual(payload);
     });
   });
 
   describe('emitToKitchen', () => {
-    it('emits to kitchen$ subject', async () => {
+    it('emits payload data to kitchen$ subject', async () => {
       const promise = firstValueFrom(service.streamForKitchen('r1'));
-      service.emitToKitchen('r1', 'order:new', { orderId: 'o1' });
+      const payload = { id: 'o1', orderNumber: 7 };
+      service.emitToKitchen('r1', 'order:new', payload);
       const msg = await promise;
       expect(msg.type).toBe('order:new');
-      expect(msg.data).toEqual({});
+      expect(msg.data).toEqual(payload);
     });
   });
 
