@@ -318,7 +318,8 @@ test('H-AUX-02: order:new prepends new order without calling getOrders again', a
   // Clear the mock so we can assert it's NOT called again
   mockGetOrders.mockClear();
 
-  // Dispatch order:new SSE event with a full OrderCreatedPayload
+  // Dispatch order:new SSE event with a full OrderCreatedPayload including an item
+  // that uses the flat productName field (as the SSE payload provides it).
   const newPayload = JSON.stringify({
     id: 'o99',
     orderNumber: 99,
@@ -334,12 +335,15 @@ test('H-AUX-02: order:new prepends new order without calling getOrders again', a
     orderSource: 'KIOSK',
     orderType: 'DINE_IN',
     displayTime: '13:00',
-    items: [],
+    items: [{ id: 'i1', quantity: 1, notes: null, productName: 'Café especial' }],
   });
   capturedHandlers['order:new']?.({ data: newPayload } as MessageEvent);
 
   // Verify the new order appears
   await waitFor(() => expect(screen.getByText(/#99/)).toBeInTheDocument());
+
+  // Verify the item productName is rendered (not '?' which would indicate the fallback failed)
+  await screen.findByText(/Café especial/);
 
   // Verify getOrders was NOT called again
   expect(mockGetOrders).not.toHaveBeenCalled();
