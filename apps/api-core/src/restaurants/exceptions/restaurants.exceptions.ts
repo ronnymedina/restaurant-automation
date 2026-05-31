@@ -28,3 +28,17 @@ export class RestaurantNotFoundException extends BaseException {
     );
   }
 }
+
+/**
+ * Thrown when a timezone is not available for a country.
+ */
+export class TimezoneNotAvailableForCountryException extends BaseException {
+  constructor(timezone: string, country: string) {
+    super(
+      `La zona horaria '${timezone}' no está disponible para el país '${country}'`,
+      HttpStatus.BAD_REQUEST,
+      'TIMEZONE_NOT_AVAILABLE_FOR_COUNTRY',
+      { timezone, country },
+    );
+  }
+}
