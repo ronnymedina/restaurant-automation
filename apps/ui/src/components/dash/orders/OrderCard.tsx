@@ -49,7 +49,7 @@ const ORDER_TYPE_LABELS: Record<string, string> = {
 export interface OrderCardCallbacks {
   onConfirm: (id: string) => void;
   onAdvance: (id: string, nextStatus: string) => void;
-  onPay: (id: string, paymentMethod?: string) => void;
+  onPay: (id: string, paymentMethod: string) => void;
   onUnpay: (id: string) => void;
   onCancel: (id: string) => void;
   onCancelBlocked: (id: string) => void;
@@ -71,7 +71,6 @@ export default function OrderCard({
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [paymentError, setPaymentError] = useState(false);
   const hasCustomerData = order.customerEmail || order.customerPhone || order.deliveryAddress;
-  const hasPaymentMethod = !!(order.paymentMethod || selectedPaymentMethod);
   const isBusy = inFlightIds.has(order.id);
   const { data: settings } = useRestaurantSettings();
 
@@ -164,13 +163,11 @@ export default function OrderCard({
               disabled={isBusy}
               onClick={() => {
                 if (order.status === 'CREATED') onConfirm(order.id);
-                else if (order.status === 'CONFIRMED') {
-                  if (!hasPaymentMethod) { setPaymentError(true); return; }
-                  onAdvance(order.id, 'PROCESSING');
-                } else if (order.status === 'PROCESSING') onAdvance(order.id, 'SERVED');
+                else if (order.status === 'CONFIRMED') onAdvance(order.id, 'PROCESSING');
+                else if (order.status === 'PROCESSING') onAdvance(order.id, 'SERVED');
                 else if (order.status === 'SERVED' && !order.isPaid) {
-                  if (!hasPaymentMethod) { setPaymentError(true); return; }
-                  onPay(order.id, selectedPaymentMethod || undefined);
+                  if (!selectedPaymentMethod) { setPaymentError(true); return; }
+                  onPay(order.id, selectedPaymentMethod);
                 } else if (order.status === 'SERVED' && order.isPaid) onAdvance(order.id, 'COMPLETED');
               }}
               className={`w-full py-2 text-sm font-bold text-white rounded-lg cursor-pointer border-none disabled:opacity-60 disabled:cursor-not-allowed ${PRIMARY_CONFIGS[order.status]?.color ?? ''}`}
@@ -185,8 +182,8 @@ export default function OrderCard({
                   type="button"
                   disabled={isBusy}
                   onClick={() => {
-                    if (!hasPaymentMethod) { setPaymentError(true); return; }
-                    onPay(order.id, selectedPaymentMethod || undefined);
+                    if (!selectedPaymentMethod) { setPaymentError(true); return; }
+                    onPay(order.id, selectedPaymentMethod);
                   }}
                   className="flex-1 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md cursor-pointer text-green-600 hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
