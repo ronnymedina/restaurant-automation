@@ -156,7 +156,7 @@ export default function OrdersPanel() {
     });
   }
 
-  async function handlePay(id: string, paymentMethod?: string) {
+  async function handlePay(id: string, paymentMethod: string) {
     await withInFlight(id, async () => {
       if (!session) return;
       const result = await markOrderPaid(id, paymentMethod);

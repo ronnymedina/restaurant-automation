@@ -83,7 +83,7 @@
 | `GET` | `/v1/orders/:id` | ADMIN, MANAGER, BASIC | `OrderWithItemsDto` | Obtener orden por ID con items |
 | `POST` | `/v1/orders` | ADMIN, MANAGER | `{ order, receipt, kitchenTicket }` (201) | Crear pedido desde el dashboard (orderSource: STAFF) |
 | `PATCH` | `/v1/orders/:id/status` | ADMIN, MANAGER | `OrderDto` | Avanzar estado de la orden |
-| `PATCH` | `/v1/orders/:id/pay` | ADMIN, MANAGER | `OrderDto` | Marcar orden como pagada. Body opcional: `{ paymentMethod? }` |
+| `PATCH` | `/v1/orders/:id/pay` | ADMIN, MANAGER | `OrderDto` | Marcar orden como pagada. Body requerido: `{ paymentMethod }` (CASH \| CARD \| DIGITAL_WALLET) |
 | `PATCH` | `/v1/orders/:id/cancel` | ADMIN, MANAGER | `OrderDto` | Cancelar una orden |
 
 ---
@@ -197,6 +197,8 @@ E2E: ✅ `test/orders/markOrderAsPaid.e2e-spec.ts`
 | BASIC intenta marcar | 403 | Solo ADMIN o MANAGER |
 | ADMIN marca como pagada | 200 | Retorna `OrderDto` con `isPaid = true` |
 | MANAGER marca como pagada | 200 | Retorna `OrderDto` con `isPaid = true` |
+| Sin `paymentMethod` en body | 400 | Requerido — class-validator rechaza |
+| `paymentMethod` inválido | 400 | `@IsEnum(PaymentMethod)` rechaza valores fuera del enum |
 | Marcar segunda vez | 200 | Idempotente — `isPaid` sigue en `true` |
 | Orden no existe | 404 | `ORDER_NOT_FOUND` |
 | Orden de otro restaurante | 404 | Aislamiento |

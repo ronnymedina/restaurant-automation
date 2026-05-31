@@ -90,10 +90,10 @@ export async function updateOrderStatus(id: string, status: string): Promise<Api
   return { ok: true, data: await res.json() };
 }
 
-export async function markOrderPaid(id: string, paymentMethod?: string): Promise<ApiResult<Order>> {
+export async function markOrderPaid(id: string, paymentMethod: string): Promise<ApiResult<Order>> {
   const res = await apiFetch(`/v1/orders/${id}/pay`, {
     method: 'PATCH',
-    ...(paymentMethod ? { body: JSON.stringify({ paymentMethod }) } : {}),
+    body: JSON.stringify({ paymentMethod }),
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
