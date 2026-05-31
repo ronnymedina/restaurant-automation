@@ -53,6 +53,60 @@ Las variables marcadas como **Required: `true`** deben estar presentes al inicia
 
 ---
 
+### AUTH / COOKIES (H-04)
+
+Tras la migración H-04, los tokens JWT (access y refresh) viajan como **cookies httpOnly** seteadas por el backend. Estas variables controlan el comportamiento de las cookies y CORS.
+
+* **COOKIE_DOMAIN**: Atributo `Domain` de las cookies `access_token` y `refresh_token`.
+  - Default: `""` (vacío — las cookies quedan ligadas al host exacto)
+  - Required: `false`
+  - **Producción**: `.daikulab.com` para compartir cookies entre `resapp.*` y `resapi.*`.
+  - **Desarrollo local**: dejar vacío.
+
+* **COOKIE_SECURE**: Marca el flag `Secure` en las cookies (solo se envían sobre HTTPS).
+  - Default: `true`
+  - Required: `false`
+  - **Desarrollo local (HTTP)**: `false`. En cualquier entorno con HTTPS dejar en `true`.
+
+* **COOKIE_ACCESS_MAX_AGE**: `max-age` de la cookie `access_token` en milisegundos.
+  - Default: `900000` (15 min)
+  - Required: `false`
+  - Debe alinearse con `JWT_ACCESS_EXPIRATION`.
+
+* **COOKIE_REFRESH_MAX_AGE**: `max-age` de la cookie `refresh_token` en milisegundos.
+  - Default: `604800000` (7 días)
+  - Required: `false`
+  - Debe alinearse con `JWT_REFRESH_EXPIRATION`.
+
+* **CORS_ORIGIN**: Lista separada por comas de orígenes permitidos para enviar requests credenciadas (`credentials: 'include'`).
+  - Default: cae a `FRONTEND_URL` si no está definido.
+  - Required: `false`
+  - Usado por `enableCors` y por el guard global `CsrfOriginGuard`.
+  - **Producción**: `https://resapp.daikulab.com`
+  - **Desarrollo local**: `http://localhost:4321`
+
+#### Ejemplo — producción
+
+```
+COOKIE_DOMAIN=.daikulab.com
+COOKIE_SECURE=true
+COOKIE_ACCESS_MAX_AGE=900000
+COOKIE_REFRESH_MAX_AGE=604800000
+CORS_ORIGIN=https://resapp.daikulab.com
+```
+
+#### Ejemplo — desarrollo local
+
+```
+COOKIE_DOMAIN=
+COOKIE_SECURE=false
+COOKIE_ACCESS_MAX_AGE=900000
+COOKIE_REFRESH_MAX_AGE=604800000
+CORS_ORIGIN=http://localhost:4321
+```
+
+---
+
 ### USUARIOS / EMAIL
 
 * **BCRYPT_SALT_ROUNDS**: Costo de hashing para contraseñas.

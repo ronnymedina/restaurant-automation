@@ -4,6 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 import {
   bootstrapApp, seedRestaurant, login,
   seedProduct, openCashShift, seedOrder,
@@ -50,7 +51,8 @@ describe('GET /v1/orders/:id - findOneOrder (e2e)', () => {
   it('ADMIN puede obtener la orden → 200', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/orders/${orderId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.id).toBe(orderId);
@@ -59,21 +61,24 @@ describe('GET /v1/orders/:id - findOneOrder (e2e)', () => {
   it('MANAGER puede obtener la orden → 200', async () => {
     await request(app.getHttpServer())
       .get(`/v1/orders/${orderId}`)
-      .set('Authorization', `Bearer ${managerToken}`)
+      .set('Cookie', managerToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
   });
 
   it('BASIC puede obtener la orden → 200', async () => {
     await request(app.getHttpServer())
       .get(`/v1/orders/${orderId}`)
-      .set('Authorization', `Bearer ${basicToken}`)
+      .set('Cookie', basicToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
   });
 
   it('Respuesta incluye items[]', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/orders/${orderId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(Array.isArray(res.body.items)).toBe(true);
@@ -83,7 +88,8 @@ describe('GET /v1/orders/:id - findOneOrder (e2e)', () => {
   it('Orden de otro restaurante → 404', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/orders/${orderIdFromB}`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
 
     expect(res.body.code).toBe('ORDER_NOT_FOUND');
@@ -92,7 +98,8 @@ describe('GET /v1/orders/:id - findOneOrder (e2e)', () => {
   it('Orden inexistente → 404', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders/non-existent-id')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
 
     expect(res.body.code).toBe('ORDER_NOT_FOUND');

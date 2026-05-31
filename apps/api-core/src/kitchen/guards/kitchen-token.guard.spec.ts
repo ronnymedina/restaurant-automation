@@ -19,59 +19,56 @@ describe('KitchenTokenGuard', () => {
     guard = new KitchenTokenGuard(restaurantsService as any, tokenService);
   });
 
-  it('accepts a valid token via X-Kitchen-Token header', async () => {
+  it('accepts X-Kitchen-Token header', async () => {
     const { plainToken, tokenHash } = tokenService.generate();
-    restaurantsService.findBySlugWithSettings.mockResolvedValue({
-      id: 'r1',
-      settings: { kitchenTokenHash: tokenHash, kitchenTokenExpiresAt: null },
-    });
-    const req: any = { params: { slug: 'mi-rest' }, query: {}, headers: { 'x-kitchen-token': plainToken } };
-
-    expect(await guard.canActivate(buildContext(req))).toBe(true);
-    expect(req[KITCHEN_RESTAURANT_KEY]).toBeTruthy();
-  });
-
-  it('accepts a valid token via query string (legacy)', async () => {
-    const { plainToken, tokenHash } = tokenService.generate();
-    restaurantsService.findBySlugWithSettings.mockResolvedValue({
-      id: 'r1',
-      settings: { kitchenTokenHash: tokenHash, kitchenTokenExpiresAt: null },
-    });
-    const req: any = { params: { slug: 'mi-rest' }, query: { token: plainToken }, headers: {} };
-
-    expect(await guard.canActivate(buildContext(req))).toBe(true);
-  });
-
-  it('header takes precedence over query', async () => {
-    const { plainToken: correct, tokenHash } = tokenService.generate();
     restaurantsService.findBySlugWithSettings.mockResolvedValue({
       id: 'r1',
       settings: { kitchenTokenHash: tokenHash, kitchenTokenExpiresAt: null },
     });
     const req: any = {
       params: { slug: 'mi-rest' },
-      query: { token: 'wrong' },
-      headers: { 'x-kitchen-token': correct },
+      query: {},
+      headers: { 'x-kitchen-token': plainToken },
     };
 
     expect(await guard.canActivate(buildContext(req))).toBe(true);
+    expect(req[KITCHEN_RESTAURANT_KEY]).toBeTruthy();
   });
 
-  it('rejects when no token in header or query', async () => {
+  it('rejects when the kitchen token is only present in ?token= query', async () => {
+    const { plainToken, tokenHash } = tokenService.generate();
+    restaurantsService.findBySlugWithSettings.mockResolvedValue({
+      id: 'r1',
+      settings: { kitchenTokenHash: tokenHash, kitchenTokenExpiresAt: null },
+    });
+    const req: any = {
+      params: { slug: 'mi-rest' },
+      query: { token: plainToken },
+      headers: {},
+    };
+
+    await expect(guard.canActivate(buildContext(req))).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('rejects when no token in header', async () => {
     const req: any = { params: { slug: 'mi-rest' }, query: {}, headers: {} };
     await expect(guard.canActivate(buildContext(req))).rejects.toThrow(UnauthorizedException);
   });
 
   it('rejects when slug missing', async () => {
-    const req: any = { params: {}, query: { token: 'x' }, headers: {} };
+    const req: any = {
+      params: {},
+      query: {},
+      headers: { 'x-kitchen-token': 'x' },
+    };
     await expect(guard.canActivate(buildContext(req))).rejects.toThrow(UnauthorizedException);
   });
 
   it('rejects token longer than MAX_TOKEN_LENGTH without calling restaurantsService', async () => {
     const req: any = {
       params: { slug: 'mi-rest' },
-      query: { token: 'a'.repeat(2000) },
-      headers: {},
+      query: {},
+      headers: { 'x-kitchen-token': 'a'.repeat(2000) },
     };
     await expect(guard.canActivate(buildContext(req))).rejects.toThrow(UnauthorizedException);
     expect(restaurantsService.findBySlugWithSettings).not.toHaveBeenCalled();
@@ -82,7 +79,11 @@ describe('KitchenTokenGuard', () => {
       id: 'r1',
       settings: { kitchenTokenHash: null },
     });
-    const req: any = { params: { slug: 'mi-rest' }, query: { token: 'x' }, headers: {} };
+    const req: any = {
+      params: { slug: 'mi-rest' },
+      query: {},
+      headers: { 'x-kitchen-token': 'x' },
+    };
     await expect(guard.canActivate(buildContext(req))).rejects.toThrow(UnauthorizedException);
   });
 
@@ -92,7 +93,11 @@ describe('KitchenTokenGuard', () => {
       id: 'r1',
       settings: { kitchenTokenHash: tokenHash, kitchenTokenExpiresAt: null },
     });
-    const req: any = { params: { slug: 'mi-rest' }, query: { token: 'wrong-token' }, headers: {} };
+    const req: any = {
+      params: { slug: 'mi-rest' },
+      query: {},
+      headers: { 'x-kitchen-token': 'wrong-token' },
+    };
     await expect(guard.canActivate(buildContext(req))).rejects.toThrow(UnauthorizedException);
   });
 
@@ -105,7 +110,11 @@ describe('KitchenTokenGuard', () => {
         kitchenTokenExpiresAt: new Date(Date.now() - 1000),
       },
     });
-    const req: any = { params: { slug: 'mi-rest' }, query: { token: plainToken }, headers: {} };
+    const req: any = {
+      params: { slug: 'mi-rest' },
+      query: {},
+      headers: { 'x-kitchen-token': plainToken },
+    };
     await expect(guard.canActivate(buildContext(req))).rejects.toThrow(UnauthorizedException);
   });
 });

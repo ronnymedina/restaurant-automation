@@ -45,18 +45,16 @@ export class KitchenTokenGuard implements CanActivate {
   }
 
   /**
-   * Extracts the kitchen token from the request. Prefers the `X-Kitchen-Token`
-   * header — new clients should send it there so the token never appears in
-   * URL, Referer, browser history, or upstream proxy logs. Falls back to the
-   * legacy `?token=` query for backwards compatibility with browser
-   * EventSource calls, which cannot send custom headers. The query path will
-   * be removed when H-04 introduces the sse-ticket mechanism.
+   * Extracts the kitchen token from the `X-Kitchen-Token` request header.
+   * The legacy `?token=` query-string fallback was removed in the H-04 cookie
+   * auth migration to keep secrets out of URLs, browser history, Referer,
+   * and upstream proxy logs. SSE callers that cannot set headers via the
+   * native EventSource API must use `fetchEventSource` from
+   * `@microsoft/fetch-event-source` instead (kitchen UI does this).
    */
   private extractToken(req: Request): string | undefined {
     const header = req.headers['x-kitchen-token'];
     if (typeof header === 'string' && header.length > 0) return header;
-    const query = req.query['token'];
-    if (typeof query === 'string' && query.length > 0) return query;
     return undefined;
   }
 }

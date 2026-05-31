@@ -1,10 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Response } from 'express';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { authConfig } from './auth.config';
+import { InvalidRefreshTokenException } from './exceptions/auth.exceptions';
 import { EmailThrottlerGuard } from './guards/email-throttler.guard';
 
-const mockTokens = { accessToken: 'access-token', refreshToken: 'refresh-token' };
 const mockProfile = {
   id: 'user-uuid-1',
   email: 'chef@restaurant.com',
@@ -19,6 +21,13 @@ const mockAuthService = {
   revokeAllTokens: jest.fn(),
 };
 
+const mockAuthConfig = {
+  cookieDomain: '',
+  cookieSecure: false,
+  cookieAccessMaxAge: 900_000,
+  cookieRefreshMaxAge: 604_800_000,
+};
+
 describe('AuthController', () => {
   let controller: AuthController;
 
@@ -27,7 +36,10 @@ describe('AuthController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: mockAuthService }],
+      providers: [
+        { provide: AuthService, useValue: mockAuthService },
+        { provide: authConfig.KEY, useValue: mockAuthConfig },
+      ],
     })
       .overrideGuard(EmailThrottlerGuard)
       .useValue({ canActivate: () => true })
@@ -37,24 +49,61 @@ describe('AuthController', () => {
   });
 
   describe('login', () => {
-    it('delegates to authService.login and returns tokens', async () => {
-      mockAuthService.login.mockResolvedValue(mockTokens);
+    const cookieMock = jest.fn();
+    const res = { cookie: cookieMock } as unknown as Response;
 
-      const result = await controller.login({ email: 'chef@restaurant.com', password: 'pass1234' });
+    beforeEach(() => {
+      cookieMock.mockReset();
+    });
 
-      expect(mockAuthService.login).toHaveBeenCalledWith('chef@restaurant.com', 'pass1234');
-      expect(result).toEqual(mockTokens);
+    it('sets access_token and refresh_token cookies and returns only timezone', async () => {
+      mockAuthService.login.mockResolvedValue({
+        accessToken: 'jwt-here',
+        refreshToken: 'refresh-uuid',
+        timezone: 'UTC',
+      });
+
+      const result = await controller.login({ email: 'e@x', password: 'pw' }, res);
+
+      expect(mockAuthService.login).toHaveBeenCalledWith('e@x', 'pw');
+      expect(result).toEqual({ timezone: 'UTC' });
+      expect(cookieMock).toHaveBeenCalledTimes(2);
+      expect(cookieMock).toHaveBeenCalledWith('access_token', 'jwt-here', expect.objectContaining({
+        httpOnly: true, sameSite: 'lax', path: '/', maxAge: 900_000,
+      }));
+      expect(cookieMock).toHaveBeenCalledWith('refresh_token', 'refresh-uuid', expect.objectContaining({
+        httpOnly: true, sameSite: 'lax', path: '/v1/auth', maxAge: 604_800_000,
+      }));
     });
   });
 
   describe('refresh', () => {
-    it('delegates to authService.refreshTokens and returns new tokens', async () => {
-      mockAuthService.refreshTokens.mockResolvedValue(mockTokens);
+    const cookieMock = jest.fn();
+    const res = { cookie: cookieMock } as unknown as Response;
 
-      const result = await controller.refresh({ refreshToken: 'old-refresh-token' });
+    beforeEach(() => {
+      cookieMock.mockReset();
+    });
 
-      expect(mockAuthService.refreshTokens).toHaveBeenCalledWith('old-refresh-token');
-      expect(result).toEqual(mockTokens);
+    it('rotates tokens using the refresh cookie and re-sets both cookies', async () => {
+      mockAuthService.refreshTokens.mockResolvedValue({
+        accessToken: 'new-jwt',
+        refreshToken: 'new-uuid',
+        timezone: 'UTC',
+      });
+      const req = { cookies: { refresh_token: 'old-uuid' } } as any;
+
+      const result = await controller.refresh(req, res);
+
+      expect(mockAuthService.refreshTokens).toHaveBeenCalledWith('old-uuid');
+      expect(result).toEqual({ timezone: 'UTC' });
+      expect(cookieMock).toHaveBeenCalledWith('access_token', 'new-jwt', expect.any(Object));
+      expect(cookieMock).toHaveBeenCalledWith('refresh_token', 'new-uuid', expect.any(Object));
+    });
+
+    it('returns 401 when refresh cookie is missing', async () => {
+      const req = { cookies: {} } as any;
+      await expect(controller.refresh(req, res)).rejects.toBeInstanceOf(InvalidRefreshTokenException);
     });
   });
 
@@ -78,14 +127,33 @@ describe('AuthController', () => {
     });
   });
 
-  describe('logout', () => {
-    it('calls revokeAllTokens and returns success message', async () => {
-      mockAuthService.revokeAllTokens.mockResolvedValue(undefined);
+  describe('AuthController.logout', () => {
+    let controller: AuthController;
+    let service: AuthService;
+    const clearMock = jest.fn();
+    const res = { clearCookie: clearMock } as unknown as Response;
 
-      const result = await controller.logout({ id: 'user-uuid-1' });
+    beforeEach(async () => {
+      clearMock.mockReset();
+      const moduleRef = await Test.createTestingModule({
+        controllers: [AuthController],
+        providers: [
+          { provide: AuthService, useValue: { revokeAllTokens: jest.fn().mockResolvedValue(undefined) } },
+          { provide: authConfig.KEY, useValue: { cookieDomain: '.daikulab.com', cookieSecure: true, cookieAccessMaxAge: 900_000, cookieRefreshMaxAge: 604_800_000 } },
+        ],
+      })
+        .overrideGuard(EmailThrottlerGuard)
+        .useValue({ canActivate: () => true })
+        .compile();
+      controller = moduleRef.get(AuthController);
+      service = moduleRef.get(AuthService);
+    });
 
-      expect(mockAuthService.revokeAllTokens).toHaveBeenCalledWith('user-uuid-1');
-      expect(result).toEqual({ message: 'Logged out successfully' });
+    it('revokes refresh tokens and clears both cookies with matching paths', async () => {
+      await controller.logout({ id: 'u1' }, res);
+      expect(service.revokeAllTokens).toHaveBeenCalledWith('u1');
+      expect(clearMock).toHaveBeenCalledWith('access_token', expect.objectContaining({ path: '/', domain: '.daikulab.com' }));
+      expect(clearMock).toHaveBeenCalledWith('refresh_token', expect.objectContaining({ path: '/v1/auth', domain: '.daikulab.com' }));
     });
   });
 });

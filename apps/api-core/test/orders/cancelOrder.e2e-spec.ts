@@ -4,6 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 import {
   bootstrapApp, seedRestaurant, login,
   seedProduct, openCashShift, seedOrder,
@@ -43,6 +44,7 @@ describe('PATCH /v1/orders/:id/cancel - cancelOrder (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/cancel`)
       .send({ reason: 'Test' })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(401);
   });
 
@@ -53,7 +55,8 @@ describe('PATCH /v1/orders/:id/cancel - cancelOrder (e2e)', () => {
 
     await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/cancel`)
-      .set('Authorization', `Bearer ${basicToken}`)
+      .set('Cookie', basicToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ reason: 'Test' })
       .expect(403);
   });
@@ -65,7 +68,8 @@ describe('PATCH /v1/orders/:id/cancel - cancelOrder (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/cancel`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ reason: 'Pedido duplicado' })
       .expect(200);
 
@@ -80,7 +84,8 @@ describe('PATCH /v1/orders/:id/cancel - cancelOrder (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/cancel`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ reason: 'Cliente cambió de opinión' })
       .expect(200);
 
@@ -94,7 +99,8 @@ describe('PATCH /v1/orders/:id/cancel - cancelOrder (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/cancel`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ reason: 'Intento de cancelación doble' })
       .expect(409);
 
@@ -108,7 +114,8 @@ describe('PATCH /v1/orders/:id/cancel - cancelOrder (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/cancel`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ reason: 'No se puede cancelar completada' })
       .expect(400);
 
@@ -122,7 +129,8 @@ describe('PATCH /v1/orders/:id/cancel - cancelOrder (e2e)', () => {
 
     await request(app.getHttpServer())
       .patch(`/v1/orders/${order.id}/cancel`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ reason: '' })
       .expect(400);
   });

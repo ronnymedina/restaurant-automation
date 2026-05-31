@@ -22,9 +22,11 @@ import * as bcrypt from 'bcryptjs';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import cookieParser from 'cookie-parser';
 
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { loginCookie, ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -43,6 +45,7 @@ async function bootstrapApp(): Promise<{ app: INestApplication<App>; prisma: Pri
   }).compile();
 
   const app = moduleFixture.createNestApplication<INestApplication<App>>();
+  app.use(cookieParser());
   app.enableVersioning({ type: VersioningType.URI });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
@@ -97,14 +100,8 @@ async function seedRestaurant(prisma: PrismaService, suffix: string) {
 }
 
 async function login(app: INestApplication<App>, email: string): Promise<string> {
-  const res = await request(app.getHttpServer())
-    .post('/v1/auth/login')
-    .send({ email, password: 'Admin1234!' })
-    .expect((r) => {
-      if (r.status !== 200 && r.status !== 201)
-        throw new Error(`Login failed: ${r.status} ${JSON.stringify(r.body)}`);
-    });
-  return res.body.accessToken as string;
+  const { accessCookie } = await loginCookie(app, email);
+  return accessCookie;
 }
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
@@ -143,6 +140,7 @@ describe('Restaurant rename (e2e)', () => {
   it('401 — unauthenticated request is rejected', async () => {
     await request(app.getHttpServer())
       .patch('/v1/restaurants/name')
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Nuevo Nombre' })
       .expect(401);
   });
@@ -150,7 +148,8 @@ describe('Restaurant rename (e2e)', () => {
   it('403 — MANAGER cannot rename the restaurant', async () => {
     await request(app.getHttpServer())
       .patch('/v1/restaurants/name')
-      .set('Authorization', `Bearer ${managerTokenA}`)
+      .set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Nuevo Nombre Manager' })
       .expect(403);
   });
@@ -158,7 +157,8 @@ describe('Restaurant rename (e2e)', () => {
   it('403 — BASIC user cannot rename the restaurant', async () => {
     await request(app.getHttpServer())
       .patch('/v1/restaurants/name')
-      .set('Authorization', `Bearer ${basicTokenA}`)
+      .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Nuevo Nombre Basic' })
       .expect(403);
   });
@@ -168,7 +168,8 @@ describe('Restaurant rename (e2e)', () => {
   it('400 — name shorter than 3 characters is rejected', async () => {
     const res = await request(app.getHttpServer())
       .patch('/v1/restaurants/name')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'AB' })
       .expect(400);
 
@@ -181,7 +182,8 @@ describe('Restaurant rename (e2e)', () => {
     const longName = 'A'.repeat(256);
     const res = await request(app.getHttpServer())
       .patch('/v1/restaurants/name')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: longName })
       .expect(400);
 
@@ -193,7 +195,8 @@ describe('Restaurant rename (e2e)', () => {
   it('400 — missing name field is rejected', async () => {
     await request(app.getHttpServer())
       .patch('/v1/restaurants/name')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({})
       .expect(400);
   });
@@ -203,7 +206,8 @@ describe('Restaurant rename (e2e)', () => {
   it('200 — ADMIN can rename their restaurant and receives new slug', async () => {
     const res = await request(app.getHttpServer())
       .patch('/v1/restaurants/name')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Mi Restaurante Renombrado' })
       .expect(200);
 
@@ -222,7 +226,8 @@ describe('Restaurant rename (e2e)', () => {
 
     await request(app.getHttpServer())
       .patch('/v1/restaurants/name')
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Nombre Desde Restaurante B' })
       .expect(200);
 
@@ -239,7 +244,8 @@ describe('Restaurant rename (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch('/v1/restaurants/name')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: restaurantB!.name })
       .expect(409);
 

@@ -116,6 +116,7 @@ import KitchenConfirmModal from '../../components/kitchen/KitchenConfirmModal';
 </html>
 
 <script>
+  import { fetchEventSource } from '@microsoft/fetch-event-source';
   import { ORDER_EVENTS } from '../../lib/sse-events';
   import { config } from '../../config';
 
@@ -194,10 +195,13 @@ import KitchenConfirmModal from '../../components/kitchen/KitchenConfirmModal';
   // ── API helper ────────────────────────────────────────────────────
 
   async function kitchenFetch(path: string, options: RequestInit = {}) {
-    const sep = path.includes('?') ? '&' : '?';
-    return fetch(`${API_URL}${path}${sep}token=${token}`, {
+    return fetch(`${API_URL}${path}`, {
       ...options,
-      headers: { 'Content-Type': 'application/json', ...(options.headers ?? {}) },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Kitchen-Token': token,
+        ...(options.headers ?? {}),
+      },
     });
   }
 
@@ -367,16 +371,32 @@ import KitchenConfirmModal from '../../components/kitchen/KitchenConfirmModal';
 
   // ── SSE ───────────────────────────────────────────────────────────
 
-  const es = new EventSource(`${API_URL}/v1/events/kitchen?slug=${slug}&token=${token}`);
+  const sseController = new AbortController();
+  window.addEventListener('beforeunload', () => sseController.abort());
 
-  es.onopen = () => { setConnected(); loadOrders(); };
-  es.onerror = () => { setOffline(); };
-  es.addEventListener(ORDER_EVENTS.NEW, () => loadOrders());
-  es.addEventListener(ORDER_EVENTS.UPDATED, () => loadOrders());
+  // NOTE: do NOT await — fetchEventSource resolves only when the stream closes,
+  // so awaiting would block all the listener registrations and the initial load
+  // that follow this block.
+  fetchEventSource(`${API_URL}/v1/events/kitchen?slug=${encodeURIComponent(slug)}`, {
+    headers: { 'X-Kitchen-Token': token },
+    signal: sseController.signal,
+    openWhenHidden: true,
+    async onopen(response) {
+      if (response.ok && response.headers.get('content-type')?.includes('text/event-stream')) {
+        setConnected();
+        loadOrders();
+        return;
+      }
+      setOffline();
+      throw new Error(`SSE open failed: ${response.status}`);
+    },
+    onerror() { setOffline(); /* allow library to retry */ },
+    onmessage(msg) {
+      if (msg.event === ORDER_EVENTS.NEW || msg.event === ORDER_EVENTS.UPDATED) loadOrders();
+    },
+  }).catch(() => setOffline());
 
   // Reload after confirmation modal confirms a SERVED transition
   window.addEventListener('kitchen:order-updated', () => loadOrders());
-
-  window.addEventListener('beforeunload', () => es.close());
   loadOrders();
 </script>

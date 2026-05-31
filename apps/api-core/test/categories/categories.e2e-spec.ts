@@ -17,9 +17,11 @@ import * as bcrypt from 'bcryptjs';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import cookieParser from 'cookie-parser';
 
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { loginCookie, ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -38,6 +40,7 @@ async function bootstrapApp(): Promise<{ app: INestApplication<App>; prisma: Pri
   }).compile();
 
   const app = moduleFixture.createNestApplication<INestApplication<App>>();
+  app.use(cookieParser());
   app.enableVersioning({ type: VersioningType.URI });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
@@ -93,14 +96,8 @@ async function seedRestaurant(prisma: PrismaService, suffix: string) {
 }
 
 async function login(app: INestApplication<App>, email: string): Promise<string> {
-  const res = await request(app.getHttpServer())
-    .post('/v1/auth/login')
-    .send({ email, password: 'Admin1234!' })
-    .expect((r) => {
-      if (r.status !== 200 && r.status !== 201)
-        throw new Error(`Login failed: ${r.status} ${JSON.stringify(r.body)}`);
-    });
-  return res.body.accessToken as string;
+  const { accessCookie } = await loginCookie(app, email);
+  return accessCookie;
 }
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
@@ -148,7 +145,8 @@ describe('Categories (e2e)', () => {
     it('200 — BASIC can list categories', async () => {
       const res = await request(app.getHttpServer())
         .get('/v1/categories')
-        .set('Authorization', `Bearer ${basicTokenA}`)
+        .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
 
       expect(res.body.data).toBeInstanceOf(Array);
@@ -159,12 +157,14 @@ describe('Categories (e2e)', () => {
     it('200 — only returns categories of the authenticated restaurant', async () => {
       const resA = await request(app.getHttpServer())
         .get('/v1/categories')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
 
       const resB = await request(app.getHttpServer())
         .get('/v1/categories')
-        .set('Authorization', `Bearer ${adminTokenB}`)
+        .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
 
       const idsA = resA.body.data.map((c: { id: string }) => c.id);
@@ -177,7 +177,8 @@ describe('Categories (e2e)', () => {
     it('200 — pagination meta is correct', async () => {
       const res = await request(app.getHttpServer())
         .get('/v1/categories?page=1&limit=5')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
 
       expect(res.body.meta.page).toBe(1);
@@ -192,13 +193,15 @@ describe('Categories (e2e)', () => {
       await request(app.getHttpServer())
         .post('/v1/categories')
         .send({ name: 'Test' })
+        .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(401);
     });
 
     it('403 — BASIC cannot create a category', async () => {
       await request(app.getHttpServer())
         .post('/v1/categories')
-        .set('Authorization', `Bearer ${basicTokenA}`)
+        .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Test BASIC' })
         .expect(403);
     });
@@ -206,7 +209,8 @@ describe('Categories (e2e)', () => {
     it('400 — empty name is rejected', async () => {
       await request(app.getHttpServer())
         .post('/v1/categories')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: '' })
         .expect(400);
     });
@@ -214,7 +218,8 @@ describe('Categories (e2e)', () => {
     it('400 — name longer than 255 characters is rejected', async () => {
       await request(app.getHttpServer())
         .post('/v1/categories')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'A'.repeat(256) })
         .expect(400);
     });
@@ -222,7 +227,8 @@ describe('Categories (e2e)', () => {
     it('201 — ADMIN can create a category', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/categories')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Bebidas' })
         .expect(201);
 
@@ -237,7 +243,8 @@ describe('Categories (e2e)', () => {
     it('201 — MANAGER can create a category', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/categories')
-        .set('Authorization', `Bearer ${managerTokenA}`)
+        .set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Postres' })
         .expect(201);
 
@@ -247,13 +254,15 @@ describe('Categories (e2e)', () => {
     it('409 — duplicate name in the same restaurant is rejected', async () => {
       await request(app.getHttpServer())
         .post('/v1/categories')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Duplicada' })
         .expect(201);
 
       await request(app.getHttpServer())
         .post('/v1/categories')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Duplicada' })
         .expect(409);
     });
@@ -261,13 +270,15 @@ describe('Categories (e2e)', () => {
     it('201 — same name in different restaurants is allowed', async () => {
       await request(app.getHttpServer())
         .post('/v1/categories')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Compartida' })
         .expect(201);
 
       await request(app.getHttpServer())
         .post('/v1/categories')
-        .set('Authorization', `Bearer ${adminTokenB}`)
+        .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Compartida' })
         .expect(201);
     });
@@ -281,7 +292,8 @@ describe('Categories (e2e)', () => {
     beforeAll(async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/categories')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Para Chequear' })
         .expect(201);
       checkCatId = res.body.id;
@@ -296,28 +308,32 @@ describe('Categories (e2e)', () => {
     it('403 — BASIC cannot check delete', async () => {
       await request(app.getHttpServer())
         .get(`/v1/categories/${checkCatId}/check-delete`)
-        .set('Authorization', `Bearer ${basicTokenA}`)
+        .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(403);
     });
 
     it('404 — category not found returns 404', async () => {
       await request(app.getHttpServer())
         .get('/v1/categories/00000000-0000-0000-0000-000000000000/check-delete')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(404);
     });
 
     it('404 — restaurant B cannot check category from restaurant A (isolation)', async () => {
       await request(app.getHttpServer())
         .get(`/v1/categories/${checkCatId}/check-delete`)
-        .set('Authorization', `Bearer ${adminTokenB}`)
+        .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(404);
     });
 
     it('200 — returns correct result for category with no products', async () => {
       const res = await request(app.getHttpServer())
         .get(`/v1/categories/${checkCatId}/check-delete`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
 
       expect(res.body.productsCount).toBe(0);
@@ -336,7 +352,8 @@ describe('Categories (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .get(`/v1/categories/${checkCatId}/check-delete`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
 
       expect(res.body.productsCount).toBe(1);
@@ -355,7 +372,8 @@ describe('Categories (e2e)', () => {
     beforeAll(async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/categories')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Para Editar' })
         .expect(201);
       patchCatId = res.body.id;
@@ -365,13 +383,15 @@ describe('Categories (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/v1/categories/${patchCatId}`)
         .send({ name: 'X' })
+        .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(401);
     });
 
     it('403 — BASIC cannot update a category', async () => {
       await request(app.getHttpServer())
         .patch(`/v1/categories/${patchCatId}`)
-        .set('Authorization', `Bearer ${basicTokenA}`)
+        .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'X' })
         .expect(403);
     });
@@ -379,7 +399,8 @@ describe('Categories (e2e)', () => {
     it('404 — category not found returns 404', async () => {
       await request(app.getHttpServer())
         .patch('/v1/categories/00000000-0000-0000-0000-000000000000')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'X' })
         .expect(404);
     });
@@ -387,7 +408,8 @@ describe('Categories (e2e)', () => {
     it('404 — restaurant B cannot update category from restaurant A (isolation)', async () => {
       await request(app.getHttpServer())
         .patch(`/v1/categories/${patchCatId}`)
-        .set('Authorization', `Bearer ${adminTokenB}`)
+        .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Hack' })
         .expect(404);
     });
@@ -395,7 +417,8 @@ describe('Categories (e2e)', () => {
     it('400 — name longer than 255 characters is rejected', async () => {
       await request(app.getHttpServer())
         .patch(`/v1/categories/${patchCatId}`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'A'.repeat(256) })
         .expect(400);
     });
@@ -403,7 +426,8 @@ describe('Categories (e2e)', () => {
     it('200 — ADMIN can update a category', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/v1/categories/${patchCatId}`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Nombre Actualizado' })
         .expect(200);
 
@@ -413,7 +437,8 @@ describe('Categories (e2e)', () => {
     it('200 — MANAGER can update a category', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/v1/categories/${patchCatId}`)
-        .set('Authorization', `Bearer ${managerTokenA}`)
+        .set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Nombre Manager' })
         .expect(200);
 
@@ -431,14 +456,16 @@ describe('Categories (e2e)', () => {
     beforeAll(async () => {
       const resEmpty = await request(app.getHttpServer())
         .post('/v1/categories')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Para Eliminar Directo' })
         .expect(201);
       deleteCatId = resEmpty.body.id;
 
       const resWith = await request(app.getHttpServer())
         .post('/v1/categories')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Con Productos' })
         .expect(201);
       catWithProductsId = resWith.body.id;
@@ -454,7 +481,8 @@ describe('Categories (e2e)', () => {
 
       const resTarget = await request(app.getHttpServer())
         .post('/v1/categories')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Destino Reasignacion' })
         .expect(201);
       reassignTargetId = resTarget.body.id;
@@ -463,34 +491,39 @@ describe('Categories (e2e)', () => {
     it('401 — unauthenticated request is rejected', async () => {
       await request(app.getHttpServer())
         .delete(`/v1/categories/${deleteCatId}`)
+        .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(401);
     });
 
     it('403 — BASIC cannot delete a category', async () => {
       await request(app.getHttpServer())
         .delete(`/v1/categories/${deleteCatId}`)
-        .set('Authorization', `Bearer ${basicTokenA}`)
+        .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(403);
     });
 
     it('404 — category not found returns 404', async () => {
       await request(app.getHttpServer())
         .delete('/v1/categories/00000000-0000-0000-0000-000000000000')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(404);
     });
 
     it('404 — restaurant B cannot delete category from restaurant A (isolation)', async () => {
       await request(app.getHttpServer())
         .delete(`/v1/categories/${deleteCatId}`)
-        .set('Authorization', `Bearer ${adminTokenB}`)
+        .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(404);
     });
 
     it('409 CATEGORY_HAS_PRODUCTS — delete without reassignTo when products exist', async () => {
       const res = await request(app.getHttpServer())
         .delete(`/v1/categories/${catWithProductsId}`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({})
         .expect(409);
 
@@ -501,7 +534,8 @@ describe('Categories (e2e)', () => {
     it('404 — reassignTo category not found', async () => {
       const res = await request(app.getHttpServer())
         .delete(`/v1/categories/${catWithProductsId}`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ reassignTo: '00000000-0000-0000-0000-000000000000' })
         .expect(404);
 
@@ -515,7 +549,8 @@ describe('Categories (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .delete(`/v1/categories/${catWithProductsId}`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ reassignTo: catB!.id })
         .expect(404);
 
@@ -525,7 +560,8 @@ describe('Categories (e2e)', () => {
     it('400 — reassignTo same as the category being deleted', async () => {
       await request(app.getHttpServer())
         .delete(`/v1/categories/${catWithProductsId}`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ reassignTo: catWithProductsId })
         .expect(400);
     });
@@ -533,7 +569,8 @@ describe('Categories (e2e)', () => {
     it('204 — delete with reassignTo moves products and deletes category', async () => {
       await request(app.getHttpServer())
         .delete(`/v1/categories/${catWithProductsId}`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ reassignTo: reassignTargetId })
         .expect(204);
 
@@ -554,7 +591,8 @@ describe('Categories (e2e)', () => {
     it('204 — ADMIN can delete a category with no products directly', async () => {
       await request(app.getHttpServer())
         .delete(`/v1/categories/${deleteCatId}`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({})
         .expect(204);
 

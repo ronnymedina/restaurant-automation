@@ -3,9 +3,11 @@ import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common
 import { App } from 'supertest/types';
 import { execSync } from 'child_process';
 import request from 'supertest';
+import cookieParser from 'cookie-parser';
 
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 
 export async function bootstrapApp(): Promise<{
   moduleFixture: TestingModule;
@@ -22,6 +24,7 @@ export async function bootstrapApp(): Promise<{
   }).compile();
 
   const app = moduleFixture.createNestApplication<INestApplication<App>>();
+  app.use(cookieParser());
   app.enableVersioning({ type: VersioningType.URI });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
@@ -47,6 +50,7 @@ export async function registerUser(
 ): Promise<void> {
   await request(app.getHttpServer())
     .post('/v1/onboarding/register')
+    .set('Origin', ALLOWED_TEST_ORIGIN)
     .field('email', email)
     .field('restaurantName', uniqueName())
     .field('timezone', 'UTC')
@@ -63,6 +67,7 @@ export async function activateUser(
 
   await request(app.getHttpServer())
     .put('/v1/users/activate')
+    .set('Origin', ALLOWED_TEST_ORIGIN)
     .send({ token: user.activationToken, password: 'Password123' })
     .expect(200);
 }

@@ -99,11 +99,20 @@ const googleFormUrl = config.supportGoogleFormUrl;
 </ProtectedLayout>
 
 <script>
-  import { clearTokens } from '../lib/auth';
+  import { config } from '../config';
+  import { clearLocalAuthState } from '../lib/auth';
 
   const logoutBtn = document.getElementById('logoutBtn') as HTMLButtonElement;
-  logoutBtn.addEventListener('click', () => {
-    clearTokens();
+  logoutBtn.addEventListener('click', async () => {
+    try {
+      await fetch(`${config.apiUrl}/v1/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // best-effort — proceed to local cleanup regardless
+    }
+    clearLocalAuthState();
     window.location.href = '/login';
   });
 </script>

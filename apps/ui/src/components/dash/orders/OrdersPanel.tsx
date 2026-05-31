@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getAccessToken } from '../../../lib/auth';
 import { config } from '../../../config';
 import { ORDER_EVENTS } from '../../../lib/sse-events';
 import { EyeIcon, EyeOffIcon } from '../../commons/icons';
@@ -115,9 +114,7 @@ export default function OrdersPanel() {
   // so the connection stays open across filter changes (H-17).
   useEffect(() => {
     if (status !== ORDERS_STATUS.OPEN || !session) return;
-    const token = getAccessToken();
-    if (!token) return;
-    const es = new EventSource(`${config.apiUrl}/v1/events/dashboard?token=${token}`);
+    const es = new EventSource(`${config.apiUrl}/v1/events/dashboard`, { withCredentials: true });
     const reload = () => {
       if (!activeFilterRef.current) fetchOrders(null);
     };

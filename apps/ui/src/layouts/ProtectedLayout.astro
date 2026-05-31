@@ -9,7 +9,9 @@ import Layout from './Layout.astro';
 <script>
   import { isAuthenticated } from '../lib/auth';
 
-  if (!isAuthenticated()) {
-    window.location.href = '/login';
-  }
+  (async () => {
+    if (!(await isAuthenticated())) {
+      window.location.href = '/login';
+    }
+  })();
 </script>

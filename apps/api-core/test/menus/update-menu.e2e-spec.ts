@@ -21,7 +21,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login, TEST_DB_DIR } from './helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 const TEST_DB = path.join(TEST_DB_DIR, 'test-menus-update.db');
 
 describe('PATCH /v1/menus/:id (e2e)', () => {
@@ -47,7 +47,8 @@ describe('PATCH /v1/menus/:id (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu Original' })
       .expect(201);
 
@@ -63,13 +64,15 @@ describe('PATCH /v1/menus/:id (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/v1/menus/${menuId}`)
       .send({ name: 'X' })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(401);
   });
 
   it('403 — BASIC cannot update a menu', async () => {
     await request(app.getHttpServer())
       .patch(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${basicTokenA}`)
+      .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'X' })
       .expect(403);
   });
@@ -77,7 +80,8 @@ describe('PATCH /v1/menus/:id (e2e)', () => {
   it('404 — menu not found', async () => {
     await request(app.getHttpServer())
       .patch('/v1/menus/00000000-0000-0000-0000-000000000000')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'X' })
       .expect(404);
   });
@@ -85,7 +89,8 @@ describe('PATCH /v1/menus/:id (e2e)', () => {
   it('404 — restaurant B cannot update menu from restaurant A (isolation)', async () => {
     await request(app.getHttpServer())
       .patch(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Hack' })
       .expect(404);
   });
@@ -93,7 +98,8 @@ describe('PATCH /v1/menus/:id (e2e)', () => {
   it('400 — name longer than 100 characters is rejected', async () => {
     await request(app.getHttpServer())
       .patch(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'A'.repeat(101) })
       .expect(400);
   });
@@ -101,7 +107,8 @@ describe('PATCH /v1/menus/:id (e2e)', () => {
   it('400 — invalid startTime format is rejected', async () => {
     await request(app.getHttpServer())
       .patch(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ startTime: '9am' })
       .expect(400);
   });
@@ -109,7 +116,8 @@ describe('PATCH /v1/menus/:id (e2e)', () => {
   it('200 — ADMIN can update a menu', async () => {
     const res = await request(app.getHttpServer())
       .patch(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu Actualizado', active: false })
       .expect(200);
 
@@ -120,7 +128,8 @@ describe('PATCH /v1/menus/:id (e2e)', () => {
   it('200 — MANAGER can update a menu', async () => {
     const res = await request(app.getHttpServer())
       .patch(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${managerTokenA}`)
+      .set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu Manager Update' })
       .expect(200);
 
@@ -130,7 +139,8 @@ describe('PATCH /v1/menus/:id (e2e)', () => {
   it('200 — serializer exposes correct fields', async () => {
     const res = await request(app.getHttpServer())
       .patch(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ startTime: '08:00', endTime: '11:00', daysOfWeek: 'SAT,SUN' })
       .expect(200);
 

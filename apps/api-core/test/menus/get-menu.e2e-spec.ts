@@ -19,7 +19,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login, TEST_DB_DIR } from './helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 const TEST_DB = path.join(TEST_DB_DIR, 'test-menus-get.db');
 
 describe('GET /v1/menus/:id (e2e)', () => {
@@ -47,7 +47,8 @@ describe('GET /v1/menus/:id (e2e)', () => {
 
     const createRes = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Carta Verano', startTime: '19:00', endTime: '23:00', daysOfWeek: 'FRI,SAT,SUN' })
       .expect(201);
 
@@ -56,7 +57,8 @@ describe('GET /v1/menus/:id (e2e)', () => {
     // Add an item to the menu
     await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productId, sectionName: 'Carnes', order: 1 })
       .expect(201);
   });
@@ -73,42 +75,48 @@ describe('GET /v1/menus/:id (e2e)', () => {
   it('200 — ADMIN can get menu', async () => {
     await request(app.getHttpServer())
       .get(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
   });
 
   it('200 — MANAGER can get menu', async () => {
     await request(app.getHttpServer())
       .get(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${managerTokenA}`)
+      .set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
   });
 
   it('200 — BASIC can get menu', async () => {
     await request(app.getHttpServer())
       .get(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${basicTokenA}`)
+      .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
   });
 
   it('404 — menu not found', async () => {
     await request(app.getHttpServer())
       .get('/v1/menus/00000000-0000-0000-0000-000000000000')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
   });
 
   it('404 — restaurant B cannot get menu from restaurant A (isolation)', async () => {
     await request(app.getHttpServer())
       .get(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
   });
 
   it('200 — serializer exposes correct menu fields', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.id).toBeDefined();
@@ -130,7 +138,8 @@ describe('GET /v1/menus/:id (e2e)', () => {
   it('200 — item serializer exposes correct fields', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.items).toHaveLength(1);
@@ -167,7 +176,8 @@ describe('GET /v1/menus/:id (e2e)', () => {
   it('404 — soft-deleted menu is not accessible', async () => {
     const createRes = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu a borrar' })
       .expect(201);
 
@@ -175,12 +185,14 @@ describe('GET /v1/menus/:id (e2e)', () => {
 
     await request(app.getHttpServer())
       .delete(`/v1/menus/${deletedMenuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(204);
 
     await request(app.getHttpServer())
       .get(`/v1/menus/${deletedMenuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
   });
 });

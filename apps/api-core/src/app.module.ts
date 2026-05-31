@@ -1,6 +1,7 @@
 import { join } from 'path';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
@@ -12,6 +13,8 @@ import { OnboardingModule } from './onboarding/onboarding.module';
 import { UsersModule } from './users/users.module';
 import { EmailModule } from './email/email.module';
 import { AuthModule } from './auth/auth.module';
+import { csrfConfig } from './auth/csrf.config';
+import { CsrfOriginGuard } from './auth/guards/csrf-origin.guard';
 import { MenusModule } from './menus/menus.module';
 import { OrdersModule } from './orders/orders.module';
 import { CashRegisterModule } from './cash-register/cash-register.module';
@@ -24,7 +27,7 @@ import { validate } from './config';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ validate }),
+    ConfigModule.forRoot({ validate, load: [csrfConfig] }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     CacheModule,
     ServeStaticModule.forRoot({
@@ -48,5 +51,6 @@ import { validate } from './config';
     KitchenModule,
   ],
   controllers: [AppController],
+  providers: [{ provide: APP_GUARD, useClass: CsrfOriginGuard }],
 })
 export class AppModule {}

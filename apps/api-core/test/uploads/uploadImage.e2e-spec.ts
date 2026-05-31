@@ -7,7 +7,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login } from './uploads.helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 const TEST_DB = path.resolve(__dirname, 'test-upload-image.db');
 
 // Minimal 1x1 white JPEG (valid image, ~600 bytes)
@@ -46,13 +46,15 @@ describe('POST /v1/uploads/image (e2e)', () => {
     await request(app.getHttpServer())
       .post('/v1/uploads/image')
       .attach('file', SMALL_JPEG, { filename: 'test.jpg', contentType: 'image/jpeg' })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(401);
   });
 
   it('BASIC recibe 403', async () => {
     await request(app.getHttpServer())
       .post('/v1/uploads/image')
-      .set('Authorization', `Bearer ${basicToken}`)
+      .set('Cookie', basicToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .attach('file', SMALL_JPEG, { filename: 'test.jpg', contentType: 'image/jpeg' })
       .expect(403);
   });
@@ -60,7 +62,8 @@ describe('POST /v1/uploads/image (e2e)', () => {
   it('ADMIN puede subir JPG y recibe url', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/uploads/image')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .attach('file', SMALL_JPEG, { filename: 'photo.jpg', contentType: 'image/jpeg' })
       .expect(201);
 
@@ -70,7 +73,8 @@ describe('POST /v1/uploads/image (e2e)', () => {
   it('MANAGER puede subir PNG y recibe url', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/uploads/image')
-      .set('Authorization', `Bearer ${managerToken}`)
+      .set('Cookie', managerToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .attach('file', SMALL_JPEG, { filename: 'photo.png', contentType: 'image/png' })
       .expect(201);
 
@@ -80,7 +84,8 @@ describe('POST /v1/uploads/image (e2e)', () => {
   it('ADMIN puede subir WEBP y recibe url', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/uploads/image')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       // Buffer is JPEG bytes with image/webp MIME — validates header-based MIME filter (known limitation: no magic bytes check)
       .attach('file', SMALL_JPEG, { filename: 'photo.webp', contentType: 'image/webp' })
       .expect(201);
@@ -91,14 +96,16 @@ describe('POST /v1/uploads/image (e2e)', () => {
   it('Sin archivo recibe 400', async () => {
     await request(app.getHttpServer())
       .post('/v1/uploads/image')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(400);
   });
 
   it('Tipo no permitido (PDF) recibe 400', async () => {
     await request(app.getHttpServer())
       .post('/v1/uploads/image')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .attach('file', Buffer.from('%PDF-1.4 fake'), { filename: 'doc.pdf', contentType: 'application/pdf' })
       .expect(400);
   });
@@ -107,7 +114,8 @@ describe('POST /v1/uploads/image (e2e)', () => {
     const bigBuffer = Buffer.alloc(3 * 1024 * 1024); // 3MB
     await request(app.getHttpServer())
       .post('/v1/uploads/image')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .attach('file', bigBuffer, { filename: 'big.jpg', contentType: 'image/jpeg' })
       .expect(413);
   });

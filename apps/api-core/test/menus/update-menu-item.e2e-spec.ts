@@ -20,7 +20,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login, TEST_DB_DIR } from './helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 const TEST_DB = path.join(TEST_DB_DIR, 'test-menu-items-update.db');
 
 describe('PATCH /v1/menus/:menuId/items/:itemId (e2e)', () => {
@@ -47,7 +47,8 @@ describe('PATCH /v1/menus/:menuId/items/:itemId (e2e)', () => {
 
     const menuRes = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu Update Items' })
       .expect(201);
 
@@ -55,7 +56,8 @@ describe('PATCH /v1/menus/:menuId/items/:itemId (e2e)', () => {
 
     await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productId: seedA.product.id, sectionName: 'Original', order: 1 })
       .expect(201);
 
@@ -74,13 +76,15 @@ describe('PATCH /v1/menus/:menuId/items/:itemId (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/v1/menus/${menuId}/items/${itemId}`)
       .send({ sectionName: 'X' })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(401);
   });
 
   it('403 — BASIC cannot update an item', async () => {
     await request(app.getHttpServer())
       .patch(`/v1/menus/${menuId}/items/${itemId}`)
-      .set('Authorization', `Bearer ${basicTokenA}`)
+      .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ sectionName: 'X' })
       .expect(403);
   });
@@ -88,7 +92,8 @@ describe('PATCH /v1/menus/:menuId/items/:itemId (e2e)', () => {
   it('404 — menu not found', async () => {
     await request(app.getHttpServer())
       .patch(`/v1/menus/00000000-0000-0000-0000-000000000000/items/${itemId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ sectionName: 'X' })
       .expect(404);
   });
@@ -96,7 +101,8 @@ describe('PATCH /v1/menus/:menuId/items/:itemId (e2e)', () => {
   it('404 — restaurant B cannot update item from menu of restaurant A (isolation)', async () => {
     await request(app.getHttpServer())
       .patch(`/v1/menus/${menuId}/items/${itemId}`)
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ sectionName: 'Hack' })
       .expect(404);
   });
@@ -104,7 +110,8 @@ describe('PATCH /v1/menus/:menuId/items/:itemId (e2e)', () => {
   it('400 — empty sectionName is rejected', async () => {
     await request(app.getHttpServer())
       .patch(`/v1/menus/${menuId}/items/${itemId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ sectionName: '' })
       .expect(400);
   });
@@ -112,7 +119,8 @@ describe('PATCH /v1/menus/:menuId/items/:itemId (e2e)', () => {
   it('200 — ADMIN can update an item', async () => {
     const res = await request(app.getHttpServer())
       .patch(`/v1/menus/${menuId}/items/${itemId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ sectionName: 'Carnes', order: 5 })
       .expect(200);
 
@@ -123,7 +131,8 @@ describe('PATCH /v1/menus/:menuId/items/:itemId (e2e)', () => {
   it('200 — MANAGER can update an item', async () => {
     const res = await request(app.getHttpServer())
       .patch(`/v1/menus/${menuId}/items/${itemId}`)
-      .set('Authorization', `Bearer ${managerTokenA}`)
+      .set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ sectionName: 'Pescados', order: 2 })
       .expect(200);
 
@@ -133,7 +142,8 @@ describe('PATCH /v1/menus/:menuId/items/:itemId (e2e)', () => {
   it('200 — serializer exposes correct fields', async () => {
     const res = await request(app.getHttpServer())
       .patch(`/v1/menus/${menuId}/items/${itemId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ sectionName: 'Para Empezar', order: 3 })
       .expect(200);
 
