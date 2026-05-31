@@ -75,7 +75,7 @@ export default function KitchenConfirmModal() {
       if (res.ok) {
         setOpen(false);
         setOrder(null);
-        window.dispatchEvent(new CustomEvent('kitchen:order-updated'));
+        window.dispatchEvent(new CustomEvent('kitchen:order-updated', { detail: { orderId: order.orderId } }));
       } else {
         let msg = 'Error del servidor, intente nuevamente';
         try {
