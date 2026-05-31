@@ -30,12 +30,12 @@ describe('Kitchen token auth (H-14)', () => {
       .expect(200);
   });
 
-  it('accepts request with ?token= query (legacy)', async () => {
+  it('rejects request with ?token= query (legacy removed in H-04)', async () => {
     const { slug, token } = await seedRestaurantWithToken(prisma, 'query-ok');
     await request(app.getHttpServer())
       .get(`/v1/kitchen/${slug}/orders`)
       .query({ token })
-      .expect(200);
+      .expect(401);
   });
 
   it('rejects request without any token', async () => {
