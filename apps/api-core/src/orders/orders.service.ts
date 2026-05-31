@@ -1,7 +1,7 @@
 import {
   BadRequestException, Injectable, Logger, Inject, forwardRef,
 } from '@nestjs/common';
-import { OrderStatus, Product, Prisma, CashShiftStatus } from '@prisma/client';
+import { OrderStatus, PaymentMethod, Product, Prisma, CashShiftStatus } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderRepository } from './order.repository';
@@ -230,7 +230,11 @@ export class OrdersService {
       const order = await tx.order.findFirst({ where: { id, restaurantId } });
       if (!order) throw new OrderNotFoundException(id);
       if (order.status === OrderStatus.CANCELLED) throw new OrderAlreadyCancelledException(id);
-      if (order.isPaid) return; // idempotent — skip the transition
+      if (order.isPaid) {
+        // Already paid: update paymentMethod if the cashier is correcting it
+        await tx.order.update({ where: { id }, data: { paymentMethod: paymentMethod as PaymentMethod } });
+        return;
+      }
 
       const nextStatus =
         order.status === OrderStatus.CREATED ? OrderStatus.CONFIRMED :

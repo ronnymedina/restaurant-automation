@@ -68,8 +68,7 @@ export default function OrderCard({
   const border = BORDER_COLORS[order.status] ?? 'border-l-slate-300';
   const isActive = ACTIVE_STATUSES.has(order.status);
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
-  const [paymentError, setPaymentError] = useState(false);
+  const [payMethod, setPayMethod] = useState('');
   const hasCustomerData = order.customerEmail || order.customerPhone || order.deliveryAddress;
   const isBusy = inFlightIds.has(order.id);
   const { data: settings } = useRestaurantSettings();
@@ -100,19 +99,16 @@ export default function OrderCard({
           <span className="font-semibold text-sm text-slate-800">
             {formatMoney(Number(order.totalAmount), settings)}
           </span>
-          {isActive && !order.paymentMethod ? (
+          {isActive ? (
             <div className="flex items-center gap-1">
-              <span className={`text-xs ${paymentError ? 'text-red-500' : 'text-amber-600'}`}>⚠</span>
+              {!order.isPaid && <span className="text-xs text-amber-600">⚠</span>}
               <select
-                value={selectedPaymentMethod}
-                onChange={(e) => { setSelectedPaymentMethod(e.target.value); setPaymentError(false); }}
-                className={`text-xs rounded px-1.5 py-0.5 cursor-pointer border ${
-                  paymentError
-                    ? 'border-red-400 bg-red-50 text-red-800'
-                    : 'border-amber-300 bg-amber-50 text-amber-800'
-                }`}
+                disabled={isBusy}
+                value={order.paymentMethod ?? payMethod}
+                onChange={(e) => { setPayMethod(''); onPay(order.id, e.target.value); }}
+                className="text-xs rounded px-1.5 py-0.5 cursor-pointer border border-amber-300 bg-amber-50 text-amber-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <option value="" disabled>— Asignar método —</option>
+                <option value="" disabled>— Cobrar —</option>
                 <option value="CASH">Efectivo</option>
                 <option value="CARD">Tarjeta</option>
                 <option value="DIGITAL_WALLET">Digital</option>
@@ -155,41 +151,23 @@ export default function OrderCard({
         )}
         {isActive && (
           <div className="border-t border-slate-200 pt-2 space-y-1.5">
-            {paymentError && (
-              <p className="text-xs text-red-500">Selecciona un método de pago para continuar</p>
+            {/* Primary action — hidden for SERVED+unpaid: the select (cobrar) is the action */}
+            {!(order.status === 'SERVED' && !order.isPaid) && (
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => {
+                  if (order.status === 'CREATED') onConfirm(order.id);
+                  else if (order.status === 'CONFIRMED') onAdvance(order.id, 'PROCESSING');
+                  else if (order.status === 'PROCESSING') onAdvance(order.id, 'SERVED');
+                  else if (order.status === 'SERVED' && order.isPaid) onAdvance(order.id, 'COMPLETED');
+                }}
+                className={`w-full py-2 text-sm font-bold text-white rounded-lg cursor-pointer border-none disabled:opacity-60 disabled:cursor-not-allowed ${PRIMARY_CONFIGS[order.status]?.color ?? ''}`}
+              >
+                {order.status === 'SERVED' ? 'Completar' : PRIMARY_LABELS[order.status]}
+              </button>
             )}
-            <button
-              type="button"
-              disabled={isBusy}
-              onClick={() => {
-                if (order.status === 'CREATED') onConfirm(order.id);
-                else if (order.status === 'CONFIRMED') onAdvance(order.id, 'PROCESSING');
-                else if (order.status === 'PROCESSING') onAdvance(order.id, 'SERVED');
-                else if (order.status === 'SERVED' && !order.isPaid) {
-                  if (!selectedPaymentMethod) { setPaymentError(true); return; }
-                  onPay(order.id, selectedPaymentMethod);
-                } else if (order.status === 'SERVED' && order.isPaid) onAdvance(order.id, 'COMPLETED');
-              }}
-              className={`w-full py-2 text-sm font-bold text-white rounded-lg cursor-pointer border-none disabled:opacity-60 disabled:cursor-not-allowed ${PRIMARY_CONFIGS[order.status]?.color ?? ''}`}
-            >
-              {order.status === 'SERVED'
-                ? (order.isPaid ? 'Completar' : 'Cobrar y Completar')
-                : PRIMARY_LABELS[order.status]}
-            </button>
             <div className="flex gap-1.5">
-              {!order.isPaid && order.status !== 'SERVED' && (
-                <button
-                  type="button"
-                  disabled={isBusy}
-                  onClick={() => {
-                    if (!selectedPaymentMethod) { setPaymentError(true); return; }
-                    onPay(order.id, selectedPaymentMethod);
-                  }}
-                  className="flex-1 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md cursor-pointer text-green-600 hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  ✓ Marcar Pagado
-                </button>
-              )}
               {order.isPaid && (
                 <button
                   type="button"
