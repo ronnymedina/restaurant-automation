@@ -67,12 +67,18 @@ test('calls PATCH API and dispatches kitchen:order-updated on confirm', async ()
 
   await waitFor(() => {
     expect(mockFetch).toHaveBeenCalledWith(
-      'http://test-api/v1/kitchen/rest-slug/orders/order-abc/status?token=abc123',
+      'http://test-api/v1/kitchen/rest-slug/orders/order-abc/status',
       expect.objectContaining({
         method: 'PATCH',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          'X-Kitchen-Token': 'abc123',
+        }),
         body: JSON.stringify({ status: 'SERVED' }),
       }),
     );
+    const [url] = mockFetch.mock.calls[0];
+    expect(url).not.toContain('token=');
     expect(listener).toHaveBeenCalled();
   });
 
@@ -139,8 +145,12 @@ test('uses sessionStorage token when not in URL', async () => {
 
   await waitFor(() => {
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('token=session-token'),
-      expect.anything(),
+      expect.not.stringContaining('token='),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Kitchen-Token': 'session-token',
+        }),
+      }),
     );
   });
 });

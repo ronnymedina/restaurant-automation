@@ -60,10 +60,13 @@ export default function KitchenConfirmModal() {
     try {
       // order is captured in React state at modal-open time; safe if ordersMap is cleared by SSE reload
       const res = await fetch(
-        `${config.apiUrl}/v1/kitchen/${slug}/orders/${order.orderId}/status?token=${token}`,
+        `${config.apiUrl}/v1/kitchen/${slug}/orders/${order.orderId}/status`,
         {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Kitchen-Token': token,
+          },
           body: JSON.stringify({ status: 'SERVED' }),
           signal: controller.signal,
         },
