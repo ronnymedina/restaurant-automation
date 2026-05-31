@@ -226,6 +226,125 @@ test('H-18 (regression): Confirmar button is disabled while mutation is in-fligh
   await waitFor(() => expect(confirmBtn).toBeDisabled());
 });
 
+// H-AUX-02: order:updated merges into local state without refetching.
+test('H-AUX-02: order:updated merges into local state without calling getOrders again', async () => {
+  let capturedHandlers: Record<string, (e: MessageEvent) => void> = {};
+
+  class SpyEventSource {
+    addEventListener = vi.fn((event: string, handler: (e: MessageEvent) => void) => {
+      capturedHandlers[event] = handler;
+    });
+    close = vi.fn();
+    constructor(_url: string, _init?: EventSourceInit) {}
+  }
+  vi.stubGlobal('EventSource', SpyEventSource);
+
+  mockGetCurrentSession.mockResolvedValue({
+    ok: true,
+    data: { id: 'shift-1', openedByEmail: 'staff@test.com' },
+  });
+  mockGetOrders.mockResolvedValue({
+    ok: true,
+    data: [{
+      id: 'o1',
+      orderNumber: 7,
+      status: 'CREATED',
+      isPaid: false,
+      totalAmount: 1000,
+      paymentMethod: null,
+      cancellationReason: null,
+      customerEmail: null,
+      customerPhone: null,
+      deliveryAddress: null,
+      deliveryReferences: null,
+      orderSource: 'KIOSK',
+      orderType: 'DINE_IN',
+      displayTime: '12:00',
+      cashShiftId: 'shift-1',
+      createdAt: '2026-01-01T12:00:00Z',
+      items: [],
+    }],
+  });
+
+  render(<OrdersPanel />);
+
+  // Wait for the order to appear
+  await screen.findByText(/#7/);
+
+  // Clear the mock so we can assert it's NOT called again
+  mockGetOrders.mockClear();
+
+  // Dispatch order:updated SSE event
+  const updatedPayload = JSON.stringify({
+    id: 'o1',
+    status: 'CONFIRMED',
+    isPaid: true,
+    paymentMethod: 'CASH',
+    cancellationReason: null,
+  });
+  capturedHandlers['order:updated']?.({ data: updatedPayload } as MessageEvent);
+
+  // Verify "Pagado" badge appears (isPaid: true after merge)
+  await waitFor(() => expect(screen.getByText('Pagado')).toBeInTheDocument());
+
+  // Verify getOrders was NOT called again
+  expect(mockGetOrders).not.toHaveBeenCalled();
+});
+
+// H-AUX-02: order:new prepends into local state without refetching.
+test('H-AUX-02: order:new prepends new order without calling getOrders again', async () => {
+  let capturedHandlers: Record<string, (e: MessageEvent) => void> = {};
+
+  class SpyEventSource {
+    addEventListener = vi.fn((event: string, handler: (e: MessageEvent) => void) => {
+      capturedHandlers[event] = handler;
+    });
+    close = vi.fn();
+    constructor(_url: string, _init?: EventSourceInit) {}
+  }
+  vi.stubGlobal('EventSource', SpyEventSource);
+
+  mockGetCurrentSession.mockResolvedValue({
+    ok: true,
+    data: { id: 'shift-1', openedByEmail: 'staff@test.com' },
+  });
+  mockGetOrders.mockResolvedValue({ ok: true, data: [] });
+
+  render(<OrdersPanel />);
+
+  // Wait for the panel to render (empty orders state)
+  await waitFor(() => expect(mockGetOrders).toHaveBeenCalledTimes(1));
+
+  // Clear the mock so we can assert it's NOT called again
+  mockGetOrders.mockClear();
+
+  // Dispatch order:new SSE event with a full OrderCreatedPayload
+  const newPayload = JSON.stringify({
+    id: 'o99',
+    orderNumber: 99,
+    status: 'CREATED',
+    isPaid: false,
+    totalAmount: 2500,
+    paymentMethod: null,
+    cancellationReason: null,
+    customerEmail: null,
+    customerPhone: null,
+    deliveryAddress: null,
+    deliveryReferences: null,
+    orderSource: 'KIOSK',
+    orderType: 'DINE_IN',
+    displayTime: '13:00',
+    items: [],
+  });
+  capturedHandlers['order:new']?.({ data: newPayload } as MessageEvent);
+
+  // Verify the new order appears
+  await waitFor(() => expect(screen.getByText(/#99/)).toBeInTheDocument());
+
+  // Verify getOrders was NOT called again
+  expect(mockGetOrders).not.toHaveBeenCalled();
+});
+
 // H-17: EventSource must not be re-created on filter changes.
 // activeFilter is internal state; we cannot trigger it via props, so we assert
 // that after mount completes (and any SSE-related re-renders settle) the

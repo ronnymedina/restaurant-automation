@@ -3,6 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '../../commons/Providers';
 import { config } from '../../../config';
 import { ORDER_EVENTS } from '../../../lib/sse-events';
+import type { OrderCreatedPayload, OrderUpdatedPayload } from '../../../lib/sse-payloads';
 import { EyeIcon, EyeOffIcon } from '../../commons/icons';
 import {
   getCurrentSession, getOrders, updateOrderStatus, markOrderPaid, cancelOrder,
@@ -111,17 +112,49 @@ export default function OrdersPanel() {
     loadSession();
   }, []);
 
-  // SSE: reload orders in kanban mode only (filter mode ignores SSE to avoid clobbering the search).
-  // activeFilter is intentionally NOT in the deps array — it is read via activeFilterRef.current
-  // so the connection stays open across filter changes (H-17).
+  // SSE: patch local del estado a partir del payload tipado del evento (H-AUX-02).
+  //   - order:new (OrderCreatedPayload): prepend si no existe (idempotente).
+  //   - order:updated (OrderUpdatedPayload, delta): merge {...existing, ...delta}
+  //     sobre la entrada con el mismo id. Si la orden no está en el array
+  //     local (caso: filtro activo o reconexión perdió el NEW), se ignora;
+  //     el próximo loadOrders() del onopen cierra el gap.
+  //
+  // En modo filtro (activeFilter !== null) seguimos ignorando SSE para no
+  // pisar la búsqueda. En el onopen del EventSource refetcheamos para
+  // recuperar gaps por reconexión.
+  // activeFilter se lee vía activeFilterRef.current para no recrear la
+  // conexión al cambiar de filtro (H-17).
   useEffect(() => {
     if (status !== ORDERS_STATUS.OPEN || !session) return;
     const es = new EventSource(`${config.apiUrl}/v1/events/dashboard`, { withCredentials: true });
-    const reload = () => {
+
+    const handleNew = (e: MessageEvent) => {
+      if (activeFilterRef.current) return;
+      try {
+        const payload = JSON.parse(e.data) as OrderCreatedPayload;
+        if (!payload?.id) return;
+        setOrders((prev) =>
+          prev.some((o) => o.id === payload.id) ? prev : [payload as unknown as Order, ...prev],
+        );
+      } catch { /* ignore malformed payload */ }
+    };
+    const handleUpdated = (e: MessageEvent) => {
+      if (activeFilterRef.current) return;
+      try {
+        const payload = JSON.parse(e.data) as OrderUpdatedPayload;
+        if (!payload?.id) return;
+        setOrders((prev) => prev.map((o) => (o.id === payload.id ? { ...o, ...payload } : o)));
+      } catch { /* ignore malformed payload */ }
+    };
+    const handleOpen = () => {
+      // Reconexión — recuperar el estado completo para cerrar gaps de eventos
+      // perdidos mientras el EventSource estaba caído.
       if (!activeFilterRef.current) fetchOrders(null);
     };
-    es.addEventListener(ORDER_EVENTS.NEW, reload);
-    es.addEventListener(ORDER_EVENTS.UPDATED, reload);
+
+    es.addEventListener('open', handleOpen);
+    es.addEventListener(ORDER_EVENTS.NEW, handleNew);
+    es.addEventListener(ORDER_EVENTS.UPDATED, handleUpdated);
     return () => es.close();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, session]);
