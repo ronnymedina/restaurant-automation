@@ -7,7 +7,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login } from './uploads.helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 const TEST_DB = path.resolve(__dirname, 'test-presign.db');
 
 const SMALL_JPEG = Buffer.from(
@@ -49,13 +49,15 @@ describe('Uploads presign flow (e2e)', () => {
       await request(app.getHttpServer())
         .post('/v1/uploads/presign')
         .send({ mimetype: 'image/jpeg' })
+        .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(401);
     });
 
     it('BASIC recibe 403', async () => {
       await request(app.getHttpServer())
         .post('/v1/uploads/presign')
-        .set('Authorization', `Bearer ${basicToken}`)
+        .set('Cookie', basicToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ mimetype: 'image/jpeg' })
         .expect(403);
     });
@@ -63,7 +65,8 @@ describe('Uploads presign flow (e2e)', () => {
     it('ADMIN obtiene presignedUrl y publicUrl para image/jpeg', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/uploads/presign')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ mimetype: 'image/jpeg' })
         .expect(201);
 
@@ -74,7 +77,8 @@ describe('Uploads presign flow (e2e)', () => {
     it('presignedUrl contiene token con key y publicUrl correctos', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/uploads/presign')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ mimetype: 'image/png' })
         .expect(201);
 
@@ -88,7 +92,8 @@ describe('Uploads presign flow (e2e)', () => {
     it('mimetype no soportado recibe 400', async () => {
       await request(app.getHttpServer())
         .post('/v1/uploads/presign')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ mimetype: 'application/pdf' })
         .expect(400);
     });
@@ -98,7 +103,8 @@ describe('Uploads presign flow (e2e)', () => {
     async function getToken(mimetype: string): Promise<{ token: string; publicUrl: string }> {
       const res = await request(app.getHttpServer())
         .post('/v1/uploads/presign')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ mimetype })
         .expect(201);
 
@@ -131,6 +137,7 @@ describe('Uploads presign flow (e2e)', () => {
         .put(`/v1/uploads/local-put/${expiredToken}`)
         .set('Content-Type', 'image/jpeg')
         .send(SMALL_JPEG)
+        .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(401);
     });
 
@@ -139,6 +146,7 @@ describe('Uploads presign flow (e2e)', () => {
         .put('/v1/uploads/local-put/not-a-valid-token')
         .set('Content-Type', 'image/jpeg')
         .send(SMALL_JPEG)
+        .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(401);
     });
 
