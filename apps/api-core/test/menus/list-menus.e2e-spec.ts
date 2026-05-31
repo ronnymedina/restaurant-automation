@@ -19,7 +19,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login, TEST_DB_DIR } from './helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 const TEST_DB = path.join(TEST_DB_DIR, 'test-menus-list.db');
 
 describe('GET /v1/menus (e2e)', () => {
@@ -44,19 +44,22 @@ describe('GET /v1/menus (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Almuerzo', startTime: '12:00', endTime: '15:00', daysOfWeek: 'MON,TUE,WED,THU,FRI' })
       .expect(201);
 
     await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Cena', active: false })
       .expect(201);
 
     await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu B' })
       .expect(201);
   });
@@ -73,7 +76,8 @@ describe('GET /v1/menus (e2e)', () => {
   it('200 — ADMIN can list menus and response has data/meta shape', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -88,7 +92,8 @@ describe('GET /v1/menus (e2e)', () => {
   it('200 — MANAGER can list menus', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/menus')
-      .set('Authorization', `Bearer ${managerTokenA}`)
+      .set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -97,7 +102,8 @@ describe('GET /v1/menus (e2e)', () => {
   it('200 — BASIC can list menus', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/menus')
-      .set('Authorization', `Bearer ${basicTokenA}`)
+      .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -106,7 +112,8 @@ describe('GET /v1/menus (e2e)', () => {
   it('200 — serializer exposes correct fields', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const menu = res.body.data.find((m: { name: string }) => m.name === 'Almuerzo');
@@ -129,12 +136,14 @@ describe('GET /v1/menus (e2e)', () => {
   it('200 — only returns menus from own restaurant (isolation)', async () => {
     const resA = await request(app.getHttpServer())
       .get('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const resB = await request(app.getHttpServer())
       .get('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const idsA = resA.body.data.map((m: { id: string }) => m.id);
@@ -146,7 +155,8 @@ describe('GET /v1/menus (e2e)', () => {
   it('200 — soft-deleted menus are excluded', async () => {
     const createRes = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu para eliminar' })
       .expect(201);
 
@@ -154,12 +164,14 @@ describe('GET /v1/menus (e2e)', () => {
 
     await request(app.getHttpServer())
       .delete(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(204);
 
     const res = await request(app.getHttpServer())
       .get('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const found = res.body.data.find((m: { id: string }) => m.id === menuId);
@@ -169,7 +181,8 @@ describe('GET /v1/menus (e2e)', () => {
   it('200 — itemsCount reflects actual item count', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const menu = res.body.data.find((m: { name: string }) => m.name === 'Almuerzo');

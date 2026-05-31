@@ -21,7 +21,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login, TEST_DB_DIR } from './helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 const TEST_DB = path.join(TEST_DB_DIR, 'test-menu-items-create.db');
 
 describe('POST /v1/menus/:menuId/items (e2e)', () => {
@@ -49,7 +49,8 @@ describe('POST /v1/menus/:menuId/items (e2e)', () => {
 
     const menuRes = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Carta Items' })
       .expect(201);
 
@@ -65,13 +66,15 @@ describe('POST /v1/menus/:menuId/items (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items`)
       .send({ productId })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(401);
   });
 
   it('403 — BASIC cannot add an item', async () => {
     await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items`)
-      .set('Authorization', `Bearer ${basicTokenA}`)
+      .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productId })
       .expect(403);
   });
@@ -79,7 +82,8 @@ describe('POST /v1/menus/:menuId/items (e2e)', () => {
   it('404 — menu not found', async () => {
     await request(app.getHttpServer())
       .post('/v1/menus/00000000-0000-0000-0000-000000000000/items')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productId })
       .expect(404);
   });
@@ -87,7 +91,8 @@ describe('POST /v1/menus/:menuId/items (e2e)', () => {
   it('404 — restaurant B cannot add item to menu from restaurant A (isolation)', async () => {
     await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items`)
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productId })
       .expect(404);
   });
@@ -95,7 +100,8 @@ describe('POST /v1/menus/:menuId/items (e2e)', () => {
   it('400 — empty sectionName is rejected', async () => {
     await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productId, sectionName: '' })
       .expect(400);
   });
@@ -103,7 +109,8 @@ describe('POST /v1/menus/:menuId/items (e2e)', () => {
   it('400 — invalid productId is rejected', async () => {
     await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productId: 'not-a-uuid' })
       .expect(400);
   });
@@ -111,7 +118,8 @@ describe('POST /v1/menus/:menuId/items (e2e)', () => {
   it('201 — ADMIN can add an item', async () => {
     const res = await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productId, sectionName: 'Carnes', order: 1 })
       .expect(201);
 
@@ -124,7 +132,8 @@ describe('POST /v1/menus/:menuId/items (e2e)', () => {
   it('201 — MANAGER can add an item', async () => {
     const res = await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items`)
-      .set('Authorization', `Bearer ${managerTokenA}`)
+      .set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productId, sectionName: 'Bebidas' })
       .expect(201);
 
@@ -135,7 +144,8 @@ describe('POST /v1/menus/:menuId/items (e2e)', () => {
   it('201 — serializer exposes correct item fields', async () => {
     const res = await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productId, sectionName: 'Postres', order: 1 })
       .expect(201);
 
@@ -155,7 +165,8 @@ describe('POST /v1/menus/:menuId/items (e2e)', () => {
   it('201 — order auto-increments within same section', async () => {
     const menuRes = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu Auto Order' })
       .expect(201);
 
@@ -163,13 +174,15 @@ describe('POST /v1/menus/:menuId/items (e2e)', () => {
 
     const first = await request(app.getHttpServer())
       .post(`/v1/menus/${autoMenuId}/items`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productId, sectionName: 'Entradas' })
       .expect(201);
 
     const second = await request(app.getHttpServer())
       .post(`/v1/menus/${autoMenuId}/items`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productId, sectionName: 'Entradas' })
       .expect(201);
 
@@ -179,7 +192,8 @@ describe('POST /v1/menus/:menuId/items (e2e)', () => {
   it('201 — item without sectionName is allowed (null)', async () => {
     const res = await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productId })
       .expect(201);
 

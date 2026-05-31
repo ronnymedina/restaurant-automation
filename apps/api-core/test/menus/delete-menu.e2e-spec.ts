@@ -19,7 +19,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login, TEST_DB_DIR } from './helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 const TEST_DB = path.join(TEST_DB_DIR, 'test-menus-delete.db');
 
 describe('DELETE /v1/menus/:id (e2e)', () => {
@@ -51,58 +51,67 @@ describe('DELETE /v1/menus/:id (e2e)', () => {
   it('401 — unauthenticated request is rejected', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu 401 test' })
       .expect(201);
 
     await request(app.getHttpServer())
       .delete(`/v1/menus/${res.body.id}`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(401);
   });
 
   it('403 — BASIC cannot delete a menu', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu 403 test' })
       .expect(201);
 
     await request(app.getHttpServer())
       .delete(`/v1/menus/${res.body.id}`)
-      .set('Authorization', `Bearer ${basicTokenA}`)
+      .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(403);
   });
 
   it('404 — menu not found', async () => {
     await request(app.getHttpServer())
       .delete('/v1/menus/00000000-0000-0000-0000-000000000000')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
   });
 
   it('404 — restaurant B cannot delete menu from restaurant A (isolation)', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu isolation test' })
       .expect(201);
 
     await request(app.getHttpServer())
       .delete(`/v1/menus/${res.body.id}`)
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
   });
 
   it('204 — ADMIN can delete a menu and response has no body', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu para Admin delete' })
       .expect(201);
 
     const deleteRes = await request(app.getHttpServer())
       .delete(`/v1/menus/${res.body.id}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(204);
 
     expect(deleteRes.body).toEqual({});
@@ -111,20 +120,23 @@ describe('DELETE /v1/menus/:id (e2e)', () => {
   it('204 — MANAGER can delete a menu', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu para Manager delete' })
       .expect(201);
 
     await request(app.getHttpServer())
       .delete(`/v1/menus/${res.body.id}`)
-      .set('Authorization', `Bearer ${managerTokenA}`)
+      .set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(204);
   });
 
   it('soft delete — deleted menu not returned in list', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu soft delete list' })
       .expect(201);
 
@@ -132,12 +144,14 @@ describe('DELETE /v1/menus/:id (e2e)', () => {
 
     await request(app.getHttpServer())
       .delete(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(204);
 
     const listRes = await request(app.getHttpServer())
       .get('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const found = listRes.body.data.find((m: { id: string }) => m.id === menuId);
@@ -147,7 +161,8 @@ describe('DELETE /v1/menus/:id (e2e)', () => {
   it('soft delete — deleted menu returns 404 on GET', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu soft delete get' })
       .expect(201);
 
@@ -155,19 +170,22 @@ describe('DELETE /v1/menus/:id (e2e)', () => {
 
     await request(app.getHttpServer())
       .delete(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(204);
 
     await request(app.getHttpServer())
       .get(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
   });
 
   it('soft delete — record preserved in DB with deletedAt set', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu soft delete db' })
       .expect(201);
 
@@ -175,7 +193,8 @@ describe('DELETE /v1/menus/:id (e2e)', () => {
 
     await request(app.getHttpServer())
       .delete(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(204);
 
     const record = await prisma.menu.findUnique({ where: { id: menuId } });

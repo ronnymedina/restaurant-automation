@@ -19,7 +19,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login, TEST_DB_DIR } from './helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 const TEST_DB = path.join(TEST_DB_DIR, 'test-menu-items-delete.db');
 
 describe('DELETE /v1/menus/:menuId/items/:itemId (e2e)', () => {
@@ -47,7 +47,8 @@ describe('DELETE /v1/menus/:menuId/items/:itemId (e2e)', () => {
 
     const menuRes = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu Delete Items' })
       .expect(201);
 
@@ -62,7 +63,8 @@ describe('DELETE /v1/menus/:menuId/items/:itemId (e2e)', () => {
   async function addItem(): Promise<string> {
     await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productId, sectionName: 'Carnes' })
       .expect(201);
 
@@ -77,6 +79,7 @@ describe('DELETE /v1/menus/:menuId/items/:itemId (e2e)', () => {
     const itemId = await addItem();
     await request(app.getHttpServer())
       .delete(`/v1/menus/${menuId}/items/${itemId}`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(401);
   });
 
@@ -84,7 +87,8 @@ describe('DELETE /v1/menus/:menuId/items/:itemId (e2e)', () => {
     const itemId = await addItem();
     await request(app.getHttpServer())
       .delete(`/v1/menus/${menuId}/items/${itemId}`)
-      .set('Authorization', `Bearer ${basicTokenA}`)
+      .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(403);
   });
 
@@ -92,7 +96,8 @@ describe('DELETE /v1/menus/:menuId/items/:itemId (e2e)', () => {
     const itemId = await addItem();
     await request(app.getHttpServer())
       .delete(`/v1/menus/00000000-0000-0000-0000-000000000000/items/${itemId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
   });
 
@@ -100,7 +105,8 @@ describe('DELETE /v1/menus/:menuId/items/:itemId (e2e)', () => {
     const itemId = await addItem();
     await request(app.getHttpServer())
       .delete(`/v1/menus/${menuId}/items/${itemId}`)
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
   });
 
@@ -108,7 +114,8 @@ describe('DELETE /v1/menus/:menuId/items/:itemId (e2e)', () => {
     const itemId = await addItem();
     const res = await request(app.getHttpServer())
       .delete(`/v1/menus/${menuId}/items/${itemId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(204);
 
     expect(res.body).toEqual({});
@@ -118,7 +125,8 @@ describe('DELETE /v1/menus/:menuId/items/:itemId (e2e)', () => {
     const itemId = await addItem();
     await request(app.getHttpServer())
       .delete(`/v1/menus/${menuId}/items/${itemId}`)
-      .set('Authorization', `Bearer ${managerTokenA}`)
+      .set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(204);
   });
 
@@ -127,19 +135,22 @@ describe('DELETE /v1/menus/:menuId/items/:itemId (e2e)', () => {
 
     const before = await request(app.getHttpServer())
       .get(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const countBefore = before.body.items.length;
 
     await request(app.getHttpServer())
       .delete(`/v1/menus/${menuId}/items/${itemId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(204);
 
     const after = await request(app.getHttpServer())
       .get(`/v1/menus/${menuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(after.body.items.length).toBe(countBefore - 1);

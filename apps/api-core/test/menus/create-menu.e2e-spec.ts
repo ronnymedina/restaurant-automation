@@ -21,7 +21,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login, TEST_DB_DIR } from './helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 const TEST_DB = path.join(TEST_DB_DIR, 'test-menus-create.db');
 
 describe('POST /v1/menus (e2e)', () => {
@@ -50,13 +50,15 @@ describe('POST /v1/menus (e2e)', () => {
     await request(app.getHttpServer())
       .post('/v1/menus')
       .send({ name: 'Test' })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(401);
   });
 
   it('403 — BASIC cannot create a menu', async () => {
     await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${basicTokenA}`)
+      .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Test BASIC' })
       .expect(403);
   });
@@ -64,7 +66,8 @@ describe('POST /v1/menus (e2e)', () => {
   it('400 — empty name is rejected', async () => {
     await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: '' })
       .expect(400);
   });
@@ -72,7 +75,8 @@ describe('POST /v1/menus (e2e)', () => {
   it('400 — name longer than 100 characters is rejected', async () => {
     await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'A'.repeat(101) })
       .expect(400);
   });
@@ -80,7 +84,8 @@ describe('POST /v1/menus (e2e)', () => {
   it('400 — invalid startTime format is rejected', async () => {
     await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Test', startTime: '1200' })
       .expect(400);
   });
@@ -88,7 +93,8 @@ describe('POST /v1/menus (e2e)', () => {
   it('400 — invalid daysOfWeek value is rejected', async () => {
     await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Test', daysOfWeek: 'MONDAY,TUESDAY' })
       .expect(400);
   });
@@ -96,7 +102,8 @@ describe('POST /v1/menus (e2e)', () => {
   it('201 — ADMIN can create a menu', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({
         name: 'Almuerzo Admin',
         startTime: '12:00',
@@ -124,7 +131,8 @@ describe('POST /v1/menus (e2e)', () => {
   it('201 — MANAGER can create a menu', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${managerTokenA}`)
+      .set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu Manager' })
       .expect(201);
 
@@ -135,7 +143,8 @@ describe('POST /v1/menus (e2e)', () => {
   it('201 — active defaults to true when not provided', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu Activo Default' })
       .expect(201);
 
@@ -145,7 +154,8 @@ describe('POST /v1/menus (e2e)', () => {
   it('201 — menu can be created inactive', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu Inactivo', active: false })
       .expect(201);
 
@@ -155,7 +165,8 @@ describe('POST /v1/menus (e2e)', () => {
   it('201 — optional fields are null when not provided', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu Minimo' })
       .expect(201);
 
