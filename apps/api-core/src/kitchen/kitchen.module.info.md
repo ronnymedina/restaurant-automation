@@ -176,3 +176,19 @@ Cocina nunca puede:
 - Avanzar a `COMPLETED` (cierre es del cajero, requiere `isPaid`).
 - Cancelar pedidos.
 - Confirmar pedidos (`CREATED → CONFIRMED` es del cajero).
+
+---
+
+### Payload SSE (audit H-AUX-02)
+
+Cada evento `order:new` / `order:updated` entrega un `KitchenOrderPayload` completo:
+
+```ts
+{ id, orderNumber, status, displayTime, items: [{ quantity, notes, productName }] }
+```
+
+El KDS aplica patch local en `ordersMap` (`set` si status es CONFIRMED/PROCESSING, `delete` en otro caso) y re-renderiza desde el map vía `renderColumns()`. El GET `/v1/kitchen/{slug}/orders` solo se llama en el `onopen` del stream (montaje + reconexión).
+
+El payload **no** incluye `restaurantId`, `cashShiftId`, `paymentMethod`, `totalAmount`, `customer*`, ni datos del cliente. El shape vive duplicado en `apps/ui/src/pages/kitchen/index.astro` (sección de tipos al inicio del `<script>`); el backend tiene la fuente de verdad en `src/events/payloads/order-event-payloads.ts`.
+
+**Follow-up conocido (no bloqueante):** cuando el cocinero pulsa "EN PROCESO →" o "✓ LISTO", el handler hace `loadOrders()` directo tras la respuesta exitosa del PATCH (`bindCardEvents`). Es coherente con el patrón del dashboard, pero podría sustituirse por confianza en el SSE `order:updated` que ya entrega el delta. Optimización fuera del scope original de H-AUX-02.
