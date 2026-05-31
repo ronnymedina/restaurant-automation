@@ -249,16 +249,16 @@ describe('OrdersService', () => {
       );
     });
 
-    it('auto-advances to COMPLETED when marking a SERVED order as paid', async () => {
+    it('keeps SERVED status when marking a SERVED order as paid (completion is a separate cashier action)', async () => {
       stubTxWithOrder(makeOrder({ status: OrderStatus.SERVED, isPaid: false }));
       mockOrderRepository.transitionStatusIfMatchesAndUnpaid.mockResolvedValue(1);
       mockOrderRepository.findById.mockResolvedValue(
-        makeOrder({ status: OrderStatus.COMPLETED, isPaid: true }),
+        makeOrder({ status: OrderStatus.SERVED, isPaid: true }),
       );
 
       await service.markAsPaid('o1', 'r1');
       expect(mockOrderRepository.transitionStatusIfMatchesAndUnpaid).toHaveBeenCalledWith(
-        expect.anything(), 'o1', 'r1', OrderStatus.SERVED, OrderStatus.COMPLETED, undefined,
+        expect.anything(), 'o1', 'r1', OrderStatus.SERVED, OrderStatus.SERVED, undefined,
       );
     });
 

@@ -247,7 +247,6 @@ export class OrdersService {
 
       const nextStatus =
         order.status === OrderStatus.CREATED ? OrderStatus.CONFIRMED :
-        order.status === OrderStatus.SERVED  ? OrderStatus.COMPLETED :
         order.status;
 
       const count = await this.orderRepository.transitionStatusIfMatchesAndUnpaid(
