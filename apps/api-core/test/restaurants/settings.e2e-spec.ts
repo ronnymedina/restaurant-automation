@@ -5,10 +5,14 @@ import { App } from 'supertest/types';
 import * as bcrypt from 'bcryptjs';
 import { execSync } from 'child_process';
 import cookieParser from 'cookie-parser';
+import * as fs from 'fs';
+import * as path from 'path';
 
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { loginCookie, ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
+
+const TEST_DB = path.resolve(__dirname, 'test-settings.db');
 
 async function bootstrapApp(): Promise<{ app: INestApplication<App>; prisma: PrismaService }> {
   execSync('pnpm exec prisma migrate deploy', {
@@ -105,6 +109,7 @@ describe('GET /v1/restaurants/settings (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
+    if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
   });
 
   it('returns 401 without cookie', async () => {
@@ -166,6 +171,7 @@ describe('PATCH /v1/restaurants/settings', () => {
 
   afterAll(async () => {
     await app.close();
+    if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
   });
 
   beforeEach(async () => {
@@ -371,6 +377,7 @@ describe('GET /v1/restaurants/settings — extended shape', () => {
   beforeAll(async () => { ({ app, prisma } = await bootstrapApp()); });
   afterAll(async () => {
     await app.close();
+    if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
   });
 
   beforeEach(async () => {
