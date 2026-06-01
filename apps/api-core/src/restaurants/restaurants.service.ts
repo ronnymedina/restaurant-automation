@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Restaurant } from '@prisma/client';
-import * as ct from 'countries-and-timezones';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ct: { getCountry: (id: string) => { timezones: string[] } | null } = require('countries-and-timezones');
 import { RestaurantRepository, RestaurantWithSettings } from './restaurant.repository';
 import { TimezoneService } from './timezone.service';
 import { UpdateRestaurantSettingsDto } from './dto/update-restaurant-settings.dto';
