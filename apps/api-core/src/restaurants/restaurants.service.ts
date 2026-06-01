@@ -51,10 +51,6 @@ export class RestaurantsService {
     return this.restaurantRepository.delete(id);
   }
 
-  async rename(id: string, name: string): Promise<Restaurant> {
-    return this.restaurantRepository.update(id, { name });
-  }
-
   async findBySlugWithSettings(slug: string): Promise<RestaurantWithSettings | null> {
     return this.restaurantRepository.findBySlugWithSettings(slug);
   }
