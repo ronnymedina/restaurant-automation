@@ -124,24 +124,13 @@ describe('RestaurantsService.updateSettings', () => {
     });
   });
 
-  it('regenerates slug when name changes', async () => {
+  it('updates name without changing slug', async () => {
     mockRepo.findByIdWithSettings.mockResolvedValue(makeRestaurant({ name: 'Original', slug: 'original' }));
 
     await service.updateSettings('r1', { name: 'Nuevo Nombre' });
 
     expect(mockRepo.updateWithSettings).toHaveBeenCalledWith('r1', {
-      restaurant: { name: 'Nuevo Nombre', slug: expect.stringMatching(/^nuevo-nombre/) },
-      settings: {},
-    });
-  });
-
-  it('does NOT regenerate slug when name equals current', async () => {
-    mockRepo.findByIdWithSettings.mockResolvedValue(makeRestaurant({ name: 'Original', slug: 'original' }));
-
-    await service.updateSettings('r1', { name: 'Original' });
-
-    expect(mockRepo.updateWithSettings).toHaveBeenCalledWith('r1', {
-      restaurant: { name: 'Original' },
+      restaurant: { name: 'Nuevo Nombre' },
       settings: {},
     });
   });

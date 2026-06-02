@@ -84,14 +84,9 @@ export class RestaurantsService {
       ? (dto.decimalSeparator === '.' ? ',' : '.')
       : undefined;
 
-    const newSlug = dto.name && dto.name !== current.name
-      ? await this.generateSlug(dto.name)
-      : undefined;
-
     const updated = await this.restaurantRepository.updateWithSettings(restaurantId, {
       restaurant: {
         ...(dto.name ? { name: dto.name } : {}),
-        ...(newSlug ? { slug: newSlug } : {}),
       },
       settings: {
         ...(dto.timezone ? { timezone: dto.timezone } : {}),

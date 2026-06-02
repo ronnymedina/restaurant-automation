@@ -311,9 +311,8 @@ describe('PATCH /v1/restaurants/settings', () => {
     expect(res.body.code).toBe('TIMEZONE_NOT_AVAILABLE_FOR_COUNTRY');
   });
 
-  it('200 renames the restaurant and regenerates slug', async () => {
+  it('200 renames the restaurant without changing slug', async () => {
     const { restaurant, admin } = await seedRestaurant(prisma, 'name');
-    const oldSlug = restaurant.slug;
     const { accessCookie } = await loginCookie(app, admin.email, 'Admin1234!');
 
     const res = await request(app.getHttpServer())
@@ -324,8 +323,7 @@ describe('PATCH /v1/restaurants/settings', () => {
       .expect(200);
 
     expect(res.body.name).toBe('Mi Resto Renombrado');
-    expect(res.body.slug).not.toBe(oldSlug);
-    expect(res.body.slug.startsWith('mi-resto-renombrado')).toBe(true);
+    expect(res.body.slug).toBe(restaurant.slug);
   });
 
   it('400 on empty name', async () => {
