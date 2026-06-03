@@ -15,6 +15,7 @@ import OrderFilterPanel from './OrderFilterPanel';
 import CancelOrderModal from './CancelOrderModal';
 import { ORDERS_STATUS, type OrdersStatus, type OrderStatus } from './types';
 import CreateOrderModal from './CreateOrderModal';
+import OrderStatsPanel, { type OrderStatsPanelHandle } from './OrderStatsPanel';
 
 interface ActiveFilter extends FilterValues {
   label: string;
@@ -46,6 +47,7 @@ export default function OrdersPanel() {
   // concurrent batching. A separate version counter forces re-renders so that
   // OrderCard receives an updated reference and re-disables/re-enables buttons.
   const inFlightRef = useRef<Set<string>>(new Set());
+  const statsPanelRef = useRef<OrderStatsPanelHandle>(null);
   const [inFlightVersion, setInFlightVersion] = useState(0);
 
   const withInFlight = useCallback(async (id: string, fn: () => Promise<void>): Promise<void> => {
@@ -120,6 +122,7 @@ export default function OrdersPanel() {
     const es = new EventSource(`${config.apiUrl}/v1/events/dashboard?token=${token}`);
     const reload = () => {
       if (!activeFilterRef.current) fetchOrders(null);
+      statsPanelRef.current?.refresh();
     };
     es.addEventListener(ORDER_EVENTS.NEW, reload);
     es.addEventListener(ORDER_EVENTS.UPDATED, reload);
@@ -298,6 +301,8 @@ export default function OrdersPanel() {
           </button>
         </div>
       </div>
+
+      <OrderStatsPanel ref={statsPanelRef} />
 
       {activeFilter ? (
         <OrdersFilteredList
