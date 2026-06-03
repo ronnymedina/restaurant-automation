@@ -1,5 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { vi, beforeEach, afterEach, test, expect } from 'vitest';
+import { createRef } from 'react';
 import OrderStatsPanel, { type OrderStatsPanelHandle } from './OrderStatsPanel';
 import * as registerApi from '../register/api';
 
@@ -54,4 +55,47 @@ test('renders top products bar chart after fetch', async () => {
   expect(screen.getByText('Pizza pepperoni')).toBeInTheDocument();
   expect(screen.getByText('8 uds.')).toBeInTheDocument();
   expect(screen.getByText('6 uds.')).toBeInTheDocument();
+});
+
+test('refresh button triggers a new fetch', async () => {
+  render(<OrderStatsPanel />);
+  await waitFor(() => expect(screen.getByText('$1,240.00')).toBeInTheDocument());
+
+  expect(vi.mocked(registerApi.getLiveStats)).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole('button', { name: /actualizar/i }));
+
+  await waitFor(() =>
+    expect(vi.mocked(registerApi.getLiveStats)).toHaveBeenCalledTimes(2),
+  );
+});
+
+test('on fetch failure, shows error without clearing existing data', async () => {
+  render(<OrderStatsPanel />);
+  await waitFor(() => expect(screen.getByText('$1,240.00')).toBeInTheDocument());
+
+  vi.mocked(registerApi.getLiveStats).mockResolvedValueOnce({
+    ok: false,
+    error: {},
+    httpStatus: 500,
+  });
+  fireEvent.click(screen.getByRole('button', { name: /actualizar/i }));
+
+  await waitFor(() =>
+    expect(screen.getByText('No se pudo actualizar')).toBeInTheDocument(),
+  );
+  // Previous data still visible
+  expect(screen.getByText('$1,240.00')).toBeInTheDocument();
+});
+
+test('ref.refresh() triggers a new getLiveStats call', async () => {
+  const ref = createRef<OrderStatsPanelHandle>();
+  render(<OrderStatsPanel ref={ref} />);
+  await waitFor(() => expect(screen.getByText('$1,240.00')).toBeInTheDocument());
+
+  expect(vi.mocked(registerApi.getLiveStats)).toHaveBeenCalledTimes(1);
+  ref.current!.refresh();
+
+  await waitFor(() =>
+    expect(vi.mocked(registerApi.getLiveStats)).toHaveBeenCalledTimes(2),
+  );
 });
