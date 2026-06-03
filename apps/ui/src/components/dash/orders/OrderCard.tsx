@@ -151,22 +151,21 @@ export default function OrderCard({
         )}
         {isActive && (
           <div className="border-t border-slate-200 pt-2 space-y-1.5">
-            {/* Primary action — hidden for SERVED+unpaid: the select (cobrar) is the action */}
-            {!(order.status === 'SERVED' && !order.isPaid) && (
-              <button
-                type="button"
-                disabled={isBusy}
-                onClick={() => {
-                  if (order.status === 'CREATED') onConfirm(order.id);
-                  else if (order.status === 'CONFIRMED') onAdvance(order.id, 'PROCESSING');
-                  else if (order.status === 'PROCESSING') onAdvance(order.id, 'SERVED');
-                  else if (order.status === 'SERVED' && order.isPaid) onAdvance(order.id, 'COMPLETED');
-                }}
-                className={`w-full py-2 text-sm font-bold text-white rounded-lg cursor-pointer border-none disabled:opacity-60 disabled:cursor-not-allowed ${PRIMARY_CONFIGS[order.status]?.color ?? ''}`}
-              >
-                {order.status === 'SERVED' ? 'Completar' : PRIMARY_LABELS[order.status]}
-              </button>
-            )}
+            {/* Primary action */}
+            <button
+              type="button"
+              disabled={isBusy || (order.status === 'SERVED' && !order.isPaid)}
+              title={order.status === 'SERVED' && !order.isPaid ? 'Cobra primero' : undefined}
+              onClick={() => {
+                if (order.status === 'CREATED') onConfirm(order.id);
+                else if (order.status === 'CONFIRMED') onAdvance(order.id, 'PROCESSING');
+                else if (order.status === 'PROCESSING') onAdvance(order.id, 'SERVED');
+                else if (order.status === 'SERVED') onAdvance(order.id, 'COMPLETED');
+              }}
+              className={`w-full py-2 text-sm font-bold text-white rounded-lg cursor-pointer border-none disabled:opacity-60 disabled:cursor-not-allowed ${PRIMARY_CONFIGS[order.status]?.color ?? ''}`}
+            >
+              {order.status === 'SERVED' ? 'Completar' : PRIMARY_LABELS[order.status]}
+            </button>
             <div className="flex gap-1.5">
               {order.isPaid && (
                 <button
