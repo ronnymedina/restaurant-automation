@@ -248,7 +248,7 @@ describe('OrdersService', () => {
       );
     });
 
-    it('keeps SERVED status when marking as paid', async () => {
+    it('keeps SERVED status when marking a SERVED order as paid (completion is a separate cashier action)', async () => {
       stubTxWithOrder(makeOrder({ status: OrderStatus.SERVED, isPaid: false }));
       mockOrderRepository.transitionStatusIfMatchesAndUnpaid.mockResolvedValue(1);
       mockOrderRepository.findById.mockResolvedValue(
