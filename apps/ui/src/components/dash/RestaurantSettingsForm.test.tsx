@@ -107,5 +107,6 @@ describe('RestaurantSettingsForm', () => {
     render(<RestaurantSettingsForm />);
     await screen.findByDisplayValue('Mi Restaurante');
     expect(screen.getByRole('option', { name: 'America/Santiago' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'America/Punta_Arenas' })).toBeInTheDocument();
   });
 });
