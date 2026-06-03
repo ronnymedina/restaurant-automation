@@ -26,7 +26,7 @@ function SettingsFormContent() {
     register,
     handleSubmit,
     reset,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { name: '', timezone: '', decimalSeparator: ',' },
@@ -91,8 +91,14 @@ function SettingsFormContent() {
         return;
       }
       const updated = await res.json();
-      initialRef.current = { ...settings, ...updated };
-      queryClient.setQueryData(['restaurant-settings'], { ...settings, ...updated });
+      const merged = { ...settings, ...updated };
+      initialRef.current = merged;
+      queryClient.setQueryData(['restaurant-settings'], merged);
+      reset({
+        name: merged.name,
+        timezone: merged.timezone,
+        decimalSeparator: merged.decimalSeparator as '.' | ',',
+      });
       setStatus('saved');
       timerRef.current = setTimeout(() => setStatus('idle'), 4000);
     } catch {
@@ -159,8 +165,8 @@ function SettingsFormContent() {
         <div className="flex items-center gap-3">
           <button
             type="submit"
-            disabled={status === 'saving'}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer border-none disabled:opacity-50"
+            disabled={status === 'saving' || !isDirty}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors border-none disabled:opacity-40 disabled:cursor-not-allowed enabled:cursor-pointer"
           >
             {status === 'saving' ? 'Guardando...' : 'Guardar'}
           </button>
