@@ -221,17 +221,16 @@ describe('OrdersService', () => {
       expect(result).toEqual(paid);
     });
 
-    it('auto-confirms CREATED order when marking as paid', async () => {
+    it('keeps CREATED status when marking as paid', async () => {
       stubTxWithOrder(makeOrder({ status: OrderStatus.CREATED }));
       mockOrderRepository.transitionStatusIfMatchesAndUnpaid.mockResolvedValue(1);
       mockOrderRepository.findById.mockResolvedValue(
-        makeOrder({ status: OrderStatus.CONFIRMED, isPaid: true }),
+        makeOrder({ status: OrderStatus.CREATED, isPaid: true }),
       );
 
       await service.markAsPaid('o1', 'r1');
-      // The transition primitive carries CREATED → CONFIRMED in one atomic UPDATE.
       expect(mockOrderRepository.transitionStatusIfMatchesAndUnpaid).toHaveBeenCalledWith(
-        expect.anything(), 'o1', 'r1', OrderStatus.CREATED, OrderStatus.CONFIRMED, undefined,
+        expect.anything(), 'o1', 'r1', OrderStatus.CREATED, OrderStatus.CREATED, undefined,
       );
     });
 
@@ -249,16 +248,16 @@ describe('OrdersService', () => {
       );
     });
 
-    it('auto-advances to COMPLETED when marking a SERVED order as paid', async () => {
+    it('keeps SERVED status when marking as paid', async () => {
       stubTxWithOrder(makeOrder({ status: OrderStatus.SERVED, isPaid: false }));
       mockOrderRepository.transitionStatusIfMatchesAndUnpaid.mockResolvedValue(1);
       mockOrderRepository.findById.mockResolvedValue(
-        makeOrder({ status: OrderStatus.COMPLETED, isPaid: true }),
+        makeOrder({ status: OrderStatus.SERVED, isPaid: true }),
       );
 
       await service.markAsPaid('o1', 'r1');
       expect(mockOrderRepository.transitionStatusIfMatchesAndUnpaid).toHaveBeenCalledWith(
-        expect.anything(), 'o1', 'r1', OrderStatus.SERVED, OrderStatus.COMPLETED, undefined,
+        expect.anything(), 'o1', 'r1', OrderStatus.SERVED, OrderStatus.SERVED, undefined,
       );
     });
 
