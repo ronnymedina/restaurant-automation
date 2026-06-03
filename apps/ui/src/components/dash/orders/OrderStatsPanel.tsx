@@ -25,14 +25,19 @@ const OrderStatsPanel = forwardRef<OrderStatsPanelHandle>(function OrderStatsPan
   const fetchStats = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const result = await getLiveStats();
-    setLoading(false);
-    if (!result.ok) {
+    try {
+      const result = await getLiveStats();
+      if (!result.ok) {
+        setError('No se pudo actualizar');
+        return;
+      }
+      setStats(result.data.summary);
+      setLastUpdated(new Date());
+    } catch {
       setError('No se pudo actualizar');
-      return;
+    } finally {
+      setLoading(false);
     }
-    setStats(result.data.summary);
-    setLastUpdated(new Date());
   }, []);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);

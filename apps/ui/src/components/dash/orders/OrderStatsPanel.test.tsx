@@ -1,12 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { vi, beforeEach, afterEach, test, expect } from 'vitest';
-import { createRef } from 'react';
 import OrderStatsPanel, { type OrderStatsPanelHandle } from './OrderStatsPanel';
 import * as registerApi from '../register/api';
 
 vi.mock('../register/api');
 
-export const mockSummary = {
+const mockSummary = {
   counts: {
     total: 23, pending: 5, created: 2, confirmed: 1,
     processing: 1, served: 1, completed: 18, cancelled: 2,
