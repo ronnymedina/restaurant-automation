@@ -29,14 +29,16 @@ export async function fetchRestaurantSettings(): Promise<RestaurantSettings> {
   return { ...DEFAULT_RESTAURANT_SETTINGS, ...data };
 }
 
-// Per-session cache: settings barely change and the dashboard already
-// re-mounts on hard navigation, so `staleTime: Infinity` is enough.
-// `initialData` keeps the first render synchronous with sensible defaults.
+// placeholderData (not initialData) lets the query fetch on first mount while
+// still rendering synchronously with sensible defaults. initialData with
+// staleTime:Infinity would mark the placeholder as permanently fresh and
+// prevent fetchRestaurantSettings from ever being called.
 export function useRestaurantSettings() {
-  return useQuery({
+  const result = useQuery({
     queryKey: ['restaurant-settings'],
     queryFn: fetchRestaurantSettings,
     staleTime: Infinity,
-    initialData: DEFAULT_RESTAURANT_SETTINGS,
+    placeholderData: DEFAULT_RESTAURANT_SETTINGS,
   });
+  return { ...result, data: result.data ?? DEFAULT_RESTAURANT_SETTINGS };
 }
