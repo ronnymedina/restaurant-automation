@@ -14,8 +14,23 @@ vi.mock('../commons/Providers', async () => {
   };
 });
 
+vi.mock('../../lib/restaurant-settings', () => ({
+  useRestaurantSettings: vi.fn(),
+  DEFAULT_RESTAURANT_SETTINGS: {
+    name: '',
+    slug: '',
+    timezone: 'UTC',
+    country: 'CL',
+    currency: 'CLP',
+    decimalSeparator: ',',
+    thousandsSeparator: '.',
+  },
+}));
+
 import { apiFetch } from '../../lib/api';
+import { useRestaurantSettings } from '../../lib/restaurant-settings';
 const mockApiFetch = vi.mocked(apiFetch);
+const mockUseSettings = vi.mocked(useRestaurantSettings);
 
 const SETTINGS = {
   name: 'Mi Restaurante',
@@ -29,6 +44,7 @@ const SETTINGS = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockUseSettings.mockReturnValue({ data: SETTINGS } as any);
   mockApiFetch.mockResolvedValue({
     ok: true,
     json: async () => SETTINGS,

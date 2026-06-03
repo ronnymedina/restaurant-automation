@@ -1,13 +1,13 @@
 // src/components/dash/RestaurantSettingsForm.tsx
 import { useEffect, useRef, useMemo, useState } from 'react';
-import { QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import ct from 'countries-and-timezones';
 import { apiFetch } from '../../lib/api';
 import { queryClient } from '../commons/Providers';
-import { fetchRestaurantSettings, DEFAULT_RESTAURANT_SETTINGS } from '../../lib/restaurant-settings';
+import { useRestaurantSettings } from '../../lib/restaurant-settings';
 import type { RestaurantSettings } from '../../lib/restaurant-settings';
 
 const schema = z.object({
@@ -18,12 +18,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 function SettingsFormContent() {
-  const { data: settings = DEFAULT_RESTAURANT_SETTINGS } = useQuery({
-    queryKey: ['restaurant-settings'],
-    queryFn: fetchRestaurantSettings,
-    initialData: DEFAULT_RESTAURANT_SETTINGS,
-    staleTime: 0,
-  });
+  const { data: settings } = useRestaurantSettings();
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
