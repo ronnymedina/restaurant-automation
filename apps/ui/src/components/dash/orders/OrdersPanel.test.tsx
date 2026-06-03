@@ -22,6 +22,14 @@ vi.mock('../../../lib/restaurant-settings', () => ({
   }),
 }));
 
+vi.mock('../register/api', () => ({
+  getLiveStats: vi.fn().mockResolvedValue({ ok: true, data: { summary: {
+    counts: { total: 0, pending: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 0, cancelled: 0 },
+    revenue: { completed: 0, pending: 0, averageTicket: 0 },
+    byPaymentMethod: [], byOrderType: [], byOrderSource: [], topProducts: [],
+  }}}),
+}));
+
 // jsdom does not provide a global EventSource; stub a no-op class so the SSE
 // useEffect can construct one without throwing. Individual tests that need to
 // assert on EventSource calls may override this stub via vi.stubGlobal.
