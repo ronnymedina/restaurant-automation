@@ -58,6 +58,7 @@ function SettingsFormContent() {
 
   const onSubmit = async (values: FormValues) => {
     const initial = initialRef.current;
+    // currency is read-only in settings — it is set during onboarding and derived from country
     const patch: Record<string, string> = {};
     if (values.name !== initial?.name) patch.name = values.name;
     if (values.timezone !== initial?.timezone) patch.timezone = values.timezone;
@@ -65,6 +66,8 @@ function SettingsFormContent() {
       patch.decimalSeparator = values.decimalSeparator;
     if (Object.keys(patch).length === 0) return;
 
+    setStatus('idle');
+    setErrorMsg('');
     setStatus('saving');
     try {
       const res = await apiFetch('/v1/restaurants/settings', {
