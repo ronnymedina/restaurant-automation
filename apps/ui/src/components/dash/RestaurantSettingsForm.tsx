@@ -33,16 +33,19 @@ function SettingsFormContent() {
   });
 
   const initialRef = useRef<RestaurantSettings | null>(null);
+  const initializedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (initialRef.current !== null) return;
+    if (initializedRef.current) return;   // already populated from real API data
+    if (!settings.name) return;           // still on defaults, wait for real response
     reset({
       name: settings.name,
       timezone: settings.timezone,
       decimalSeparator: settings.decimalSeparator as '.' | ',',
     });
     initialRef.current = settings;
+    initializedRef.current = true;
   }, [settings, reset]);
 
   useEffect(() => {
