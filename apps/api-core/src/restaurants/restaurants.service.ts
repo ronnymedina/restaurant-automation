@@ -1,12 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Restaurant } from '@prisma/client';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ct: { getCountry: (id: string) => { timezones: string[] } | null } = require('countries-and-timezones');
 import { RestaurantRepository, RestaurantWithSettings } from './restaurant.repository';
+import { TimezoneService } from './timezone.service';
+import { UpdateRestaurantSettingsDto } from './dto/update-restaurant-settings.dto';
+import {
+  RestaurantNotFoundException,
+  TimezoneNotAvailableForCountryException,
+} from './exceptions/restaurants.exceptions';
+import { RestaurantSettingsDto } from './dto/restaurant-settings.dto';
 
 type TransactionClient = Prisma.TransactionClient;
 
 @Injectable()
 export class RestaurantsService {
-  constructor(private readonly restaurantRepository: RestaurantRepository) {}
+  constructor(
+    private readonly restaurantRepository: RestaurantRepository,
+    private readonly timezoneService: TimezoneService,
+  ) {}
 
   async createRestaurant(name: string, timezone = 'UTC', tx?: TransactionClient): Promise<Restaurant> {
     const slug = await this.generateSlug(name, tx);
@@ -40,10 +52,6 @@ export class RestaurantsService {
     return this.restaurantRepository.delete(id);
   }
 
-  async rename(id: string, name: string): Promise<Restaurant> {
-    return this.restaurantRepository.update(id, { name });
-  }
-
   async findBySlugWithSettings(slug: string): Promise<RestaurantWithSettings | null> {
     return this.restaurantRepository.findBySlugWithSettings(slug);
   }
@@ -57,6 +65,63 @@ export class RestaurantsService {
     data: { kitchenTokenHash?: string; kitchenTokenExpiresAt?: Date },
   ) {
     return this.restaurantRepository.upsertSettings(restaurantId, data);
+  }
+
+  async updateSettings(
+    restaurantId: string,
+    dto: UpdateRestaurantSettingsDto,
+  ): Promise<RestaurantSettingsDto> {
+    const current = await this.restaurantRepository.findByIdWithSettings(restaurantId);
+    if (!current || !current.settings) {
+      throw new RestaurantNotFoundException(restaurantId);
+    }
+
+    if (dto.timezone && !this.isTimezoneAllowedForCountry(dto.timezone, current.settings.country)) {
+      throw new TimezoneNotAvailableForCountryException(dto.timezone, current.settings.country);
+    }
+
+    const thousandsSeparator = dto.decimalSeparator
+      ? (dto.decimalSeparator === '.' ? ',' : '.')
+      : undefined;
+
+    const updated = await this.restaurantRepository.updateWithSettings(restaurantId, {
+      restaurant: {
+        ...(dto.name ? { name: dto.name } : {}),
+      },
+      settings: {
+        ...(dto.timezone ? { timezone: dto.timezone } : {}),
+        ...(dto.currency ? { currency: dto.currency } : {}),
+        ...(dto.decimalSeparator
+          ? { decimalSeparator: dto.decimalSeparator, thousandsSeparator }
+          : {}),
+      },
+    });
+
+    if (dto.timezone && dto.timezone !== current.settings.timezone) {
+      await this.timezoneService.invalidate(restaurantId);
+    }
+
+    return this.toSettingsDto(updated);
+  }
+
+  private isTimezoneAllowedForCountry(timezone: string, country: string): boolean {
+    const timezones = ct.getCountry(country)?.timezones as string[] | undefined;
+    return timezones?.includes(timezone) ?? false;
+  }
+
+  private toSettingsDto(
+    restaurant: NonNullable<Awaited<ReturnType<RestaurantRepository['findByIdWithSettings']>>>,
+  ): RestaurantSettingsDto {
+    const s = restaurant.settings!;
+    return {
+      name: restaurant.name,
+      slug: restaurant.slug,
+      timezone: s.timezone,
+      country: s.country,
+      currency: s.currency,
+      decimalSeparator: s.decimalSeparator,
+      thousandsSeparator: s.thousandsSeparator,
+    };
   }
 
   private async generateSlug(name: string, tx?: TransactionClient): Promise<string> {

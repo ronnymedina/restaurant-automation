@@ -115,4 +115,31 @@ export class RestaurantRepository {
       update: data,
     });
   }
+
+  async updateWithSettings(
+    restaurantId: string,
+    data: {
+      restaurant: Prisma.RestaurantUpdateInput;
+      settings: Prisma.RestaurantSettingsUpdateInput;
+    },
+  ): Promise<RestaurantWithSettings> {
+    return this.prisma.$transaction(async (tx) => {
+      if (Object.keys(data.restaurant).length > 0) {
+        await tx.restaurant.update({
+          where: { id: restaurantId },
+          data: data.restaurant,
+        });
+      }
+      if (Object.keys(data.settings).length > 0) {
+        await tx.restaurantSettings.update({
+          where: { restaurantId },
+          data: data.settings,
+        });
+      }
+      return tx.restaurant.findUniqueOrThrow({
+        where: { id: restaurantId },
+        include: { settings: true },
+      });
+    });
+  }
 }

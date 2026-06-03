@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from './api';
 
 export interface RestaurantSettings {
+  name: string;
+  slug: string;
   timezone: string;
   country: string;
   currency: string;
@@ -11,6 +13,8 @@ export interface RestaurantSettings {
 }
 
 export const DEFAULT_RESTAURANT_SETTINGS: RestaurantSettings = {
+  name: '',
+  slug: '',
   timezone: 'UTC',
   country: 'CL',
   currency: 'CLP',
