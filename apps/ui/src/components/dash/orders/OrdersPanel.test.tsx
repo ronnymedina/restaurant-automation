@@ -179,10 +179,9 @@ test('H-18: rapid double-click on Confirmar dispatches confirmOrder once', async
   await waitFor(() => expect(vi.mocked(confirmOrder)).toHaveBeenCalledTimes(1));
 });
 
-test('H-18 (regression): Confirmar button is disabled while mutation is in-flight (Kanban path)', async () => {
+test('applies optimistic CONFIRMED status immediately on Confirmar click', async () => {
   const { confirmOrder } = await import('./api');
-  // Never resolves during the test — keeps the order in-flight indefinitely
-  vi.mocked(confirmOrder).mockImplementation(() => new Promise(() => {}));
+  vi.mocked(confirmOrder).mockImplementation(() => new Promise(() => {})); // never resolves
 
   mockGetCurrentSession.mockResolvedValue({ ok: true, data: { id: 'shift', openedByEmail: 'a@b.c' } });
   mockGetOrders.mockResolvedValue({
@@ -196,16 +195,25 @@ test('H-18 (regression): Confirmar button is disabled while mutation is in-fligh
 
   render(<OrdersPanel />);
   const confirmBtn = await screen.findByRole('button', { name: 'Confirmar' });
-
-  expect(confirmBtn).not.toBeDisabled();
   fireEvent.click(confirmBtn);
 
-  await waitFor(() => expect(confirmBtn).toBeDisabled());
+  // Optimistic update: card moves to CONFIRMED column, button changes to "Procesar"
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Procesar' })).toBeInTheDocument(),
+  );
+  expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();
 });
 
-test('H-18 (regression): Confirmar button is disabled while mutation is in-flight (FilteredList path)', async () => {
+test('does not call getOrders after a successful confirmOrder', async () => {
   const { confirmOrder } = await import('./api');
-  vi.mocked(confirmOrder).mockImplementation(() => new Promise(() => {}));
+  vi.mocked(confirmOrder).mockResolvedValue({
+    ok: true,
+    data: {
+      id: 'o1', orderNumber: 1, status: 'CONFIRMED', isPaid: false,
+      items: [], totalAmount: 100, orderSource: 'KIOSK', orderType: 'DINE_IN',
+      displayTime: '12:00', paymentMethod: null,
+    } as any,
+  });
 
   mockGetCurrentSession.mockResolvedValue({ ok: true, data: { id: 'shift', openedByEmail: 'a@b.c' } });
   mockGetOrders.mockResolvedValue({
@@ -219,19 +227,103 @@ test('H-18 (regression): Confirmar button is disabled while mutation is in-fligh
 
   render(<OrdersPanel />);
   await waitFor(() => expect(mockGetOrders).toHaveBeenCalledTimes(1));
+  mockGetOrders.mockClear();
 
-  // Activate a filter to switch to the FilteredList view
+  const confirmBtn = await screen.findByRole('button', { name: 'Confirmar' });
+  fireEvent.click(confirmBtn);
+
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Procesar' })).toBeInTheDocument(),
+  );
+  expect(mockGetOrders).not.toHaveBeenCalled();
+});
+
+test('reverts optimistic update and shows toast on confirmOrder failure', async () => {
+  const { confirmOrder } = await import('./api');
+  // setTimeout ensures React commits the optimistic render before the promise resolves.
+  // mockResolvedValue resolves in the same microtask batch as applyOptimistic, collapsing
+  // both phases into a single render and making Phase 1 unobservable.
+  vi.mocked(confirmOrder).mockImplementation(
+    () => new Promise((resolve) =>
+      setTimeout(() => resolve({ ok: false, error: { message: 'Error al confirmar' }, httpStatus: 422 } as any), 20),
+    ),
+  );
+
+  mockGetCurrentSession.mockResolvedValue({ ok: true, data: { id: 'shift', openedByEmail: 'a@b.c' } });
+  mockGetOrders.mockResolvedValue({
+    ok: true,
+    data: [{
+      id: 'o1', orderNumber: 1, status: 'CREATED', isPaid: false,
+      items: [], totalAmount: 100, orderSource: 'KIOSK', orderType: 'DINE_IN',
+      displayTime: '12:00', paymentMethod: null,
+    } as any],
+  });
+
+  render(<OrdersPanel />);
+  const confirmBtn = await screen.findByRole('button', { name: 'Confirmar' });
+  fireEvent.click(confirmBtn);
+
+  // Phase 1: optimistic update applied — card shows CONFIRMED state
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Procesar' })).toBeInTheDocument(),
+  );
+  expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();
+
+  // Phase 2: after failure resolves, useOptimistic reverts — Confirmar comes back
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeInTheDocument(),
+  );
+  await waitFor(() =>
+    expect(screen.getByText('Error al confirmar')).toBeInTheDocument(),
+  );
+});
+
+test('SSE order:updated patches state even when filter is active', async () => {
+  let capturedHandlers: Record<string, (e: MessageEvent) => void> = {};
+  class SpyEventSource {
+    addEventListener = vi.fn((event: string, handler: (e: MessageEvent) => void) => {
+      capturedHandlers[event] = handler;
+    });
+    close = vi.fn();
+    constructor(_url: string, _init?: EventSourceInit) {}
+  }
+  vi.stubGlobal('EventSource', SpyEventSource);
+
+  mockGetCurrentSession.mockResolvedValue({
+    ok: true,
+    data: { id: 'shift-1', openedByEmail: 'staff@test.com' },
+  });
+  mockGetOrders.mockResolvedValue({
+    ok: true,
+    data: [{
+      id: 'o1', orderNumber: 5, status: 'CREATED', isPaid: false,
+      totalAmount: 500, paymentMethod: null, cancellationReason: null,
+      customerEmail: null, customerPhone: null, deliveryAddress: null,
+      deliveryReferences: null, orderSource: 'KIOSK', orderType: 'DINE_IN',
+      displayTime: '11:00', cashShiftId: 'shift-1', createdAt: '2026-01-01T11:00:00Z',
+      items: [],
+    }],
+  });
+
+  render(<OrdersPanel />);
+  await screen.findByText(/#5/);
+
+  // Apply a filter to switch to FilteredList mode
   fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
   fireEvent.click(screen.getByRole('checkbox', { name: 'Creado' }));
   fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
+  await waitFor(() => expect(screen.getByText(/Filtro activo/)).toBeInTheDocument());
 
-  // Wait for filtered list to render with the order
-  const confirmBtn = await screen.findByRole('button', { name: 'Confirmar' });
+  // Dispatch order:updated while filter is active — should still patch local state
+  capturedHandlers['order:updated']?.({
+    data: JSON.stringify({
+      id: 'o1', status: 'CONFIRMED', isPaid: true,
+      paymentMethod: 'CASH', cancellationReason: null,
+    }),
+  } as MessageEvent);
 
-  expect(confirmBtn).not.toBeDisabled();
-  fireEvent.click(confirmBtn);
-
-  await waitFor(() => expect(confirmBtn).toBeDisabled());
+  // isPaid: true → "Pagado" badge should appear in the filtered list
+  await waitFor(() => expect(screen.getByText('Pagado')).toBeInTheDocument());
 });
 
 // H-AUX-02: order:updated merges into local state without refetching.
