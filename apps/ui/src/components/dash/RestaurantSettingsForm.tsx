@@ -33,8 +33,10 @@ function SettingsFormContent() {
   });
 
   const initialRef = useRef<RestaurantSettings | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (initialRef.current !== null) return;
     reset({
       name: settings.name,
       timezone: settings.timezone,
@@ -43,10 +45,16 @@ function SettingsFormContent() {
     initialRef.current = settings;
   }, [settings, reset]);
 
-  const timezoneOptions = useMemo(
-    () => ct.getCountry(settings.country)?.timezones ?? [settings.timezone],
-    [settings.country, settings.timezone],
-  );
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const timezoneOptions = useMemo(() => {
+    const list = ct.getCountry(settings.country)?.timezones ?? [];
+    return list.includes(settings.timezone) ? list : [settings.timezone, ...list];
+  }, [settings.country, settings.timezone]);
 
   const onSubmit = async (values: FormValues) => {
     const initial = initialRef.current;
@@ -80,7 +88,7 @@ function SettingsFormContent() {
       initialRef.current = { ...settings, ...updated };
       queryClient.setQueryData(['restaurant-settings'], { ...settings, ...updated });
       setStatus('saved');
-      setTimeout(() => setStatus('idle'), 4000);
+      timerRef.current = setTimeout(() => setStatus('idle'), 4000);
     } catch {
       setErrorMsg('Error de red al guardar la configuración');
       setStatus('error');
