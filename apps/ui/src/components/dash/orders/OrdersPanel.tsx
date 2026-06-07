@@ -17,6 +17,7 @@ import OrderFilterPanel from './OrderFilterPanel';
 import CancelOrderModal from './CancelOrderModal';
 import { ORDERS_STATUS, type OrdersStatus, type OrderStatus } from './types';
 import CreateOrderModal from './CreateOrderModal';
+import OrderStatsPanel, { type OrderStatsPanelHandle } from './OrderStatsPanel';
 
 interface ActiveFilter extends FilterValues {
   label: string;
@@ -44,6 +45,7 @@ export default function OrdersPanel() {
 
   // H-18: Track in-flight order mutations to prevent double-submit.
   const inFlightRef = useRef<Set<string>>(new Set());
+  const statsPanelRef = useRef<OrderStatsPanelHandle>(null);
 
   // Pending optimistic patches — applied immediately on action, removed on settle.
   // useOptimistic was the original intent but React 19's async transition scheduler
@@ -147,6 +149,7 @@ export default function OrdersPanel() {
         setOrders((prev) =>
           prev.some((o) => o.id === payload.id) ? prev : [payload as Order, ...prev],
         );
+        statsPanelRef.current?.refresh();
       } catch { /* ignore malformed payload */ }
     };
     const handleUpdated = (e: MessageEvent) => {
@@ -154,6 +157,7 @@ export default function OrdersPanel() {
         const payload = JSON.parse(e.data) as OrderUpdatedPayload;
         if (!payload?.id) return;
         setOrders((prev) => prev.map((o) => (o.id === payload.id ? { ...o, ...payload } : o)));
+        statsPanelRef.current?.refresh();
       } catch { /* ignore malformed payload */ }
     };
     // Skip refetch on the very first 'open' — loadSession() already fetched
@@ -322,6 +326,8 @@ export default function OrdersPanel() {
           </button>
         </div>
       </div>
+
+      <OrderStatsPanel ref={statsPanelRef} />
 
       {activeFilter ? (
         <OrdersFilteredList
