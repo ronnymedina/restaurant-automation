@@ -65,7 +65,7 @@ export default function OrderCard({
   const border = BORDER_COLORS[order.status] ?? 'border-l-slate-300';
   const isActive = ACTIVE_STATUSES.has(order.status);
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
-  const [payMethod, setPayMethod] = useState('');
+  const [payMethod, setPayMethod] = useState(order.paymentMethod ?? '');
   const hasCustomerData = order.customerEmail || order.customerPhone || order.deliveryAddress;
   const { data: settings } = useRestaurantSettings();
 
@@ -94,19 +94,28 @@ export default function OrderCard({
           <span className="font-semibold text-sm text-slate-800">
             {formatMoney(Number(order.totalAmount), settings)}
           </span>
-          {isActive ? (
+          {isActive && !order.isPaid ? (
             <div className="flex items-center gap-1">
-              {!order.isPaid && <span className="text-xs text-amber-600">⚠</span>}
+              <span className="text-xs text-amber-600">⚠</span>
               <select
-                value={order.paymentMethod ?? payMethod}
-                onChange={(e) => { setPayMethod(''); onPay(order.id, e.target.value); }}
+                value={payMethod}
+                onChange={(e) => setPayMethod(e.target.value)}
                 className="text-xs rounded px-1.5 py-0.5 cursor-pointer border border-amber-300 bg-amber-50 text-amber-800"
               >
-                <option value="" disabled>— Cobrar —</option>
+                <option value="" disabled>— Método —</option>
                 <option value="CASH">Efectivo</option>
                 <option value="CARD">Tarjeta</option>
                 <option value="DIGITAL_WALLET">Digital</option>
               </select>
+              {payMethod && (
+                <button
+                  type="button"
+                  onClick={() => onPay(order.id, payMethod)}
+                  className="text-xs px-1.5 py-0.5 bg-green-600 hover:bg-green-700 text-white rounded font-medium cursor-pointer border-none"
+                >
+                  Cobrar
+                </button>
+              )}
             </div>
           ) : (
             <span className="text-xs text-slate-500">
