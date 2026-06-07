@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, uniqueEmail, registerUser, activateUser } from './helpers';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 
 describe('PUT /v1/auth/reset-password (e2e)', () => {
   let app: INestApplication<App>;
@@ -25,6 +26,7 @@ describe('PUT /v1/auth/reset-password (e2e)', () => {
     await request(app.getHttpServer())
       .post('/v1/auth/recover')
       .send({ email })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const userWithToken = await prisma.user.findFirst({ where: { email } });
@@ -33,6 +35,7 @@ describe('PUT /v1/auth/reset-password (e2e)', () => {
     const res = await request(app.getHttpServer())
       .put('/v1/auth/reset-password')
       .send({ token: resetToken, password: 'NewPassword456' })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body).toEqual({ email });
@@ -50,6 +53,7 @@ describe('PUT /v1/auth/reset-password (e2e)', () => {
     await request(app.getHttpServer())
       .post('/v1/auth/recover')
       .send({ email })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const userWithToken = await prisma.user.findFirst({ where: { email } });
@@ -58,20 +62,25 @@ describe('PUT /v1/auth/reset-password (e2e)', () => {
     await request(app.getHttpServer())
       .put('/v1/auth/reset-password')
       .send({ token: resetToken, password: 'ResetedPass789' })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const loginRes = await request(app.getHttpServer())
       .post('/v1/auth/login')
       .send({ email, password: 'ResetedPass789' })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(201);
 
-    expect(loginRes.body.accessToken).toBeDefined();
+    const setCookie = loginRes.headers['set-cookie'] as unknown as string[] | undefined;
+    expect(Array.isArray(setCookie)).toBe(true);
+    expect(setCookie!.some((c) => c.startsWith('access_token='))).toBe(true);
   });
 
   it('400 INVALID_ACTIVATION_TOKEN — token desconocido', async () => {
     const res = await request(app.getHttpServer())
       .put('/v1/auth/reset-password')
       .send({ token: 'nonexistent-token', password: 'Password123' })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(400);
 
     expect(res.body.code).toBe('INVALID_ACTIVATION_TOKEN');
@@ -87,6 +96,7 @@ describe('PUT /v1/auth/reset-password (e2e)', () => {
     const res = await request(app.getHttpServer())
       .put('/v1/auth/reset-password')
       .send({ token: activationToken, password: 'Password123' })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(400);
 
     expect(res.body.code).toBe('ACCOUNT_INACTIVE');
@@ -96,6 +106,7 @@ describe('PUT /v1/auth/reset-password (e2e)', () => {
     await request(app.getHttpServer())
       .put('/v1/auth/reset-password')
       .send({ token: 'any-token', password: 'short' })
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(400);
   });
 });

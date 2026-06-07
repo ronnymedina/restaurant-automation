@@ -1,8 +1,17 @@
-import { Controller, MessageEvent, Query, Sse, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import {
+  Controller,
+  Headers,
+  MessageEvent,
+  Query,
+  Sse,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import { Observable } from 'rxjs';
 
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { SseService } from './sse.service';
 import { KitchenTokenService, MAX_KITCHEN_TOKEN_LENGTH } from '../kitchen/kitchen-token.service';
@@ -10,37 +19,21 @@ import { KitchenTokenService, MAX_KITCHEN_TOKEN_LENGTH } from '../kitchen/kitche
 @Controller({ version: '1', path: 'events' })
 export class EventsController {
   constructor(
-    private readonly jwtService: JwtService,
     private readonly restaurantsService: RestaurantsService,
     private readonly sseService: SseService,
     private readonly kitchenTokenService: KitchenTokenService,
   ) {}
 
-  @Public()
+  @UseGuards(JwtAuthGuard)
   @Sse('dashboard')
-  dashboard(@Query('token') token: string | undefined): Observable<MessageEvent> {
-    if (!token) {
-      throw new UnauthorizedException();
-    }
-
-    let payload: { restaurantId?: string };
-    try {
-      payload = this.jwtService.verify<{ restaurantId?: string }>(token);
-    } catch {
-      throw new UnauthorizedException();
-    }
-
-    if (!payload.restaurantId) {
-      throw new UnauthorizedException();
-    }
-
-    return this.sseService.streamForRestaurant(payload.restaurantId);
+  dashboard(@CurrentUser() user: { restaurantId: string }): Observable<MessageEvent> {
+    return this.sseService.streamForRestaurant(user.restaurantId);
   }
 
   @Public()
   @Sse('kitchen')
   async kitchen(
-    @Query('token') token: string | undefined,
+    @Headers('x-kitchen-token') token: string | undefined,
     @Query('slug') slug: string | undefined,
   ): Promise<Observable<MessageEvent>> {
     if (!slug || !token) {

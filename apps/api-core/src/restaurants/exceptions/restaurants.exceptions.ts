@@ -14,3 +14,31 @@ export class DuplicateRestaurantException extends BaseException {
     );
   }
 }
+
+/**
+ * Thrown when a restaurant is not found.
+ */
+export class RestaurantNotFoundException extends BaseException {
+  constructor(restaurantId: string) {
+    super(
+      `Restaurant '${restaurantId}' not found`,
+      HttpStatus.NOT_FOUND,
+      'RESTAURANT_NOT_FOUND',
+      { restaurantId },
+    );
+  }
+}
+
+/**
+ * Thrown when a timezone is not available for a country.
+ */
+export class TimezoneNotAvailableForCountryException extends BaseException {
+  constructor(timezone: string, country: string) {
+    super(
+      `La zona horaria '${timezone}' no está disponible para el país '${country}'`,
+      HttpStatus.BAD_REQUEST,
+      'TIMEZONE_NOT_AVAILABLE_FOR_COUNTRY',
+      { timezone, country },
+    );
+  }
+}

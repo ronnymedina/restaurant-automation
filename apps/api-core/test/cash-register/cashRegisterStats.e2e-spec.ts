@@ -4,6 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 import {
   bootstrapApp, seedRestaurant, login,
   seedProduct, openCashShiftViaApi, seedOrderOnShift,
@@ -39,7 +40,8 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
 
     await request(app.getHttpServer())
       .get('/v1/cash-register/stats')
-      .set('Authorization', `Bearer ${basicToken}`)
+      .set('Cookie', basicToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
   });
 
@@ -49,7 +51,8 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/stats')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Cookie', token)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const { summary } = res.body;
@@ -71,7 +74,8 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/stats')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Cookie', token)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.summary).toMatchObject({
@@ -105,7 +109,8 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/stats')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Cookie', token)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const { counts } = res.body.summary;
@@ -128,7 +133,8 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/stats')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Cookie', token)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const { revenue } = res.body.summary;
@@ -150,7 +156,8 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/stats')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Cookie', token)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.summary.topProducts.length).toBeLessThanOrEqual(5);
@@ -170,7 +177,8 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
 
     const resB = await request(app.getHttpServer())
       .get('/v1/cash-register/stats')
-      .set('Authorization', `Bearer ${tokenB}`)
+      .set('Cookie', tokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const { summary } = resB.body;

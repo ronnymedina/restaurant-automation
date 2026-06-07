@@ -3,11 +3,12 @@ import * as bcrypt from 'bcryptjs';
 import { execSync } from 'child_process';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
-import request from 'supertest';
 import { App } from 'supertest/types';
+import cookieParser from 'cookie-parser';
 
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { loginCookie } from '../helpers/auth-cookie';
 
 export async function bootstrapApp(
   dbPath: string,
@@ -24,6 +25,7 @@ export async function bootstrapApp(
   }).compile();
 
   const app = moduleFixture.createNestApplication<INestApplication<App>>();
+  app.use(cookieParser());
   app.enableVersioning({ type: VersioningType.URI });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
@@ -92,14 +94,8 @@ export async function seedRestaurant(prisma: PrismaService, suffix: string) {
 }
 
 export async function login(app: INestApplication<App>, email: string): Promise<string> {
-  const res = await request(app.getHttpServer())
-    .post('/v1/auth/login')
-    .send({ email, password: 'Admin1234!' })
-    .expect((r) => {
-      if (r.status !== 200 && r.status !== 201)
-        throw new Error(`Login failed: ${r.status} ${JSON.stringify(r.body)}`);
-    });
-  return res.body.accessToken as string;
+  const { accessCookie } = await loginCookie(app, email);
+  return accessCookie;
 }
 
 export const TEST_DB_DIR = path.resolve(__dirname);

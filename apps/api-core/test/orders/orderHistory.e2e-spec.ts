@@ -4,6 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 import {
   bootstrapApp, seedRestaurant, login,
   seedProduct, openCashShift, seedOrder,
@@ -39,56 +40,64 @@ describe('GET /v1/orders/history - orderHistory (e2e)', () => {
     it('rechaza limit no-numérico con 400', async () => {
       await request(app.getHttpServer())
         .get('/v1/orders/history?limit=abc')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(400);
     });
 
     it('rechaza limit > 100 con 400', async () => {
       await request(app.getHttpServer())
         .get('/v1/orders/history?limit=999')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(400);
     });
 
     it('rechaza dateFrom no-ISO con 400', async () => {
       await request(app.getHttpServer())
         .get('/v1/orders/history?dateFrom=hoy')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(400);
     });
 
     it('rechaza dateFrom > dateTo con 400', async () => {
       await request(app.getHttpServer())
         .get('/v1/orders/history?dateFrom=2026-02-01&dateTo=2026-01-01')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(400);
     });
 
     it('rechaza rango > 90 días con 400', async () => {
       await request(app.getHttpServer())
         .get('/v1/orders/history?dateFrom=2026-01-01&dateTo=2026-06-30')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(400);
     });
 
     it('rechaza status fuera del enum con 400', async () => {
       await request(app.getHttpServer())
         .get('/v1/orders/history?status=BLAH')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(400);
     });
 
     it('rechaza orderNumber no-numérico con 400', async () => {
       await request(app.getHttpServer())
         .get('/v1/orders/history?orderNumber=abc')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(400);
     });
 
     it('acepta query válida con 200', async () => {
       await request(app.getHttpServer())
         .get('/v1/orders/history?dateFrom=2026-01-01&dateTo=2026-01-31&limit=10&page=1')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
     });
   });
@@ -104,7 +113,8 @@ describe('GET /v1/orders/history - orderHistory (e2e)', () => {
   it('Retorna estructura paginada { data, meta }', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders/history')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -118,7 +128,8 @@ describe('GET /v1/orders/history - orderHistory (e2e)', () => {
   it('Paginación: page=1&limit=1 retorna 1 resultado y meta correcta', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders/history?page=1&limit=1')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.data).toHaveLength(1);
@@ -130,7 +141,8 @@ describe('GET /v1/orders/history - orderHistory (e2e)', () => {
   it('Filtro por status=CANCELLED retorna solo canceladas', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders/history?status=CANCELLED')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.data.length).toBeGreaterThan(0);
@@ -140,7 +152,8 @@ describe('GET /v1/orders/history - orderHistory (e2e)', () => {
   it('Filtro por orderNumber retorna la orden específica', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/orders/history?orderNumber=1')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.data.some((o: any) => o.orderNumber === 1)).toBe(true);
@@ -149,12 +162,14 @@ describe('GET /v1/orders/history - orderHistory (e2e)', () => {
   it('Solo retorna órdenes del propio restaurante (aislamiento)', async () => {
     const resA = await request(app.getHttpServer())
       .get('/v1/orders/history')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const resB = await request(app.getHttpServer())
       .get('/v1/orders/history')
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(resB.body.meta.total).toBe(0);
@@ -202,7 +217,8 @@ describe('GET /v1/orders/history - orderHistory (e2e)', () => {
     it('?dateFrom=2026-01-15&dateTo=2026-01-15 incluye solo órdenes del día local', async () => {
       const res = await request(app.getHttpServer())
         .get('/v1/orders/history?dateFrom=2026-01-15&dateTo=2026-01-15')
-        .set('Authorization', `Bearer ${tzToken}`)
+        .set('Cookie', tzToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
 
       const ids = res.body.data.map((o: any) => o.id);
@@ -214,7 +230,8 @@ describe('GET /v1/orders/history - orderHistory (e2e)', () => {
     it('?dateFrom=2026-01-15 excluye órdenes anteriores al inicio del día local', async () => {
       const res = await request(app.getHttpServer())
         .get('/v1/orders/history?dateFrom=2026-01-15')
-        .set('Authorization', `Bearer ${tzToken}`)
+        .set('Cookie', tzToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
 
       const ids = res.body.data.map((o: any) => o.id);
@@ -225,7 +242,8 @@ describe('GET /v1/orders/history - orderHistory (e2e)', () => {
     it('?dateTo=2026-01-15 excluye órdenes posteriores al fin del día local', async () => {
       const res = await request(app.getHttpServer())
         .get('/v1/orders/history?dateTo=2026-01-15')
-        .set('Authorization', `Bearer ${tzToken}`)
+        .set('Cookie', tzToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
 
       const ids = res.body.data.map((o: any) => o.id);

@@ -41,9 +41,9 @@ interface OrdersKanbanProps extends OrderCardCallbacks {
   orders: Order[];
 }
 
-export default function OrdersKanban({ orders, onConfirm, onAdvance, onPay, onUnpay, onCancel, onCancelBlocked, inFlightIds }: OrdersKanbanProps) {
+export default function OrdersKanban({ orders, onConfirm, onAdvance, onPay, onUnpay, onCancel, onCancelBlocked }: OrdersKanbanProps) {
   const byStatus = (status: string) => orders.filter((o) => o.status === status);
-  const cardCallbacks = { onConfirm, onAdvance, onPay, onUnpay, onCancel, onCancelBlocked, inFlightIds };
+  const cardCallbacks = { onConfirm, onAdvance, onPay, onUnpay, onCancel, onCancelBlocked };
 
   return (
     <div className="grid grid-cols-4 gap-4">

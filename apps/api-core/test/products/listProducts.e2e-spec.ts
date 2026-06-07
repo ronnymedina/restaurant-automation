@@ -8,7 +8,7 @@ import { TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { productConfig } from '../../src/products/product.config';
 import { bootstrapApp, seedRestaurant, login } from './products.helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 const TEST_DB = path.resolve(__dirname, 'test-list-products.db');
 
 describe('GET /v1/products - listProducts (e2e)', () => {
@@ -63,9 +63,12 @@ describe('GET /v1/products - listProducts (e2e)', () => {
   });
 
   it('Permite el acceso a ADMIN, MANAGER y BASIC', async () => {
-    await request(app.getHttpServer()).get('/v1/products').set('Authorization', `Bearer ${adminTokenA}`).expect(200);
-    await request(app.getHttpServer()).get('/v1/products').set('Authorization', `Bearer ${managerTokenA}`).expect(200);
-    await request(app.getHttpServer()).get('/v1/products').set('Authorization', `Bearer ${basicTokenA}`).expect(200);
+    await request(app.getHttpServer()).get('/v1/products').set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN).expect(200);
+    await request(app.getHttpServer()).get('/v1/products').set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN).expect(200);
+    await request(app.getHttpServer()).get('/v1/products').set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN).expect(200);
   });
 
   it('Respeta el límite máximo de paginación configurado', async () => {
@@ -74,7 +77,8 @@ describe('GET /v1/products - listProducts (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .get('/v1/products?limit=100')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.meta.limit).toBe(maxLimit);
@@ -84,7 +88,8 @@ describe('GET /v1/products - listProducts (e2e)', () => {
   it('Devuelve los productos en orden descendente (más nuevo primero)', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/products')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const items = res.body.data;
@@ -96,7 +101,8 @@ describe('GET /v1/products - listProducts (e2e)', () => {
   it('Estructura ProductListSerializer: price como number, category.name, sin updatedAt/deletedAt', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/products')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const product = res.body.data[0];
@@ -114,7 +120,8 @@ describe('GET /v1/products - listProducts (e2e)', () => {
   it('Valida estrictamente las propiedades expuestas (opt-in)', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/products')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const product = res.body.data[0];
@@ -131,12 +138,14 @@ describe('GET /v1/products - listProducts (e2e)', () => {
   it('Devuelve resultados de la página solicitada', async () => {
     const res1 = await request(app.getHttpServer())
       .get('/v1/products?page=1&limit=2')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const res2 = await request(app.getHttpServer())
       .get('/v1/products?page=2&limit=2')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res1.body.meta.page).toBe(1);
@@ -154,7 +163,8 @@ describe('GET /v1/products - listProducts (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .get('/v1/products')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const ids = res.body.data.map((p: any) => p.id);
@@ -166,7 +176,8 @@ describe('GET /v1/products - listProducts (e2e)', () => {
   it('Solo devuelve productos del propio restaurante', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/products')
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.data).toHaveLength(0);

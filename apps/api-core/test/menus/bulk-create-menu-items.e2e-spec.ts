@@ -20,6 +20,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login, TEST_DB_DIR } from './helpers';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 
 const TEST_DB = path.join(TEST_DB_DIR, 'test-menu-items-bulk.db');
 
@@ -27,9 +28,9 @@ describe('POST /v1/menus/:menuId/items/bulk (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
 
-  let adminTokenA: string;
-  let basicTokenA: string;
-  let adminTokenB: string;
+  let adminCookieA: string;
+  let basicCookieA: string;
+  let adminCookieB: string;
   let menuId: string;
   let productId: string;
   let productId2: string;
@@ -38,8 +39,8 @@ describe('POST /v1/menus/:menuId/items/bulk (e2e)', () => {
     ({ app, prisma } = await bootstrapApp(TEST_DB));
 
     const seedA = await seedRestaurant(prisma, 'bulkA');
-    adminTokenA = await login(app, seedA.admin.email);
-    basicTokenA = await login(app, seedA.basic.email);
+    adminCookieA = await login(app, seedA.admin.email);
+    basicCookieA = await login(app, seedA.basic.email);
     productId   = seedA.product.id;
 
     // Create a second product
@@ -53,11 +54,12 @@ describe('POST /v1/menus/:menuId/items/bulk (e2e)', () => {
     })).id;
 
     const seedB = await seedRestaurant(prisma, 'bulkB');
-    adminTokenB = await login(app, seedB.admin.email);
+    adminCookieB = await login(app, seedB.admin.email);
 
     const menuRes = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminCookieA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu Bulk' })
       .expect(201);
 
@@ -72,6 +74,7 @@ describe('POST /v1/menus/:menuId/items/bulk (e2e)', () => {
   it('401 — unauthenticated request is rejected', async () => {
     await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items/bulk`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productIds: [productId], sectionName: 'Carnes' })
       .expect(401);
   });
@@ -79,7 +82,8 @@ describe('POST /v1/menus/:menuId/items/bulk (e2e)', () => {
   it('403 — BASIC cannot bulk create items', async () => {
     await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items/bulk`)
-      .set('Authorization', `Bearer ${basicTokenA}`)
+      .set('Cookie', basicCookieA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productIds: [productId], sectionName: 'Carnes' })
       .expect(403);
   });
@@ -87,7 +91,8 @@ describe('POST /v1/menus/:menuId/items/bulk (e2e)', () => {
   it('404 — menu not found', async () => {
     await request(app.getHttpServer())
       .post('/v1/menus/00000000-0000-0000-0000-000000000000/items/bulk')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminCookieA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productIds: [productId], sectionName: 'Carnes' })
       .expect(404);
   });
@@ -95,7 +100,8 @@ describe('POST /v1/menus/:menuId/items/bulk (e2e)', () => {
   it('404 — restaurant B cannot bulk add to menu from restaurant A (isolation)', async () => {
     await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items/bulk`)
-      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Cookie', adminCookieB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productIds: [productId], sectionName: 'Carnes' })
       .expect(404);
   });
@@ -103,7 +109,8 @@ describe('POST /v1/menus/:menuId/items/bulk (e2e)', () => {
   it('400 — empty sectionName is rejected', async () => {
     await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items/bulk`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminCookieA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productIds: [productId], sectionName: '' })
       .expect(400);
   });
@@ -112,7 +119,8 @@ describe('POST /v1/menus/:menuId/items/bulk (e2e)', () => {
     const ids = Array.from({ length: 51 }, () => productId);
     await request(app.getHttpServer())
       .post(`/v1/menus/${menuId}/items/bulk`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminCookieA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productIds: ids, sectionName: 'Carnes' })
       .expect(400);
   });
@@ -120,13 +128,15 @@ describe('POST /v1/menus/:menuId/items/bulk (e2e)', () => {
   it('201 — creates all items and returns count', async () => {
     const menuRes = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminCookieA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu Bulk Count' })
       .expect(201);
 
     const res = await request(app.getHttpServer())
       .post(`/v1/menus/${menuRes.body.id}/items/bulk`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminCookieA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productIds: [productId, productId2], sectionName: 'Platos Principales' })
       .expect(201);
 
@@ -137,7 +147,8 @@ describe('POST /v1/menus/:menuId/items/bulk (e2e)', () => {
   it('201 — items are added in order within section', async () => {
     const menuRes = await request(app.getHttpServer())
       .post('/v1/menus')
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminCookieA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ name: 'Menu Bulk Order' })
       .expect(201);
 
@@ -145,13 +156,15 @@ describe('POST /v1/menus/:menuId/items/bulk (e2e)', () => {
 
     await request(app.getHttpServer())
       .post(`/v1/menus/${bulkMenuId}/items/bulk`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminCookieA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ productIds: [productId, productId2], sectionName: 'Carnes' })
       .expect(201);
 
     const getRes = await request(app.getHttpServer())
       .get(`/v1/menus/${bulkMenuId}`)
-      .set('Authorization', `Bearer ${adminTokenA}`)
+      .set('Cookie', adminCookieA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const items = getRes.body.items;

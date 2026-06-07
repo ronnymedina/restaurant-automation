@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
 
 import { SseService } from './sse.service';
 import { EventsController } from './events.controller';
@@ -7,14 +6,10 @@ import { ProductEventsService } from './products.events';
 import { OrderEventsService } from './orders.events';
 import { KioskEventsService } from './kiosk.events';
 import { RestaurantsModule } from '../restaurants/restaurants.module';
-import { JWT_SECRET } from '../config';
 import { KitchenTokenService } from '../kitchen/kitchen-token.service';
 
 @Module({
-  imports: [
-    JwtModule.register({ secret: JWT_SECRET }),
-    RestaurantsModule,
-  ],
+  imports: [RestaurantsModule],
   controllers: [EventsController],
   // KitchenTokenService is registered as a local provider here to avoid a
   // circular module dependency: KitchenModule already imports EventsModule

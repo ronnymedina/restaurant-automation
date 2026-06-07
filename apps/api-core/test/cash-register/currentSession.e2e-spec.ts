@@ -5,7 +5,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login, openCashShiftViaApi } from './cash-register.helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 describe('GET /v1/cash-register/current - currentSession (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
@@ -28,7 +28,8 @@ describe('GET /v1/cash-register/current - currentSession (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/current')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Cookie', token)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     // NestJS serializes a `null` return as an empty response body.
@@ -45,7 +46,8 @@ describe('GET /v1/cash-register/current - currentSession (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/current')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Cookie', token)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.id).toBeDefined();
@@ -59,7 +61,8 @@ describe('GET /v1/cash-register/current - currentSession (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/current')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Cookie', token)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.userId).toBeUndefined();
@@ -73,7 +76,8 @@ describe('GET /v1/cash-register/current - currentSession (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/current')
-      .set('Authorization', `Bearer ${basicToken}`)
+      .set('Cookie', basicToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     // No active session → null (H-27); empty response body

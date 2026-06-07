@@ -29,14 +29,14 @@ export class SseService implements OnModuleDestroy {
   streamForRestaurant(restaurantId: string): Observable<MessageEvent> {
     return this.restaurant$.pipe(
       filter((evt) => evt.restaurantId === restaurantId),
-      map((evt) => ({ type: evt.event, data: {} })),
+      map((evt) => ({ type: evt.event, data: evt.data as string | object })),
     );
   }
 
   streamForKitchen(restaurantId: string): Observable<MessageEvent> {
     return this.kitchen$.pipe(
       filter((evt) => evt.restaurantId === restaurantId),
-      map((evt) => ({ type: evt.event, data: {} })),
+      map((evt) => ({ type: evt.event, data: evt.data as string | object })),
     );
   }
 }

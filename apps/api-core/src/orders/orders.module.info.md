@@ -83,7 +83,7 @@
 | `GET` | `/v1/orders/:id` | ADMIN, MANAGER, BASIC | `OrderWithItemsDto` | Obtener orden por ID con items |
 | `POST` | `/v1/orders` | ADMIN, MANAGER | `{ order, receipt, kitchenTicket }` (201) | Crear pedido desde el dashboard (orderSource: STAFF) |
 | `PATCH` | `/v1/orders/:id/status` | ADMIN, MANAGER | `OrderDto` | Avanzar estado de la orden |
-| `PATCH` | `/v1/orders/:id/pay` | ADMIN, MANAGER | `OrderDto` | Marcar orden como pagada. Body opcional: `{ paymentMethod? }` |
+| `PATCH` | `/v1/orders/:id/pay` | ADMIN, MANAGER | `OrderDto` | Marcar orden como pagada. Body requerido: `{ paymentMethod }` (CASH \| CARD \| DIGITAL_WALLET) |
 | `PATCH` | `/v1/orders/:id/cancel` | ADMIN, MANAGER | `OrderDto` | Cancelar una orden |
 
 ---
@@ -197,6 +197,8 @@ E2E: ✅ `test/orders/markOrderAsPaid.e2e-spec.ts`
 | BASIC intenta marcar | 403 | Solo ADMIN o MANAGER |
 | ADMIN marca como pagada | 200 | Retorna `OrderDto` con `isPaid = true` |
 | MANAGER marca como pagada | 200 | Retorna `OrderDto` con `isPaid = true` |
+| Sin `paymentMethod` en body | 400 | Requerido — class-validator rechaza |
+| `paymentMethod` inválido | 400 | `@IsEnum(PaymentMethod)` rechaza valores fuera del enum |
 | Marcar segunda vez | 200 | Idempotente — `isPaid` sigue en `true` |
 | Orden no existe | 404 | `ORDER_NOT_FOUND` |
 | Orden de otro restaurante | 404 | Aislamiento |
@@ -307,7 +309,15 @@ flowchart TD
 - El endpoint `PATCH /:id/pay` es independiente del flujo de estado — se puede marcar como pagada en cualquier estado
 - Al marcar como pagada (`PATCH /:id/pay`), si la orden está en estado `SERVED`, se auto-avanza automáticamente a `COMPLETED`
 - La creación de órdenes puede realizarse desde el kiosk (`POST /v1/kiosk/:slug/orders`, público) o desde el dashboard (`POST /v1/orders`, autenticado ADMIN/MANAGER). Los pedidos de staff usan `orderSource: 'STAFF'` (forzado en el servicio) e inician en estado `CONFIRMED`
-- Al crear una orden (kiosk), se emite evento `order:created` por WebSocket; al actualizar estado se emite `order:updated`
+- Eventos SSE de Order — dos canales con shapes tipados (audit H-AUX-02):
+  - `order:new` (creación) y `order:updated` (cualquier transición).
+  - **Restaurant stream** (consumido por el dashboard):
+    - `order:new` lleva `OrderCreatedPayload` (15 campos visibles en la UI; sin `restaurantId`, `cashShiftId`, `customerName`, `tableNumber`, `createdAt`, `updatedAt`).
+    - `order:updated` lleva `OrderUpdatedPayload` — **delta** de los 5 campos mutables (`id`, `status`, `isPaid`, `paymentMethod`, `cancellationReason`). El cliente hace `{...existing, ...delta}`.
+  - **Kitchen stream** (consumido por el KDS):
+    - Ambos eventos llevan `KitchenOrderPayload` (`id`, `orderNumber`, `status`, `displayTime`, `items[]`). Sin datos comerciales.
+  - Shapes definidas en `src/events/payloads/order-event-payloads.ts` + listas canónicas de keys verificadas por `order-event-payloads.spec.ts` (drift protection).
+  - Clientes aplican patch local; el refetch sobrevive solo en montaje y en `onopen` del EventSource (recovery por reconexión). Las acciones del usuario que mutan la orden (cajero pulsa "Confirmar", "Pagar", cocinero avanza estado) aún disparan un `loadOrders()` puntual para confirmar el resultado inmediato — la optimización SSE removió únicamente los refetches inducidos por eventos de OTROS clientes.
 - Al marcar como pagada, se dispara de forma asíncrona la impresión de recibo y el envío de email si `customerEmail` está presente
 - El historial aplica `dateTo` con hora `23:59:59.999` para incluir el día completo
 - La asignación de `orderNumber` corre dentro de la `$transaction` principal de creación de orden, después de adquirir un `FOR UPDATE` lock sobre la fila de `CashShift` (audit H-09). Ver `src/cash-register/cash-register.module.info.md` (sección "Concurrency model — cashShift row lock") y `docs/superpowers/specs/2026-05-27-orders-cashshift-kitchen-token-hardening-design.md`.

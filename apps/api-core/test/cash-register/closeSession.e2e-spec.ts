@@ -4,6 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 import {
   bootstrapApp, seedRestaurant, login,
   seedProduct, openCashShiftViaApi, seedOrderOnShift,
@@ -31,14 +32,18 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
     await app.close();
   });
 
-  it('Sin token recibe 401', async () => {
-    await request(app.getHttpServer()).post('/v1/cash-register/close').expect(401);
+  it('Sin cookie recibe 401', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/cash-register/close')
+      .set('Origin', ALLOWED_TEST_ORIGIN)
+      .expect(401);
   });
 
   it('BASIC recibe 403', async () => {
     await request(app.getHttpServer())
       .post('/v1/cash-register/close')
-      .set('Authorization', `Bearer ${basicToken}`)
+      .set('Cookie', basicToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(403);
   });
 
@@ -49,7 +54,8 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .post('/v1/cash-register/close')
-      .set('Authorization', `Bearer ${freshToken}`)
+      .set('Cookie', freshToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(409);
 
     expect(res.body.code).toBe('NO_OPEN_CASH_REGISTER');
@@ -64,7 +70,8 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .post('/v1/cash-register/close')
-      .set('Authorization', `Bearer ${tokenP}`)
+      .set('Cookie', tokenP)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(409);
 
     expect(res.body.code).toBe('PENDING_ORDERS_ON_SHIFT');
@@ -80,7 +87,8 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .post('/v1/cash-register/close')
-      .set('Authorization', `Bearer ${tokenQ}`)
+      .set('Cookie', tokenQ)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(409);
 
     expect(res.body.code).toBe('PENDING_ORDERS_ON_SHIFT');
@@ -96,7 +104,8 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .post('/v1/cash-register/close')
-      .set('Authorization', `Bearer ${tokenC}`)
+      .set('Cookie', tokenC)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     // session shape — new serializer
@@ -137,7 +146,8 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .post('/v1/cash-register/close')
-      .set('Authorization', `Bearer ${tokenMixed}`)
+      .set('Cookie', tokenMixed)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     // Only the COMPLETED order counts (1000 centavos = 10 pesos via fromCents)

@@ -3,6 +3,7 @@ import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common
 import { App } from 'supertest/types';
 import { execSync } from 'child_process';
 import { ThrottlerStorage } from '@nestjs/throttler';
+import cookieParser from 'cookie-parser';
 
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
@@ -25,6 +26,7 @@ export async function bootstrapApp(dbPath: string): Promise<{
   }).compile();
 
   const app = moduleFixture.createNestApplication<INestApplication<App>>();
+  app.use(cookieParser());
   app.enableVersioning({ type: VersioningType.URI });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
@@ -53,6 +55,7 @@ export async function bootstrapAppWithGeminiMock(
     .compile();
 
   const app = moduleFixture.createNestApplication<INestApplication<App>>();
+  app.use(cookieParser());
   app.enableVersioning({ type: VersioningType.URI });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
@@ -85,6 +88,7 @@ export async function bootstrapAppNoThrottle(dbPath: string): Promise<{
     .compile();
 
   const app = moduleFixture.createNestApplication<INestApplication<App>>();
+  app.use(cookieParser());
   app.enableVersioning({ type: VersioningType.URI });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 

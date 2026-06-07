@@ -2,18 +2,21 @@ import { apiFetch } from '../../../lib/api';
 
 export interface OrderItem {
   id: string;
-  productId: string;
+  productId?: string;
   quantity: number;
-  unitPrice: number;
-  subtotal: number;
+  unitPrice?: number;
+  subtotal?: number;
   notes?: string;
+  /** Nested object present on REST responses (GET /v1/orders). */
   product?: { name: string };
+  /** Flat field present on SSE order:new payloads (OrderCreatedPayload). */
+  productName?: string;
 }
 
 export interface Order {
   id: string;
   orderNumber: number;
-  cashShiftId: string;
+  cashShiftId?: string;
   status: string;
   totalAmount: number;
   isPaid: boolean;
@@ -21,7 +24,7 @@ export interface Order {
   cancellationReason?: string;
   orderSource: string;
   orderType: string;
-  createdAt: string;
+  createdAt?: string;
   displayTime?: string;
   customerEmail?: string;
   customerPhone?: string;
@@ -90,10 +93,10 @@ export async function updateOrderStatus(id: string, status: string): Promise<Api
   return { ok: true, data: await res.json() };
 }
 
-export async function markOrderPaid(id: string, paymentMethod?: string): Promise<ApiResult<Order>> {
+export async function markOrderPaid(id: string, paymentMethod: string): Promise<ApiResult<Order>> {
   const res = await apiFetch(`/v1/orders/${id}/pay`, {
     method: 'PATCH',
-    ...(paymentMethod ? { body: JSON.stringify({ paymentMethod }) } : {}),
+    body: JSON.stringify({ paymentMethod }),
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));

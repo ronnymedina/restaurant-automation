@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { getAccessToken } from '../../../lib/auth';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '../../commons/Providers';
 import { config } from '../../../config';
 import { ORDER_EVENTS } from '../../../lib/sse-events';
+import type { OrderCreatedPayload, OrderUpdatedPayload } from '../../../lib/sse-payloads';
 import { EyeIcon, EyeOffIcon } from '../../commons/icons';
 import {
   getCurrentSession, getOrders, updateOrderStatus, markOrderPaid, cancelOrder,
@@ -42,25 +44,36 @@ export default function OrdersPanel() {
   }, [activeFilter]);
 
   // H-18: Track in-flight order mutations to prevent double-submit.
-  // We use a ref (not state) for the Set so that the synchronous guard check
-  // `inFlightRef.current.has(id)` sees the latest value even inside React 18's
-  // concurrent batching. A separate version counter forces re-renders so that
-  // OrderCard receives an updated reference and re-disables/re-enables buttons.
   const inFlightRef = useRef<Set<string>>(new Set());
   const statsPanelRef = useRef<OrderStatsPanelHandle>(null);
-  const [inFlightVersion, setInFlightVersion] = useState(0);
 
-  const withInFlight = useCallback(async (id: string, fn: () => Promise<void>): Promise<void> => {
-    if (inFlightRef.current.has(id)) return; // synchronous guard — prevents double-submit
+  // Pending optimistic patches — applied immediately on action, removed on settle.
+  // useOptimistic was the original intent but React 19's async transition scheduler
+  // does not fire the auto-revert in JSDOM test environments, making it untestable.
+  // This manual approach achieves identical UX: immediate patch on action,
+  // deterministic revert on failure.
+  const [pendingPatches, setPendingPatches] = useState(new Map<string, Partial<Order>>());
+
+  const optimisticOrders = useMemo(
+    () =>
+      pendingPatches.size === 0
+        ? orders
+        : orders.map((o) => {
+            const patch = pendingPatches.get(o.id);
+            return patch ? { ...o, ...patch } : o;
+          }),
+    [orders, pendingPatches],
+  );
+
+  function withOptimisticAction(id: string, patch: Partial<Order>, fn: () => Promise<void>) {
+    if (inFlightRef.current.has(id)) return;
     inFlightRef.current.add(id);
-    setInFlightVersion((v) => v + 1);
-    try {
-      await fn();
-    } finally {
+    setPendingPatches((prev) => { const m = new Map(prev); m.set(id, patch); return m; });
+    void fn().finally(() => {
       inFlightRef.current.delete(id);
-      setInFlightVersion((v) => v + 1);
-    }
-  }, []);
+      setPendingPatches((prev) => { const m = new Map(prev); m.delete(id); return m; });
+    });
+  }
 
   function showToast(message: string, isError = false) {
     setToast({ message, isError });
@@ -112,96 +125,111 @@ export default function OrdersPanel() {
     loadSession();
   }, []);
 
-  // SSE: reload orders in kanban mode only (filter mode ignores SSE to avoid clobbering the search).
-  // activeFilter is intentionally NOT in the deps array — it is read via activeFilterRef.current
-  // so the connection stays open across filter changes (H-17).
+  // SSE: patch local del estado a partir del payload tipado del evento (H-AUX-02).
+  //   - order:new (OrderCreatedPayload): prepend si no existe (idempotente).
+  //   - order:updated (OrderUpdatedPayload, delta): merge {...existing, ...delta}
+  //     sobre la entrada con el mismo id. Si la orden no está en el array
+  //     local (caso: filtro activo o reconexión perdió el NEW), se ignora;
+  //     el próximo loadOrders() del onopen cierra el gap.
+  //
+  // En modo filtro (activeFilter !== null) seguimos ignorando SSE para no
+  // pisar la búsqueda. En el onopen del EventSource refetcheamos para
+  // recuperar gaps por reconexión.
+  // activeFilter se lee vía activeFilterRef.current para no recrear la
+  // conexión al cambiar de filtro (H-17).
   useEffect(() => {
     if (status !== ORDERS_STATUS.OPEN || !session) return;
-    const token = getAccessToken();
-    if (!token) return;
-    const es = new EventSource(`${config.apiUrl}/v1/events/dashboard?token=${token}`);
-    const reload = () => {
-      if (!activeFilterRef.current) fetchOrders(null);
-      statsPanelRef.current?.refresh();
+    const es = new EventSource(`${config.apiUrl}/v1/events/dashboard`, { withCredentials: true });
+
+    const handleNew = (e: MessageEvent) => {
+      if (activeFilterRef.current) return;
+      try {
+        const payload = JSON.parse(e.data) as OrderCreatedPayload;
+        if (!payload?.id) return;
+        setOrders((prev) =>
+          prev.some((o) => o.id === payload.id) ? prev : [payload as Order, ...prev],
+        );
+        statsPanelRef.current?.refresh();
+      } catch { /* ignore malformed payload */ }
     };
-    es.addEventListener(ORDER_EVENTS.NEW, reload);
-    es.addEventListener(ORDER_EVENTS.UPDATED, reload);
+    const handleUpdated = (e: MessageEvent) => {
+      try {
+        const payload = JSON.parse(e.data) as OrderUpdatedPayload;
+        if (!payload?.id) return;
+        setOrders((prev) => prev.map((o) => (o.id === payload.id ? { ...o, ...payload } : o)));
+        statsPanelRef.current?.refresh();
+      } catch { /* ignore malformed payload */ }
+    };
+    // Skip refetch on the very first 'open' — loadSession() already fetched
+    // the initial orders. Subsequent opens (reconnections after a network
+    // blip) need to refetch to close the gap of events missed while
+    // disconnected.
+    let hasConnectedBefore = false;
+    const handleOpen = () => {
+      if (hasConnectedBefore && !activeFilterRef.current) fetchOrders(null);
+      hasConnectedBefore = true;
+    };
+
+    es.addEventListener('open', handleOpen);
+    es.addEventListener(ORDER_EVENTS.NEW, handleNew);
+    es.addEventListener(ORDER_EVENTS.UPDATED, handleUpdated);
     return () => es.close();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, session]);
 
-  async function handleAdvance(id: string, nextStatus: string) {
-    await withInFlight(id, async () => {
-      if (!session) return;
-      const order = orders.find((o) => o.id === id);
-      if (nextStatus === 'COMPLETED' && !order?.isPaid) {
-        showToast('El pedido debe estar pagado antes de completarse', true);
-        return;
-      }
+  function handleAdvance(id: string, nextStatus: string) {
+    if (!session) return;
+    if (nextStatus === 'COMPLETED') {
+      const order = optimisticOrders.find((o) => o.id === id);
+      if (!order?.isPaid) { showToast('El pedido debe estar pagado antes de completarse', true); return; }
+    }
+    withOptimisticAction(id, { status: nextStatus }, async () => {
       const result = await updateOrderStatus(id, nextStatus);
-      if (!result.ok) {
-        showToast(result.error.message ?? 'Error al actualizar', true);
-        return;
-      }
-      await fetchOrders(activeFilter);
+      if (!result.ok) { showToast(result.error.message ?? 'Error al actualizar', true); return; }
+      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...result.data } : o)));
     });
   }
 
-  async function handleConfirm(id: string) {
-    await withInFlight(id, async () => {
-      if (!session) return;
+  function handleConfirm(id: string) {
+    if (!session) return;
+    withOptimisticAction(id, { status: 'CONFIRMED' }, async () => {
       const result = await confirmOrder(id);
-      if (!result.ok) {
-        showToast(result.error.message ?? 'Error al confirmar', true);
-        return;
-      }
+      if (!result.ok) { showToast(result.error.message ?? 'Error al confirmar', true); return; }
+      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...result.data } : o)));
       showToast('Pedido confirmado');
-      await fetchOrders(activeFilter);
     });
   }
 
-  async function handlePay(id: string, paymentMethod?: string) {
-    await withInFlight(id, async () => {
-      if (!session) return;
+  function handlePay(id: string, paymentMethod: string) {
+    if (!session) return;
+    withOptimisticAction(id, { isPaid: true, paymentMethod }, async () => {
       const result = await markOrderPaid(id, paymentMethod);
-      if (!result.ok) {
-        showToast(result.error.message ?? 'Error al marcar pagado', true);
-        return;
-      }
+      if (!result.ok) { showToast(result.error.message ?? 'Error al marcar pagado', true); return; }
+      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...result.data } : o)));
       showToast('Marcado como pagado');
-      await fetchOrders(activeFilter);
     });
   }
 
-  async function handleUnpay(id: string) {
-    await withInFlight(id, async () => {
-      if (!session) return;
+  function handleUnpay(id: string) {
+    if (!session) return;
+    withOptimisticAction(id, { isPaid: false, paymentMethod: undefined }, async () => {
       const result = await unmarkOrderPaid(id);
-      if (!result.ok) {
-        showToast(result.error.message ?? 'Error al desmarcar pago', true);
-        return;
-      }
+      if (!result.ok) { showToast(result.error.message ?? 'Error al desmarcar pago', true); return; }
+      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...result.data } : o)));
       showToast('Pago desmarcado');
-      await fetchOrders(activeFilter);
     });
   }
 
-  async function handleCancelConfirm(id: string, reason: string) {
-    await withInFlight(id, async () => {
-      if (!session) return;
-      const order = orders.find((o) => o.id === id);
+  function handleCancelConfirm(id: string, reason: string) {
+    if (!session) return;
+    const order = orders.find((o) => o.id === id);
+    withOptimisticAction(id, { status: 'CANCELLED', cancellationReason: reason }, async () => {
       const result = await cancelOrder(id, reason);
-      if (!result.ok) {
-        showToast(result.error.message ?? 'Error al cancelar', true);
-        return;
-      }
+      if (!result.ok) { showToast(result.error.message ?? 'Error al cancelar', true); return; }
       setCancelOrderId(null);
-      if (order?.status === 'PROCESSING') {
-        showToast('⚠️ Pedido cancelado. Recuerda notificar a tu cocina.', false);
-      } else {
-        showToast('Pedido cancelado');
-      }
-      await fetchOrders(activeFilter);
+      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...result.data } : o)));
+      if (order?.status === 'PROCESSING') showToast('⚠️ Pedido cancelado. Recuerda notificar a tu cocina.', false);
+      else showToast('Pedido cancelado');
     });
   }
 
@@ -226,9 +254,6 @@ export default function OrdersPanel() {
     await fetchOrders(filter);
   }
 
-  // inFlightVersion is read here so that the cardCallbacks object is re-created
-  // whenever the in-flight set changes, triggering a re-render in child components.
-  void inFlightVersion;
   const cardCallbacks = {
     onConfirm: handleConfirm,
     onAdvance: handleAdvance,
@@ -236,7 +261,6 @@ export default function OrdersPanel() {
     onUnpay: handleUnpay,
     onCancel: (id: string) => setCancelOrderId(id),
     onCancelBlocked: handleCancelBlocked,
-    inFlightIds: inFlightRef.current,
   };
 
   if (status === ORDERS_STATUS.LOADING) {
@@ -257,6 +281,7 @@ export default function OrdersPanel() {
   }
 
   return (
+    <QueryClientProvider client={queryClient}>
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-slate-800">Cocina (KDS)</h2>
@@ -306,13 +331,13 @@ export default function OrdersPanel() {
 
       {activeFilter ? (
         <OrdersFilteredList
-          orders={orders}
+          orders={optimisticOrders}
           filterLabel={activeFilter.label}
           {...cardCallbacks}
           onClearFilter={() => handleApplyFilter({ statuses: [] })}
         />
       ) : (
-        <OrdersKanban orders={orders} {...cardCallbacks} />
+        <OrdersKanban orders={optimisticOrders} {...cardCallbacks} />
       )}
 
       {showFilterPanel && (
@@ -348,5 +373,6 @@ export default function OrdersPanel() {
         </div>
       )}
     </div>
+    </QueryClientProvider>
   );
 }

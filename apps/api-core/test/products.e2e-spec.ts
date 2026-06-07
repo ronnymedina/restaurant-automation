@@ -20,9 +20,11 @@ import * as bcrypt from 'bcryptjs';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import cookieParser from 'cookie-parser';
 
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { loginCookie, ALLOWED_TEST_ORIGIN } from './helpers/auth-cookie';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -41,6 +43,7 @@ async function bootstrapApp(): Promise<{ app: INestApplication<App>; prisma: Pri
   }).compile();
 
   const app = moduleFixture.createNestApplication<INestApplication<App>>();
+  app.use(cookieParser());
   app.enableVersioning({ type: VersioningType.URI });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
@@ -95,14 +98,8 @@ async function seedRestaurant(prisma: PrismaService, suffix: string) {
 }
 
 async function login(app: INestApplication<App>, email: string): Promise<string> {
-  const res = await request(app.getHttpServer())
-    .post('/v1/auth/login')
-    .send({ email, password: 'Admin1234!' })
-    .expect((r) => {
-      if (r.status !== 200 && r.status !== 201)
-        throw new Error(`Login failed: ${r.status} ${JSON.stringify(r.body)}`);
-    });
-  return res.body.accessToken as string;
+  const { accessCookie } = await loginCookie(app, email);
+  return accessCookie;
 }
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
@@ -157,7 +154,8 @@ describe('Products (e2e)', () => {
     it('ADMIN puede crear un producto', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/products')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send(validPayload(categoryIdA))
         .expect(201);
 
@@ -177,7 +175,8 @@ describe('Products (e2e)', () => {
     it('MANAGER puede crear un producto', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/products')
-        .set('Authorization', `Bearer ${managerTokenA}`)
+        .set('Cookie', managerTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ ...validPayload(categoryIdA), name: 'Producto Manager', sku: 'MAN-001' })
         .expect(201);
 
@@ -187,14 +186,16 @@ describe('Products (e2e)', () => {
     it('BASIC recibe 403', async () => {
       await request(app.getHttpServer())
         .post('/v1/products')
-        .set('Authorization', `Bearer ${basicTokenA}`)
+        .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send(validPayload(categoryIdA))
         .expect(403);
     });
 
-    it('Sin token recibe 401 (restaurantId no disponible sin JWT)', async () => {
+    it('Sin cookie recibe 401 (restaurantId no disponible sin JWT)', async () => {
       await request(app.getHttpServer())
         .post('/v1/products')
+        .set('Origin', ALLOWED_TEST_ORIGIN)
         .send(validPayload(categoryIdA))
         .expect(401);
     });
@@ -202,7 +203,8 @@ describe('Products (e2e)', () => {
     it('Rechaza precio negativo', async () => {
       await request(app.getHttpServer())
         .post('/v1/products')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ ...validPayload(categoryIdA), price: -100 })
         .expect(400);
     });
@@ -210,7 +212,8 @@ describe('Products (e2e)', () => {
     it('Rechaza precio decimal (no entero)', async () => {
       await request(app.getHttpServer())
         .post('/v1/products')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ ...validPayload(categoryIdA), price: 12.5 })
         .expect(400);
     });
@@ -218,7 +221,8 @@ describe('Products (e2e)', () => {
     it('Rechaza stock negativo', async () => {
       await request(app.getHttpServer())
         .post('/v1/products')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ ...validPayload(categoryIdA), stock: -1 })
         .expect(400);
     });
@@ -226,7 +230,8 @@ describe('Products (e2e)', () => {
     it('Rechaza stock > 9999', async () => {
       await request(app.getHttpServer())
         .post('/v1/products')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ ...validPayload(categoryIdA), stock: 10000 })
         .expect(400);
     });
@@ -234,7 +239,8 @@ describe('Products (e2e)', () => {
     it('Rechaza description > 500 chars', async () => {
       await request(app.getHttpServer())
         .post('/v1/products')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ ...validPayload(categoryIdA), description: 'x'.repeat(501) })
         .expect(400);
     });
@@ -242,7 +248,8 @@ describe('Products (e2e)', () => {
     it('Rechaza name vacío', async () => {
       await request(app.getHttpServer())
         .post('/v1/products')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ ...validPayload(categoryIdA), name: '' })
         .expect(400);
     });
@@ -250,7 +257,8 @@ describe('Products (e2e)', () => {
     it('Rechaza sku > 50 chars', async () => {
       await request(app.getHttpServer())
         .post('/v1/products')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ ...validPayload(categoryIdA), sku: 'A'.repeat(51) })
         .expect(400);
     });
@@ -258,7 +266,8 @@ describe('Products (e2e)', () => {
     it('Acepta precio 0 (producto gratis)', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/products')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ ...validPayload(categoryIdA), price: 0, name: 'Producto Gratis', sku: 'FREE-001' })
         .expect(201);
 
@@ -270,7 +279,8 @@ describe('Products (e2e)', () => {
       // El producto debe fallar porque la categoría no pertenece a su restaurante
       const res = await request(app.getHttpServer())
         .post('/v1/products')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ ...validPayload(categoryIdB), name: 'Producto Cruzado', sku: 'CROSS-001' })
         .expect(404);
 
@@ -286,7 +296,8 @@ describe('Products (e2e)', () => {
     it('Devuelve lista paginada con precios serializados', async () => {
       const res = await request(app.getHttpServer())
         .get('/v1/products')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
 
       expect(res.body.data).toBeInstanceOf(Array);
@@ -301,12 +312,14 @@ describe('Products (e2e)', () => {
     it('Solo devuelve productos del propio restaurante', async () => {
       const resA = await request(app.getHttpServer())
         .get('/v1/products')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
 
       const resB = await request(app.getHttpServer())
         .get('/v1/products')
-        .set('Authorization', `Bearer ${adminTokenB}`)
+        .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
 
       const idsA = resA.body.data.map((p: { id: string }) => p.id);
@@ -328,7 +341,8 @@ describe('Products (e2e)', () => {
     it('Devuelve producto por ID con precio serializado', async () => {
       const res = await request(app.getHttpServer())
         .get(`/v1/products/${createdProductId}`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
 
       expect(res.body.id).toBe(createdProductId);
@@ -338,7 +352,8 @@ describe('Products (e2e)', () => {
     it('Devuelve 404 si no existe', async () => {
       await request(app.getHttpServer())
         .get('/v1/products/00000000-0000-0000-0000-000000000000')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(404);
     });
 
@@ -346,7 +361,8 @@ describe('Products (e2e)', () => {
       // createdProductId belongs to restaurant A; adminTokenB is from restaurant B
       await request(app.getHttpServer())
         .get(`/v1/products/${createdProductId}`)
-        .set('Authorization', `Bearer ${adminTokenB}`)
+        .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(404);
     });
   });
@@ -357,7 +373,8 @@ describe('Products (e2e)', () => {
     it('ADMIN puede actualizar nombre', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/v1/products/${createdProductId}`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Hamburguesa Actualizada' })
         .expect(200);
 
@@ -367,7 +384,8 @@ describe('Products (e2e)', () => {
     it('BASIC recibe 403', async () => {
       await request(app.getHttpServer())
         .patch(`/v1/products/${createdProductId}`)
-        .set('Authorization', `Bearer ${basicTokenA}`)
+        .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Intento BASIC' })
         .expect(403);
     });
@@ -375,7 +393,8 @@ describe('Products (e2e)', () => {
     it('Devuelve 404 si producto no existe', async () => {
       await request(app.getHttpServer())
         .patch('/v1/products/00000000-0000-0000-0000-000000000000')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'No importa' })
         .expect(404);
     });
@@ -383,7 +402,8 @@ describe('Products (e2e)', () => {
     it('Restaurante B no puede actualizar producto de restaurante A (aislamiento)', async () => {
       await request(app.getHttpServer())
         .patch(`/v1/products/${createdProductId}`)
-        .set('Authorization', `Bearer ${adminTokenB}`)
+        .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({ name: 'Hack intento' })
         .expect(404);
     });
@@ -397,7 +417,8 @@ describe('Products (e2e)', () => {
     beforeAll(async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/products')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .send({
           name: 'Producto Para Eliminar',
           price: 500,
@@ -410,14 +431,16 @@ describe('Products (e2e)', () => {
     it('Restaurante B no puede eliminar producto de restaurante A (aislamiento)', async () => {
       await request(app.getHttpServer())
         .delete(`/v1/products/${softDeletedId}`)
-        .set('Authorization', `Bearer ${adminTokenB}`)
+        .set('Cookie', adminTokenB)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(404);
     });
 
     it('Soft delete setea deletedAt en la BD', async () => {
       await request(app.getHttpServer())
         .delete(`/v1/products/${softDeletedId}`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(204);
 
       const product = await prisma.product.findUnique({ where: { id: softDeletedId } });
@@ -428,7 +451,8 @@ describe('Products (e2e)', () => {
     it('Producto soft-deleted no aparece en el listado', async () => {
       const res = await request(app.getHttpServer())
         .get('/v1/products')
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(200);
 
       const ids = res.body.data.map((p: { id: string }) => p.id);
@@ -438,14 +462,16 @@ describe('Products (e2e)', () => {
     it('Producto soft-deleted devuelve 404 en GET :id', async () => {
       await request(app.getHttpServer())
         .get(`/v1/products/${softDeletedId}`)
-        .set('Authorization', `Bearer ${adminTokenA}`)
+        .set('Cookie', adminTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(404);
     });
 
     it('BASIC recibe 403 al intentar eliminar', async () => {
       await request(app.getHttpServer())
         .delete(`/v1/products/${createdProductId}`)
-        .set('Authorization', `Bearer ${basicTokenA}`)
+        .set('Cookie', basicTokenA)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(403);
     });
   });

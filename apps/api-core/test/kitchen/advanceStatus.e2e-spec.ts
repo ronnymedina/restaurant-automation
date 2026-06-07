@@ -6,6 +6,7 @@ import { PrismaService } from '../../src/prisma/prisma.service';
 import {
   bootstrapApp, seedRestaurantWithToken, openCashShift, seedProduct, seedOrder,
 } from './kitchen.helpers';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 
 describe('PATCH /v1/kitchen/:slug/orders/:id/status - advanceStatus (e2e)', () => {
   let app: INestApplication<App>;
@@ -37,6 +38,7 @@ describe('PATCH /v1/kitchen/:slug/orders/:id/status - advanceStatus (e2e)', () =
 
     await request(app.getHttpServer())
       .patch(`/v1/kitchen/${slug}/orders/${order.id}/status`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ status: 'PROCESSING' })
       .expect(401);
   });
@@ -47,7 +49,9 @@ describe('PATCH /v1/kitchen/:slug/orders/:id/status - advanceStatus (e2e)', () =
     const order = await seedOrder(prisma, restaurantId, shift.id, product.id, { status: 'CONFIRMED' });
 
     const res = await request(app.getHttpServer())
-      .patch(`/v1/kitchen/${slug}/orders/${order.id}/status?token=${token}`)
+      .patch(`/v1/kitchen/${slug}/orders/${order.id}/status`)
+      .set('X-Kitchen-Token', token)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ status: 'PROCESSING' })
       .expect(200);
 
@@ -60,7 +64,9 @@ describe('PATCH /v1/kitchen/:slug/orders/:id/status - advanceStatus (e2e)', () =
     const order = await seedOrder(prisma, restaurantId, shift.id, product.id, { status: 'PROCESSING' });
 
     const res = await request(app.getHttpServer())
-      .patch(`/v1/kitchen/${slug}/orders/${order.id}/status?token=${token}`)
+      .patch(`/v1/kitchen/${slug}/orders/${order.id}/status`)
+      .set('X-Kitchen-Token', token)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ status: 'SERVED' })
       .expect(200);
 
@@ -73,7 +79,9 @@ describe('PATCH /v1/kitchen/:slug/orders/:id/status - advanceStatus (e2e)', () =
     const order = await seedOrder(prisma, restaurantId, shift.id, product.id, { status: 'SERVED' });
 
     await request(app.getHttpServer())
-      .patch(`/v1/kitchen/${slug}/orders/${order.id}/status?token=${token}`)
+      .patch(`/v1/kitchen/${slug}/orders/${order.id}/status`)
+      .set('X-Kitchen-Token', token)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ status: 'COMPLETED' })
       .expect(400);
   });

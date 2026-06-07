@@ -54,6 +54,9 @@ const makeOrder = (overrides = {}) => ({
   status: OrderStatus.CREATED,
   isPaid: false,
   customerEmail: null,
+  orderNumber: 1,
+  createdAt: new Date('2026-01-01T12:00:00Z'),
+  items: [],
   ...overrides,
 });
 
@@ -117,7 +120,11 @@ describe('OrdersService', () => {
       mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CREATED }));
       mockOrderRepository.updateStatus.mockResolvedValue(updated);
       await service.updateOrderStatus('o1', 'r1', OrderStatus.CONFIRMED);
-      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', updated);
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({ id: updated.id, status: updated.status, isPaid: updated.isPaid }),
+        expect.objectContaining({ id: updated.id, orderNumber: updated.orderNumber }),
+      );
     });
 
     it('throws InvalidStatusTransitionException when skipping CREATED → PROCESSING (strict +1 required)', async () => {
@@ -143,7 +150,11 @@ describe('OrdersService', () => {
       mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CREATED }));
       mockOrderRepository.cancelOrder.mockResolvedValue(cancelled);
       await service.cancelOrder('o1', 'r1', 'reason');
-      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', cancelled);
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({ id: cancelled.id, status: cancelled.status, isPaid: cancelled.isPaid }),
+        expect.objectContaining({ id: cancelled.id, orderNumber: cancelled.orderNumber }),
+      );
     });
 
     it('throws CannotCancelPaidOrderException when order is paid', async () => {
@@ -181,7 +192,7 @@ describe('OrdersService', () => {
     const stubTxWithOrder = (txOrder: any) => {
       mockPrisma.$transaction.mockImplementationOnce(async (cb: any) =>
         cb({
-          order: { findFirst: jest.fn().mockResolvedValue(txOrder) },
+          order: { findFirst: jest.fn().mockResolvedValue(txOrder), update: jest.fn().mockResolvedValue(txOrder) },
         }),
       );
     };
@@ -202,21 +213,24 @@ describe('OrdersService', () => {
       mockOrderRepository.findById.mockResolvedValue(paid);
 
       const result = await service.markAsPaid('o1', 'r1');
-      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', paid);
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({ id: paid.id, status: paid.status, isPaid: paid.isPaid }),
+        expect.objectContaining({ id: paid.id, orderNumber: paid.orderNumber }),
+      );
       expect(result).toEqual(paid);
     });
 
-    it('auto-confirms CREATED order when marking as paid', async () => {
+    it('keeps CREATED status when marking as paid', async () => {
       stubTxWithOrder(makeOrder({ status: OrderStatus.CREATED }));
       mockOrderRepository.transitionStatusIfMatchesAndUnpaid.mockResolvedValue(1);
       mockOrderRepository.findById.mockResolvedValue(
-        makeOrder({ status: OrderStatus.CONFIRMED, isPaid: true }),
+        makeOrder({ status: OrderStatus.CREATED, isPaid: true }),
       );
 
       await service.markAsPaid('o1', 'r1');
-      // The transition primitive carries CREATED → CONFIRMED in one atomic UPDATE.
       expect(mockOrderRepository.transitionStatusIfMatchesAndUnpaid).toHaveBeenCalledWith(
-        expect.anything(), 'o1', 'r1', OrderStatus.CREATED, OrderStatus.CONFIRMED, undefined,
+        expect.anything(), 'o1', 'r1', OrderStatus.CREATED, OrderStatus.CREATED, undefined,
       );
     });
 
@@ -234,16 +248,16 @@ describe('OrdersService', () => {
       );
     });
 
-    it('auto-advances to COMPLETED when marking a SERVED order as paid', async () => {
+    it('keeps SERVED status when marking a SERVED order as paid (completion is a separate cashier action)', async () => {
       stubTxWithOrder(makeOrder({ status: OrderStatus.SERVED, isPaid: false }));
       mockOrderRepository.transitionStatusIfMatchesAndUnpaid.mockResolvedValue(1);
       mockOrderRepository.findById.mockResolvedValue(
-        makeOrder({ status: OrderStatus.COMPLETED, isPaid: true }),
+        makeOrder({ status: OrderStatus.SERVED, isPaid: true }),
       );
 
       await service.markAsPaid('o1', 'r1');
       expect(mockOrderRepository.transitionStatusIfMatchesAndUnpaid).toHaveBeenCalledWith(
-        expect.anything(), 'o1', 'r1', OrderStatus.SERVED, OrderStatus.COMPLETED, undefined,
+        expect.anything(), 'o1', 'r1', OrderStatus.SERVED, OrderStatus.SERVED, undefined,
       );
     });
 
@@ -283,7 +297,11 @@ describe('OrdersService', () => {
       const result = await service.markAsPaid('o1', 'r1', 'CASH');
       expect(mockOrderRepository.transitionStatusIfMatchesAndUnpaid).not.toHaveBeenCalled();
       expect(result).toEqual(paidOrder);
-      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', paidOrder);
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({ id: paidOrder.id, status: paidOrder.status, isPaid: paidOrder.isPaid }),
+        expect.objectContaining({ id: paidOrder.id, orderNumber: paidOrder.orderNumber }),
+      );
     });
 
     it('throws InvalidStatusTransitionException when transitionStatusIfMatchesAndUnpaid returns 0 (race)', async () => {
@@ -334,7 +352,11 @@ describe('OrdersService', () => {
       mockOrderRepository.updateStatus.mockResolvedValue(confirmed);
       const result = await service.confirmOrder('o1', 'r1');
       expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith('o1', OrderStatus.CONFIRMED);
-      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', confirmed);
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({ id: confirmed.id, status: confirmed.status, isPaid: confirmed.isPaid }),
+        expect.objectContaining({ id: confirmed.id, orderNumber: confirmed.orderNumber }),
+      );
       expect(result.status).toBe(OrderStatus.CONFIRMED);
     });
   });
@@ -372,7 +394,11 @@ describe('OrdersService', () => {
       expect(mockOrderRepository.unmarkAsPaidIfPaid).toHaveBeenCalledWith(
         expect.anything(), 'o1', 'r1',
       );
-      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', unpaid);
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({ id: unpaid.id, status: unpaid.status, isPaid: unpaid.isPaid }),
+        expect.objectContaining({ id: unpaid.id, orderNumber: unpaid.orderNumber }),
+      );
       expect(result).toEqual(unpaid);
     });
 
@@ -393,7 +419,11 @@ describe('OrdersService', () => {
       const result = await service.unmarkAsPaid('o1', 'r1');
       expect(mockOrderRepository.unmarkAsPaidIfPaid).not.toHaveBeenCalled();
       expect(result).toEqual(unpaidSeed);
-      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', unpaidSeed);
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({ id: unpaidSeed.id, status: unpaidSeed.status, isPaid: unpaidSeed.isPaid }),
+        expect.objectContaining({ id: unpaidSeed.id, orderNumber: unpaidSeed.orderNumber }),
+      );
     });
 
     it('throws InvalidStatusTransitionException when unmarkAsPaidIfPaid returns 0 (race)', async () => {
@@ -443,7 +473,11 @@ describe('OrdersService', () => {
 
       const result = await service.createOrder('r1', 'session1', baseDto as any);
       expect(mockOrderRepository.createWithItems).toHaveBeenCalled();
-      expect(mockOrderEvents.emitOrderCreated).toHaveBeenCalledWith('r1', expect.anything());
+      expect(mockOrderEvents.emitOrderCreated).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({ id: expect.any(String), items: expect.any(Array) }),
+        expect.objectContaining({ id: expect.any(String), items: expect.any(Array) }),
+      );
       expect(result).toBeDefined();
     });
 
@@ -729,7 +763,11 @@ describe('OrdersService', () => {
       mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.PROCESSING }));
       const result = await service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.PROCESSING);
       expect(result.status).toBe(OrderStatus.PROCESSING);
-      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', result);
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({ id: result.id, status: result.status, isPaid: result.isPaid }),
+        expect.objectContaining({ id: result.id, orderNumber: result.orderNumber }),
+      );
     });
 
     it('throws InvalidStatusTransitionException when CREATED → PROCESSING (must confirm first)', async () => {
@@ -744,7 +782,11 @@ describe('OrdersService', () => {
       mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.SERVED }));
       const result = await service.kitchenAdvanceStatus('o1', 'r1', OrderStatus.SERVED);
       expect(result.status).toBe(OrderStatus.SERVED);
-      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith('r1', result);
+      expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({ id: result.id, status: result.status, isPaid: result.isPaid }),
+        expect.objectContaining({ id: result.id, orderNumber: result.orderNumber }),
+      );
     });
 
     it('throws on skip attempt (CREATED → COMPLETED)', async () => {
@@ -799,7 +841,7 @@ describe('OrdersService', () => {
         id: 'p1', restaurantId: 'r1', price: BigInt(1000), stock: 10, name: 'Pizza',
       });
       mockPrisma.product.updateMany.mockResolvedValue({ count: 1 });
-      const createdOrder = { id: 'o1', orderNumber: 1, orderSource: 'STAFF', status: 'CONFIRMED', items: [] };
+      const createdOrder = { id: 'o1', orderNumber: 1, orderSource: 'STAFF', status: 'CONFIRMED', items: [], createdAt: new Date('2026-01-01T12:00:00Z') };
       mockOrderRepository.createWithItems.mockResolvedValue(createdOrder);
 
       const dto = {

@@ -1,13 +1,14 @@
 // test/orders/orders.helpers.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
-import request from 'supertest';
 import { App } from 'supertest/types';
 import * as bcrypt from 'bcryptjs';
 import { execSync } from 'child_process';
+import cookieParser from 'cookie-parser';
 
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { loginCookie } from '../helpers/auth-cookie';
 
 export async function bootstrapApp(): Promise<{
   moduleFixture: TestingModule;
@@ -24,6 +25,7 @@ export async function bootstrapApp(): Promise<{
   }).compile();
 
   const app = moduleFixture.createNestApplication<INestApplication<App>>();
+  app.use(cookieParser());
   app.enableVersioning({ type: VersioningType.URI });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
@@ -88,14 +90,8 @@ export async function login(
   app: INestApplication<App>,
   email: string,
 ): Promise<string> {
-  const res = await request(app.getHttpServer())
-    .post('/v1/auth/login')
-    .send({ email, password: 'Admin1234!' })
-    .expect((r) => {
-      if (r.status !== 200 && r.status !== 201)
-        throw new Error(`Login failed: ${r.status} ${JSON.stringify(r.body)}`);
-    });
-  return res.body.accessToken as string;
+  const { accessCookie } = await loginCookie(app, email);
+  return accessCookie;
 }
 
 export async function seedProduct(
@@ -140,7 +136,7 @@ export async function seedOrder(
   restaurantId: string,
   cashShiftId: string,
   productId: string,
-  overrides: { status?: string; isPaid?: boolean; createdAt?: Date } = {},
+  overrides: { status?: string; isPaid?: boolean; createdAt?: Date; paymentMethod?: string } = {},
 ) {
   const updatedShift = await prisma.cashShift.update({
     where: { id: cashShiftId },
@@ -157,6 +153,7 @@ export async function seedOrder(
       isPaid: overrides.isPaid ?? false,
       orderSource: 'STAFF',
       orderType: 'PICKUP',
+      ...(overrides.paymentMethod ? { paymentMethod: overrides.paymentMethod as any } : {}),
       ...(overrides.createdAt ? { createdAt: overrides.createdAt } : {}),
       items: {
         create: [{ productId, quantity: 1, unitPrice: BigInt(1000), subtotal: BigInt(1000) }],

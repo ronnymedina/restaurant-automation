@@ -16,7 +16,7 @@ const navItems = [
   { href: '/dash/users', label: 'Usuarios' },
   // { href: '/dash/tables', label: 'Mesas' }, // TODO: oculto hasta reactivar módulo de reservas
   // { href: '/dash/reservations', label: 'Reservas' }, // TODO: pendiente rediseño de flujo
-  // { href: '/dash/settings', label: 'Configuración' }, // TODO: solo tiene config de reservas, ocultar hasta que tenga más contenido
+  { href: '/dash/settings', label: 'Configuración' },
   { href: '/dash/kitchen', label: 'Cocina' },
   { href: '/dash/orders-history', label: 'Historial Pedidos' },
 ];
@@ -99,11 +99,20 @@ const googleFormUrl = config.supportGoogleFormUrl;
 </ProtectedLayout>
 
 <script>
-  import { clearTokens } from '../lib/auth';
+  import { config } from '../config';
+  import { clearLocalAuthState } from '../lib/auth';
 
   const logoutBtn = document.getElementById('logoutBtn') as HTMLButtonElement;
-  logoutBtn.addEventListener('click', () => {
-    clearTokens();
+  logoutBtn.addEventListener('click', async () => {
+    try {
+      await fetch(`${config.apiUrl}/v1/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // best-effort — proceed to local cleanup regardless
+    }
+    clearLocalAuthState();
     window.location.href = '/login';
   });
 </script>

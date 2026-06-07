@@ -5,7 +5,7 @@ import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bootstrapApp, seedRestaurant, login } from './cash-register.helpers';
-
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 describe('POST /v1/cash-register/open - openSession (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
@@ -26,21 +26,26 @@ describe('POST /v1/cash-register/open - openSession (e2e)', () => {
     await app.close();
   });
 
-  it('Sin token recibe 401', async () => {
-    await request(app.getHttpServer()).post('/v1/cash-register/open').expect(401);
+  it('Sin cookie recibe 401', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/cash-register/open')
+      .set('Origin', ALLOWED_TEST_ORIGIN)
+      .expect(401);
   });
 
   it('BASIC recibe 403', async () => {
     await request(app.getHttpServer())
       .post('/v1/cash-register/open')
-      .set('Authorization', `Bearer ${basicToken}`)
+      .set('Cookie', basicToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(403);
   });
 
   it('ADMIN abre sesión → 201 con CashShiftDto', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/cash-register/open')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(201);
 
     expect(res.body.id).toBeDefined();
@@ -54,7 +59,8 @@ describe('POST /v1/cash-register/open - openSession (e2e)', () => {
     // adminToken already has an open session from the previous test
     const res = await request(app.getHttpServer())
       .post('/v1/cash-register/open')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(409);
 
     expect(res.body.code).toBe('CASH_REGISTER_ALREADY_OPEN');
@@ -64,7 +70,8 @@ describe('POST /v1/cash-register/open - openSession (e2e)', () => {
     // adminToken already has an open session from the previous test
     const res = await request(app.getHttpServer())
       .post('/v1/cash-register/open')
-      .set('Authorization', `Bearer ${managerToken}`)
+      .set('Cookie', managerToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(409);
 
     expect(res.body.code).toBe('CASH_REGISTER_ALREADY_OPEN');

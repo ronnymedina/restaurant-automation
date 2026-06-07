@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { SseService } from './sse.service';
+import {
+  OrderCreatedPayload,
+  OrderUpdatedPayload,
+  KitchenOrderPayload,
+} from './payloads/order-event-payloads';
 
 export const ORDER_EVENTS = {
   NEW: 'order:new',
@@ -7,25 +12,34 @@ export const ORDER_EVENTS = {
 } as const;
 
 /**
- * Order-shaped payload accepted by emit*. We only require `id` for logging
- * purposes; the SSE payload is currently empty (clients fetch the order via
- * the REST API after receiving the event). Accepting `{ id: string }` keeps
- * the door open for both the raw Prisma `Order` and the serialized
- * `OrderSerializer` (which exposes `totalAmount` as `number`, not `bigint`).
+ * Emisor tipado de eventos SSE de Order.
+ *
+ * Cada método publica el mismo evento en dos canales con shapes distintos:
+ *   - restaurant stream (dashboard): payload completo en NEW, delta en UPDATED.
+ *   - kitchen stream (cocina): payload completo en ambos.
+ *
+ * Las shapes están definidas en `./payloads/order-event-payloads.ts` y
+ * el builder de `OrdersService` es responsable de armarlas. Audit H-AUX-02.
  */
-type OrderLike = { id: string };
-
 @Injectable()
 export class OrderEventsService {
   constructor(private readonly sseService: SseService) {}
 
-  emitOrderCreated(restaurantId: string, _order: OrderLike): void {
-    this.sseService.emitToRestaurant(restaurantId, ORDER_EVENTS.NEW, {});
-    this.sseService.emitToKitchen(restaurantId, ORDER_EVENTS.NEW, {});
+  emitOrderCreated(
+    restaurantId: string,
+    dashboard: OrderCreatedPayload,
+    kitchen: KitchenOrderPayload,
+  ): void {
+    this.sseService.emitToRestaurant(restaurantId, ORDER_EVENTS.NEW, dashboard);
+    this.sseService.emitToKitchen(restaurantId, ORDER_EVENTS.NEW, kitchen);
   }
 
-  emitOrderUpdated(restaurantId: string, _order: OrderLike): void {
-    this.sseService.emitToRestaurant(restaurantId, ORDER_EVENTS.UPDATED, {});
-    this.sseService.emitToKitchen(restaurantId, ORDER_EVENTS.UPDATED, {});
+  emitOrderUpdated(
+    restaurantId: string,
+    dashboard: OrderUpdatedPayload,
+    kitchen: KitchenOrderPayload,
+  ): void {
+    this.sseService.emitToRestaurant(restaurantId, ORDER_EVENTS.UPDATED, dashboard);
+    this.sseService.emitToKitchen(restaurantId, ORDER_EVENTS.UPDATED, kitchen);
   }
 }

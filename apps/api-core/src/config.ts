@@ -71,6 +71,30 @@ class EnvironmentVariables {
   @IsString()
   JWT_REFRESH_EXPIRATION!: string;
 
+  // --- cookies / cors ---
+
+  @IsOptional()
+  @IsString()
+  COOKIE_DOMAIN?: string;
+
+  @IsOptional()
+  @IsString()
+  COOKIE_SECURE?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(60_000)
+  COOKIE_ACCESS_MAX_AGE?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(60_000)
+  COOKIE_REFRESH_MAX_AGE?: number;
+
+  @IsOptional()
+  @IsString()
+  CORS_ORIGIN?: string;
+
   // --- pagination / products ---
 
   @IsOptional()
@@ -200,6 +224,18 @@ export const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4321';
 export const JWT_SECRET = process.env.JWT_SECRET!;
 export const JWT_ACCESS_EXPIRATION = process.env.JWT_ACCESS_EXPIRATION || '15m';
 export const JWT_REFRESH_EXPIRATION = process.env.JWT_REFRESH_EXPIRATION || '7d';
+
+// cookies
+export const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN ?? '';
+export const COOKIE_SECURE = (process.env.COOKIE_SECURE ?? 'true').toLowerCase() === 'true';
+export const COOKIE_ACCESS_MAX_AGE = Number(process.env.COOKIE_ACCESS_MAX_AGE) || 15 * 60 * 1000;
+export const COOKIE_REFRESH_MAX_AGE = Number(process.env.COOKIE_REFRESH_MAX_AGE) || 7 * 24 * 60 * 60 * 1000;
+
+// cors — comma-separated allowlist of origins authorised to send credentialed requests
+export const CORS_ORIGIN = (process.env.CORS_ORIGIN ?? FRONTEND_URL)
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 // pagination
 export const DEFAULT_PAGE_SIZE = Number(process.env.DEFAULT_PAGE_SIZE) || 10;

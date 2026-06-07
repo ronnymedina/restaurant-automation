@@ -4,6 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 import {
   bootstrapApp, seedRestaurant, login,
   seedProduct, openCashShiftViaApi, seedOrderOnShift,
@@ -47,14 +48,16 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
   it('BASIC recibe 403', async () => {
     await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
-      .set('Authorization', `Bearer ${basicToken}`)
+      .set('Cookie', basicToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(403);
   });
 
   it('Sesión inexistente → 404 CASH_REGISTER_NOT_FOUND', async () => {
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/summary/non-existent-id')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(404);
 
     expect(res.body.code).toBe('CASH_REGISTER_NOT_FOUND');
@@ -63,7 +66,8 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
   it('Retorna session y summary (no stats, no orders)', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     expect(res.body.session).toBeDefined();
@@ -76,7 +80,8 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
   it('session expone displayOpenedAt como string, no expone restaurantId ni userId', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const { session } = res.body;
@@ -93,7 +98,8 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
   it('summary.counts es un objeto con keys por status', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const { counts } = res.body.summary;
@@ -107,7 +113,8 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
   it('summary.revenue.completed refleja el total de órdenes COMPLETED en pesos', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const { revenue } = res.body.summary;
@@ -119,7 +126,8 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
   it('summary.byPaymentMethod es un array con {method, count, total}', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const { byPaymentMethod } = res.body.summary;
@@ -134,7 +142,8 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
   it('summary tiene counts, revenue, byPaymentMethod, byOrderType, byOrderSource, topProducts', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
     const { summary } = res.body;
@@ -150,7 +159,8 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     it('admin del restaurante A pidiendo summary de un sessionId del restaurante B recibe 404', async () => {
       await request(app.getHttpServer())
         .get(`/v1/cash-register/summary/${otherTenantShiftId}`)
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
         .expect(404);
     });
   });
