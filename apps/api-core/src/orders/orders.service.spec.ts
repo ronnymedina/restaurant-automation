@@ -22,7 +22,7 @@ const mockOrderRepository = {
   findById: jest.fn(),
   createWithItems: jest.fn(),
   updateStatus: jest.fn(),
-  cancelOrder: jest.fn(),
+  cancelOrderIfCancellable: jest.fn(),
   listOrders: jest.fn(),
   findHistory: jest.fn(),
   transitionStatusIfMatches: jest.fn(),
@@ -135,21 +135,65 @@ describe('OrdersService', () => {
   });
 
   describe('cancelOrder', () => {
-    it('throws OrderAlreadyCancelledException when already cancelled', async () => {
-      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CANCELLED }));
-      await expect(service.cancelOrder('o1', 'r1', 'reason')).rejects.toThrow(OrderAlreadyCancelledException);
+    // cancelOrder ahora lee la orden dentro de una $transaction (igual que
+    // markAsPaid). El stub default de $transaction (cb => cb(mockPrisma)) no
+    // expone order.findFirst, así que lo sobreescribimos por test. La findFirst
+    // se llama 1 vez en el camino feliz y hasta 2 veces cuando se pierde la
+    // carrera (read inicial + re-read para el error preciso); por eso aceptamos
+    // una secuencia de valores.
+    const stubTxWithOrders = (...orders: any[]) => {
+      const findFirst = jest.fn();
+      orders.forEach((o) => findFirst.mockResolvedValueOnce(o));
+      mockPrisma.$transaction.mockImplementationOnce(async (cb: any) =>
+        cb({ order: { findFirst } }),
+      );
+    };
+
+    afterEach(() => {
+      mockPrisma.$transaction.mockReset();
+      mockPrisma.$transaction.mockImplementation((cb: (tx: any) => any) => cb(mockPrisma));
     });
 
-    it('throws InvalidStatusTransitionException when COMPLETED', async () => {
-      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.COMPLETED }));
-      await expect(service.cancelOrder('o1', 'r1', 'reason')).rejects.toThrow(InvalidStatusTransitionException);
+    it('throws OrderNotFoundException when order does not exist', async () => {
+      stubTxWithOrders(null);
+      await expect(service.cancelOrder('missing', 'r1', 'reason'))
+        .rejects.toThrow(OrderNotFoundException);
+      expect(mockOrderRepository.cancelOrderIfCancellable).not.toHaveBeenCalled();
     });
 
-    it('emits updated event on success', async () => {
+    it('throws OrderAlreadyCancelledException when already cancelled (fail-fast)', async () => {
+      stubTxWithOrders(makeOrder({ status: OrderStatus.CANCELLED }));
+      await expect(service.cancelOrder('o1', 'r1', 'reason'))
+        .rejects.toThrow(OrderAlreadyCancelledException);
+      expect(mockOrderRepository.cancelOrderIfCancellable).not.toHaveBeenCalled();
+    });
+
+    it('throws InvalidStatusTransitionException when COMPLETED (fail-fast)', async () => {
+      stubTxWithOrders(makeOrder({ status: OrderStatus.COMPLETED }));
+      await expect(service.cancelOrder('o1', 'r1', 'reason'))
+        .rejects.toThrow(InvalidStatusTransitionException);
+      expect(mockOrderRepository.cancelOrderIfCancellable).not.toHaveBeenCalled();
+    });
+
+    it('throws CannotCancelPaidOrderException when order is paid (fail-fast)', async () => {
+      stubTxWithOrders(makeOrder({ status: OrderStatus.CREATED, isPaid: true }));
+      await expect(service.cancelOrder('o1', 'r1', 'reason'))
+        .rejects.toThrow(CannotCancelPaidOrderException);
+      expect(mockOrderRepository.cancelOrderIfCancellable).not.toHaveBeenCalled();
+    });
+
+    it('cancels a CONFIRMED unpaid order and emits updated event', async () => {
       const cancelled = makeOrder({ status: OrderStatus.CANCELLED });
-      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CREATED }));
-      mockOrderRepository.cancelOrder.mockResolvedValue(cancelled);
-      await service.cancelOrder('o1', 'r1', 'reason');
+      stubTxWithOrders(makeOrder({ status: OrderStatus.CONFIRMED, isPaid: false }));
+      mockOrderRepository.cancelOrderIfCancellable.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(cancelled);
+
+      const result = await service.cancelOrder('o1', 'r1', 'reason');
+
+      expect(mockOrderRepository.cancelOrderIfCancellable).toHaveBeenCalledWith(
+        expect.anything(), 'o1', 'r1', OrderStatus.CONFIRMED, 'reason',
+      );
+      expect(result).toEqual(cancelled);
       expect(mockOrderEvents.emitOrderUpdated).toHaveBeenCalledWith(
         'r1',
         expect.objectContaining({ id: cancelled.id, status: cancelled.status, isPaid: cancelled.isPaid }),
@@ -157,29 +201,41 @@ describe('OrdersService', () => {
       );
     });
 
-    it('throws CannotCancelPaidOrderException when order is paid', async () => {
-      mockOrderRepository.findById.mockResolvedValue(
-        makeOrder({ status: OrderStatus.CREATED, isPaid: true }),
+    // --- Race detection (audit R2-01) -------------------------------------
+    it('lost race to a payment → CannotCancelPaidOrderException (count=0, re-read shows paid)', async () => {
+      stubTxWithOrders(
+        makeOrder({ status: OrderStatus.SERVED, isPaid: false }),  // read inicial
+        makeOrder({ status: OrderStatus.SERVED, isPaid: true }),   // re-read
       );
+      mockOrderRepository.cancelOrderIfCancellable.mockResolvedValue(0);
+
       await expect(service.cancelOrder('o1', 'r1', 'reason'))
         .rejects.toThrow(CannotCancelPaidOrderException);
+      expect(mockOrderEvents.emitOrderUpdated).not.toHaveBeenCalled();
     });
 
-    it('throws CannotCancelPaidOrderException when CONFIRMED and paid', async () => {
-      mockOrderRepository.findById.mockResolvedValue(
-        makeOrder({ status: OrderStatus.CONFIRMED, isPaid: true }),
+    it('lost race to another cancel → OrderAlreadyCancelledException (count=0, re-read shows cancelled)', async () => {
+      stubTxWithOrders(
+        makeOrder({ status: OrderStatus.SERVED, isPaid: false }),     // read inicial
+        makeOrder({ status: OrderStatus.CANCELLED, isPaid: false }),  // re-read
       );
+      mockOrderRepository.cancelOrderIfCancellable.mockResolvedValue(0);
+
       await expect(service.cancelOrder('o1', 'r1', 'reason'))
-        .rejects.toThrow(CannotCancelPaidOrderException);
+        .rejects.toThrow(OrderAlreadyCancelledException);
+      expect(mockOrderEvents.emitOrderUpdated).not.toHaveBeenCalled();
     });
 
-    it('allows cancellation of CONFIRMED order when not paid', async () => {
-      const cancelled = makeOrder({ status: OrderStatus.CANCELLED });
-      mockOrderRepository.findById.mockResolvedValue(
-        makeOrder({ status: OrderStatus.CONFIRMED, isPaid: false }),
+    it('lost race to an advance → InvalidStatusTransitionException (count=0, re-read still cancellable)', async () => {
+      stubTxWithOrders(
+        makeOrder({ status: OrderStatus.PROCESSING, isPaid: false }),  // read inicial
+        makeOrder({ status: OrderStatus.SERVED, isPaid: false }),  // re-read: avanzó a otro estado aún cancelable → cae al InvalidStatusTransition explícito
       );
-      mockOrderRepository.cancelOrder.mockResolvedValue(cancelled);
-      await expect(service.cancelOrder('o1', 'r1', 'reason')).resolves.toEqual(cancelled);
+      mockOrderRepository.cancelOrderIfCancellable.mockResolvedValue(0);
+
+      await expect(service.cancelOrder('o1', 'r1', 'reason'))
+        .rejects.toThrow(InvalidStatusTransitionException);
+      expect(mockOrderEvents.emitOrderUpdated).not.toHaveBeenCalled();
     });
   });
 
