@@ -107,15 +107,6 @@ export default function OrderCard({
                 <option value="CARD">Tarjeta</option>
                 <option value="DIGITAL_WALLET">Digital</option>
               </select>
-              {payMethod && (
-                <button
-                  type="button"
-                  onClick={() => onPay(order.id, payMethod)}
-                  className="text-xs px-1.5 py-0.5 bg-green-600 hover:bg-green-700 text-white rounded font-medium cursor-pointer border-none"
-                >
-                  Cobrar
-                </button>
-              )}
             </div>
           ) : (
             <span className="text-xs text-slate-500">
@@ -153,52 +144,61 @@ export default function OrderCard({
           <p className="text-xs text-red-600 italic mt-1">Motivo: {order.cancellationReason}</p>
         )}
         {isActive && (
-          <div className="border-t border-slate-200 pt-2 space-y-1.5">
-            {/* Primary action */}
-            <button
-              type="button"
-              disabled={order.status === 'SERVED' && !order.isPaid}
-              title={order.status === 'SERVED' && !order.isPaid ? 'Cobra primero' : undefined}
-              onClick={() => {
-                if (order.status === 'CREATED') onConfirm(order.id);
-                else if (order.status === 'CONFIRMED') onAdvance(order.id, 'PROCESSING');
-                else if (order.status === 'PROCESSING') onAdvance(order.id, 'SERVED');
-                else if (order.status === 'SERVED') onAdvance(order.id, 'COMPLETED');
-              }}
-              className={`w-full py-2 text-sm font-bold text-white rounded-lg cursor-pointer border-none disabled:opacity-60 disabled:cursor-not-allowed ${PRIMARY_CONFIGS[order.status]?.color ?? ''}`}
-            >
-              {order.status === 'SERVED' ? 'Completar' : PRIMARY_LABELS[order.status]}
-            </button>
-            <div className="flex gap-1.5">
-              {order.isPaid && (
+          <div className="border-t border-slate-200 pt-2">
+            {!order.isPaid ? (
+              <div className="grid grid-cols-3 gap-1.5">
                 <button
                   type="button"
-                  onClick={() => onUnpay(order.id)}
-                  className="flex-1 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md cursor-pointer text-amber-600 hover:bg-slate-50"
+                  disabled={order.status === 'SERVED'}
+                  title={order.status === 'SERVED' ? 'Cobra primero' : undefined}
+                  onClick={() => {
+                    if (order.status === 'CREATED') onConfirm(order.id);
+                    else if (order.status === 'CONFIRMED') onAdvance(order.id, 'PROCESSING');
+                    else if (order.status === 'PROCESSING') onAdvance(order.id, 'SERVED');
+                  }}
+                  className={`py-2 text-sm font-bold text-white rounded-lg cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed ${PRIMARY_CONFIGS[order.status]?.color ?? 'bg-slate-400'}`}
                 >
-                  ↩ Desmarcar Pago
+                  {PRIMARY_LABELS[order.status] ?? 'Completar'}
                 </button>
-              )}
-              {!order.isPaid && (
+                <button
+                  type="button"
+                  disabled={!payMethod}
+                  onClick={() => onPay(order.id, payMethod)}
+                  className="py-2 text-sm font-bold text-white rounded-lg cursor-pointer border-none bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cobrar
+                </button>
                 <button
                   type="button"
                   onClick={() => onCancel(order.id)}
-                  className="flex-1 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md cursor-pointer text-red-600 hover:bg-slate-50"
+                  className="py-2 text-xs font-semibold border border-slate-200 bg-white rounded-lg cursor-pointer text-red-600 hover:bg-slate-50"
                 >
                   ✕ Cancelar
                 </button>
-              )}
-              {order.isPaid && (
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-1.5">
                 <button
                   type="button"
-                  onClick={() => onCancelBlocked(order.id)}
-                  className="flex-1 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md cursor-pointer text-red-600 hover:bg-slate-50"
-                  title="Desmarca el pago antes de cancelar"
+                  onClick={() => {
+                    if (order.status === 'CREATED') onConfirm(order.id);
+                    else if (order.status === 'CONFIRMED') onAdvance(order.id, 'PROCESSING');
+                    else if (order.status === 'PROCESSING') onAdvance(order.id, 'SERVED');
+                    else if (order.status === 'SERVED') onAdvance(order.id, 'COMPLETED');
+                  }}
+                  className={`py-2 text-sm font-bold text-white rounded-lg cursor-pointer border-none ${PRIMARY_CONFIGS[order.status]?.color ?? ''}`}
                 >
-                  ✕ Cancelar
+                  {order.status === 'SERVED' ? 'Completar' : PRIMARY_LABELS[order.status]}
                 </button>
-              )}
-            </div>
+                <button
+                  type="button"
+                  onClick={() => onUnpay(order.id)}
+                  className="py-2 text-xs font-semibold border border-slate-200 bg-white rounded-lg cursor-pointer text-amber-600 hover:bg-slate-50"
+                >
+                  ↩ Desmarcar Pago
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
