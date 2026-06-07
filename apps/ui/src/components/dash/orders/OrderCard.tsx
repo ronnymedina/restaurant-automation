@@ -166,7 +166,7 @@ export default function OrderCard({
                   onClick={() => onPay(order.id, payMethod)}
                   className="py-2 text-sm font-bold text-white rounded-lg cursor-pointer border-none bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Cobrar
+                  Pagado
                 </button>
                 <button
                   type="button"

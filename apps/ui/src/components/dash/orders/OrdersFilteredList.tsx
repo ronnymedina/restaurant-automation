@@ -40,7 +40,7 @@ export default function OrdersFilteredList({
       {orders.length === 0 ? (
         <p className="text-sm text-slate-400 text-center py-8">Sin resultados</p>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-3 gap-3">
           {orders.map((order) => (
             <OrderCard
               key={order.id}
