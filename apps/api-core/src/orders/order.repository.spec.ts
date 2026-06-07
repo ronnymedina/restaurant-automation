@@ -61,3 +61,48 @@ describe('OrderRepository.findActiveOrders (H-32, H-33)', () => {
     ]);
   });
 });
+
+describe('OrderRepository.cancelOrderIfCancellable (R2-01)', () => {
+  let repository: OrderRepository;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        OrderRepository,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
+    }).compile();
+    repository = moduleRef.get(OrderRepository);
+  });
+
+  it('issues a guarded updateMany (status + isPaid=false) and returns the count', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const tx = { order: { updateMany } } as any;
+
+    const count = await repository.cancelOrderIfCancellable(
+      tx, 'o1', 'r1', OrderStatus.SERVED, 'cliente se retiró',
+    );
+
+    expect(count).toBe(1);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'o1', restaurantId: 'r1', status: OrderStatus.SERVED, isPaid: false },
+      data: { status: OrderStatus.CANCELLED, cancellationReason: 'cliente se retiró' },
+    });
+  });
+
+  it('returns 0 when no row matches the guard (lost race)', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 0 });
+    const tx = { order: { updateMany } } as any;
+
+    const count = await repository.cancelOrderIfCancellable(
+      tx, 'o1', 'r1', OrderStatus.SERVED, 'reason',
+    );
+
+    expect(count).toBe(0);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'o1', restaurantId: 'r1', status: OrderStatus.SERVED, isPaid: false },
+      data: { status: OrderStatus.CANCELLED, cancellationReason: 'reason' },
+    });
+  });
+});
