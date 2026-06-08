@@ -33,7 +33,7 @@ export interface ShiftCounts {
 }
 
 export interface ShiftRevenue {
-  completed: number;
+  collected: number;
   pending: number;
   averageTicket: number;
 }

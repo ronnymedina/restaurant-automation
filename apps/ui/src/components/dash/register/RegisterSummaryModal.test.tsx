@@ -5,7 +5,7 @@ import type { CashShiftDto, ShiftSummary } from './api';
 function makeSummary(overrides: Partial<ShiftSummary> = {}): ShiftSummary {
   return {
     counts: { total: 0, pending: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 0, cancelled: 0 },
-    revenue: { completed: 0, pending: 0, averageTicket: 0 },
+    revenue: { collected: 0, pending: 0, averageTicket: 0 },
     byPaymentMethod: [],
     byOrderType: [],
     byOrderSource: [],
@@ -49,7 +49,7 @@ test('renders open and close dates from session', () => {
 
 test('renders revenue tiles: total ingresado, pendiente, ticket promedio', () => {
   const summary = makeSummary({
-    revenue: { completed: 480.5, pending: 75, averageTicket: 40.04 },
+    revenue: { collected: 480.5, pending: 75, averageTicket: 40.04 },
     counts: { ...emptySummary.counts, total: 12, completed: 12 },
   });
   render(<RegisterSummaryModal open={true} session={session} summary={summary} onClose={vi.fn()} />);

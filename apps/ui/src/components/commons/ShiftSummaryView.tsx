@@ -15,7 +15,7 @@ interface ShiftCountsLike {
 }
 
 interface ShiftRevenueLike {
-  completed: number;
+  collected: number;
   pending: number;
   averageTicket: number;
 }
@@ -171,7 +171,7 @@ export default function ShiftSummaryView({ session, summary }: Props) {
       )}
 
       <div className="grid grid-cols-3 gap-3">
-        <StatTile label="Total ingresado" value={formatCurrency(revenue.completed)} tone="success" />
+        <StatTile label="Total ingresado" value={formatCurrency(revenue.collected)} tone="success" />
         <StatTile label="Pendiente" value={formatCurrency(revenue.pending)} tone="warning" />
         <StatTile label="Ticket promedio" value={formatCurrency(revenue.averageTicket)} />
       </div>

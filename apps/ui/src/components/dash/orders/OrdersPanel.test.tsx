@@ -25,7 +25,7 @@ vi.mock('../../../lib/restaurant-settings', () => ({
 vi.mock('../register/api', () => ({
   getLiveStats: vi.fn().mockResolvedValue({ ok: true, data: { summary: {
     counts: { total: 0, pending: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 0, cancelled: 0 },
-    revenue: { completed: 0, pending: 0, averageTicket: 0 },
+    revenue: { collected: 0, pending: 0, averageTicket: 0 },
     byPaymentMethod: [], byOrderType: [], byOrderSource: [], topProducts: [],
   }}}),
 }));
