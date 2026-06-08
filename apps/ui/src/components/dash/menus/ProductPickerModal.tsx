@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import Button from '../../commons/Button';
 import { apiFetch } from '../../../lib/api';
 import { bulkCreateMenuItems } from '../../../lib/menus-api';
+import { useRestaurantSettings } from '../../../lib/restaurant-settings';
+import { formatMoney } from '../../../lib/money';
 
 interface SimpleProduct {
   id: string;
@@ -26,6 +28,7 @@ export default function ProductPickerModal({
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { data: settings } = useRestaurantSettings();
 
   const { data, isLoading } = useQuery<{ data: SimpleProduct[] }>({
     queryKey: ['/v1/products', 'picker'],
@@ -104,7 +107,7 @@ export default function ProductPickerModal({
               className="w-4 h-4 text-indigo-600 rounded border-slate-300"
             />
             <span className="flex-1 text-sm text-slate-800">{p.name}</span>
-            <span className="text-xs text-slate-400">${Number(p.price).toFixed(2)}</span>
+            <span className="text-xs text-slate-400">{formatMoney(Number(p.price), settings)}</span>
           </label>
         ))}
       </div>

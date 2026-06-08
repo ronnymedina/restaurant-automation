@@ -69,7 +69,13 @@ export class AuthService {
 
     this.logger.log(`User logged in: ${user.email}`);
 
-    return { accessToken, refreshToken, timezone: restaurant.settings?.timezone ?? 'UTC' };
+    return {
+      accessToken,
+      refreshToken,
+      timezone: restaurant.settings?.timezone ?? 'UTC',
+      decimalSeparator: restaurant.settings?.decimalSeparator ?? ',',
+      thousandsSeparator: restaurant.settings?.thousandsSeparator ?? '.',
+    };
   }
 
   async refreshTokens(token: string) {
@@ -110,7 +116,13 @@ export class AuthService {
 
     const refreshToken = await this.generateRefreshToken(user.id);
 
-    return { accessToken, refreshToken, timezone: restaurant.settings?.timezone ?? 'UTC' };
+    return {
+      accessToken,
+      refreshToken,
+      timezone: restaurant.settings?.timezone ?? 'UTC',
+      decimalSeparator: restaurant.settings?.decimalSeparator ?? ',',
+      thousandsSeparator: restaurant.settings?.thousandsSeparator ?? '.',
+    };
   }
 
   async getProfile(userId: string) {

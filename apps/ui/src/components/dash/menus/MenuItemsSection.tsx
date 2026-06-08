@@ -3,6 +3,8 @@ import IconButton from '../../commons/icons/IconButton';
 import Button from '../../commons/Button';
 import type { MenuItem } from '../../../lib/menus-api';
 import { deleteMenuItem, updateMenuItem } from '../../../lib/menus-api';
+import { useRestaurantSettings } from '../../../lib/restaurant-settings';
+import { formatMoney } from '../../../lib/money';
 
 interface MenuItemsSectionProps {
   menuId: string;
@@ -21,6 +23,7 @@ export default function MenuItemsSection({
 }: MenuItemsSectionProps) {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editSectionName, setEditSectionName] = useState('');
+  const { data: settings } = useRestaurantSettings();
 
   const handleEditOpen = (item: MenuItem) => {
     setEditingItemId(item.id);
@@ -67,7 +70,7 @@ export default function MenuItemsSection({
                 {item.product.category?.name ?? '-'}
               </td>
               <td className="px-4 py-2.5 text-slate-600">
-                ${Number(item.product.price).toFixed(2)}
+                {formatMoney(Number(item.product.price), settings)}
               </td>
               <td className="px-4 py-2.5 text-right">
                 {editingItemId === item.id ? (

@@ -3,6 +3,7 @@ import type { CartItem, KioskTheme } from './types/kiosk.types'
 import { QuantityControls } from './QuantityControls'
 import { ProductNoteForm } from './ProductNoteForm'
 import { useKioskStore } from './store/kiosk.store'
+import { formatMoney } from '../../lib/money'
 
 interface OrderSummaryItemProps {
   item: CartItem
@@ -13,6 +14,9 @@ export function OrderSummaryItem({ item, theme }: OrderSummaryItemProps) {
   const updateQuantity = useKioskStore((s) => s.updateQuantity)
   const updateNotes = useKioskStore((s) => s.updateNotes)
   const menuSections = useKioskStore((s) => s.menuSections)
+  const decimalSeparator = useKioskStore((s) => s.decimalSeparator)
+  const thousandsSeparator = useKioskStore((s) => s.thousandsSeparator)
+  const fmt = (v: number) => formatMoney(v, { decimalSeparator, thousandsSeparator })
 
   const maxStock = useMemo(() => {
     const allItems = Object.values(menuSections).flatMap((sections) =>
@@ -28,14 +32,14 @@ export function OrderSummaryItem({ item, theme }: OrderSummaryItemProps) {
           <p className="font-medium text-sm">{item.name}</p>
           {item.oldPrice !== undefined && (
             <p className="text-xs text-slate-400 line-through">
-              ${(item.oldPrice * item.quantity).toFixed(2)}
+              {fmt(item.oldPrice * item.quantity)}
             </p>
           )}
           <p
             className={`font-bold text-sm${item.oldPrice !== undefined ? ' text-amber-600' : ''}`}
             style={item.oldPrice !== undefined ? undefined : { color: theme.primary }}
           >
-            ${(item.price * item.quantity).toFixed(2)}
+            {fmt(item.price * item.quantity)}
           </p>
         </div>
         <QuantityControls

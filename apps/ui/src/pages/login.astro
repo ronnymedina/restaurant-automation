@@ -98,7 +98,7 @@ import Layout from "../layouts/Layout.astro";
 
 <script>
   import { config } from '../config';
-  import { isAuthenticated, setRestaurantTimezone } from '../lib/auth';
+  import { isAuthenticated, setRestaurantTimezone, setMoneyDisplaySettings } from '../lib/auth';
   import { getErrorMessage } from '../lib/error-messages';
 
   // Redirect if already authenticated
@@ -161,6 +161,7 @@ import Layout from "../layouts/Layout.astro";
 
       const result = await response.json();
       setRestaurantTimezone(result.timezone ?? 'UTC');
+      setMoneyDisplaySettings(result.decimalSeparator ?? ',', result.thousandsSeparator ?? '.');
       window.location.href = '/dash';
     } catch (error) {
       console.error('Login error:', error);

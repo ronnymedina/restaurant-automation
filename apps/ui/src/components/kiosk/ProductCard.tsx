@@ -1,4 +1,6 @@
 import type { KioskTheme } from './types/kiosk.types'
+import { formatMoney } from '../../lib/money'
+import { useKioskStore } from './store/kiosk.store'
 
 type StockStatus = 'available' | 'low_stock' | 'out_of_stock'
 
@@ -25,6 +27,10 @@ export function ProductCard({
   oldPrice,
   theme,
 }: ProductCardProps) {
+  const decimalSeparator = useKioskStore((s) => s.decimalSeparator)
+  const thousandsSeparator = useKioskStore((s) => s.thousandsSeparator)
+  const fmt = (v: number) => formatMoney(v, { decimalSeparator, thousandsSeparator })
+
   const isOutOfStock = stockStatus === 'out_of_stock'
   const isLowStock = stockStatus === 'low_stock'
 
@@ -55,7 +61,7 @@ export function ProductCard({
           {priceChanged && oldPrice !== undefined && (
             <div className="flex items-center gap-1 mb-0.5">
               <span className="text-xs text-slate-400 line-through">
-                Antes ${oldPrice.toFixed(2)}
+                Antes {fmt(oldPrice)}
               </span>
               <span className="text-xs bg-amber-100 text-amber-700 font-medium px-1.5 py-0.5 rounded">
                 Precio actualizado
@@ -67,7 +73,7 @@ export function ProductCard({
             className={`font-black text-base md:text-lg ${priceChanged ? 'text-amber-600' : ''}`}
             style={priceChanged ? undefined : { color: theme.text }}
           >
-            ${price.toFixed(2)}
+            {fmt(price)}
           </p>
 
           {isLowStock && (

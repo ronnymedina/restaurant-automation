@@ -1,4 +1,6 @@
 import type { CartItem, KioskTheme } from './types/kiosk.types'
+import { formatMoney } from '../../lib/money'
+import { useKioskStore } from './store/kiosk.store'
 
 type Props = {
   orderNumber: number
@@ -9,6 +11,10 @@ type Props = {
 }
 
 export function OrderConfirmation({ orderNumber, items, total, onNewOrder, theme }: Props) {
+  const decimalSeparator = useKioskStore((s) => s.decimalSeparator)
+  const thousandsSeparator = useKioskStore((s) => s.thousandsSeparator)
+  const fmt = (v: number) => formatMoney(v, { decimalSeparator, thousandsSeparator })
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-6"
@@ -33,15 +39,15 @@ export function OrderConfirmation({ orderNumber, items, total, onNewOrder, theme
               <div className="flex-1 pr-3">
                 <p className="text-slate-700">{item.name}</p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {item.quantity} × ${item.price.toFixed(2)}
+                  {item.quantity} × {fmt(item.price)}
                 </p>
               </div>
-              <span className="whitespace-nowrap">${(item.price * item.quantity).toFixed(2)}</span>
+              <span className="whitespace-nowrap">{fmt(item.price * item.quantity)}</span>
             </div>
           ))}
           <div className="flex justify-between font-bold border-t border-slate-200 pt-2 mt-2">
             <span>Total</span>
-            <span>${total.toFixed(2)}</span>
+            <span>{fmt(total)}</span>
           </div>
         </div>
 

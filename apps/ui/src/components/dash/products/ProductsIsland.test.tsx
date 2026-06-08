@@ -25,6 +25,14 @@ vi.mock('../../commons/Providers', async () => {
   };
 });
 
+// The price column calls formatMoney with restaurant settings; mock the hook
+// (CL defaults) so the rendered amount is deterministic and isolated.
+vi.mock('../../../lib/restaurant-settings', () => ({
+  useRestaurantSettings: () => ({
+    data: { decimalSeparator: ',', thousandsSeparator: '.' },
+  }),
+}));
+
 import { apiFetch } from '../../../lib/api';
 import { deleteProduct } from '../../../lib/products-api';
 const mockApiFetch = vi.mocked(apiFetch);
@@ -91,7 +99,7 @@ test('renders product rows from API response', async () => {
   render(<ProductsIsland />);
   await waitFor(() => expect(screen.getByText('Agua')).toBeInTheDocument());
   expect(screen.getByText('Bebidas')).toBeInTheDocument();
-  expect(screen.getByText('$5.00')).toBeInTheDocument();
+  expect(screen.getByText('$5,00')).toBeInTheDocument();
 });
 
 test('renders a search input', () => {

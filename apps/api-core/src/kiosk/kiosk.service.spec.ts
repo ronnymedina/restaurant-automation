@@ -423,14 +423,32 @@ describe('KioskService', () => {
       mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(mockRestaurant);
       mockRegisterSessionRepo.findOpen.mockResolvedValue({ id: 's1' });
       const result = await service.getStatus('test-rest');
-      expect(result).toEqual({ registerOpen: true, restaurantName: 'Test' });
+      expect(result).toMatchObject({ registerOpen: true, restaurantName: 'Test' });
     });
 
     it('returns registerOpen: false when no session is open', async () => {
       mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(mockRestaurant);
       mockRegisterSessionRepo.findOpen.mockResolvedValue(null);
       const result = await service.getStatus('test-rest');
-      expect(result).toEqual({ registerOpen: false, restaurantName: 'Test' });
+      expect(result).toMatchObject({ registerOpen: false, restaurantName: 'Test' });
+    });
+
+    it('getStatus incluye los separadores de display del restaurante', async () => {
+      const restaurantWithSeparators = {
+        ...mockRestaurant,
+        settings: {
+          ...mockRestaurant.settings,
+          decimalSeparator: ',',
+          thousandsSeparator: '.',
+        },
+      };
+      mockRestaurantsService.findBySlugWithSettings.mockResolvedValue(restaurantWithSeparators);
+      mockRegisterSessionRepo.findOpen.mockResolvedValue(null);
+      const result = await service.getStatus('mi-slug');
+      expect(result).toMatchObject({
+        decimalSeparator: ',',
+        thousandsSeparator: '.',
+      });
     });
   });
 

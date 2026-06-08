@@ -1,6 +1,7 @@
 import type { KioskTheme } from './types/kiosk.types'
 import { useKioskStore } from './store/kiosk.store'
 import { OrderSummary } from './OrderSummary'
+import { formatMoney } from '../../lib/money'
 
 interface CartPanelProps {
   onClose: () => void
@@ -11,11 +12,13 @@ interface CartPanelProps {
 
 function CartFooter({ total, onCheckout, theme }: { total: number; onCheckout: () => void; theme: KioskTheme }) {
   const cart = useKioskStore((s) => s.cart)
+  const decimalSeparator = useKioskStore((s) => s.decimalSeparator)
+  const thousandsSeparator = useKioskStore((s) => s.thousandsSeparator)
   return (
     <div className="p-4 border-t border-slate-200 space-y-3">
       <div className="flex justify-between items-center text-lg font-bold">
         <span>Total</span>
-        <span>${total.toFixed(2)}</span>
+        <span>{formatMoney(total, { decimalSeparator, thousandsSeparator })}</span>
       </div>
       <button
         onClick={onCheckout}

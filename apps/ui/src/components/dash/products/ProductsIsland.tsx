@@ -15,6 +15,8 @@ import {
   CATEGORIES_QUERY_KEY,
 } from '../../../lib/products-api';
 import type { Product } from '../../../lib/products-api';
+import { useRestaurantSettings } from '../../../lib/restaurant-settings';
+import { formatMoney } from '../../../lib/money';
 
 function ProductsContent() {
   const qc = useQueryClient();
@@ -23,6 +25,7 @@ function ProductsContent() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
+  const { data: settings } = useRestaurantSettings();
 
   const { data: categories = [] } = useQuery({
     queryKey: [CATEGORIES_QUERY_KEY, 'all'],
@@ -75,7 +78,7 @@ function ProductsContent() {
       accessorKey: 'price',
       header: 'Precio',
       cell: ({ getValue }) => (
-        <span className="whitespace-nowrap">${Number(getValue<number>()).toFixed(2)}</span>
+        <span className="whitespace-nowrap">{formatMoney(Number(getValue<number>()), settings)}</span>
       ),
     },
     {
@@ -129,7 +132,7 @@ function ProductsContent() {
         </div>
       ),
     },
-  ], [handleEdit, handleDelete]);
+  ], [handleEdit, handleDelete, settings]);
 
   return (
     <div className="space-y-6">

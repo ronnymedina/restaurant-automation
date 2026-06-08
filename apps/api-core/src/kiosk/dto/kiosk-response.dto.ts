@@ -6,6 +6,12 @@ export class KioskStatusDto {
 
   @ApiProperty({ example: 'La Parrilla del Chef', description: 'Nombre del restaurante' })
   restaurantName: string;
+
+  @ApiProperty({ example: ',', description: 'Separador decimal del restaurante (ej: "," para $1.234,50)' })
+  decimalSeparator: string;
+
+  @ApiProperty({ example: '.', description: 'Separador de miles del restaurante (ej: "." para $1.234,50)' })
+  thousandsSeparator: string;
 }
 
 export class KioskMenuItemEntryDto {

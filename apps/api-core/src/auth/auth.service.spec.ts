@@ -45,7 +45,7 @@ const mockRestaurant = {
   id: 'restaurant-uuid-1',
   name: 'Test Restaurant',
   slug: 'test-restaurant',
-  settings: { timezone: 'UTC' },
+  settings: { timezone: 'UTC', decimalSeparator: ',', thousandsSeparator: '.' },
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -176,6 +176,8 @@ describe('AuthService', () => {
         accessToken: 'signed-jwt-token',
         refreshToken: expect.any(String),
         timezone: 'UTC',
+        decimalSeparator: ',',
+        thousandsSeparator: '.',
       });
       expect(mockJwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({ sub: mockUser.id, email: mockUser.email }),
@@ -238,6 +240,8 @@ describe('AuthService', () => {
         accessToken: 'signed-jwt-token',
         refreshToken: expect.any(String),
         timezone: 'UTC',
+        decimalSeparator: ',',
+        thousandsSeparator: '.',
       });
     });
   });
