@@ -42,7 +42,7 @@ describe('CashRegisterStatsService', () => {
       expect(summary.counts.pending).toBe(0);
       expect(summary.counts.completed).toBe(0);
       expect(summary.counts.cancelled).toBe(0);
-      expect(summary.revenue).toEqual({ completed: 0n, pending: 0n, averageTicket: 0n });
+      expect(summary.revenue).toEqual({ collected: 0n, pending: 0n, averageTicket: 0n });
       expect(summary.byPaymentMethod).toEqual([]);
       expect(summary.byOrderType).toEqual([]);
       expect(summary.byOrderSource).toEqual([]);
@@ -51,12 +51,12 @@ describe('CashRegisterStatsService', () => {
 
     it('cuenta cada status correctamente y calcula pending', async () => {
       mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([
-        { status: OrderStatus.CREATED,    paymentMethod: null,   orderType: 'PICKUP', orderSource: 'KIOSK',  _count: { id: 2 }, _sum: { totalAmount: 2000n } },
-        { status: OrderStatus.CONFIRMED,  paymentMethod: null,   orderType: 'PICKUP', orderSource: 'STAFF',  _count: { id: 1 }, _sum: { totalAmount: 1000n } },
-        { status: OrderStatus.PROCESSING, paymentMethod: null,   orderType: 'PICKUP', orderSource: 'STAFF',  _count: { id: 1 }, _sum: { totalAmount: 1500n } },
-        { status: OrderStatus.SERVED,     paymentMethod: null,   orderType: 'PICKUP', orderSource: 'STAFF',  _count: { id: 1 }, _sum: { totalAmount: 1200n } },
-        { status: OrderStatus.COMPLETED,  paymentMethod: 'CASH', orderType: 'PICKUP', orderSource: 'STAFF',  _count: { id: 3 }, _sum: { totalAmount: 6000n } },
-        { status: OrderStatus.CANCELLED,  paymentMethod: null,   orderType: 'PICKUP', orderSource: 'KIOSK',  _count: { id: 1 }, _sum: { totalAmount:  800n } },
+        { status: OrderStatus.CREATED,    paymentMethod: null,   orderType: 'PICKUP', orderSource: 'KIOSK', isPaid: false, _count: { id: 2 }, _sum: { totalAmount: 2000n } },
+        { status: OrderStatus.CONFIRMED,  paymentMethod: null,   orderType: 'PICKUP', orderSource: 'STAFF', isPaid: false, _count: { id: 1 }, _sum: { totalAmount: 1000n } },
+        { status: OrderStatus.PROCESSING, paymentMethod: null,   orderType: 'PICKUP', orderSource: 'STAFF', isPaid: false, _count: { id: 1 }, _sum: { totalAmount: 1500n } },
+        { status: OrderStatus.SERVED,     paymentMethod: null,   orderType: 'PICKUP', orderSource: 'STAFF', isPaid: false, _count: { id: 1 }, _sum: { totalAmount: 1200n } },
+        { status: OrderStatus.COMPLETED,  paymentMethod: 'CASH', orderType: 'PICKUP', orderSource: 'STAFF', isPaid: true,  _count: { id: 3 }, _sum: { totalAmount: 6000n } },
+        { status: OrderStatus.CANCELLED,  paymentMethod: null,   orderType: 'PICKUP', orderSource: 'KIOSK', isPaid: false, _count: { id: 1 }, _sum: { totalAmount:  800n } },
       ]);
       mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
@@ -72,38 +72,41 @@ describe('CashRegisterStatsService', () => {
       expect(summary.counts.cancelled).toBe(1);
     });
 
-    it('calcula revenue correctamente (completed, pending, averageTicket)', async () => {
+    it('calcula revenue por isPaid: collected, pending y averageTicket', async () => {
+      // A: completada+pagada; B: servida+pagada (dinero ya en caja); C: en preparación sin pagar; D: cancelada
       mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([
-        { status: OrderStatus.COMPLETED,  paymentMethod: 'CASH', orderType: 'PICKUP', orderSource: 'STAFF', _count: { id: 2 }, _sum: { totalAmount: 4000n } },
-        { status: OrderStatus.PROCESSING, paymentMethod: null,   orderType: 'PICKUP', orderSource: 'STAFF', _count: { id: 1 }, _sum: { totalAmount: 1500n } },
-        { status: OrderStatus.CANCELLED,  paymentMethod: null,   orderType: 'PICKUP', orderSource: 'KIOSK', _count: { id: 1 }, _sum: { totalAmount:  800n } },
+        { status: OrderStatus.COMPLETED,  paymentMethod: 'CASH', orderType: 'PICKUP', orderSource: 'STAFF', isPaid: true,  _count: { id: 1 }, _sum: { totalAmount: 10000n } },
+        { status: OrderStatus.SERVED,     paymentMethod: 'CARD', orderType: 'PICKUP', orderSource: 'STAFF', isPaid: true,  _count: { id: 1 }, _sum: { totalAmount:  5000n } },
+        { status: OrderStatus.PROCESSING, paymentMethod: 'CARD', orderType: 'PICKUP', orderSource: 'STAFF', isPaid: false, _count: { id: 1 }, _sum: { totalAmount:  3000n } },
+        { status: OrderStatus.CANCELLED,  paymentMethod: null,   orderType: 'PICKUP', orderSource: 'KIOSK', isPaid: false, _count: { id: 1 }, _sum: { totalAmount:   800n } },
       ]);
       mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
       const summary = await service.getSummary(RESTAURANT_ID, SESSION_ID);
 
-      expect(summary.revenue.completed).toBe(4000n);
-      expect(summary.revenue.pending).toBe(1500n);    // PROCESSING; CANCELLED excluido
-      expect(summary.revenue.averageTicket).toBe(2000n); // 4000n / 2
+      expect(summary.revenue.collected).toBe(15000n);     // A + B (ambas pagadas)
+      expect(summary.revenue.pending).toBe(3000n);        // C (sin pagar); CANCELLED excluida
+      expect(summary.revenue.averageTicket).toBe(7500n);  // 15000 / 2 órdenes pagadas
     });
 
-    it('averageTicket es 0n cuando no hay pedidos completados', async () => {
+    it('averageTicket es 0n cuando no hay órdenes pagadas', async () => {
       mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([
-        { status: OrderStatus.CREATED, paymentMethod: null, orderType: 'PICKUP', orderSource: 'STAFF', _count: { id: 1 }, _sum: { totalAmount: 1000n } },
+        { status: OrderStatus.CREATED, paymentMethod: null, orderType: 'PICKUP', orderSource: 'STAFF', isPaid: false, _count: { id: 1 }, _sum: { totalAmount: 1000n } },
       ]);
       mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
       const summary = await service.getSummary(RESTAURANT_ID, SESSION_ID);
 
+      expect(summary.revenue.collected).toBe(0n);
       expect(summary.revenue.averageTicket).toBe(0n);
     });
 
-    it('byPaymentMethod incluye solo órdenes COMPLETED', async () => {
+    it('byPaymentMethod incluye solo órdenes pagadas (isPaid), excluye no pagadas y canceladas', async () => {
       mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([
-        { status: OrderStatus.COMPLETED, paymentMethod: 'CASH', orderType: 'PICKUP', orderSource: 'STAFF', _count: { id: 2 }, _sum: { totalAmount: 4000n } },
-        { status: OrderStatus.COMPLETED, paymentMethod: 'CARD', orderType: 'PICKUP', orderSource: 'STAFF', _count: { id: 1 }, _sum: { totalAmount: 2000n } },
-        { status: OrderStatus.CANCELLED, paymentMethod: 'CASH', orderType: 'PICKUP', orderSource: 'KIOSK', _count: { id: 1 }, _sum: { totalAmount:  500n } },
-        { status: OrderStatus.CREATED,   paymentMethod: null,   orderType: 'PICKUP', orderSource: 'STAFF', _count: { id: 1 }, _sum: { totalAmount: 1000n } },
+        { status: OrderStatus.COMPLETED, paymentMethod: 'CASH', orderType: 'PICKUP', orderSource: 'STAFF', isPaid: true,  _count: { id: 2 }, _sum: { totalAmount: 4000n } },
+        { status: OrderStatus.SERVED,    paymentMethod: 'CARD', orderType: 'PICKUP', orderSource: 'STAFF', isPaid: true,  _count: { id: 1 }, _sum: { totalAmount: 2000n } },
+        { status: OrderStatus.PROCESSING,paymentMethod: 'CARD', orderType: 'PICKUP', orderSource: 'STAFF', isPaid: false, _count: { id: 1 }, _sum: { totalAmount: 1500n } },
+        { status: OrderStatus.CANCELLED, paymentMethod: 'CASH', orderType: 'PICKUP', orderSource: 'KIOSK', isPaid: true,  _count: { id: 1 }, _sum: { totalAmount:  500n } },
       ]);
       mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 
@@ -120,9 +123,9 @@ describe('CashRegisterStatsService', () => {
 
     it('byOrderType agrega todos los statuses incluyendo CANCELLED', async () => {
       mockOrderShiftReport.groupOrdersByShift.mockResolvedValue([
-        { status: OrderStatus.COMPLETED, paymentMethod: 'CASH', orderType: 'PICKUP',   orderSource: 'STAFF', _count: { id: 3 }, _sum: { totalAmount: 6000n } },
-        { status: OrderStatus.CREATED,   paymentMethod: null,   orderType: 'DELIVERY', orderSource: 'KIOSK', _count: { id: 2 }, _sum: { totalAmount: 2000n } },
-        { status: OrderStatus.CANCELLED, paymentMethod: null,   orderType: 'PICKUP',   orderSource: 'KIOSK', _count: { id: 1 }, _sum: { totalAmount:  800n } },
+        { status: OrderStatus.COMPLETED, paymentMethod: 'CASH', orderType: 'PICKUP',   orderSource: 'STAFF', isPaid: true,  _count: { id: 3 }, _sum: { totalAmount: 6000n } },
+        { status: OrderStatus.CREATED,   paymentMethod: null,   orderType: 'DELIVERY', orderSource: 'KIOSK', isPaid: false, _count: { id: 2 }, _sum: { totalAmount: 2000n } },
+        { status: OrderStatus.CANCELLED, paymentMethod: null,   orderType: 'PICKUP',   orderSource: 'KIOSK', isPaid: false, _count: { id: 1 }, _sum: { totalAmount:  800n } },
       ]);
       mockOrderShiftReport.getTopProductsWithNamesByShift.mockResolvedValue([]);
 

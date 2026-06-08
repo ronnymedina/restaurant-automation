@@ -27,7 +27,7 @@ const mockOrderShiftReportRepo = { getTopProductsWithNamesByShift: jest.fn(), gr
 
 const emptySummary = () => ({
   counts: { total: 0, pending: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 0, cancelled: 0 },
-  revenue: { completed: 0n, pending: 0n, averageTicket: 0n },
+  revenue: { collected: 0n, pending: 0n, averageTicket: 0n },
   byPaymentMethod: [],
   byOrderType: [],
   byOrderSource: [],
@@ -61,7 +61,7 @@ describe('CashRegisterController', () => {
 
       expect(result.summary).toBeDefined();
       expect(result.summary.counts.total).toBe(0);
-      expect(result.summary.revenue.completed).toBe(0);
+      expect(result.summary.revenue.collected).toBe(0);
       expect(result.summary.revenue.pending).toBe(0);
       expect(result.summary.revenue.averageTicket).toBe(0);
     });
@@ -70,12 +70,12 @@ describe('CashRegisterController', () => {
       mockRegisterService.getOpenSessionId.mockResolvedValue(SESSION_ID);
       mockStatsService.getSummary.mockResolvedValue({
         ...emptySummary(),
-        revenue: { completed: 4000n, pending: 1500n, averageTicket: 2000n },
+        revenue: { collected: 4000n, pending: 1500n, averageTicket: 2000n },
       });
 
       const result = instanceToPlain(await controller.stats({ restaurantId: RESTAURANT_ID }));
 
-      expect(result.summary.revenue.completed).toBe(40);     // 4000n centavos → $40
+      expect(result.summary.revenue.collected).toBe(40);     // 4000n centavos → $40
       expect(result.summary.revenue.pending).toBe(15);        // 1500n centavos → $15
       expect(result.summary.revenue.averageTicket).toBe(20);  // 2000n centavos → $20
     });

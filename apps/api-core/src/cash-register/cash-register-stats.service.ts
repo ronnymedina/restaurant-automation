@@ -17,7 +17,7 @@ export interface ShiftCounts {
 }
 
 export interface ShiftRevenue {
-  completed: bigint;
+  collected: bigint;
   pending: bigint;
   averageTicket: bigint;
 }
@@ -58,7 +58,7 @@ export class CashRegisterStatsService {
 
     return {
       counts,
-      revenue: this.calculateRevenue(byStatus),
+      revenue: this.calculateRevenue(groups),
       byPaymentMethod: this.buildPaymentMethods(groups),
       byOrderType: Object.entries(orderTypeCounts).map(([type, count]) => ({ type, count })),
       byOrderSource: Object.entries(orderSourceCounts).map(([source, count]) => ({ source, count })),
@@ -100,44 +100,51 @@ export class CashRegisterStatsService {
   }
 
   /**
-   * Answers three key shift revenue questions:
-   * - How much money entered the register? → completed (COMPLETED orders only)
-   * - How much money is committed but not yet collected? → pending (active orders; excludes CANCELLED since those will never be collected)
-   * - How much does the average paying customer spend? → averageTicket (completed revenue / number of completed orders)
+   * Calcula el dinero del turno con la regla única de "dinero entrante":
+   * una orden cuenta como cobrada cuando `isPaid === true` y no está
+   * cancelada — independiente de su status (el flujo de cobro en dos pasos
+   * permite SERVED+isPaid, e incluso CREATED+isPaid con un sistema de pago).
    *
-   * `averageTicket` (audit H-30): es BigInt floor division en centavos. La
-   * pérdida es como mucho `completedCount - 1` centavos por turno (≤ N-1 / 100
-   * pesos en CLP/UYU). Documentado en vez de redondear porque el serializer
-   * final aplica `fromCents` y la UI muestra 2 decimales — la "discrepancia"
-   * `avg * count != total` cae siempre dentro del último decimal redondeado.
+   * - collected: Σ totalAmount de órdenes pagadas no canceladas. El método de
+   *   pago NO es señal de cobro (el cliente lo elige en el kiosk sin pagar);
+   *   isPaid sí lo es.
+   * - pending: Σ totalAmount de órdenes NO pagadas no canceladas (dinero
+   *   comprometido pero aún sin cobrar).
+   * - averageTicket: collected / cantidad de órdenes pagadas. Floor division
+   *   en centavos (audit H-30): la pérdida es ≤ paidCount-1 centavos por turno;
+   *   el serializer aplica fromCents y la UI muestra 2 decimales.
    *
-   * Si en el futuro una integración contable necesita el float exacto, calcular
-   * `Number(completedRevenue) / completedCount / 100` en el caller.
+   * La exclusión de CANCELLED es defensiva: R2-01 garantiza que no existe
+   * CANCELLED+isPaid (para cancelar una orden pagada hay que sacarle el isPaid
+   * primero). Al cierre, collected == cashShift.totalSales (toda COMPLETED es
+   * isPaid y closeSession no deja cerrar con órdenes pendientes).
    */
-  private calculateRevenue(byStatus: StatusAccumulator): ShiftRevenue {
-    const completed = byStatus[OrderStatus.COMPLETED];
-    const completedRevenue = completed?.revenue ?? 0n;
-    const completedCount = completed?.count ?? 0;
+  private calculateRevenue(groups: StatusGroup[]): ShiftRevenue {
+    const isCounted = (r: StatusGroup) => r.status !== OrderStatus.CANCELLED;
 
-    const pendingRevenue = Object.entries(byStatus)
-      .filter(([status]) => status !== OrderStatus.COMPLETED && status !== OrderStatus.CANCELLED)
-      .reduce((sum, [, { revenue }]) => sum + revenue, 0n);
+    const paidRows = groups.filter((r) => r.isPaid && isCounted(r));
+    const collected = paidRows.reduce((sum, r) => sum + (r._sum.totalAmount ?? 0n), 0n);
+    const paidCount = paidRows.reduce((sum, r) => sum + r._count.id, 0);
 
-    const averageTicket = completedCount > 0
-      ? completedRevenue / BigInt(completedCount)
-      : 0n;
+    const pending = groups
+      .filter((r) => !r.isPaid && isCounted(r))
+      .reduce((sum, r) => sum + (r._sum.totalAmount ?? 0n), 0n);
 
-    return { completed: completedRevenue, pending: pendingRevenue, averageTicket };
+    const averageTicket = paidCount > 0 ? collected / BigInt(paidCount) : 0n;
+
+    return { collected, pending, averageTicket };
   }
 
   /**
-   * Shows how customers are paying and how much real money came in per payment method.
-   * Only includes COMPLETED orders because they are the only ones that represent money actually collected —
-   * a cancelled order with a paymentMethod assigned never touched the register.
+   * Desglosa el dinero cobrado por método de pago. Incluye solo órdenes
+   * pagadas (`isPaid`) no canceladas — misma regla que `collected`, de modo
+   * que la suma de métodos cuadra con `revenue.collected` también en vivo.
+   * Una orden con paymentMethod pero sin pagar (kiosk, o staff que lo asignó
+   * antes del cobro) no representa dinero en caja y no se cuenta.
    */
   private buildPaymentMethods(groups: StatusGroup[]): ShiftStatsByPaymentMethod[] {
     const acc = groups
-      .filter((row) => row.status === OrderStatus.COMPLETED && row.paymentMethod)
+      .filter((row) => row.isPaid && row.status !== OrderStatus.CANCELLED && row.paymentMethod)
       .reduce<Record<string, { count: number; total: bigint }>>((obj, row) => {
         const method = row.paymentMethod as string;
         const prev = obj[method] ?? { count: 0, total: 0n };
