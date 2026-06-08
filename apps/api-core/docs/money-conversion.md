@@ -100,3 +100,8 @@ fromCents(1250)   // → 12.5  (compat SQLite driver)
    @Expose()
    price: number;
    ```
+
+## Display en el frontend
+
+El backend entrega los montos en pesos (número). El **formato de display** (separadores
+por restaurante, `$1.234,50`) vive en el frontend: ver `apps/ui/docs/money-formatting.md`.
