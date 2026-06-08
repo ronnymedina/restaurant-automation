@@ -2,6 +2,14 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import RegisterSummaryModal from './RegisterSummaryModal';
 import type { CashShiftDto, ShiftSummary } from './api';
 
+// RegisterSummaryModal renders ShiftSummaryView, which calls useRestaurantSettings
+// (needs a QueryClientProvider). Mocking the hook (CL defaults) keeps tests isolated.
+vi.mock('../../../lib/restaurant-settings', () => ({
+  useRestaurantSettings: () => ({
+    data: { decimalSeparator: ',', thousandsSeparator: '.' },
+  }),
+}));
+
 function makeSummary(overrides: Partial<ShiftSummary> = {}): ShiftSummary {
   return {
     counts: { total: 0, pending: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 0, cancelled: 0 },
@@ -54,11 +62,11 @@ test('renders revenue tiles: total ingresado, pendiente, ticket promedio', () =>
   });
   render(<RegisterSummaryModal open={true} session={session} summary={summary} onClose={vi.fn()} />);
   expect(screen.getByText('Total ingresado')).toBeInTheDocument();
-  expect(screen.getByText('$480.50')).toBeInTheDocument();
+  expect(screen.getByText('$480,50')).toBeInTheDocument();
   expect(screen.getByText('Pendiente')).toBeInTheDocument();
-  expect(screen.getByText('$75.00')).toBeInTheDocument();
+  expect(screen.getByText('$75,00')).toBeInTheDocument();
   expect(screen.getByText('Ticket promedio')).toBeInTheDocument();
-  expect(screen.getByText('$40.04')).toBeInTheDocument();
+  expect(screen.getByText('$40,04')).toBeInTheDocument();
 });
 
 test('renders order counts: total, completados, pendientes, cancelados', () => {

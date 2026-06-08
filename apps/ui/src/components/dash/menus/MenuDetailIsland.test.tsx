@@ -21,6 +21,14 @@ vi.mock('../../commons/Providers', async () => {
   };
 });
 
+// MenuItemsSection calls useRestaurantSettings for formatMoney; mock it (CL
+// defaults) so prices are deterministic and isolated from react-query fetches.
+vi.mock('../../../lib/restaurant-settings', () => ({
+  useRestaurantSettings: () => ({
+    data: { decimalSeparator: ',', thousandsSeparator: '.' },
+  }),
+}));
+
 // jsdom does not set window.location.search — set it before import
 Object.defineProperty(window, 'location', {
   value: { search: '?id=menu-abc', href: '' },

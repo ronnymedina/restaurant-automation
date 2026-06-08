@@ -1,3 +1,6 @@
+import { useRestaurantSettings } from '../../lib/restaurant-settings';
+import { formatMoney } from '../../lib/money';
+
 interface SessionLike {
   displayOpenedAt: string;
   displayClosedAt: string | null;
@@ -80,11 +83,6 @@ const STATUS_LABELS: Record<string, string> = {
   served: 'Servidos',
 };
 
-function formatCurrency(value: number | null | undefined): string {
-  if (value == null) return '$0.00';
-  return `$${Number(value).toFixed(2)}`;
-}
-
 interface StatTileProps {
   label: string;
   value: string | number;
@@ -150,6 +148,8 @@ interface Props {
 
 export default function ShiftSummaryView({ session, summary }: Props) {
   const { counts, revenue, byPaymentMethod, byOrderType, byOrderSource, topProducts } = summary;
+  const { data: settings } = useRestaurantSettings();
+  const formatCurrency = (v: number | null | undefined) => formatMoney(Number(v ?? 0), settings);
 
   const pipelineEntries = (['created', 'confirmed', 'processing', 'served'] as const)
     .map((key) => ({ key, label: STATUS_LABELS[key], count: counts[key] }))

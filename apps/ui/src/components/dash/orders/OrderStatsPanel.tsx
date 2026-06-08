@@ -1,13 +1,11 @@
 import { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { getLiveStats } from '../register/api';
 import type { ShiftSummary } from '../register/api';
+import { useRestaurantSettings } from '../../../lib/restaurant-settings';
+import { formatMoney } from '../../../lib/money';
 
 export interface OrderStatsPanelHandle {
   refresh: () => void;
-}
-
-function formatCurrency(value: number): string {
-  return `$${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatLastUpdated(date: Date | null): string {
@@ -21,6 +19,8 @@ const OrderStatsPanel = forwardRef<OrderStatsPanelHandle>(function OrderStatsPan
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { data: settings } = useRestaurantSettings();
+  const formatCurrency = (v: number) => formatMoney(v, settings);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
