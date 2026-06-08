@@ -129,6 +129,7 @@ export async function seedOrderOnShift(
   cashShiftId: string,
   productId: string,
   status: 'CREATED' | 'PROCESSING' | 'COMPLETED' | 'CANCELLED' = 'COMPLETED',
+  isPaid = false,
 ) {
   const updatedShift = await prisma.cashShift.update({
     where: { id: cashShiftId },
@@ -142,6 +143,7 @@ export async function seedOrderOnShift(
       cashShiftId,
       totalAmount: BigInt(1000),
       status,
+      isPaid,
       orderSource: 'KIOSK',
       orderType: 'DINE_IN',
       items: {

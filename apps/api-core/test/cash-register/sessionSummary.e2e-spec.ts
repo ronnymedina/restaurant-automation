@@ -26,9 +26,9 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     basicToken = await login(app, restA.basic.email);
     const product = await seedProduct(prisma, restA.restaurant.id, restA.category.id);
     shiftId = await openCashShiftViaApi(app, adminToken);
-    await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'COMPLETED');
-    await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'COMPLETED');
-    await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'CANCELLED');
+    await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'COMPLETED', true);
+    await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'COMPLETED', true);
+    await seedOrderOnShift(prisma, restA.restaurant.id, shiftId, product.id, 'CANCELLED', false);
 
     const restB = await seedRestaurant(prisma, 'B');
     const adminTokenB = await login(app, restB.admin.email);
@@ -110,7 +110,7 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
     expect(counts.pending).toBe(0); // total - completed - cancelled
   });
 
-  it('summary.revenue.completed refleja el total de órdenes COMPLETED en pesos', async () => {
+  it('summary.revenue.collected refleja el total de órdenes pagadas en pesos', async () => {
     const res = await request(app.getHttpServer())
       .get(`/v1/cash-register/summary/${shiftId}`)
       .set('Cookie', adminToken)
@@ -119,8 +119,8 @@ describe('GET /v1/cash-register/summary/:sessionId - sessionSummary (e2e)', () =
 
     const { revenue } = res.body.summary;
     expect(revenue).toBeDefined();
-    // 2 orders × 1000 centavos = 2000 centavos = 20 pesos
-    expect(revenue.completed).toBeCloseTo(20, 2);
+    // 2 órdenes pagadas × 1000 centavos = 2000 centavos = 20 pesos
+    expect(revenue.collected).toBeCloseTo(20, 2);
   });
 
   it('summary.byPaymentMethod es un array con {method, count, total}', async () => {

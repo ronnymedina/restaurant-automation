@@ -38,7 +38,7 @@ export interface ShiftSummary {
 }
 
 type StatusGroup = Awaited<ReturnType<OrderShiftReportRepository['groupOrdersByShift']>>[number];
-type StatusAccumulator = Record<string, { count: number; revenue: bigint }>;
+type StatusAccumulator = Record<string, { count: number }>;
 
 @Injectable()
 export class CashRegisterStatsService {
@@ -68,15 +68,14 @@ export class CashRegisterStatsService {
 
   /**
    * Collapses the multi-dimensional groupBy rows into a single map keyed by status,
-   * accumulating order count and revenue per status across all payment method / type / source combinations.
+   * accumulating order count per status across all payment method / type / source combinations.
    */
   private groupByStatus(groups: StatusGroup[]): StatusAccumulator {
     return groups.reduce<StatusAccumulator>((acc, row) => {
       const status = row.status as string;
-      const prev = acc[status] ?? { count: 0, revenue: 0n };
+      const prev = acc[status] ?? { count: 0 };
       acc[status] = {
         count: prev.count + row._count.id,
-        revenue: prev.revenue + (row._sum.totalAmount ?? 0n),
       };
       return acc;
     }, {});

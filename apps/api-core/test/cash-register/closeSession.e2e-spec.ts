@@ -100,7 +100,7 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
     const tokenC = await login(app, restC.admin.email);
     const product = await seedProduct(prisma, restC.restaurant.id, restC.category.id);
     const shiftId = await openCashShiftViaApi(app, tokenC);
-    await seedOrderOnShift(prisma, restC.restaurant.id, shiftId, product.id, 'COMPLETED');
+    await seedOrderOnShift(prisma, restC.restaurant.id, shiftId, product.id, 'COMPLETED', true);
 
     const res = await request(app.getHttpServer())
       .post('/v1/cash-register/close')
@@ -127,7 +127,7 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
     expect(typeof res.body.summary.counts.completed).toBe('number');
     expect(res.body.summary.counts.completed).toBe(1);
     expect(res.body.summary.revenue).toBeDefined();
-    expect(typeof res.body.summary.revenue.completed).toBe('number');
+    expect(typeof res.body.summary.revenue.collected).toBe('number');
     expect(Array.isArray(res.body.summary.byPaymentMethod)).toBe(true);
     expect(Array.isArray(res.body.summary.topProducts)).toBe(true);
 
@@ -135,14 +135,14 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
     expect(res.body.stats).toBeUndefined();
   });
 
-  it('summary.revenue.completed refleja solo órdenes COMPLETED (excluye CANCELLED)', async () => {
+  it('summary.revenue.collected refleja solo órdenes pagadas (excluye CANCELLED)', async () => {
     const restMixed = await seedRestaurant(prisma, 'Mixed');
     const tokenMixed = await login(app, restMixed.admin.email);
     const product = await seedProduct(prisma, restMixed.restaurant.id, restMixed.category.id);
     const shiftMixed = await openCashShiftViaApi(app, tokenMixed);
-    // 1 COMPLETED order (1000 centavos = 10 pesos) + 1 CANCELLED (should be excluded)
-    await seedOrderOnShift(prisma, restMixed.restaurant.id, shiftMixed, product.id, 'COMPLETED');
-    await seedOrderOnShift(prisma, restMixed.restaurant.id, shiftMixed, product.id, 'CANCELLED');
+    // 1 COMPLETED order pagada (1000 centavos = 10 pesos) + 1 CANCELLED (should be excluded)
+    await seedOrderOnShift(prisma, restMixed.restaurant.id, shiftMixed, product.id, 'COMPLETED', true);
+    await seedOrderOnShift(prisma, restMixed.restaurant.id, shiftMixed, product.id, 'CANCELLED', false);
 
     const res = await request(app.getHttpServer())
       .post('/v1/cash-register/close')
@@ -150,8 +150,8 @@ describe('POST /v1/cash-register/close - closeSession (e2e)', () => {
       .set('Origin', ALLOWED_TEST_ORIGIN)
       .expect(200);
 
-    // Only the COMPLETED order counts (1000 centavos = 10 pesos via fromCents)
-    expect(res.body.summary.revenue.completed).toBeCloseTo(10, 2);
+    // Only the paid order counts (1000 centavos = 10 pesos via fromCents)
+    expect(res.body.summary.revenue.collected).toBeCloseTo(10, 2);
     expect(res.body.summary.counts.completed).toBe(1);
     expect(res.body.summary.counts.cancelled).toBe(1);
   });
