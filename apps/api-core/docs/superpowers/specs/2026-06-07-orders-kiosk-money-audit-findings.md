@@ -5,7 +5,7 @@
 **Foco declarado por el usuario:** flujo de **kiosk + órdenes**, con énfasis en **montos, totales y conversiones**, y la **corrección del reporte/cierre de caja** (si no cuadra, hay pérdida de dinero o información). Usuarios, permisos y reportes generales quedan fuera de foco salvo donde tocan dinero/órdenes.
 **Módulos backend:** `orders`, `kiosk`, `cash-register` (stats + cierre), `restaurants` (settings de moneda).
 **Módulos UI:** `dash/orders` (UI optimista React), `kiosk` (store), `dash/settings`, `commons/ShiftSummaryView`, `orders-history`.
-**Estado:** Pendiente revisión punto por punto. **R2-01 (ALTO) RESUELTO** el 2026-06-07 — ver PR #142 y `docs/superpowers/plans/2026-06-07-orders-cancel-race-fix.md`. Resto pendiente.
+**Estado:** Pendiente revisión punto por punto. **R2-01 (ALTO) RESUELTO** el 2026-06-07 — ver PR #142 y `docs/superpowers/plans/2026-06-07-orders-cancel-race-fix.md`. Resto pendiente. R2-02 (MEDIO) RESUELTO el 2026-06-07.
 **Tipo:** Audit findings (no implementación).
 
 ---
@@ -40,9 +40,9 @@ Cada hallazgo trae ID estable (`R2-XX`), severidad, archivos exactos con línea,
 |-----------|----------|-----|
 | 🔴 CRÍTICO | 0 | — |
 | 🟠 ALTO | 1 | ~~R2-01~~ ✅ RESUELTO (PR #142) |
-| 🟡 MEDIO | 4 | R2-02, R2-03, R2-04, R2-05 |
+| 🟡 MEDIO | 4 | ~~R2-02~~ ✅ RESUELTO, R2-03, R2-04, R2-05 |
 | 🟢 BAJO | 7 | R2-06, R2-07, R2-08, R2-09, R2-10, R2-11, R2-12 |
-| **Total** | **12** (1 resuelto, 11 pendientes) | |
+| **Total** | **12** (2 resueltos, 10 pendientes) | |
 
 > Nota de severidad: R2-02 y R2-03 tocan directamente la prioridad declarada (reporte de caja). Se mantienen en MEDIO porque **no corrompen el cierre final** (el cierre no se puede ejecutar con pendientes, y el descuadre de R2-02 se reconcilia al completar; R2-03 es solo display). R2-01 es el único con riesgo real de descuadre del total cerrado.
 
@@ -102,6 +102,8 @@ async cancelOrder(id: string, reason: string) {
 ## 🟡 MEDIO
 
 ### R2-02 — `markAsPaid` no auto-avanza SERVED→COMPLETED; el dinero cobrado se reporta como "Pendiente cobro"
+
+> ✅ **RESUELTO (2026-06-07).** El reporte de caja cuenta el dinero entrante por `isPaid=true` (excl. canceladas), no por status `COMPLETED`. `revenue.completed` → `revenue.collected`; `averageTicket` y `byPaymentMethod` también por `isPaid`. Doc drift de auto-avance corregido en `orders.module.info.md`. Cubierto por unit + e2e de cash-register. Ver `docs/superpowers/specs/2026-06-07-orders-revenue-by-ispaid-design.md` y `docs/superpowers/plans/2026-06-07-orders-revenue-by-ispaid.md`. La descripción de abajo se conserva como registro del hallazgo original.
 
 **Categoría:** lógica · reporte · doc drift
 **Severidad:** 🟡 MEDIO (no corrompe el cierre final; engaña el reporte en vivo durante el turno)

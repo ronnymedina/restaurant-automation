@@ -10,7 +10,7 @@
   - `CANCELLED` = devolución realizada. El dinero regresó al cliente. **No cuenta en el total**; el historial conserva el registro como evidencia.
 - **Pedido pagado no recogido por el cliente → debe marcarse `COMPLETED`, no cancelarse.** El restaurante cobró y preparó el pedido; el dinero queda en caja. Esta distinción se refuerza con confirmaciones claras en la UI de cocina.
 - El `restaurantId` viene del JWT — toda operación está aislada por restaurante.
-- `byPaymentMethod` siempre refleja solo órdenes `COMPLETED`.
+- `byPaymentMethod` refleja solo órdenes pagadas (`isPaid=true`), excluyendo canceladas.
 
 ---
 
@@ -54,7 +54,7 @@ Los endpoints `POST /close`, `GET /summary/:sessionId` y `GET /stats` devuelven 
       "cancelled": 1
     },
     "revenue": {
-      "completed": 120.50,
+      "collected": 120.50,
       "pending": 45.00,
       "averageTicket": 20.08
     },
@@ -88,10 +88,10 @@ Los endpoints `POST /close`, `GET /summary/:sessionId` y `GET /stats` devuelven 
 
 - `counts.total` = suma de todos los `counts` por status (CREATED + CONFIRMED + PROCESSING + SERVED + COMPLETED + CANCELLED).
 - `counts.pending` = `counts.total` − `counts.completed` − `counts.cancelled` (incluye CREATED, CONFIRMED, PROCESSING, SERVED).
-- `revenue.completed` = sum(totalAmount) donde status = COMPLETED.
-- `revenue.pending` = sum(totalAmount) donde status NOT IN [COMPLETED, CANCELLED].
-- `revenue.averageTicket` = `revenue.completed` / `counts.completed`; `0` si `counts.completed = 0`.
-- `byPaymentMethod` = solo órdenes COMPLETED (dinero real en caja).
+- `revenue.collected` = sum(totalAmount) donde `isPaid = true` y status ≠ CANCELLED (dinero realmente cobrado, cualquier status).
+- `revenue.pending` = sum(totalAmount) donde `isPaid = false` y status ≠ CANCELLED (comprometido, sin cobrar).
+- `revenue.averageTicket` = `revenue.collected` / cantidad de órdenes pagadas; `0` si no hay pagadas.
+- `byPaymentMethod` = solo órdenes pagadas (`isPaid = true`, excl. canceladas); el método de pago de una orden sin pagar no cuenta.
 - `byOrderType` / `byOrderSource` = todas las órdenes (incluye CANCELLED — refleja intención original del pedido).
 - `topProducts` = top 5 por quantity; excluye items de órdenes CANCELLED; máx 5 elementos.
 
@@ -183,7 +183,7 @@ E2E: ✅ `test/cash-register/closeSession.e2e-spec.ts`
 | MANAGER cierra sesión | 200 | Retorna `CloseSessionResponseDto` |
 | No hay sesión abierta | 409 | `NO_OPEN_CASH_REGISTER` |
 | Hay pedidos en `CREATED`, `CONFIRMED`, `PROCESSING` o `SERVED` | 409 | `PENDING_ORDERS_ON_SHIFT` — `details.pendingCount` indica cuántos quedan |
-| `summary.revenue.completed` solo refleja `COMPLETED` | 200 | `CANCELLED` excluidas del total |
+| `summary.revenue.collected` cuenta órdenes pagadas (`isPaid`) | 200 | `isPaid = true`, excl. `CANCELLED` |
 | `summary.byPaymentMethod` como array | 200 | `[{ method, count, total }]` |
 
 ---
@@ -230,10 +230,10 @@ E2E: ✅ `test/cash-register/cashRegisterStats.e2e-spec.ts`
 | Sin caja abierta | 200 | Retorna `{ summary }` con todos los valores en cero |
 | Con sesión activa y órdenes mixtas | 200 | Counts correctos por status |
 | `counts.pending` correcto | 200 | `total − completed − cancelled` |
-| `revenue.completed` correcto | 200 | Suma solo órdenes COMPLETED |
-| `revenue.pending` correcto | 200 | Suma excluye COMPLETED y CANCELLED |
-| `revenue.averageTicket` con 0 completados | 200 | Retorna 0, sin dividir por cero |
-| `byPaymentMethod` solo COMPLETED | 200 | Método de pago de canceladas no aparece |
+| `revenue.collected` correcto | 200 | Suma órdenes pagadas (`isPaid = true`), excl. `CANCELLED` |
+| `revenue.pending` correcto | 200 | Suma `isPaid = false`, excl. `CANCELLED` |
+| `revenue.averageTicket` con 0 pagadas | 200 | Retorna 0, sin dividir por cero |
+| `byPaymentMethod` solo pagadas | 200 | Solo `isPaid = true`; método de orden sin pagar o cancelada no aparece |
 | Top 5 productos, ordenados por quantity | 200 | CANCELLED excluidas |
 | Aislamiento por restaurante | 200 | `restaurantId` del JWT — no ve stats de otro restaurante |
 
@@ -249,8 +249,8 @@ E2E: ✅ `test/cash-register/sessionSummary.e2e-spec.ts`
 | BASIC intenta consultar | 403 | Solo ADMIN o MANAGER |
 | Sesión cerrada | 200 | Retorna `SessionSummaryResponseDto` |
 | `summary.counts` es objeto con keys por status | 200 | `{total, pending, created, ..., completed, cancelled}` |
-| `summary.revenue.completed` refleja solo `COMPLETED` | 200 | Convertido a pesos vía `fromCents` |
-| `summary.byPaymentMethod` como array | 200 | Solo de `COMPLETED`, `[{ method, count, total }]` |
+| `summary.revenue.collected` cuenta órdenes pagadas (`isPaid`) | 200 | `isPaid = true`, excl. `CANCELLED`; convertido a pesos vía `fromCents` |
+| `summary.byPaymentMethod` como array | 200 | Solo de pagadas (`isPaid = true`), `[{ method, count, total }]` |
 | Sesión no encontrada | 404 | `CASH_REGISTER_NOT_FOUND` |
 
 ---

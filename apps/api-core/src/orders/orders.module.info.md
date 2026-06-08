@@ -307,7 +307,7 @@ flowchart TD
     - `SERVED → COMPLETED` requiere `isPaid = true`, de lo contrario lanza `ORDER_NOT_PAID`
   - Kitchen máximo: `PROCESSING → SERVED` (no puede avanzar a `COMPLETED`)
 - El endpoint `PATCH /:id/pay` es independiente del flujo de estado — se puede marcar como pagada en cualquier estado
-- Al marcar como pagada (`PATCH /:id/pay`), si la orden está en estado `SERVED`, se auto-avanza automáticamente a `COMPLETED`
+- Al marcar como pagada (`PATCH /:id/pay`), la orden **no** cambia de status: `isPaid` pasa a `true` pero el status se conserva (flujo de cobro en dos pasos). Avanzar `SERVED → COMPLETED` es un paso aparte que exige `isPaid=true`. Una orden puede quedar `SERVED + isPaid=true` (cobrada, pendiente de completar).
 - La creación de órdenes puede realizarse desde el kiosk (`POST /v1/kiosk/:slug/orders`, público) o desde el dashboard (`POST /v1/orders`, autenticado ADMIN/MANAGER). Los pedidos de staff usan `orderSource: 'STAFF'` (forzado en el servicio) e inician en estado `CONFIRMED`
 - Eventos SSE de Order — dos canales con shapes tipados (audit H-AUX-02):
   - `order:new` (creación) y `order:updated` (cualquier transición).
