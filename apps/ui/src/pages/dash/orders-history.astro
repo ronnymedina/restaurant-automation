@@ -86,10 +86,12 @@ import DataTable from '../../components/dash/DataTable.astro';
 <script>
   import { apiFetch } from '../../lib/api';
   import { renderPagination, setTableLoading, setTableEmpty, setTableError } from '../../lib/pagination';
-  import { getRestaurantTimezone } from '../../lib/auth';
+  import { getRestaurantTimezone, getMoneyDisplaySettings } from '../../lib/auth';
   import { formatDate as formatDateTz } from '../../lib/date';
+  import { formatMoney } from '../../lib/money';
 
   const timezone = getRestaurantTimezone();
+  const moneySettings = getMoneyDisplaySettings();
 
   const COLSPAN = 7;
   let currentPage = 1;
@@ -111,7 +113,7 @@ import DataTable from '../../components/dash/DataTable.astro';
   }
 
   function formatCurrency(value: number): string {
-    return `$${Number(value).toFixed(2)}`;
+    return formatMoney(Number(value), moneySettings);
   }
 
   const STATUS_LABELS: Record<string, string> = {
