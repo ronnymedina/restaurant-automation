@@ -91,6 +91,19 @@ Usar `formatMoney(value, settings)` con los separadores del store del kiosk:
 - **Endpoint público del kiosk:** exponer separadores es config de display, sin datos sensibles ni de otros tenants. Riesgo nulo.
 - **Sesiones activas sin re-login:** caen al default CL hasta el próximo login (idéntico al timezone→UTC). Aceptable.
 
+## Documentación al terminar (parte del entregable)
+
+Estos pasos son parte del trabajo, no opcionales:
+
+1. **Documentar la convención de display que ahora se aplica.** Crear `apps/ui/docs/money-formatting.md` que explique:
+   - El dinero cruza el cable como **número en pesos** (el backend ya hace `fromCents`); el formato con separadores (`$1.234,50`) es **display en el cliente** vía `formatMoney(amount, settings)` de `lib/money.ts`.
+   - La **regla única**: ninguna superficie formatea dinero a mano; todas usan `formatMoney`.
+   - Las **3 fuentes de separadores** por tipo de superficie (tabla de arriba): hook `useRestaurantSettings()` (dashboard React), `localStorage` (`orders-history.astro`), store del kiosk (← `/v1/kiosk/:slug/status`).
+   - Qué queda fuera (símbolo/decimales por moneda → R2-10).
+2. **Crear el índice `apps/ui/docs/README.md`** (hoy no existe; lo exige la convención de docs del repo) listando los archivos de `apps/ui/docs/` (`common-components.md`, `environments.md`, el nuevo `money-formatting.md`).
+3. **Enlazar desde el doc de conversión backend.** Agregar al final de `apps/api-core/docs/money-conversion.md` un puntero: "El formato de display (separadores por restaurante) vive en el frontend; ver `apps/ui/docs/money-formatting.md`." — así el doc de conversión backend (que termina en "el frontend recibe pesos") conecta con dónde sigue la historia.
+4. **Marcar R2-03 RESUELTO** en `apps/api-core/docs/superpowers/specs/2026-06-07-orders-kiosk-money-audit-findings.md`: banner ✅ bajo el encabezado de R2-03, actualizar la línea `**Estado:**` y la tabla del resumen ejecutivo (MEDIO pasa de 4 a 3 pendientes; total a "3 resueltos, 9 pendientes"), igual que se hizo con R2-01 y R2-02, referenciando este diseño y su plan.
+
 ## Fuera de alcance (otros hallazgos)
 - **R2-10** — símbolo por `currency` + decimales por moneda (minor units ISO 4217).
 - **R2-09** — etiquetas confusas del selector de formato decimal en `RestaurantSettingsForm`.
