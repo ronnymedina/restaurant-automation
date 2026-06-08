@@ -160,14 +160,45 @@ export class OrdersService {
   }
 
   async cancelOrder(id: string, restaurantId: string, reason: string) {
-    const order = await this.findById(id, restaurantId);
+    // Race-safe cancel (audit R2-01). Sin esto, un cancel sobre una lectura
+    // stale podía pisar un markAsPaid concurrente y dejar la orden en el estado
+    // imposible {CANCELLED, isPaid:true} — dinero cobrado que desaparece del
+    // cierre de caja. Mismo patrón que markAsPaid (H-05): read + conditional
+    // UPDATE dentro de una $transaction; el guard isPaid=false de
+    // cancelOrderIfCancellable es la fuente de verdad. Si count=0, re-leemos y
+    // lanzamos el error preciso para que el cajero entienda qué pasó.
+    await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findFirst({ where: { id, restaurantId } });
+      if (!order) throw new OrderNotFoundException(id);
+      // Fail-fast amigable en el 99% de los casos sin colisión.
+      OrderStateMachine.assertCanCancel(order.status, order.isPaid, id);
 
-    OrderStateMachine.assertCanCancel(order.status, order.isPaid, id);
+      const count = await this.orderRepository.cancelOrderIfCancellable(
+        tx, id, restaurantId, order.status, reason,
+      );
+      if (count === 0) {
+        // Perdió la carrera: status derivó o isPaid pasó a true entre el read y
+        // el UPDATE. Re-leer y traducir al error preciso.
+        // Re-leemos DENTRO de la tx (no después): bajo READ COMMITTED esta segunda
+        // lectura ya ve el commit del ganador de la carrera, y al estar en la misma tx
+        // ningún tercer escritor puede colarse antes de que determinemos el error.
+        const fresh = await tx.order.findFirst({ where: { id, restaurantId } });
+        if (!fresh) throw new OrderNotFoundException(id);
+        OrderStateMachine.assertCanCancel(fresh.status, fresh.isPaid, id);
+        // assertCanCancel no lanzó → la fila cumple las reglas pero el status
+        // derivó de otra forma (p.ej. avanzó). Surface InvalidStatusTransition.
+        throw new InvalidStatusTransitionException(fresh.status, OrderStatus.CANCELLED);
+      }
+    });
 
-    const cancelled = await this.orderRepository.cancelOrder(id, reason);
-    const { dashboard, kitchen } = await this.buildOrderUpdatedPayloads(restaurantId, cancelled);
+    // Re-fetch DESPUÉS del commit con el loader canónico (items eager, BigInt
+    // serializado), igual que markAsPaid/kitchenAdvanceStatus, para conservar la
+    // forma del payload SSE.
+    const updated = await this.orderRepository.findById(id);
+    if (!updated) throw new OrderNotFoundException(id);
+    const { dashboard, kitchen } = await this.buildOrderUpdatedPayloads(restaurantId, updated);
     this.orderEventsService.emitOrderUpdated(restaurantId, dashboard, kitchen);
-    return cancelled;
+    return updated;
   }
 
   /**

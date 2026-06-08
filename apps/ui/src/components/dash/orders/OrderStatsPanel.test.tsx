@@ -11,7 +11,7 @@ const mockSummary = {
     total: 23, pending: 5, created: 2, confirmed: 1,
     processing: 1, served: 1, completed: 18, cancelled: 2,
   },
-  revenue: { completed: 1240.00, pending: 180.00, averageTicket: 53.91 },
+  revenue: { collected: 1240.00, pending: 180.00, averageTicket: 53.91 },
   byPaymentMethod: [],
   byOrderType: [],
   byOrderSource: [],

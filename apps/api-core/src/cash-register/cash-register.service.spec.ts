@@ -72,7 +72,7 @@ const mockPrismaService: any = {
 
 const mockStatsResult = {
   counts: { total: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 0, cancelled: 0, pending: 0 },
-  revenue: { completed: 0n, pending: 0n, averageTicket: 0n },
+  revenue: { collected: 0n, pending: 0n, averageTicket: 0n },
   byPaymentMethod: [],
   byOrderType: [],
   byOrderSource: [],
@@ -501,7 +501,7 @@ describe('CashRegisterService', () => {
         mockRegisterSessionRepository.findById.mockResolvedValue(closed as any);
         mockStatsService.getSummary.mockResolvedValue({
           counts: { total: 0, pending: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 0, cancelled: 0 },
-          revenue: { completed: 0n, pending: 0n, averageTicket: 0n },
+          revenue: { collected: 0n, pending: 0n, averageTicket: 0n },
           byPaymentMethod: [],
           byOrderType: [],
           byOrderSource: [],

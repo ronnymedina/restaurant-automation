@@ -143,7 +143,7 @@ test('canceling close Alert hides it', async () => {
 test('confirming close calls close API endpoint', async () => {
   const summary = {
     counts: { total: 2, pending: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 2, cancelled: 0 },
-    revenue: { completed: 100, pending: 0, averageTicket: 50 },
+    revenue: { collected: 100, pending: 0, averageTicket: 50 },
     byPaymentMethod: [],
     byOrderType: [],
     byOrderSource: [],
@@ -167,7 +167,7 @@ test('confirming close calls close API endpoint', async () => {
 test('shows RegisterSummaryModal on successful close', async () => {
   const summary = {
     counts: { total: 5, pending: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 5, cancelled: 0 },
-    revenue: { completed: 250, pending: 0, averageTicket: 50 },
+    revenue: { collected: 250, pending: 0, averageTicket: 50 },
     byPaymentMethod: [],
     byOrderType: [],
     byOrderSource: [],

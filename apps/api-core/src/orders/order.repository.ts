@@ -128,15 +128,6 @@ export class OrderRepository {
     return new OrderSerializer(order);
   }
 
-  async cancelOrder(id: string, reason: string) {
-    const order = await this.prisma.order.update({
-      where: { id },
-      data: { status: OrderStatus.CANCELLED, cancellationReason: reason },
-      include: ORDER_WITH_ITEMS,
-    });
-    return new OrderSerializer(order);
-  }
-
   async findHistory(
     restaurantId: string,
     filters: {
@@ -282,6 +273,31 @@ export class OrderRepository {
     const result = await tx.order.updateMany({
       where: { id, restaurantId, isPaid: true },
       data: { isPaid: false, paymentMethod: null },
+    });
+    return result.count;
+  }
+
+  /**
+   * Race-safe cancel (audit R2-01). Atomically transitions the order to
+   * CANCELLED, but only if its status still matches `expectedStatus` AND it is
+   * currently unpaid. The `isPaid = false` guard is what closes the pay‖cancel
+   * race: if a concurrent markAsPaid committed between the caller's read and
+   * this UPDATE, no row matches and count = 0, so the cancel is rejected instead
+   * of producing the impossible {CANCELLED, isPaid:true} state. Mirror of
+   * `transitionStatusIfMatchesAndUnpaid`.
+   *
+   * @returns 1 if the cancel committed, 0 if status drifted or the order was paid
+   */
+  async cancelOrderIfCancellable(
+    tx: Prisma.TransactionClient,
+    id: string,
+    restaurantId: string,
+    expectedStatus: OrderStatus,
+    reason: string,
+  ): Promise<number> {
+    const result = await tx.order.updateMany({
+      where: { id, restaurantId, status: expectedStatus, isPaid: false },
+      data: { status: OrderStatus.CANCELLED, cancellationReason: reason },
     });
     return result.count;
   }

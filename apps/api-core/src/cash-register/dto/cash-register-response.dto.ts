@@ -39,7 +39,7 @@ export class ShiftCountsDto {
 }
 
 export class ShiftRevenueDto {
-  @ApiProperty() completed: number;
+  @ApiProperty() collected: number;
   @ApiProperty() pending: number;
   @ApiProperty() averageTicket: number;
 }

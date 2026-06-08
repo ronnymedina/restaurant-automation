@@ -5,7 +5,10 @@ import { OrderStatus } from '@prisma/client';
 
 import { OrdersService } from '../../src/orders/orders.service';
 import { PrismaService } from '../../src/prisma/prisma.service';
-import { InvalidStatusTransitionException } from '../../src/orders/exceptions/orders.exceptions';
+import {
+  InvalidStatusTransitionException,
+  CannotCancelPaidOrderException,
+} from '../../src/orders/exceptions/orders.exceptions';
 import {
   bootstrapApp,
   seedRestaurant,
@@ -71,6 +74,55 @@ describe('Order race conditions (H-05, H-13)', () => {
     // Final state must be one of the two valid terminal states for this race —
     // never PROCESSING (stale) and never some impossible drift state.
     expect([OrderStatus.CANCELLED, OrderStatus.SERVED]).toContain(final.status);
+  });
+
+  it('R2-01: concurrent markAsPaid ‖ cancelOrder never yields {CANCELLED, isPaid:true}', async () => {
+    // Invariant: it is IMPOSSIBLE for an order to be both CANCELLED and isPaid=true.
+    // Under the pay‖cancel race, exactly one operation wins via the conditional
+    // UPDATE guards (transitionStatusIfMatchesAndUnpaid for pay, cancelOrderIfCancellable
+    // for cancel — both guarded by isPaid=false). The loser gets a domain error.
+    const { restaurant, category, admin } = await seedRestaurant(prisma, 'r2-01');
+    const product = await seedProduct(prisma, restaurant.id, category.id);
+    const shift = await openCashShift(prisma, restaurant.id, admin.id);
+    // SERVED+unpaid: valid target for both markAsPaid and cancelOrder.
+    const order = await seedOrder(prisma, restaurant.id, shift.id, product.id, {
+      status: 'SERVED',
+    });
+
+    const [payResult, cancelResult] = await Promise.allSettled([
+      ordersService.markAsPaid(order.id, restaurant.id, 'CASH'),
+      ordersService.cancelOrder(order.id, restaurant.id, 'race test'),
+    ]);
+
+    // Primary safety invariant: the impossible state must NEVER exist.
+    const final = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    const isCorrupted = final.status === OrderStatus.CANCELLED && final.isPaid === true;
+    expect(isCorrupted).toBe(false);
+
+    // Exactly one operation must have succeeded and one must have failed.
+    const fulfilled = [payResult, cancelResult].filter((r) => r.status === 'fulfilled');
+    const rejected = [payResult, cancelResult].filter((r) => r.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+
+    // The loser must have thrown a domain exception, not an unexpected error.
+    const loserReason = (rejected[0] as PromiseRejectedResult).reason;
+    expect(
+      loserReason instanceof InvalidStatusTransitionException ||
+      loserReason instanceof CannotCancelPaidOrderException,
+    ).toBe(true);
+
+    // The final state must be one of exactly two valid outcomes:
+    //   (a) pay won  → isPaid=true, status=SERVED (status unchanged by markAsPaid on SERVED)
+    //   (b) cancel won → status=CANCELLED, isPaid=false
+    const payWon = payResult.status === 'fulfilled';
+    if (payWon) {
+      expect(final.isPaid).toBe(true);
+      expect(final.status).not.toBe(OrderStatus.CANCELLED);
+    } else {
+      expect(final.status).toBe(OrderStatus.CANCELLED);
+      expect(final.isPaid).toBe(false);
+    }
   });
 
   it('H-05: double markAsPaid — no double-pay, no corrupted state', async () => {

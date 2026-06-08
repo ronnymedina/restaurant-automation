@@ -3,7 +3,7 @@ import { OrderStatus, PaymentMethod, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
-const { status, paymentMethod, orderType, orderSource } = Prisma.OrderScalarFieldEnum;
+const { status, paymentMethod, orderType, orderSource, isPaid } = Prisma.OrderScalarFieldEnum;
 const { productId } = Prisma.OrderItemScalarFieldEnum;
 
 export interface OrderGroupRow {
@@ -11,6 +11,7 @@ export interface OrderGroupRow {
   paymentMethod: PaymentMethod | null;
   orderType: string | null;
   orderSource: string | null;
+  isPaid: boolean;
   _sum: { totalAmount: bigint | null };
   _count: { id: number };
 }
@@ -33,7 +34,7 @@ export class OrderShiftReportRepository {
 
   async groupOrdersByShift(restaurantId: string, sessionId: string): Promise<OrderGroupRow[]> {
     const rows = await this.prisma.order.groupBy({
-      by: [status, paymentMethod, orderType, orderSource],
+      by: [status, paymentMethod, orderType, orderSource, isPaid],
       where: { cashShiftId: sessionId, cashShift: { restaurantId } },
       _sum: { totalAmount: true },
       _count: { id: true },

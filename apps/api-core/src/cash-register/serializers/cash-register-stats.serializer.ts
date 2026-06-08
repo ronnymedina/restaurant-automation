@@ -23,7 +23,7 @@ export class ShiftCountsSerializer {
 @Exclude()
 export class StatsRevenueSerializer {
   @Transform(({ value }) => fromCents(value as bigint | number))
-  @Expose() @ApiProperty() completed: number;
+  @Expose() @ApiProperty() collected: number;
 
   @Transform(({ value }) => fromCents(value as bigint | number))
   @Expose() @ApiProperty() pending: number;
@@ -31,7 +31,7 @@ export class StatsRevenueSerializer {
   @Transform(({ value }) => fromCents(value as bigint | number))
   @Expose() @ApiProperty() averageTicket: number;
 
-  constructor(partial: { completed: bigint | number; pending: bigint | number; averageTicket: bigint | number }) {
+  constructor(partial: { collected: bigint | number; pending: bigint | number; averageTicket: bigint | number }) {
     Object.assign(this, partial);
   }
 }
@@ -123,7 +123,7 @@ export class ShiftSummarySerializer {
   static empty(): ShiftSummarySerializer {
     const empty: ShiftSummary = {
       counts: { total: 0, pending: 0, created: 0, confirmed: 0, processing: 0, served: 0, completed: 0, cancelled: 0 },
-      revenue: { completed: 0n, pending: 0n, averageTicket: 0n },
+      revenue: { collected: 0n, pending: 0n, averageTicket: 0n },
       byPaymentMethod: [],
       byOrderType: [],
       byOrderSource: [],

@@ -88,7 +88,7 @@ const OrderStatsPanel = forwardRef<OrderStatsPanelHandle>(function OrderStatsPan
             <>
               <div className="bg-emerald-50 rounded-xl p-3 flex flex-col items-center justify-center">
                 <p className="text-xl font-bold text-emerald-600 leading-none">
-                  {formatCurrency(stats?.revenue.completed ?? 0)}
+                  {formatCurrency(stats?.revenue.collected ?? 0)}
                 </p>
                 <p className="text-[10px] text-slate-500 mt-1">Ingresos</p>
               </div>

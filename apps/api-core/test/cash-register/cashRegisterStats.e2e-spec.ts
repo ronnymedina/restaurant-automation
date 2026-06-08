@@ -61,7 +61,7 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
     expect(summary.counts.pending).toBe(0);
     expect(summary.counts.completed).toBe(0);
     expect(summary.counts.cancelled).toBe(0);
-    expect(summary.revenue.completed).toBe(0);
+    expect(summary.revenue.collected).toBe(0);
     expect(summary.revenue.averageTicket).toBe(0);
     expect(summary.topProducts).toEqual([]);
     expect(summary.byPaymentMethod).toEqual([]);
@@ -86,7 +86,7 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
         pending: expect.any(Number),
       },
       revenue: {
-        completed:     expect.any(Number),
+        collected:     expect.any(Number),
         pending:       expect.any(Number),
         averageTicket: expect.any(Number),
       },
@@ -121,15 +121,16 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
     expect(counts.cancelled).toBe(1);
   });
 
-  it('revenue.completed solo cuenta órdenes COMPLETED', async () => {
+  it('revenue.collected solo cuenta órdenes pagadas (isPaid)', async () => {
     const rest = await seedRestaurant(prisma, 'RevenueCalc');
     const token   = await login(app, rest.admin.email);
     const product = await seedProduct(prisma, rest.restaurant.id, rest.category.id);
     const shiftId = await openCashShiftViaApi(app, token);
 
-    await seedOrderOnShift(prisma, rest.restaurant.id, shiftId, product.id, 'COMPLETED');
-    await seedOrderOnShift(prisma, rest.restaurant.id, shiftId, product.id, 'CANCELLED');
-    await seedOrderOnShift(prisma, rest.restaurant.id, shiftId, product.id, 'CREATED');
+    // COMPLETED siempre es paid (invariante de dominio)
+    await seedOrderOnShift(prisma, rest.restaurant.id, shiftId, product.id, 'COMPLETED', true);
+    await seedOrderOnShift(prisma, rest.restaurant.id, shiftId, product.id, 'CANCELLED', false);
+    await seedOrderOnShift(prisma, rest.restaurant.id, shiftId, product.id, 'CREATED', false);
 
     const res = await request(app.getHttpServer())
       .get('/v1/cash-register/stats')
@@ -138,9 +139,9 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
       .expect(200);
 
     const { revenue } = res.body.summary;
-    // product price = 1000 centavos = 10.0; solo 1 COMPLETED
-    expect(revenue.completed).toBe(10);
-    // pending = 1 CREATED = 10.0; CANCELLED excluida
+    // product price = 1000 centavos = 10.0; solo 1 orden pagada
+    expect(revenue.collected).toBe(10);
+    // pending = 1 CREATED no pagada = 10.0; CANCELLED excluida
     expect(revenue.pending).toBe(10);
   });
 
@@ -184,6 +185,6 @@ describe('GET /v1/cash-register/stats (e2e)', () => {
     const { summary } = resB.body;
     expect(summary.counts.total).toBe(0);
     expect(summary.counts.completed).toBe(0);
-    expect(summary.revenue.completed).toBe(0);
+    expect(summary.revenue.collected).toBe(0);
   });
 });

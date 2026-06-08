@@ -307,7 +307,7 @@ flowchart TD
     - `SERVED → COMPLETED` requiere `isPaid = true`, de lo contrario lanza `ORDER_NOT_PAID`
   - Kitchen máximo: `PROCESSING → SERVED` (no puede avanzar a `COMPLETED`)
 - El endpoint `PATCH /:id/pay` es independiente del flujo de estado — se puede marcar como pagada en cualquier estado
-- Al marcar como pagada (`PATCH /:id/pay`), si la orden está en estado `SERVED`, se auto-avanza automáticamente a `COMPLETED`
+- Al marcar como pagada (`PATCH /:id/pay`), la orden **no** cambia de status: `isPaid` pasa a `true` pero el status se conserva (flujo de cobro en dos pasos). Avanzar `SERVED → COMPLETED` es un paso aparte que exige `isPaid=true`. Una orden puede quedar `SERVED + isPaid=true` (cobrada, pendiente de completar).
 - La creación de órdenes puede realizarse desde el kiosk (`POST /v1/kiosk/:slug/orders`, público) o desde el dashboard (`POST /v1/orders`, autenticado ADMIN/MANAGER). Los pedidos de staff usan `orderSource: 'STAFF'` (forzado en el servicio) e inician en estado `CONFIRMED`
 - Eventos SSE de Order — dos canales con shapes tipados (audit H-AUX-02):
   - `order:new` (creación) y `order:updated` (cualquier transición).
@@ -358,7 +358,7 @@ sequenceDiagram
     rect rgba(255, 180, 120, 0.08)
     note over K1,C: Kitchen vs cashier — cancel during kitchen advance
     K1->>DB: SELECT status FROM Order WHERE id=O → PROCESSING
-    C->>DB: UPDATE ... WHERE id=O SET status='CANCELLED'
+    C->>DB: UPDATE ... WHERE id=O AND status=? AND isPaid=false SET status='CANCELLED'
     DB-->>C: 1 row updated, lock held
     C->>DB: COMMIT
     K1->>DB: UPDATE ... WHERE id=O AND status='PROCESSING' SET status='SERVED'
@@ -376,12 +376,20 @@ conflicting writers. Each loser observes `count = 0` and fails cleanly with
 `InvalidStatusTransitionException`. See `cash-register.module.info.md` for
 the cross-table coordination pattern.
 
-**Known gap (out of scope for this audit cycle):** `cancelOrder` still uses
-an unconditional `update` without status guard, so a concurrent cancel can
-overwrite an advance that committed milliseconds earlier. This is observable
-but not corrupting: the final persisted state is always a valid terminal
-state ({CANCELLED, SERVED, COMPLETED}). Hardening `cancelOrder` to the same
-optimistic pattern is a backlog follow-up.
+**Cancel is race-safe too (audit R2-01):** `cancelOrder` follows the same
+optimistic pattern. It runs read + conditional UPDATE inside a `$transaction`
+via `cancelOrderIfCancellable`, whose guard is
+`UPDATE ... WHERE id=? AND restaurantId=? AND status=? AND isPaid=false`. The
+`isPaid=false` guard is the critical part: if a concurrent `markAsPaid`
+committed between the read and the UPDATE, no row matches, count = 0, and the
+service re-reads the row to throw the precise error
+(`CannotCancelPaidOrderException` if it was paid,
+`OrderAlreadyCancelledException` if another screen cancelled,
+`InvalidStatusTransitionException` otherwise).
+
+**Invariant:** an order can never end up `CANCELLED && isPaid=true`. In a
+pay‖cancel race exactly one operation wins and the other fails with a clear
+domain error, so paid cash is never lost from the cash-shift close.
 
 ---
 
