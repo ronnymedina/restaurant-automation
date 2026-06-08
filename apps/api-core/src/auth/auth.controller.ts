@@ -100,12 +100,12 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthLoginResponseDto> {
-    const { accessToken, refreshToken, timezone } =
+    const { accessToken, refreshToken, timezone, decimalSeparator, thousandsSeparator } =
       await this.authService.login(dto.email, dto.password);
 
     this.setAuthCookies(res, accessToken, refreshToken);
 
-    return { timezone };
+    return { timezone, decimalSeparator, thousandsSeparator };
   }
 
   @Post('refresh')
@@ -121,12 +121,12 @@ export class AuthController {
       throw new InvalidRefreshTokenException();
     }
 
-    const { accessToken, refreshToken, timezone } =
+    const { accessToken, refreshToken, timezone, decimalSeparator, thousandsSeparator } =
       await this.authService.refreshTokens(refreshCookie);
 
     this.setAuthCookies(res, accessToken, refreshToken);
 
-    return { timezone };
+    return { timezone, decimalSeparator, thousandsSeparator };
   }
 
   @Get('me')

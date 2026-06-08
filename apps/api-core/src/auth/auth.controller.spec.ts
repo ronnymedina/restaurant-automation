@@ -56,17 +56,19 @@ describe('AuthController', () => {
       cookieMock.mockReset();
     });
 
-    it('sets access_token and refresh_token cookies and returns only timezone', async () => {
+    it('sets access_token and refresh_token cookies and returns display settings', async () => {
       mockAuthService.login.mockResolvedValue({
         accessToken: 'jwt-here',
         refreshToken: 'refresh-uuid',
         timezone: 'UTC',
+        decimalSeparator: ',',
+        thousandsSeparator: '.',
       });
 
       const result = await controller.login({ email: 'e@x', password: 'pw' }, res);
 
       expect(mockAuthService.login).toHaveBeenCalledWith('e@x', 'pw');
-      expect(result).toEqual({ timezone: 'UTC' });
+      expect(result).toEqual({ timezone: 'UTC', decimalSeparator: ',', thousandsSeparator: '.' });
       expect(cookieMock).toHaveBeenCalledTimes(2);
       expect(cookieMock).toHaveBeenCalledWith('access_token', 'jwt-here', expect.objectContaining({
         httpOnly: true, sameSite: 'lax', path: '/', maxAge: 900_000,
@@ -90,13 +92,15 @@ describe('AuthController', () => {
         accessToken: 'new-jwt',
         refreshToken: 'new-uuid',
         timezone: 'UTC',
+        decimalSeparator: ',',
+        thousandsSeparator: '.',
       });
       const req = { cookies: { refresh_token: 'old-uuid' } } as any;
 
       const result = await controller.refresh(req, res);
 
       expect(mockAuthService.refreshTokens).toHaveBeenCalledWith('old-uuid');
-      expect(result).toEqual({ timezone: 'UTC' });
+      expect(result).toEqual({ timezone: 'UTC', decimalSeparator: ',', thousandsSeparator: '.' });
       expect(cookieMock).toHaveBeenCalledWith('access_token', 'new-jwt', expect.any(Object));
       expect(cookieMock).toHaveBeenCalledWith('refresh_token', 'new-uuid', expect.any(Object));
     });
