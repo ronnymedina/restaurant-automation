@@ -63,6 +63,8 @@ const initialState: KioskStore = {
   slug: '',
   sessionOpen: false,
   restaurantName: '',
+  decimalSeparator: ',',
+  thousandsSeparator: '.',
   isLoading: true,
   menus: [],
   activeMenuId: null,
@@ -93,7 +95,11 @@ export const useKioskStore = create<KioskStore & KioskActions>((set, get) => ({
       if (res.ok) {
         const data = await res.json()
         sessionOpen = data.registerOpen
-        set({ restaurantName: data.restaurantName ?? '' })
+        set({
+          restaurantName: data.restaurantName ?? '',
+          decimalSeparator: data.decimalSeparator ?? ',',
+          thousandsSeparator: data.thousandsSeparator ?? '.',
+        })
       }
     } catch {
       // if status check fails, assume closed for safety

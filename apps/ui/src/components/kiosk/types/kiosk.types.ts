@@ -63,6 +63,8 @@ export type KioskStore = {
   slug: string
   sessionOpen: boolean
   restaurantName: string
+  decimalSeparator: string
+  thousandsSeparator: string
   isLoading: boolean
   menus: Menu[]
   activeMenuId: string | null

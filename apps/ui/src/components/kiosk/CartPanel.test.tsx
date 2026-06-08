@@ -6,6 +6,8 @@ vi.mock('./store/kiosk.store', () => ({
     selector({
       cart: [{ productId: 'p1', menuItemId: undefined, name: 'Burger', price: 10, quantity: 2, notes: '' }],
       menuSections: {},
+      decimalSeparator: ',',
+      thousandsSeparator: '.',
       updateQuantity: vi.fn(),
       updateNotes: vi.fn(),
     }),
