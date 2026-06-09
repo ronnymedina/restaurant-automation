@@ -18,6 +18,7 @@ export default function OrdersFilteredList({
   onUnpay,
   onCancel,
   onCancelBlocked,
+  inFlightIds,
 }: OrdersFilteredListProps) {
   return (
     <div className="space-y-3">
@@ -51,6 +52,7 @@ export default function OrdersFilteredList({
               onUnpay={onUnpay}
               onCancel={onCancel}
               onCancelBlocked={onCancelBlocked}
+              inFlightIds={inFlightIds}
             />
           ))}
         </div>

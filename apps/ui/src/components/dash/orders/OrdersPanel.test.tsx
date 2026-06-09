@@ -485,6 +485,36 @@ test('no refetcha en el primer open del SSE (loadSession ya cargó); refetcha so
   await waitFor(() => expect(mockGetOrders).toHaveBeenCalledTimes(2));
 });
 
+test('R2-04: blocks a second action on the same order while one is in flight', async () => {
+  const { updateOrderStatus } = await import('./api');
+  // Never resolves: the advance mutation stays in flight for the whole test.
+  vi.mocked(updateOrderStatus).mockImplementation(() => new Promise(() => {}));
+
+  mockGetCurrentSession.mockResolvedValue({ ok: true, data: { id: 'shift', openedByEmail: 'a@b.c' } });
+  mockGetOrders.mockResolvedValue({
+    ok: true,
+    data: [{
+      id: 'o1', orderNumber: 1, status: 'PROCESSING', isPaid: false,
+      items: [], totalAmount: 100, orderSource: 'KIOSK', orderType: 'DINE_IN',
+      displayTime: '12:00', paymentMethod: null,
+    } as any],
+  });
+
+  const { container } = render(<OrdersPanel />);
+
+  // PROCESSING primary action is labelled "Entregar".
+  const advanceBtn = await screen.findByRole('button', { name: 'Entregar' });
+  fireEvent.click(advanceBtn);
+
+  // The optimistic patch flips the card to SERVED while the request is in flight.
+  // The "Cancelar" button would otherwise stay live and silently discard the second
+  // action; with the fix it is disabled and the card exposes aria-busy.
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: /Cancelar/ })).toBeDisabled();
+  });
+  expect(container.querySelector('[aria-busy="true"]')).toBeInTheDocument();
+});
+
 // H-17: EventSource must not be re-created on filter changes.
 // activeFilter is internal state; we cannot trigger it via props, so we assert
 // that after mount completes (and any SSE-related re-renders settle) the
