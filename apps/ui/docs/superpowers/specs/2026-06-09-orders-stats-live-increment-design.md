@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-06-09
 **Hallazgo origen:** R2-05 (🟡 MEDIO) en `apps/api-core/docs/superpowers/specs/2026-06-07-orders-kiosk-money-audit-findings.md`
-**Apps:** `apps/ui` (principal) + `apps/api-core` (enriquecimiento del payload SSE)
+**Apps:** `apps/ui` (solo frontend)
 **Tipo:** Diseño (no implementación)
 
 ---
@@ -121,34 +121,34 @@ contador interno del summary local (no lo expone el endpoint, pero es trivial de
 
 ---
 
-## Cambio en el backend: `totalAmount` en `order:updated`
+## Por qué NO se toca el backend (`order:updated` no necesita `totalAmount`)
 
-Hoy `OrderUpdatedPayload` (`apps/api-core/src/events/payloads/order-event-payloads.ts:64-74`)
-tiene 5 campos y **no incluye `totalAmount`**. Sin él, el delta de dinero de un `order:updated`
-(cobro/cancelación) es incalculable. Se agrega `totalAmount` (en pesos, como `OrderCreatedPayload`).
+`OrderUpdatedPayload` hoy no incluye `totalAmount`, y **se deja así**. El delta de un
+`order:updated` es `-contribution(ordenVieja) + contribution(ordenNueva)`, y:
 
-Archivos a tocar (acoplados por el contract test):
+1. **`totalAmount` es inmutable** — se fija al crear la orden; cobrar/cancelar/avanzar no lo
+   cambian.
+2. Calcular el delta requiere la **orden vieja** del array local (para restar su contribución
+   previa). Si la orden no está en la lista, el delta se **omite** de todas formas.
+3. Toda orden presente en la lista **ya tiene `totalAmount`**: entró por el fetch REST inicial
+   (`getOrders`, pesos) o por un `order:new` (que sí lo trae). La orden nueva es
+   `{ ...vieja, ...payload }`, así que hereda ese mismo `totalAmount`.
 
-1. `payloads/order-event-payloads.ts`: agregar `totalAmount: number` a la interface
-   `OrderUpdatedPayload` y `'totalAmount'` a `ORDER_UPDATED_PAYLOAD_KEYS`.
-2. `orders.service.ts` `buildOrderUpdatedPayloads` (~`:533-563`): incluir `totalAmount` en el
-   objeto `dashboard`. El parámetro `order` ya es el resultado serializado del repo (pesos);
-   verificar que `totalAmount` esté disponible en esa firma (hoy no está en el type del
-   parámetro → agregarlo).
-3. Contract test `order-event-payloads.spec.ts`: actualizar la lista canónica de keys.
-4. Frontend espejo `apps/ui/src/lib/sse-payloads.ts`: agregar `totalAmount: number` a
-   `OrderUpdatedPayload` (el comentario del archivo obliga a mantener ambos lados en sync).
+Conclusión: siempre que *podemos* calcular el delta, `totalAmount` ya está disponible localmente.
+Repetirlo en el payload no agrega información. Esto mantiene el cambio **solo en `apps/ui`**, sin
+riesgo de drift del contrato SSE.
 
 ---
 
 ## Flujo de datos resultante
 
 ```
-order:new    ─► handleNew    ─► (dedup) setOrders(prepend)
-                              └► setSummary(applyOrderEvent(prev, null, payload))
+order:new    ─► handleNew    ─► setSummary(applyOrderEvent(prev, null, payload))   (siempre, antes del guard de filtro)
+                              └► (no-filtro) setOrders(prepend con dedup)
 order:updated ─► handleUpdated ─► oldOrder = orders.find(id)
+                              ├► newOrder = { ...oldOrder, ...payload }   (hereda totalAmount)
                               ├► setOrders(merge {...old, ...payload})
-                              └► oldOrder ? setSummary(applyOrderEvent(prev, oldOrder, payload)) : skip
+                              └► oldOrder ? setSummary(applyOrderEvent(prev, oldOrder, newOrder)) : skip
 botón "Actualizar" / montaje ─► getLiveStats() ─► setSummary(authoritative)   ◄── única llamada al endpoint
 ```
 
@@ -161,7 +161,7 @@ solo renderiza. Se elimina `forwardRef`/`useImperativeHandle`/`getLiveStats` del
 
 | Caso | Manejo |
 |---|---|
-| **Idempotencia / evento duplicado** (reconexión replay) | El incremento de `order:new` se aplica **solo en la rama donde la orden se agrega de verdad** (mismo guard `prev.some(o=>o.id)` que la lista). Duplicados no doble-cuentan. |
+| **Idempotencia / evento duplicado** | `SseService` usa `Subject` de RxJS **sin replay** (`sse.service.ts:13-14`): cada `order:new` se entrega exactamente una vez por orden, sin reenvío en reconexión. Por eso el delta de `order:new` se aplica **una vez por evento** sin necesidad de un guard de dedup propio. El `prev.some(o=>o.id)` de `setOrders` queda como defensa de la **lista**, no de las stats. |
 | **`order:updated` de orden fuera del array local** (modo filtro, tope 100, completada que salió del fetch) | `orders.find(id)` no la encuentra → no hay `oldOrder` → se **omite** el delta. Drift reconciliado por el botón. |
 | **`summary === null`** (aún cargando el fetch inicial) | Los handlers omiten el delta si `summary` es null. El fetch en vuelo traerá el estado base. |
 | **Race fetch inicial vs. incremento temprano** | Posible doble conteo si un evento llega mientras el fetch de montaje está en vuelo. Aceptado como drift menor; el botón reconcilia. |
@@ -210,8 +210,8 @@ export function applyOrderEvent(
    `averageTicket`.
 2. **`OrdersPanel.test.tsx`** (regresión): un burst de N eventos SSE produce **0** llamadas a
    `getLiveStats()`; el botón produce exactamente 1; las stats reflejan el incremento.
-3. **Backend** `order-event-payloads.spec.ts`: contract test incluye `totalAmount` en updated.
-4. **Backend** unit de `buildOrderUpdatedPayloads`: el payload dashboard incluye `totalAmount`.
+
+> Sin tests de backend: este cambio es solo `apps/ui` (ver "Por qué NO se toca el backend").
 
 ---
 
@@ -220,5 +220,6 @@ export function applyOrderEvent(
 - **Drift acumulado**: float pesos + casos borde de orden-fuera-de-lista. Mitigado por el botón
   como fuente de verdad y por usar predicados idénticos al backend. Si el drift molestara, un
   refetch perezoso de respaldo (intervalo largo) es una extensión futura, no parte de este scope.
-- **Doc drift del contrato SSE**: el payload se duplica backend/frontend; el contract test del
-  backend es la red de seguridad. El plan debe tocar los 4 puntos del cambio de backend juntos.
+- **Desfase del cobro en vivo**: un `order:updated` cuya orden no está en el array local (modo
+  filtro, tope 100) no incrementa stats hasta el botón. Es el trade-off aceptado del modelo
+  best-effort.
