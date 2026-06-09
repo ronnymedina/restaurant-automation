@@ -65,8 +65,15 @@ export default function OrdersPanel() {
     [orders, pendingPatches],
   );
 
+  // R2-04: órdenes con una mutación en vuelo. Mismo ciclo de vida que inFlightRef,
+  // pero como state reactivo para deshabilitar las acciones de la tarjeta.
+  const busyIds = useMemo(() => new Set(pendingPatches.keys()), [pendingPatches]);
+
   function withOptimisticAction(id: string, patch: Partial<Order>, fn: () => Promise<void>) {
-    if (inFlightRef.current.has(id)) return;
+    if (inFlightRef.current.has(id)) {
+      showToast('Procesando el pedido, espera un momento…');
+      return;
+    }
     inFlightRef.current.add(id);
     setPendingPatches((prev) => { const m = new Map(prev); m.set(id, patch); return m; });
     void fn().finally(() => {
@@ -261,6 +268,7 @@ export default function OrdersPanel() {
     onUnpay: handleUnpay,
     onCancel: (id: string) => setCancelOrderId(id),
     onCancelBlocked: handleCancelBlocked,
+    inFlightIds: busyIds,
   };
 
   if (status === ORDERS_STATUS.LOADING) {
