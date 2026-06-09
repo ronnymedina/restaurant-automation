@@ -5,7 +5,7 @@
 **Foco declarado por el usuario:** flujo de **kiosk + órdenes**, con énfasis en **montos, totales y conversiones**, y la **corrección del reporte/cierre de caja** (si no cuadra, hay pérdida de dinero o información). Usuarios, permisos y reportes generales quedan fuera de foco salvo donde tocan dinero/órdenes.
 **Módulos backend:** `orders`, `kiosk`, `cash-register` (stats + cierre), `restaurants` (settings de moneda).
 **Módulos UI:** `dash/orders` (UI optimista React), `kiosk` (store), `dash/settings`, `commons/ShiftSummaryView`, `orders-history`.
-**Estado:** Pendiente revisión punto por punto. **R2-01 (ALTO) RESUELTO** el 2026-06-07 — ver PR #142 y `docs/superpowers/plans/2026-06-07-orders-cancel-race-fix.md`. Resto pendiente. R2-02 (MEDIO) RESUELTO el 2026-06-07. R2-03 (MEDIO) RESUELTO el 2026-06-08.
+**Estado:** Pendiente revisión punto por punto. **R2-01 (ALTO) RESUELTO** el 2026-06-07 — ver PR #142 y `docs/superpowers/plans/2026-06-07-orders-cancel-race-fix.md`. Resto pendiente. R2-02 (MEDIO) RESUELTO el 2026-06-07. R2-03 (MEDIO) RESUELTO el 2026-06-08. R2-04 (MEDIO) RESUELTO el 2026-06-09.
 **Tipo:** Audit findings (no implementación).
 
 ---
@@ -40,9 +40,9 @@ Cada hallazgo trae ID estable (`R2-XX`), severidad, archivos exactos con línea,
 |-----------|----------|-----|
 | 🔴 CRÍTICO | 0 | — |
 | 🟠 ALTO | 1 | ~~R2-01~~ ✅ RESUELTO (PR #142) |
-| 🟡 MEDIO | 4 | ~~R2-02~~ ✅, ~~R2-03~~ ✅ RESUELTOS, R2-04, R2-05 |
+| 🟡 MEDIO | 4 | ~~R2-02~~ ✅, ~~R2-03~~ ✅, ~~R2-04~~ ✅ RESUELTOS, R2-05 |
 | 🟢 BAJO | 7 | R2-06, R2-07, R2-08, R2-09, R2-10, R2-11, R2-12 |
-| **Total** | **12** (3 resueltos, 9 pendientes) | |
+| **Total** | **12** (4 resueltos, 8 pendientes) | |
 
 > Nota de severidad: R2-02 y R2-03 tocan directamente la prioridad declarada (reporte de caja). Se mantienen en MEDIO porque **no corrompen el cierre final** (el cierre no se puede ejecutar con pendientes, y el descuadre de R2-02 se reconcilia al completar; R2-03 es solo display). R2-01 es el único con riesgo real de descuadre del total cerrado.
 
@@ -173,6 +173,8 @@ Para un restaurante CLP (`decimalSeparator = ','`, `thousandsSeparator = '.'`) e
 ---
 
 ### R2-04 — Acciones optimistas concurrentes sobre la misma orden se descartan en silencio
+
+> ✅ **RESUELTO (2026-06-09).** Se restauró la defensa visual: las acciones de la tarjeta (botones primario/Pagado/Cancelar/Desmarcar + el select de método) se deshabilitan y la tarjeta expone `aria-busy` mientras hay una mutación en vuelo, derivando el estado "busy" de `pendingPatches` (sin re-introducir el prop `inFlightIds` que quitó `8842af1`; se propaga por `OrdersKanban`/`OrdersFilteredList` hasta `OrderCard`). Además, el early-return de `withOptimisticAction` muestra un toast ("Procesando el pedido, espera un momento…") como red de seguridad. Cubierto por un test de regresión en `OrdersPanel.test.tsx`. Ver `apps/ui/docs/superpowers/specs/2026-06-08-orders-optimistic-silent-discard-design.md` y `apps/ui/docs/superpowers/plans/2026-06-09-orders-optimistic-silent-discard.md`. La descripción de abajo se conserva como registro del hallazgo original.
 
 **Categoría:** lógica (frontend) · UX · riesgo operativo
 **Severidad:** 🟡 MEDIO (el cajero puede creer que cobró/avanzó una orden que no se procesó)
