@@ -1,6 +1,6 @@
 # R2-04 — Optimistic Silent Discard Fix Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Evitar que una segunda acción sobre la misma orden se descarte en silencio: deshabilitar los botones/select de la tarjeta mientras hay una mutación en vuelo (prevención) y mostrar un toast en el early-return (red de seguridad).
 
@@ -21,7 +21,7 @@ Este es el único ciclo TDD: el test es de integración a nivel `OrdersPanel` y 
 - Modify: `apps/ui/src/components/dash/orders/OrdersKanban.tsx`
 - Modify: `apps/ui/src/components/dash/orders/OrdersFilteredList.tsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Agregar este test al final de `apps/ui/src/components/dash/orders/OrdersPanel.test.tsx` (el mock de `updateOrderStatus` ya existe en el `vi.mock('./api', …)` del archivo):
 
@@ -57,7 +57,7 @@ test('R2-04: blocks a second action on the same order while one is in flight', a
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 ```bash
@@ -65,7 +65,7 @@ docker compose exec -T res-ui node_modules/.bin/vitest run src/components/dash/o
 ```
 Expected: FAIL — el botón "Cancelar" no está `disabled` (hoy no recibe `isBusy`) y no hay ningún elemento con `aria-busy="true"`.
 
-- [ ] **Step 3: Implement — `OrdersPanel.tsx` (toast + busyIds + propagación)**
+- [x] **Step 3: Implement — `OrdersPanel.tsx` (toast + busyIds + propagación)**
 
 En `apps/ui/src/components/dash/orders/OrdersPanel.tsx`:
 
@@ -108,7 +108,7 @@ En `apps/ui/src/components/dash/orders/OrdersPanel.tsx`:
   };
 ```
 
-- [ ] **Step 4: Implement — `OrderCard.tsx` (isBusy + aria-busy + disabled)**
+- [x] **Step 4: Implement — `OrderCard.tsx` (isBusy + aria-busy + disabled)**
 
 En `apps/ui/src/components/dash/orders/OrderCard.tsx`:
 
@@ -237,7 +237,7 @@ export default function OrderCard({
                 </button>
 ```
 
-- [ ] **Step 5: Implement — `OrdersKanban.tsx` (propagar inFlightIds)**
+- [x] **Step 5: Implement — `OrdersKanban.tsx` (propagar inFlightIds)**
 
 En `apps/ui/src/components/dash/orders/OrdersKanban.tsx`, agregar `inFlightIds` a la desestructuración y al objeto `cardCallbacks` (`OrdersKanbanProps` ya extiende `OrderCardCallbacks`, así que el tipo entra solo):
 
@@ -247,7 +247,7 @@ export default function OrdersKanban({ orders, onConfirm, onAdvance, onPay, onUn
   const cardCallbacks = { onConfirm, onAdvance, onPay, onUnpay, onCancel, onCancelBlocked, inFlightIds };
 ```
 
-- [ ] **Step 6: Implement — `OrdersFilteredList.tsx` (propagar inFlightIds)**
+- [x] **Step 6: Implement — `OrdersFilteredList.tsx` (propagar inFlightIds)**
 
 En `apps/ui/src/components/dash/orders/OrdersFilteredList.tsx`, agregar `inFlightIds` a la desestructuración y pasarlo explícitamente a `OrderCard`:
 
@@ -280,7 +280,7 @@ export default function OrdersFilteredList({
             />
 ```
 
-- [ ] **Step 7: Run the new test to verify it passes**
+- [x] **Step 7: Run the new test to verify it passes**
 
 Run:
 ```bash
@@ -288,7 +288,7 @@ docker compose exec -T res-ui node_modules/.bin/vitest run src/components/dash/o
 ```
 Expected: PASS.
 
-- [ ] **Step 8: Run the full orders test suite (no regressions)**
+- [x] **Step 8: Run the full orders test suite (no regressions)**
 
 Run:
 ```bash
@@ -296,7 +296,7 @@ docker compose exec -T res-ui node_modules/.bin/vitest run src/components/dash/o
 ```
 Expected: PASS. En particular `H-18: rapid double-click on Confirmar dispatches confirmOrder once` sigue verde — el segundo clic cae sobre un botón ahora `disabled`, y `fireEvent.click` sobre un botón deshabilitado no dispara el handler, así que `confirmOrder` se sigue llamando una sola vez.
 
-- [ ] **Step 9: Typecheck**
+- [x] **Step 9: Typecheck**
 
 Run:
 ```bash
@@ -304,7 +304,7 @@ docker compose exec -T res-ui node_modules/.bin/astro check
 ```
 Expected: sin nuevos errores de tipo en los cuatro archivos modificados. (Si `astro check` no está disponible o el baseline ya tiene errores ajenos, basta con que no aparezcan errores nuevos referidos a `inFlightIds`/`isBusy`.)
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add apps/ui/src/components/dash/orders/OrdersPanel.tsx \
@@ -324,7 +324,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Files:**
 - Modify: `apps/api-core/docs/superpowers/specs/2026-06-07-orders-kiosk-money-audit-findings.md`
 
-- [ ] **Step 1: Update the executive summary row**
+- [x] **Step 1: Update the executive summary row**
 
 En la tabla de "Resumen ejecutivo", mover R2-04 a resuelto:
 
@@ -334,7 +334,7 @@ En la tabla de "Resumen ejecutivo", mover R2-04 a resuelto:
 
 Y actualizar el total: `**Total** | **12** (4 resueltos, 8 pendientes)`.
 
-- [ ] **Step 2: Add the resolved banner under the R2-04 heading**
+- [x] **Step 2: Add the resolved banner under the R2-04 heading**
 
 Justo debajo de `### R2-04 — Acciones optimistas concurrentes se descartan en silencio`, insertar:
 
@@ -342,7 +342,7 @@ Justo debajo de `### R2-04 — Acciones optimistas concurrentes se descartan en 
 > ✅ **RESUELTO (2026-06-09).** Se restauró la defensa visual: las acciones de la tarjeta se deshabilitan (+`aria-busy`) mientras hay una mutación en vuelo, derivando el estado "busy" de `pendingPatches` (sin re-introducir el prop que quitó `8842af1`). El early-return de `withOptimisticAction` ahora muestra un toast ("Procesando el pedido, espera un momento…") como red de seguridad. Cubierto por un test de regresión en `OrdersPanel.test.tsx`. Ver `apps/ui/docs/superpowers/specs/2026-06-08-orders-optimistic-silent-discard-design.md` y su plan. La descripción de abajo se conserva como registro del hallazgo original.
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/api-core/docs/superpowers/specs/2026-06-07-orders-kiosk-money-audit-findings.md
