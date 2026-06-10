@@ -105,3 +105,14 @@ fromCents(1250)   // → 12.5  (compat SQLite driver)
 
 El backend entrega los montos en pesos (número). El **formato de display** (separadores
 por restaurante, `$1.234,50`) vive en el frontend: ver `apps/ui/docs/money-formatting.md`.
+
+## Modelo currency-agnostic (siempre 2 decimales)
+
+El dominio **siempre** opera con 2 decimales internos: los montos se guardan en
+centavos (`BigInt`, factor ×100 fijo en `toCents`/`fromCents`). El sistema **no**
+respeta las minor units de ISO 4217: una moneda sin decimales (CLP, JPY) igual se
+almacena y renderiza con 2 decimales. El `currency` de `RestaurantSettings` es solo
+una **etiqueta de display** (símbolo); los separadores (`decimalSeparator`/
+`thousandsSeparator`) son configuración de presentación. Si en el futuro se quisiera
+ocultar los decimales para monedas enteras, es un cambio de la capa de display
+(frontend), no del dominio. (audit R2-10)
