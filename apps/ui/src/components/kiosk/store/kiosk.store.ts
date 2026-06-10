@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { kioskFetch } from '../../../lib/kiosk-api'
+import { cartTotalCents } from './cart-total'
 import {
   type AddToCartPayload,
   type CartItem,
@@ -307,7 +308,10 @@ export const useKioskStore = create<KioskStore & KioskActions>((set, get) => ({
       customerPhone: customerPhone || undefined,
       deliveryAddress: deliveryAddress || undefined,
       deliveryReferences: deliveryReferences || undefined,
-      expectedTotal: cart.reduce((s, c) => s + c.price * c.quantity, 0),
+      // expectedTotal viaja en pesos (el DTO lo reconvierte a centavos con toCents).
+      // Sumamos en centavos enteros para no acumular error de float, y dividimos por
+      // 100 para enviarlo en pesos; toCents lo revierte exacto. (audit R2-07)
+      expectedTotal: cartTotalCents(cart) / 100,
     }
 
     try {
