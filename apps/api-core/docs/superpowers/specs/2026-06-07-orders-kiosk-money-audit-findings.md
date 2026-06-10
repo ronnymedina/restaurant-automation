@@ -5,7 +5,7 @@
 **Foco declarado por el usuario:** flujo de **kiosk + órdenes**, con énfasis en **montos, totales y conversiones**, y la **corrección del reporte/cierre de caja** (si no cuadra, hay pérdida de dinero o información). Usuarios, permisos y reportes generales quedan fuera de foco salvo donde tocan dinero/órdenes.
 **Módulos backend:** `orders`, `kiosk`, `cash-register` (stats + cierre), `restaurants` (settings de moneda).
 **Módulos UI:** `dash/orders` (UI optimista React), `kiosk` (store), `dash/settings`, `commons/ShiftSummaryView`, `orders-history`.
-**Estado:** Pendiente revisión punto por punto. **R2-01 (ALTO) RESUELTO** el 2026-06-07 — ver PR #142 y `docs/superpowers/plans/2026-06-07-orders-cancel-race-fix.md`. Resto pendiente. R2-02 (MEDIO) RESUELTO el 2026-06-07. R2-03 (MEDIO) RESUELTO el 2026-06-08. R2-04 (MEDIO) RESUELTO el 2026-06-09.
+**Estado:** Pendiente revisión punto por punto. **R2-01 (ALTO) RESUELTO** el 2026-06-07 — ver PR #142 y `docs/superpowers/plans/2026-06-07-orders-cancel-race-fix.md`. Resto pendiente. R2-02 (MEDIO) RESUELTO el 2026-06-07. R2-03 (MEDIO) RESUELTO el 2026-06-08. R2-04 (MEDIO) RESUELTO el 2026-06-09. R2-05 (MEDIO) RESUELTO el 2026-06-10.
 **Tipo:** Audit findings (no implementación).
 
 ---
@@ -40,9 +40,9 @@ Cada hallazgo trae ID estable (`R2-XX`), severidad, archivos exactos con línea,
 |-----------|----------|-----|
 | 🔴 CRÍTICO | 0 | — |
 | 🟠 ALTO | 1 | ~~R2-01~~ ✅ RESUELTO (PR #142) |
-| 🟡 MEDIO | 4 | ~~R2-02~~ ✅, ~~R2-03~~ ✅, ~~R2-04~~ ✅ RESUELTOS, R2-05 |
+| 🟡 MEDIO | 4 | ~~R2-02~~ ✅, ~~R2-03~~ ✅, ~~R2-04~~ ✅, ~~R2-05~~ ✅ RESUELTOS |
 | 🟢 BAJO | 7 | R2-06, R2-07, R2-08, R2-09, R2-10, R2-11, R2-12 |
-| **Total** | **12** (4 resueltos, 8 pendientes) | |
+| **Total** | **12** (5 resueltos, 7 pendientes) | |
 
 > Nota de severidad: R2-02 y R2-03 tocan directamente la prioridad declarada (reporte de caja). Se mantienen en MEDIO porque **no corrompen el cierre final** (el cierre no se puede ejecutar con pendientes, y el descuadre de R2-02 se reconcilia al completar; R2-03 es solo display). R2-01 es el único con riesgo real de descuadre del total cerrado.
 
@@ -205,6 +205,8 @@ function withOptimisticAction(id, patch, fn) {
 ---
 
 ### R2-05 — `OrderStatsPanel.refresh()` se dispara en cada evento SSE → N refetch del endpoint de stats (groupBy pesado)
+
+> ✅ **RESUELTO (2026-06-10).** El endpoint pesado `GET /v1/cash-register/stats` ya no se refetchea por evento SSE: ahora solo corre en el botón "Actualizar", al abrir la sesión y en la reconexión SSE. Las stats del turno se actualizan en vivo por incremento local (`apps/ui/src/components/dash/orders/stats-delta.ts`, con predicados idénticos a `cash-register-stats.service.ts`); `OrdersPanel` es dueño del `summary` y `OrderStatsPanel` quedó presentacional (sin `forwardRef`/refetch). Solo UI: `order:updated` no necesitó `totalAmount` porque la orden ya está en la lista local con su monto. Cubierto por `stats-delta.test.ts` (8 casos) + test de regresión en `OrdersPanel.test.tsx` (ráfaga SSE = 0 refetch, botón = 1). Ver `apps/ui/docs/superpowers/specs/2026-06-09-orders-stats-live-increment-design.md` y `apps/ui/docs/superpowers/plans/2026-06-09-orders-stats-live-increment.md`. La descripción de abajo se conserva como registro del hallazgo original.
 
 **Categoría:** rendimiento · arquitectura SSE
 **Severidad:** 🟡 MEDIO (degradación a escala; reintroduce el patrón que H-AUX-02 eliminó)
