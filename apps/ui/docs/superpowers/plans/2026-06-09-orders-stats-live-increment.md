@@ -35,7 +35,7 @@ docker compose exec -T res-ui node_modules/.bin/vitest run <ruta-del-test>
 - Create: `apps/ui/src/components/dash/orders/stats-delta.ts`
 - Test: `apps/ui/src/components/dash/orders/stats-delta.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/ui/src/components/dash/orders/stats-delta.test.ts`:
 
@@ -127,12 +127,12 @@ describe('fromSummary', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `docker compose exec -T res-ui node_modules/.bin/vitest run src/components/dash/orders/stats-delta.test.ts`
 Expected: FAIL — `Failed to resolve import "./stats-delta"` / module not found.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/ui/src/components/dash/orders/stats-delta.ts`:
 
@@ -221,12 +221,12 @@ export function applyOrderEvent(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `docker compose exec -T res-ui node_modules/.bin/vitest run src/components/dash/orders/stats-delta.test.ts`
 Expected: PASS (7 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/ui/src/components/dash/orders/stats-delta.ts apps/ui/src/components/dash/orders/stats-delta.test.ts
@@ -243,7 +243,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Modify: `apps/ui/src/components/dash/orders/OrderStatsPanel.tsx`
 - Rewrite: `apps/ui/src/components/dash/orders/OrderStatsPanel.test.tsx`
 
-- [ ] **Step 1: Rewrite the test to drive a props-based component**
+- [x] **Step 1: Rewrite the test to drive a props-based component**
 
 Replace the **entire** contents of `apps/ui/src/components/dash/orders/OrderStatsPanel.test.tsx`:
 
@@ -307,12 +307,12 @@ test('clicking the button calls onRefresh', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `docker compose exec -T res-ui node_modules/.bin/vitest run src/components/dash/orders/OrderStatsPanel.test.tsx`
 Expected: FAIL — el componente actual ignora las props (`summary`, `onRefresh`) y hace su propio fetch; `onRefresh` no se llama, los KPI no aparecen sin mock de `getLiveStats`.
 
-- [ ] **Step 3: Refactor the component to presentational**
+- [x] **Step 3: Refactor the component to presentational**
 
 Replace the **entire** contents of `apps/ui/src/components/dash/orders/OrderStatsPanel.tsx`:
 
@@ -458,12 +458,12 @@ export default function OrderStatsPanel({
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `docker compose exec -T res-ui node_modules/.bin/vitest run src/components/dash/orders/OrderStatsPanel.test.tsx`
 Expected: PASS (5 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/ui/src/components/dash/orders/OrderStatsPanel.tsx apps/ui/src/components/dash/orders/OrderStatsPanel.test.tsx
@@ -482,7 +482,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 > Nota: la app no compila con el panel a medio cablear (TypeScript del refactor del Task 2 cambió la firma de `OrderStatsPanel`). Por eso este task hace primero el wiring (Steps 1-7) y luego agrega el test de regresión (Steps 8-11).
 
-- [ ] **Step 1: Update imports**
+- [x] **Step 1: Update imports**
 
 En `apps/ui/src/components/dash/orders/OrdersPanel.tsx`, línea 1, agregar `useCallback`:
 
@@ -503,7 +503,7 @@ import { getLiveStats } from '../register/api';
 import { applyOrderEvent, fromSummary, type LiveSummary } from './stats-delta';
 ```
 
-- [ ] **Step 2: Swap the imperative ref for stats state**
+- [x] **Step 2: Swap the imperative ref for stats state**
 
 Reemplazar la línea `const statsPanelRef = useRef<OrderStatsPanelHandle>(null);` (junto a `inFlightRef`) por el estado de stats + un ref espejo de `orders`:
 
@@ -523,7 +523,7 @@ Reemplazar la línea `const statsPanelRef = useRef<OrderStatsPanelHandle>(null);
   useEffect(() => { ordersRef.current = orders; }, [orders]);
 ```
 
-- [ ] **Step 3: Add `fetchStats` (the only call to the heavy endpoint)**
+- [x] **Step 3: Add `fetchStats` (the only call to the heavy endpoint)**
 
 Agregar la función `fetchStats` justo antes de `async function fetchOrders(...)`:
 
@@ -544,7 +544,7 @@ Agregar la función `fetchStats` justo antes de `async function fetchOrders(...)
   }, []);
 ```
 
-- [ ] **Step 4: Fetch stats once when the session opens**
+- [x] **Step 4: Fetch stats once when the session opens**
 
 En `loadSession`, después de `await fetchOrders(null);` (en la rama de sesión abierta), agregar:
 
@@ -555,7 +555,7 @@ En `loadSession`, después de `await fetchOrders(null);` (en la rama de sesión 
       void fetchStats();
 ```
 
-- [ ] **Step 5: Apply the delta on `order:new` (always, before the filter guard)**
+- [x] **Step 5: Apply the delta on `order:new` (always, before the filter guard)**
 
 Reemplazar `handleNew` por:
 
@@ -577,7 +577,7 @@ Reemplazar `handleNew` por:
     };
 ```
 
-- [ ] **Step 6: Apply the delta on `order:updated` (needs the previous order)**
+- [x] **Step 6: Apply the delta on `order:updated` (needs the previous order)**
 
 Reemplazar `handleUpdated` por:
 
@@ -599,7 +599,7 @@ Reemplazar `handleUpdated` por:
     };
 ```
 
-- [ ] **Step 7: Refetch stats on SSE reconnect + render the panel by props**
+- [x] **Step 7: Refetch stats on SSE reconnect + render the panel by props**
 
 En `handleOpen` (reconexión), agregar el refetch de stats junto al de la lista:
 
@@ -625,7 +625,7 @@ Reemplazar el render `<OrderStatsPanel ref={statsPanelRef} />` por:
       />
 ```
 
-- [ ] **Step 8: Verify existing tests + typecheck still pass**
+- [x] **Step 8: Verify existing tests + typecheck still pass**
 
 Run: `docker compose exec -T res-ui node_modules/.bin/vitest run src/components/dash/orders/OrdersPanel.test.tsx`
 Expected: PASS (los tests actuales del panel siguen verdes con el nuevo wiring).
@@ -633,7 +633,7 @@ Expected: PASS (los tests actuales del panel siguen verdes con el nuevo wiring).
 Run: `docker compose exec -T res-ui node_modules/.bin/astro check 2>&1 | tail -5`
 Expected: sin errores nuevos de tipos en `OrdersPanel.tsx` / `OrderStatsPanel.tsx` (referencias a `OrderStatsPanelHandle`/`statsPanelRef` eliminadas).
 
-- [ ] **Step 9: Write the regression test (burst SSE = 0 refetch; button = 1)**
+- [x] **Step 9: Write the regression test (burst SSE = 0 refetch; button = 1)**
 
 En `apps/ui/src/components/dash/orders/OrdersPanel.test.tsx`, agregar al import de mocks de `'../register/api'` el handle de `getLiveStats` para assertions. Justo debajo de la línea `const mockGetOrders = vi.mocked(getOrders);`, agregar:
 
@@ -680,12 +680,12 @@ test('SSE burst does not refetch stats; the button refetches exactly once', asyn
 });
 ```
 
-- [ ] **Step 10: Run the regression test**
+- [x] **Step 10: Run the regression test**
 
 Run: `docker compose exec -T res-ui node_modules/.bin/vitest run src/components/dash/orders/OrdersPanel.test.tsx`
 Expected: PASS — incluyendo el nuevo test (1 fetch al abrir, 0 en la ráfaga, 2 tras el click).
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add apps/ui/src/components/dash/orders/OrdersPanel.tsx apps/ui/src/components/dash/orders/OrdersPanel.test.tsx
@@ -706,7 +706,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Files:**
 - Modify: `apps/api-core/docs/superpowers/specs/2026-06-07-orders-kiosk-money-audit-findings.md`
 
-- [ ] **Step 1: Run the three affected test files together**
+- [x] **Step 1: Run the three affected test files together**
 
 Run:
 ```bash
@@ -717,7 +717,7 @@ docker compose exec -T res-ui node_modules/.bin/vitest run \
 ```
 Expected: PASS en los tres (sin regresiones).
 
-- [ ] **Step 2: Mark R2-05 resolved in the audit findings**
+- [x] **Step 2: Mark R2-05 resolved in the audit findings**
 
 En `apps/api-core/docs/superpowers/specs/2026-06-07-orders-kiosk-money-audit-findings.md`:
 
@@ -729,7 +729,7 @@ En `apps/api-core/docs/superpowers/specs/2026-06-07-orders-kiosk-money-audit-fin
 > ✅ **RESUELTO (2026-06-09).** El endpoint pesado `GET /v1/cash-register/stats` ya no se refetchea por evento SSE: ahora solo corre en el botón "Actualizar", al abrir la sesión y en la reconexión SSE. Las stats del turno se actualizan en vivo por incremento local (`stats-delta.ts`, predicados idénticos a `cash-register-stats.service.ts`); `OrdersPanel` es dueño del `summary` y `OrderStatsPanel` quedó presentacional. Solo UI: `order:updated` no necesitó `totalAmount` porque la orden ya está en la lista local. Ver `apps/ui/docs/superpowers/specs/2026-06-09-orders-stats-live-increment-design.md` y su plan. La descripción de abajo se conserva como registro del hallazgo original.
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/api-core/docs/superpowers/specs/2026-06-07-orders-kiosk-money-audit-findings.md
