@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { getLiveStats } from '../register/api';
-import type { ShiftSummary } from '../register/api';
 import { useRestaurantSettings } from '../../../lib/restaurant-settings';
 import { formatMoney } from '../../../lib/money';
+import type { ShiftSummary } from '../register/api';
 
-export interface OrderStatsPanelHandle {
-  refresh: () => void;
+interface OrderStatsPanelProps {
+  summary: ShiftSummary | null;
+  loading: boolean;
+  lastUpdated: Date | null;
+  error: string | null;
+  onRefresh: () => void;
 }
 
 function formatLastUpdated(date: Date | null): string {
@@ -14,36 +16,16 @@ function formatLastUpdated(date: Date | null): string {
   return diffMin < 1 ? 'Ahora' : `Hace ${diffMin} min`;
 }
 
-const OrderStatsPanel = forwardRef<OrderStatsPanelHandle>(function OrderStatsPanel(_, ref) {
-  const [stats, setStats] = useState<ShiftSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [error, setError] = useState<string | null>(null);
+export default function OrderStatsPanel({
+  summary,
+  loading,
+  lastUpdated,
+  error,
+  onRefresh,
+}: OrderStatsPanelProps) {
   const { data: settings } = useRestaurantSettings();
   const formatCurrency = (v: number) => formatMoney(v, settings);
-
-  const fetchStats = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await getLiveStats();
-      if (!result.ok) {
-        setError('No se pudo actualizar');
-        return;
-      }
-      setStats(result.data.summary);
-      setLastUpdated(new Date());
-    } catch {
-      setError('No se pudo actualizar');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchStats(); }, [fetchStats]);
-
-  useImperativeHandle(ref, () => ({ refresh: fetchStats }), [fetchStats]);
-
+  const stats = summary;
   const maxQty = stats?.topProducts[0]?.quantity ?? 1;
 
   return (
@@ -64,7 +46,7 @@ const OrderStatsPanel = forwardRef<OrderStatsPanelHandle>(function OrderStatsPan
           <button
             type="button"
             aria-label="Actualizar"
-            onClick={fetchStats}
+            onClick={onRefresh}
             disabled={loading}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-medium hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
@@ -154,6 +136,4 @@ const OrderStatsPanel = forwardRef<OrderStatsPanelHandle>(function OrderStatsPan
       </div>
     </div>
   );
-});
-
-export default OrderStatsPanel;
+}

@@ -43,6 +43,8 @@ vi.stubGlobal('EventSource', NoopEventSource);
 import { getCurrentSession, getOrders } from './api';
 const mockGetCurrentSession = vi.mocked(getCurrentSession);
 const mockGetOrders = vi.mocked(getOrders);
+import { getLiveStats } from '../register/api';
+const mockGetLiveStats = vi.mocked(getLiveStats);
 
 afterEach(() => vi.clearAllMocks());
 
@@ -561,4 +563,38 @@ test('H-17: EventSource is created once per session, not on every render', async
   rerender(<OrdersPanel />);
   await new Promise((r) => setTimeout(r, 50));
   expect(constructorCallCount).toBe(1);
+});
+
+test('SSE burst does not refetch stats; the button refetches exactly once', async () => {
+  // EventSource que captura los listeners para poder disparar eventos a mano.
+  const listeners: Record<string, (e: MessageEvent) => void> = {};
+  class CapturingEventSource {
+    constructor(_url: string, _init?: EventSourceInit) {}
+    addEventListener(type: string, cb: (e: MessageEvent) => void) { listeners[type] = cb; }
+    close() {}
+  }
+  vi.stubGlobal('EventSource', CapturingEventSource);
+
+  mockGetCurrentSession.mockResolvedValue({
+    ok: true,
+    data: { id: 's1', status: 'OPEN', displayOpenedAt: 'now', displayClosedAt: null, closedBy: null, openedByEmail: 'a@b.com' },
+  } as any);
+  mockGetOrders.mockResolvedValue({ ok: true, data: [] } as any);
+
+  render(<OrdersPanel />);
+
+  // Fetch inicial de stats al abrir sesión.
+  await waitFor(() => expect(mockGetLiveStats).toHaveBeenCalledTimes(1));
+
+  // Ráfaga de eventos SSE: NO debe disparar más fetches del endpoint pesado.
+  act(() => {
+    listeners['order:new']?.(new MessageEvent('m', { data: JSON.stringify({ id: 'n1', status: 'CREATED', isPaid: false, totalAmount: 10 }) }));
+    listeners['order:new']?.(new MessageEvent('m', { data: JSON.stringify({ id: 'n2', status: 'CREATED', isPaid: false, totalAmount: 20 }) }));
+    listeners['order:updated']?.(new MessageEvent('m', { data: JSON.stringify({ id: 'n1', status: 'CONFIRMED', isPaid: false }) }));
+  });
+  expect(mockGetLiveStats).toHaveBeenCalledTimes(1);
+
+  // El botón "Actualizar" sí dispara exactamente un refetch.
+  fireEvent.click(screen.getByRole('button', { name: /actualizar/i }));
+  await waitFor(() => expect(mockGetLiveStats).toHaveBeenCalledTimes(2));
 });
