@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '../../commons/Providers';
 import { config } from '../../../config';
@@ -10,6 +10,8 @@ import {
   confirmOrder, unmarkOrderPaid,
 } from './api';
 import type { Order, CurrentSession } from './api';
+import { getLiveStats } from '../register/api';
+import { applyOrderEvent, fromSummary, type LiveSummary } from './stats-delta';
 import type { FilterValues } from './OrderFilterPanel';
 import OrdersKanban from './OrdersKanban';
 import OrdersFilteredList from './OrdersFilteredList';
@@ -17,7 +19,7 @@ import OrderFilterPanel from './OrderFilterPanel';
 import CancelOrderModal from './CancelOrderModal';
 import { ORDERS_STATUS, type OrdersStatus, type OrderStatus } from './types';
 import CreateOrderModal from './CreateOrderModal';
-import OrderStatsPanel, { type OrderStatsPanelHandle } from './OrderStatsPanel';
+import OrderStatsPanel from './OrderStatsPanel';
 
 interface ActiveFilter extends FilterValues {
   label: string;
@@ -45,7 +47,17 @@ export default function OrdersPanel() {
 
   // H-18: Track in-flight order mutations to prevent double-submit.
   const inFlightRef = useRef<Set<string>>(new Set());
-  const statsPanelRef = useRef<OrderStatsPanelHandle>(null);
+
+  // R2-05: stats del turno como estado del manager (antes vivían en OrderStatsPanel).
+  const [summary, setSummary] = useState<LiveSummary | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsLastUpdated, setStatsLastUpdated] = useState<Date | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
+  // ordersRef espeja `orders` para que los handlers SSE (closure con deps
+  // [status, session]) lean la lista actual sin recrear la conexión.
+  const ordersRef = useRef<Order[]>([]);
+  useEffect(() => { ordersRef.current = orders; }, [orders]);
 
   // Pending optimistic patches — applied immediately on action, removed on settle.
   // useOptimistic was the original intent but React 19's async transition scheduler
@@ -87,6 +99,21 @@ export default function OrdersPanel() {
     setTimeout(() => setToast(null), 3000);
   }
 
+  const fetchStats = useCallback(async () => {
+    setStatsLoading(true);
+    setStatsError(null);
+    try {
+      const result = await getLiveStats();
+      if (!result.ok) { setStatsError('No se pudo actualizar'); return; }
+      setSummary(fromSummary(result.data.summary));
+      setStatsLastUpdated(new Date());
+    } catch {
+      setStatsError('No se pudo actualizar');
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
   async function fetchOrders(filter: ActiveFilter | null) {
     const params: Parameters<typeof getOrders>[0] = { limit: 100 };
 
@@ -123,6 +150,7 @@ export default function OrdersPanel() {
       setSession(result.data);
       setStatus(ORDERS_STATUS.OPEN);
       await fetchOrders(null);
+      void fetchStats();
     } catch {
       setStatus(ORDERS_STATUS.ERROR);
     }
@@ -149,22 +177,33 @@ export default function OrdersPanel() {
     const es = new EventSource(`${config.apiUrl}/v1/events/dashboard`, { withCredentials: true });
 
     const handleNew = (e: MessageEvent) => {
-      if (activeFilterRef.current) return;
       try {
         const payload = JSON.parse(e.data) as OrderCreatedPayload;
         if (!payload?.id) return;
+        // Stats en vivo: se aplican SIEMPRE (son globales del turno, no dependen
+        // del filtro). order:new se entrega una sola vez (Subject sin replay),
+        // así que no hace falta dedup para el delta.
+        setSummary((prev) => (prev ? applyOrderEvent(prev, null, payload) : prev));
+        // Lista: solo sin filtro activo.
+        if (activeFilterRef.current) return;
         setOrders((prev) =>
           prev.some((o) => o.id === payload.id) ? prev : [payload as Order, ...prev],
         );
-        statsPanelRef.current?.refresh();
       } catch { /* ignore malformed payload */ }
     };
     const handleUpdated = (e: MessageEvent) => {
       try {
         const payload = JSON.parse(e.data) as OrderUpdatedPayload;
         if (!payload?.id) return;
+        // Delta de stats: restamos la contribución de la orden vieja y sumamos la
+        // nueva. Necesitamos la orden previa de la lista local; si no está
+        // (filtro, tope 100), se omite el delta (reconciliado por el botón).
+        const old = ordersRef.current.find((o) => o.id === payload.id);
+        if (old) {
+          const newOrder = { ...old, ...payload };
+          setSummary((s) => (s ? applyOrderEvent(s, old, newOrder) : s));
+        }
         setOrders((prev) => prev.map((o) => (o.id === payload.id ? { ...o, ...payload } : o)));
-        statsPanelRef.current?.refresh();
       } catch { /* ignore malformed payload */ }
     };
     // Skip refetch on the very first 'open' — loadSession() already fetched
@@ -173,7 +212,10 @@ export default function OrdersPanel() {
     // disconnected.
     let hasConnectedBefore = false;
     const handleOpen = () => {
-      if (hasConnectedBefore && !activeFilterRef.current) fetchOrders(null);
+      if (hasConnectedBefore && !activeFilterRef.current) {
+        fetchOrders(null);
+        void fetchStats();
+      }
       hasConnectedBefore = true;
     };
 
@@ -335,7 +377,13 @@ export default function OrdersPanel() {
         </div>
       </div>
 
-      <OrderStatsPanel ref={statsPanelRef} />
+      <OrderStatsPanel
+        summary={summary}
+        loading={statsLoading}
+        lastUpdated={statsLastUpdated}
+        error={statsError}
+        onRefresh={fetchStats}
+      />
 
       {activeFilter ? (
         <OrdersFilteredList
