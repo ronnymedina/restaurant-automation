@@ -67,6 +67,10 @@ function mutate(summary: LiveSummary, order: OrderLike, sign: 1 | -1): void {
  * - order:new      → applyOrderEvent(summary, null, payload)
  * - order:updated  → applyOrderEvent(summary, oldOrder, { ...oldOrder, ...payload })
  * No muta el summary de entrada.
+ *
+ * NOTA: sólo `counts` y `revenue` se mantienen de forma incremental.
+ * `byPaymentMethod`, `byOrderType`, `byOrderSource` y `topProducts` se heredan
+ * sin cambios del último `fromSummary` autoritativo y sólo se actualizan al refrescar.
  */
 export function applyOrderEvent(
   summary: LiveSummary,

@@ -68,6 +68,16 @@ describe('applyOrderEvent', () => {
     expect(input.counts.total).toBe(0);
     expect(input.revenue.pending).toBe(0);
   });
+
+  test('order removed (newOrder=null) resta la contribución previa', () => {
+    let s = applyOrderEvent(baseline(), null, { status: 'COMPLETED', isPaid: true, totalAmount: 100 });
+    s = applyOrderEvent(s, { status: 'COMPLETED', isPaid: true, totalAmount: 100 }, null);
+    expect(s.counts.total).toBe(0);
+    expect(s.counts.completed).toBe(0);
+    expect(s.revenue.collected).toBe(0);
+    expect(s.paidCount).toBe(0);
+    expect(s.revenue.averageTicket).toBe(0);
+  });
 });
 
 describe('fromSummary', () => {
