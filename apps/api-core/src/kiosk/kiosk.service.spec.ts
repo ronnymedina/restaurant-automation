@@ -329,14 +329,12 @@ describe('KioskService', () => {
   // ── getMenuItems ──────────────────────────────────────────────────
 
   describe('getMenuItems', () => {
-    const buildMenu = (stock: number | null, productStock: number | null) => ({
+    const buildMenu = (productStock: number | null) => ({
       id: 'm1',
       name: 'Menu',
       items: [{
         id: 'mi1',
         sectionName: 'Burgers',
-        stock,
-        price: null,
         product: { id: 'p1', name: 'Burger', description: null, price: 10, imageUrl: null, stock: productStock },
       }],
     });
@@ -351,53 +349,36 @@ describe('KioskService', () => {
     });
 
     it('returns AVAILABLE when effective stock is null (infinite)', async () => {
-      mockMenuRepository.findByIdWithItems.mockResolvedValue(buildMenu(null, null));
+      mockMenuRepository.findByIdWithItems.mockResolvedValue(buildMenu(null));
       const result = await service.getMenuItems('test-rest', 'm1');
       expect(result.sections['Burgers'][0].stockStatus).toBe(STOCK_STATUS.AVAILABLE);
     });
 
     it('returns OUT_OF_STOCK when effective stock is 0', async () => {
-      mockMenuRepository.findByIdWithItems.mockResolvedValue(buildMenu(0, null));
+      mockMenuRepository.findByIdWithItems.mockResolvedValue(buildMenu(0));
       const result = await service.getMenuItems('test-rest', 'm1');
       expect(result.sections['Burgers'][0].stockStatus).toBe(STOCK_STATUS.OUT_OF_STOCK);
     });
 
     it('returns LOW_STOCK when effective stock is <= 3', async () => {
-      mockMenuRepository.findByIdWithItems.mockResolvedValue(buildMenu(2, null));
+      mockMenuRepository.findByIdWithItems.mockResolvedValue(buildMenu(2));
       const result = await service.getMenuItems('test-rest', 'm1');
       expect(result.sections['Burgers'][0].stockStatus).toBe(STOCK_STATUS.LOW_STOCK);
     });
 
     it('returns AVAILABLE when effective stock > 3', async () => {
-      mockMenuRepository.findByIdWithItems.mockResolvedValue(buildMenu(10, null));
+      mockMenuRepository.findByIdWithItems.mockResolvedValue(buildMenu(10));
       const result = await service.getMenuItems('test-rest', 'm1');
       expect(result.sections['Burgers'][0].stockStatus).toBe(STOCK_STATUS.AVAILABLE);
     });
 
-    it('uses product stock when item stock is null', async () => {
-      mockMenuRepository.findByIdWithItems.mockResolvedValue(buildMenu(null, 1));
+    it('deriva el stockStatus del stock del producto (R2-08: sin override de stock por menú)', async () => {
+      mockMenuRepository.findByIdWithItems.mockResolvedValue(buildMenu(1));
       const result = await service.getMenuItems('test-rest', 'm1');
       expect(result.sections['Burgers'][0].stockStatus).toBe(STOCK_STATUS.LOW_STOCK);
     });
 
-    it('uses item price (in pesos) when item.price is not null — converts centavos via fromCents', async () => {
-      const menu = {
-        id: 'm1',
-        name: 'Menu',
-        items: [{
-          id: 'mi1',
-          sectionName: null,
-          stock: null,
-          price: BigInt(1500),
-          product: { id: 'p1', name: 'Burger', description: null, price: BigInt(1000), imageUrl: null, stock: null },
-        }],
-      };
-      mockMenuRepository.findByIdWithItems.mockResolvedValue(menu);
-      const result = await service.getMenuItems('test-rest', 'm1');
-      expect(result.sections['General'][0].price).toBe(15); // 1500 centavos → 15 pesos
-    });
-
-    it('applies fromCents to product.price when menuItem.price is null (H-01 regression test)', async () => {
+    it('applies fromCents to product.price (R2-08: ya no hay override de precio por menú)', async () => {
       const menu = {
         id: 'm1',
         name: 'Menu',

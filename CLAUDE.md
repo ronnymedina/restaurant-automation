@@ -98,7 +98,7 @@ All routes are prefixed with `/v1/`. Swagger UI available at `/docs` in developm
 
 Everything is scoped to a `restaurantId`. Key relationships:
 - `Restaurant` → `User`, `Product`, `Menu`, `Category`, `Order`, `CashShift`
-- `Menu` ←→ `Product` via `MenuItem` (pivot with optional price/stock overrides)
+- `Menu` ←→ `Product` via `MenuItem` (pivot; price/stock always come from `Product` — per-menu overrides were removed)
 - `Order` → `OrderItem` → `Product` (optionally via `MenuItem`)
 - `CashShift` contains `Order`s; tracks sequential `orderNumber`
 

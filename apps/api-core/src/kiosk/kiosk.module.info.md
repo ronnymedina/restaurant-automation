@@ -150,7 +150,7 @@ E2E: ✅ `test/kiosk/kioskMenuItems.e2e-spec.ts`
 | Slug no existe | 404 | `ENTITY_NOT_FOUND` |
 | `menuId` no existe | 404 | `ENTITY_NOT_FOUND` |
 | No requiere token | 200 | Endpoint público |
-| `price` como number en **pesos** (no centavos) | 200 | El servicio aplica `fromCents` a `item.price ?? item.product.price` antes de devolver. Ver H-01 regression test |
+| `price` como number en **pesos** (no centavos) | 200 | El servicio aplica `fromCents` a `item.product.price` antes de devolver. Ver H-01 regression test |
 | `stockStatus` refleja disponibilidad | 200 | Derivado del stock del producto |
 
 ---
