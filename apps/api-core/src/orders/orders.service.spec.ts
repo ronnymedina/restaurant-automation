@@ -521,7 +521,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
-        price: 5,
+        price: 5n,
         stock: 10,
         name: 'Widget',
       });
@@ -541,7 +541,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
-        price: 5,
+        price: 5n,
         stock: null,
         name: 'Widget',
       });
@@ -562,7 +562,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'other',
-        price: 5,
+        price: 5n,
         stock: 10,
         name: 'Widget',
       });
@@ -576,7 +576,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
-        price: 5,
+        price: 5n,
         stock: 1,
         name: 'Widget',
       });
@@ -592,7 +592,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
-        price: 5,
+        price: 5n,
         stock: null,
         name: 'Widget',
       });
@@ -608,7 +608,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
-        price: 5,
+        price: 5n,
         stock: null,
         name: 'Widget',
       });
@@ -616,7 +616,7 @@ describe('OrdersService', () => {
       const dto = { ...baseDto, items: [{ productId: 'p1', menuItemId: 'mi1', quantity: 1 }] };
       const result = await service.createOrder('r1', 'session1', dto as any);
       expect(mockOrderRepository.createWithItems).toHaveBeenCalledWith(
-        expect.objectContaining({ totalAmount: 5 }),
+        expect.objectContaining({ totalAmount: 5n }),
         expect.anything(),
       );
       expect(result).toBeDefined();
@@ -626,7 +626,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
-        price: 5,
+        price: 5n,
         stock: 10,
         name: 'Widget',
       });
@@ -642,7 +642,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
-        price: 5,
+        price: 5n,
         stock: 10,
         name: 'Widget',
       });
@@ -659,7 +659,7 @@ describe('OrdersService', () => {
 
     it('passes customerPhone, deliveryAddress and deliveryReferences to repository', async () => {
       mockPrisma.product.findUnique.mockResolvedValue({
-        id: 'p1', restaurantId: 'r1', price: 5, stock: 10, name: 'Widget',
+        id: 'p1', restaurantId: 'r1', price: 5n, stock: 10, name: 'Widget',
       });
       mockPrisma.product.updateMany.mockResolvedValue({ count: 1 });
 
@@ -685,7 +685,7 @@ describe('OrdersService', () => {
 
     it('increments the order counter inside the main transaction (after lock acquisition)', async () => {
       mockPrisma.product.findUnique.mockResolvedValue({
-        id: 'p1', restaurantId: 'r1', price: 5, stock: null, name: 'Widget',
+        id: 'p1', restaurantId: 'r1', price: 5n, stock: null, name: 'Widget',
       });
 
       await service.createOrder('r1', 'session1', baseDto as any);

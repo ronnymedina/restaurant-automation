@@ -30,8 +30,8 @@ type OrderItemEntry = {
   productId: string;
   menuItemId?: string;
   quantity: number;
-  unitPrice: number;
-  subtotal: number;
+  unitPrice: bigint;
+  subtotal: bigint;
   notes?: string;
 };
 
@@ -358,7 +358,7 @@ export class OrdersService {
     restaurantId: string,
     dto: CreateOrderDto,
     tx: Prisma.TransactionClient,
-  ): Promise<{ orderItems: OrderItemEntry[]; stockEntries: StockEntry[]; totalAmount: number }> {
+  ): Promise<{ orderItems: OrderItemEntry[]; stockEntries: StockEntry[]; totalAmount: bigint }> {
     const orderItems: OrderItemEntry[] = [];
     const stockEntries: StockEntry[] = [];
 
@@ -368,7 +368,7 @@ export class OrdersService {
         throw new StockInsufficientException(item.productId, 0, item.quantity);
       }
 
-      const unitPrice = Number(product.price);
+      const unitPrice = product.price; // bigint, ya en centavos
 
       this.validateStock(product, item);
 
@@ -377,13 +377,13 @@ export class OrdersService {
         menuItemId: item.menuItemId,
         quantity: item.quantity,
         unitPrice,
-        subtotal: unitPrice * item.quantity,
+        subtotal: unitPrice * BigInt(item.quantity),
         notes: item.notes,
       });
       stockEntries.push({ product, item });
     }
 
-    const totalAmount = orderItems.reduce((sum, i) => sum + i.subtotal, 0);
+    const totalAmount = orderItems.reduce((sum, i) => sum + i.subtotal, 0n);
     return { orderItems, stockEntries, totalAmount };
   }
 
@@ -396,11 +396,9 @@ export class OrdersService {
     }
   }
 
-  private validateExpectedTotal(totalAmount: number, expectedTotal?: bigint): void {
-    // totalAmount is in Number centavos (computed in validateAndBuildItems).
-    // expectedTotal arrives as BigInt centavos (DTO @Transform(toCents)).
-    // Both sides are now in centavos: exact equality, no floating-point tolerance.
-    if (expectedTotal !== undefined && BigInt(totalAmount) !== expectedTotal) {
+  private validateExpectedTotal(totalAmount: bigint, expectedTotal?: bigint): void {
+    // Ambos lados en centavos bigint: igualdad exacta, sin BigInt(number) ni float.
+    if (expectedTotal !== undefined && totalAmount !== expectedTotal) {
       throw new BadRequestException(
         'Los precios de tu pedido han cambiado. Por favor revisa el carrito e intenta de nuevo.',
       );
@@ -440,7 +438,7 @@ export class OrdersService {
     params: {
       restaurantId: string;
       cashShiftId: string;
-      totalAmount: number;
+      totalAmount: bigint;
       dto: CreateOrderDto;
       orderItems: OrderItemEntry[];
       orderNumber: number;

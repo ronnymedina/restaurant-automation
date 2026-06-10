@@ -12,7 +12,7 @@ const ORDER_WITH_ITEMS = {
 
 export interface CreateOrderData {
   orderNumber: number;
-  totalAmount: number;
+  totalAmount: bigint;
   restaurantId: string;
   cashShiftId: string;
   paymentMethod?: PaymentMethod;
@@ -29,8 +29,8 @@ export interface CreateOrderData {
     productId: string;
     menuItemId?: string;
     quantity: number;
-    unitPrice: number;
-    subtotal: number;
+    unitPrice: bigint;
+    subtotal: bigint;
     notes?: string;
   }[];
 }
