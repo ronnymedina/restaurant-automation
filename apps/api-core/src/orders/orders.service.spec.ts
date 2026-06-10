@@ -23,6 +23,7 @@ const mockOrderRepository = {
   createWithItems: jest.fn(),
   updateStatus: jest.fn(),
   cancelOrderIfCancellable: jest.fn(),
+  restoreStockForOrder: jest.fn(),
   listOrders: jest.fn(),
   findHistory: jest.fn(),
   transitionStatusIfMatches: jest.fn(),
@@ -199,6 +200,58 @@ describe('OrdersService', () => {
         expect.objectContaining({ id: cancelled.id, status: cancelled.status, isPaid: cancelled.isPaid }),
         expect.objectContaining({ id: cancelled.id, orderNumber: cancelled.orderNumber }),
       );
+    });
+
+    // --- Stock restoration (audit R2-11) ----------------------------------
+    it('restaura stock al cancelar una orden CREATED', async () => {
+      stubTxWithOrders(makeOrder({ status: OrderStatus.CREATED, isPaid: false }));
+      mockOrderRepository.cancelOrderIfCancellable.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CANCELLED }));
+
+      await service.cancelOrder('o1', 'r1', 'reason');
+
+      expect(mockOrderRepository.restoreStockForOrder).toHaveBeenCalledWith(expect.anything(), 'o1');
+    });
+
+    it('restaura stock al cancelar una orden CONFIRMED', async () => {
+      stubTxWithOrders(makeOrder({ status: OrderStatus.CONFIRMED, isPaid: false }));
+      mockOrderRepository.cancelOrderIfCancellable.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CANCELLED }));
+
+      await service.cancelOrder('o1', 'r1', 'reason');
+
+      expect(mockOrderRepository.restoreStockForOrder).toHaveBeenCalledWith(expect.anything(), 'o1');
+    });
+
+    it('NO restaura stock al cancelar una orden PROCESSING', async () => {
+      stubTxWithOrders(makeOrder({ status: OrderStatus.PROCESSING, isPaid: false }));
+      mockOrderRepository.cancelOrderIfCancellable.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CANCELLED }));
+
+      await service.cancelOrder('o1', 'r1', 'reason');
+
+      expect(mockOrderRepository.restoreStockForOrder).not.toHaveBeenCalled();
+    });
+
+    it('NO restaura stock al cancelar una orden SERVED', async () => {
+      stubTxWithOrders(makeOrder({ status: OrderStatus.SERVED, isPaid: false }));
+      mockOrderRepository.cancelOrderIfCancellable.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CANCELLED }));
+
+      await service.cancelOrder('o1', 'r1', 'reason');
+
+      expect(mockOrderRepository.restoreStockForOrder).not.toHaveBeenCalled();
+    });
+
+    it('NO restaura stock si pierde la carrera (count=0) en CREATED', async () => {
+      stubTxWithOrders(
+        makeOrder({ status: OrderStatus.CREATED, isPaid: false }),
+        makeOrder({ status: OrderStatus.CREATED, isPaid: false }),
+      );
+      mockOrderRepository.cancelOrderIfCancellable.mockResolvedValue(0);
+
+      await expect(service.cancelOrder('o1', 'r1', 'reason')).rejects.toThrow(InvalidStatusTransitionException);
+      expect(mockOrderRepository.restoreStockForOrder).not.toHaveBeenCalled();
     });
 
     // --- Race detection (audit R2-01) -------------------------------------

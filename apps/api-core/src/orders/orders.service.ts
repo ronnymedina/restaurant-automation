@@ -189,6 +189,17 @@ export class OrdersService {
         // derivó de otra forma (p.ej. avanzó). Surface InvalidStatusTransition.
         throw new InvalidStatusTransitionException(fresh.status, OrderStatus.CANCELLED);
       }
+
+      // R2-11: restaurar stock solo si se canceló ANTES de cocinar. El corte coincide
+      // con CONFIRMED→PROCESSING ("la comanda entra a cocina"). Idempotente: solo
+      // llegamos acá con count===1 (ganamos la única cancelación posible). En
+      // PROCESSING/SERVED no se restaura (se asume que el insumo ya se consumió).
+      if (
+        order.status === OrderStatus.CREATED ||
+        order.status === OrderStatus.CONFIRMED
+      ) {
+        await this.orderRepository.restoreStockForOrder(tx, id);
+      }
     });
 
     // Re-fetch DESPUÉS del commit con el loader canónico (items eager, BigInt

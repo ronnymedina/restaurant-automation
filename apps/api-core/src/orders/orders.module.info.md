@@ -298,8 +298,14 @@ flowchart TD
 - **`CreateOrderDto.expectedTotal`** acepta `number` en pesos en la request, pero internamente se transforma a `bigint` centavos vía `@Transform(toCents)`. La validación `validateExpectedTotal` compara `totalAmount === expectedTotal` exactamente (ambos `bigint` centavos, sin `BigInt(number)` ni coma flotante; ver R2-06). Antes existía un mismatch de unidades entre kiosk (centavos) y backend (centavos) que pasaba por accidente; ver H-01 en `docs/superpowers/specs/2026-05-24-orders-cash-kitchen-audit-findings.md`.
 - Máquina de estados de orden:
   - Flujo normal: `CREATED → PROCESSING → SERVED → COMPLETED`
-  - Cancelación: `CREATED` o `PROCESSING → CANCELLED`
-  - `COMPLETED` no puede cancelarse
+  - Cancelación: desde `CREATED`, `CONFIRMED`, `PROCESSING` o `SERVED` → `CANCELLED`
+  - `COMPLETED` no puede cancelarse; tampoco una orden pagada (`isPaid=true`)
+  - **Stock al cancelar (R2-11):** si la orden estaba en `CREATED` o `CONFIRMED`
+    (aún no entró a cocina), el stock de los ítems se **restaura** al inventario
+    dentro de la misma transacción (espejo de `decrementAllStock`, solo productos
+    con `stock !== null`, idempotente vía el guard `cancelOrderIfCancellable`). Si
+    estaba en `PROCESSING`/`SERVED`, el stock **no** se restaura (se asume que el
+    insumo ya se consumió)
   - `CANCELLED` no puede avanzar
   - Retroceder el estado lanza `INVALID_STATUS_TRANSITION`
   - Dashboard transiciones:
