@@ -127,7 +127,7 @@ export class OrdersController {
   }
 
   @Patch(':id/pay')
-  @ApiOperation({ summary: 'Marcar orden como pagada. Acepta paymentMethod opcional.' })
+  @ApiOperation({ summary: 'Marcar orden como pagada. Requiere paymentMethod.' })
   @ApiParam({ name: 'id', description: 'ID de la orden', type: String })
   @ApiResponse({ status: 200, description: 'Orden marcada como pagada', type: OrderDto })
   @ApiResponse({ status: 404, description: 'Orden no encontrada' })

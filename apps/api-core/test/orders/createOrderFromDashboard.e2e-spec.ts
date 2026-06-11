@@ -172,7 +172,7 @@ describe('PATCH /v1/orders/:id/pay con paymentMethod (e2e)', () => {
 
   afterAll(async () => { await app.close(); });
 
-  it('/pay sin body → 200, paymentMethod sigue null', async () => {
+  it('/pay sin paymentMethod → 400 (requerido; ver commit 1dd5502)', async () => {
     const product = await seedProduct(prisma, restaurantId, categoryId);
 
     const created = await request(app.getHttpServer())
@@ -182,14 +182,11 @@ describe('PATCH /v1/orders/:id/pay con paymentMethod (e2e)', () => {
       .send({ items: [{ productId: product.id, quantity: 1 }], orderType: 'PICKUP' })
       .expect(201);
 
-    const res = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .patch(`/v1/orders/${created.body.order.id}/pay`)
       .set('Cookie', adminToken)
       .set('Origin', ALLOWED_TEST_ORIGIN)
-      .expect(200);
-
-    expect(res.body.isPaid).toBe(true);
-    expect(res.body.paymentMethod).toBeNull();
+      .expect(400);
   });
 
   it('/pay con paymentMethod: CASH → 200, paymentMethod guardado', async () => {
