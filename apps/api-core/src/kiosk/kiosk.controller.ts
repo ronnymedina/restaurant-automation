@@ -79,9 +79,13 @@ export class KioskController {
     @Param('slug') slug: string,
     @Param('orderId') orderId: string,
   ) {
-    await this.kioskService.resolveRestaurant(slug);
+    const restaurant = await this.kioskService.resolveRestaurant(slug);
     const order = await this.orderRepository.findById(orderId);
-    if (!order) throw new EntityNotFoundException('Order', orderId);
+    // R2-12: validar pertenencia al restaurante del slug. Sin esto, conocer un
+    // orderId (UUID) permitía leer el estado de una orden de otro restaurante.
+    if (!order || order.restaurantId !== restaurant.id) {
+      throw new EntityNotFoundException('Order', orderId);
+    }
     const orderWithItems = order as typeof order & {
       items: Prisma.OrderItemGetPayload<{ include: { product: true } }>[];
     };

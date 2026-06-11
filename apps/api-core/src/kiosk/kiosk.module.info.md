@@ -183,6 +183,7 @@ E2E: ✅ `test/kiosk/kioskOrderStatus.e2e-spec.ts`
 | Orden existente | 200 | Retorna `KioskOrderStatusDto` |
 | No requiere token | 200 | Endpoint público |
 | `orderId` no existe | 404 | `ENTITY_NOT_FOUND` |
+| Orden de otro restaurante (slug ajeno) | 404 | `ENTITY_NOT_FOUND` (R2-12) |
 | Slug no existe | 404 | `ENTITY_NOT_FOUND` |
 | `totalAmount` como number | 200 | BigInt serializado a number |
 | Estado actualizado reflejado | 200 | Permite polling del estado desde el kiosk |
@@ -199,4 +200,4 @@ E2E: ✅ `test/kiosk/kioskOrderStatus.e2e-spec.ts`
 - **Precios del menú (kiosk) en pesos**: el endpoint `GET /:slug/menus/:menuId/items` aplica `fromCents()` a los precios crudos (BigInt centavos) antes de exponerlos. Igual convención que `ProductListSerializer` del dashboard. Sin esto, el frontend del kiosk recibiría centavos y mostraría precios inflados 100× (bug H-01 — ver `apps/api-core/docs/superpowers/specs/2026-05-24-orders-cash-kitchen-audit-findings.md`).
 - **`expectedTotal` en pesos**: el cliente del kiosk envía `expectedTotal` en pesos (decimal). El DTO `CreateOrderDto` aplica `@Transform(toCents)` internamente y la validación compara BigInt centavos con exactitud (sin tolerancia de coma flotante).
 - `receipt` y `kitchenTicket` en la respuesta de creación son strings HTML/texto generados por `PrintService`; pueden ser `null` si el servicio de impresión falla (fire-and-forget — nunca bloquea la respuesta)
-- El endpoint `GET /:slug/orders/:orderId` no valida que la orden pertenezca al restaurante del slug más allá de resolver el restaurante — es intencional para simplificar el polling desde el kiosk
+- El endpoint `GET /:slug/orders/:orderId` **valida que la orden pertenezca al restaurante del slug** (`order.restaurantId === restaurant.id`) y devuelve `404` si no coincide — cierra un IDOR por el que, conociendo un `orderId`, se podía leer el estado de una orden de otro restaurante (audit R2-12)

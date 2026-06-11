@@ -58,4 +58,21 @@ describe('GET /v1/kiosk/:slug/orders/:orderId - kioskOrderStatus (e2e) [PUBLIC]'
     expect(Array.isArray(res.body.items)).toBe(true);
     expect(res.body.createdAt).toBeDefined();
   });
+
+  it('Orden de otro restaurante vía slug ajeno → 404 (R2-12)', async () => {
+    // Restaurante B con su propia orden
+    const restB = await seedRestaurant(prisma, 'B');
+    const productB = await seedProduct(prisma, restB.restaurant.id, restB.category.id);
+    await openCashShift(prisma, restB.restaurant.id, restB.admin.id);
+    const resB = await request(app.getHttpServer())
+      .post(`/v1/kiosk/${restB.restaurant.slug}/orders`)
+      .send({ items: [{ productId: productB.id, quantity: 1 }] })
+      .expect(201);
+    const orderIdB = resB.body.order.id;
+
+    // Consultar la orden de B usando el slug de A → no debe filtrarse
+    await request(app.getHttpServer())
+      .get(`/v1/kiosk/${slug}/orders/${orderIdB}`)
+      .expect(404);
+  });
 });
