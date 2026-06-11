@@ -142,7 +142,7 @@ describe('PATCH /v1/orders/:id/pay - markOrderAsPaid (e2e)', () => {
     expect(res.body.status).toBe(order.status);
   });
 
-  it('Pagar orden en SERVED avanza automáticamente a COMPLETED → status: COMPLETED, isPaid: true', async () => {
+  it('Pagar orden en SERVED NO la auto-avanza: queda SERVED + isPaid (cobro en dos pasos, R2-02)', async () => {
     const product = await seedProduct(prisma, restaurantId, categoryId);
     const shift = await openCashShift(prisma, restaurantId, adminId);
     const order = await seedOrder(prisma, restaurantId, shift.id, product.id, { status: 'SERVED' });
@@ -155,7 +155,7 @@ describe('PATCH /v1/orders/:id/pay - markOrderAsPaid (e2e)', () => {
       .expect(200);
 
     expect(res.body.isPaid).toBe(true);
-    expect(res.body.status).toBe('COMPLETED');
+    expect(res.body.status).toBe('SERVED'); // markAsPaid ya no auto-completa; avanzar es un paso aparte
     expect(res.body.paymentMethod).toBe('CARD');
   });
 });

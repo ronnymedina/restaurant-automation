@@ -7,6 +7,7 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 import { bootstrapApp, seedRestaurant, seedProduct, openCashShift } from './kiosk.helpers';
 
 const TEST_DB = path.resolve(__dirname, 'test-kiosk-order-status.db');
@@ -28,6 +29,7 @@ describe('GET /v1/kiosk/:slug/orders/:orderId - kioskOrderStatus (e2e) [PUBLIC]'
     // Create an order via kiosk to get a real orderId
     const res = await request(app.getHttpServer())
       .post(`/v1/kiosk/${slug}/orders`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [{ productId: product.id, quantity: 1 }] })
       .expect(201);
     orderId = res.body.order.id;
@@ -66,6 +68,7 @@ describe('GET /v1/kiosk/:slug/orders/:orderId - kioskOrderStatus (e2e) [PUBLIC]'
     await openCashShift(prisma, restB.restaurant.id, restB.admin.id);
     const resB = await request(app.getHttpServer())
       .post(`/v1/kiosk/${restB.restaurant.slug}/orders`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [{ productId: productB.id, quantity: 1 }] })
       .expect(201);
     const orderIdB = resB.body.order.id;

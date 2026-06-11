@@ -10,15 +10,17 @@ import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { loginCookie } from '../helpers/auth-cookie';
 
-export async function bootstrapApp(dbPath: string): Promise<{
+// El parámetro `_dbPath` se conserva por compatibilidad con los callers pero se
+// ignora: los e2e de kiosk corren contra el Postgres de Docker (igual que los de
+// orders). El camino SQLite (better-sqlite3) crasheaba el init de NestJS con un
+// stack overflow del cliente Prisma/WASM; ver orders.helpers para el mismo patrón.
+export async function bootstrapApp(_dbPath?: string): Promise<{
   moduleFixture: TestingModule;
   app: INestApplication<App>;
   prisma: PrismaService;
 }> {
-  process.env.DATABASE_URL = `file:${dbPath}`;
-
-  execSync('npx prisma db push', {
-    env: { ...process.env, DATABASE_URL: `file:${dbPath}` },
+  execSync('pnpm exec prisma migrate deploy', {
+    env: process.env,
     stdio: 'pipe',
   });
 

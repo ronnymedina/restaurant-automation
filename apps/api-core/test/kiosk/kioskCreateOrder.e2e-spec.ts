@@ -7,6 +7,7 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
 import {
   bootstrapApp, seedRestaurant, seedProduct, openCashShift,
 } from './kiosk.helpers';
@@ -50,6 +51,7 @@ describe('POST /v1/kiosk/:slug/orders - kioskCreateOrder (e2e) [PUBLIC]', () => 
     // PUBLIC — no token needed
     await request(app.getHttpServer())
       .post('/v1/kiosk/slug-inexistente/orders')
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [{ productId, quantity: 1 }] })
       .expect(404);
   });
@@ -58,6 +60,7 @@ describe('POST /v1/kiosk/:slug/orders - kioskCreateOrder (e2e) [PUBLIC]', () => 
     // PUBLIC — no token needed
     const res = await request(app.getHttpServer())
       .post(`/v1/kiosk/${slugNoShift}/orders`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [{ productId, quantity: 1 }] })
       .expect(409);
 
@@ -68,6 +71,7 @@ describe('POST /v1/kiosk/:slug/orders - kioskCreateOrder (e2e) [PUBLIC]', () => 
     // PUBLIC — no token needed
     const res = await request(app.getHttpServer())
       .post(`/v1/kiosk/${slug}/orders`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [{ productId, quantity: 1 }] })
       .expect(201);
 
@@ -81,12 +85,14 @@ describe('POST /v1/kiosk/:slug/orders - kioskCreateOrder (e2e) [PUBLIC]', () => 
     // First order consumes the stock=1 product
     await request(app.getHttpServer())
       .post(`/v1/kiosk/${slug}/orders`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [{ productId: productIdLowStock, quantity: 1 }] })
       .expect(201);
 
     // Second order should fail — stock is now 0
     const res = await request(app.getHttpServer())
       .post(`/v1/kiosk/${slug}/orders`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [{ productId: productIdLowStock, quantity: 1 }] })
       .expect(409);
 
@@ -99,6 +105,7 @@ describe('POST /v1/kiosk/:slug/orders - kioskCreateOrder (e2e) [PUBLIC]', () => 
     // PUBLIC — no token needed
     const res = await request(app.getHttpServer())
       .post(`/v1/kiosk/${slug}/orders`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [] })
       .expect(201);
 
@@ -110,6 +117,7 @@ describe('POST /v1/kiosk/:slug/orders - kioskCreateOrder (e2e) [PUBLIC]', () => 
     // PUBLIC — no token needed
     await request(app.getHttpServer())
       .post(`/v1/kiosk/${slug}/orders`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [{ productId, quantity: 0 }] })
       .expect(400);
   });
@@ -118,6 +126,7 @@ describe('POST /v1/kiosk/:slug/orders - kioskCreateOrder (e2e) [PUBLIC]', () => 
     // seedProduct price is BigInt(1000) centavos = $10. 2 units = $20 expected.
     const res = await request(app.getHttpServer())
       .post(`/v1/kiosk/${slug}/orders`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [{ productId, quantity: 2 }], expectedTotal: 20 })
       .expect(201);
 
@@ -128,6 +137,7 @@ describe('POST /v1/kiosk/:slug/orders - kioskCreateOrder (e2e) [PUBLIC]', () => 
     // Product is $10. Sending expectedTotal: 5 (pesos) for 1 unit should fail.
     await request(app.getHttpServer())
       .post(`/v1/kiosk/${slug}/orders`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [{ productId, quantity: 1 }], expectedTotal: 5 })
       .expect(400);
   });
@@ -137,6 +147,7 @@ describe('POST /v1/kiosk/:slug/orders - kioskCreateOrder (e2e) [PUBLIC]', () => 
     // to bound DoS via huge payloads and limit blast radius of any future renderer mistake.
     await request(app.getHttpServer())
       .post(`/v1/kiosk/${slug}/orders`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [{ productId, quantity: 1, notes: 'x'.repeat(501) }] })
       .expect(400);
   });
@@ -144,6 +155,7 @@ describe('POST /v1/kiosk/:slug/orders - kioskCreateOrder (e2e) [PUBLIC]', () => 
   it('notes exactamente 500 caracteres → 201 (H-03 regression boundary)', async () => {
     await request(app.getHttpServer())
       .post(`/v1/kiosk/${slug}/orders`)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
       .send({ items: [{ productId, quantity: 1, notes: 'x'.repeat(500) }] })
       .expect(201);
   });
