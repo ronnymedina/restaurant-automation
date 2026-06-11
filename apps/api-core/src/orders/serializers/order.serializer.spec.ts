@@ -61,17 +61,18 @@ describe('OrderSerializer (H-22)', () => {
     expect(plain.customerEmail).toBe('c@e.com');
   });
 
-  it('maneja menuItem.priceOverride si está presente', () => {
+  it('serializa el menuItem con su id (R2-08: sin priceOverride)', () => {
     const withMenuItem = {
       ...partial,
       items: [
         {
           ...partial.items[0],
-          menuItem: { id: 'mi1', priceOverride: 3000n },
+          menuItem: { id: 'mi1' },
         },
       ],
     };
     const plain = instanceToPlain(new OrderSerializer(withMenuItem as any));
-    expect((plain.items as any[])[0].menuItem.priceOverride).toBe(30);
+    expect((plain.items as any[])[0].menuItem.id).toBe('mi1');
+    expect((plain.items as any[])[0].menuItem.priceOverride).toBeUndefined();
   });
 });

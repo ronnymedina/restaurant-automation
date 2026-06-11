@@ -154,11 +154,11 @@ function SettingsFormContent() {
           </legend>
           <label className="inline-flex items-center mr-4">
             <input type="radio" value="," {...register('decimalSeparator')} />
-            <span className="ml-2 text-sm">Punto (1.234,56)</span>
+            <span className="ml-2 text-sm">Coma decimal (1.234,56)</span>
           </label>
           <label className="inline-flex items-center">
             <input type="radio" value="." {...register('decimalSeparator')} />
-            <span className="ml-2 text-sm">Coma (1,234.56)</span>
+            <span className="ml-2 text-sm">Punto decimal (1,234.56)</span>
           </label>
         </fieldset>
 

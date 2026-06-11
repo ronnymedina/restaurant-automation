@@ -23,6 +23,7 @@ const mockOrderRepository = {
   createWithItems: jest.fn(),
   updateStatus: jest.fn(),
   cancelOrderIfCancellable: jest.fn(),
+  restoreStockForOrder: jest.fn(),
   listOrders: jest.fn(),
   findHistory: jest.fn(),
   transitionStatusIfMatches: jest.fn(),
@@ -199,6 +200,58 @@ describe('OrdersService', () => {
         expect.objectContaining({ id: cancelled.id, status: cancelled.status, isPaid: cancelled.isPaid }),
         expect.objectContaining({ id: cancelled.id, orderNumber: cancelled.orderNumber }),
       );
+    });
+
+    // --- Stock restoration (audit R2-11) ----------------------------------
+    it('restaura stock al cancelar una orden CREATED', async () => {
+      stubTxWithOrders(makeOrder({ status: OrderStatus.CREATED, isPaid: false }));
+      mockOrderRepository.cancelOrderIfCancellable.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CANCELLED }));
+
+      await service.cancelOrder('o1', 'r1', 'reason');
+
+      expect(mockOrderRepository.restoreStockForOrder).toHaveBeenCalledWith(expect.anything(), 'o1');
+    });
+
+    it('restaura stock al cancelar una orden CONFIRMED', async () => {
+      stubTxWithOrders(makeOrder({ status: OrderStatus.CONFIRMED, isPaid: false }));
+      mockOrderRepository.cancelOrderIfCancellable.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CANCELLED }));
+
+      await service.cancelOrder('o1', 'r1', 'reason');
+
+      expect(mockOrderRepository.restoreStockForOrder).toHaveBeenCalledWith(expect.anything(), 'o1');
+    });
+
+    it('NO restaura stock al cancelar una orden PROCESSING', async () => {
+      stubTxWithOrders(makeOrder({ status: OrderStatus.PROCESSING, isPaid: false }));
+      mockOrderRepository.cancelOrderIfCancellable.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CANCELLED }));
+
+      await service.cancelOrder('o1', 'r1', 'reason');
+
+      expect(mockOrderRepository.restoreStockForOrder).not.toHaveBeenCalled();
+    });
+
+    it('NO restaura stock al cancelar una orden SERVED', async () => {
+      stubTxWithOrders(makeOrder({ status: OrderStatus.SERVED, isPaid: false }));
+      mockOrderRepository.cancelOrderIfCancellable.mockResolvedValue(1);
+      mockOrderRepository.findById.mockResolvedValue(makeOrder({ status: OrderStatus.CANCELLED }));
+
+      await service.cancelOrder('o1', 'r1', 'reason');
+
+      expect(mockOrderRepository.restoreStockForOrder).not.toHaveBeenCalled();
+    });
+
+    it('NO restaura stock si pierde la carrera (count=0) en CREATED', async () => {
+      stubTxWithOrders(
+        makeOrder({ status: OrderStatus.CREATED, isPaid: false }),
+        makeOrder({ status: OrderStatus.CREATED, isPaid: false }),
+      );
+      mockOrderRepository.cancelOrderIfCancellable.mockResolvedValue(0);
+
+      await expect(service.cancelOrder('o1', 'r1', 'reason')).rejects.toThrow(InvalidStatusTransitionException);
+      expect(mockOrderRepository.restoreStockForOrder).not.toHaveBeenCalled();
     });
 
     // --- Race detection (audit R2-01) -------------------------------------
@@ -521,7 +574,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
-        price: 5,
+        price: 5n,
         stock: 10,
         name: 'Widget',
       });
@@ -541,7 +594,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
-        price: 5,
+        price: 5n,
         stock: null,
         name: 'Widget',
       });
@@ -562,7 +615,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'other',
-        price: 5,
+        price: 5n,
         stock: 10,
         name: 'Widget',
       });
@@ -576,7 +629,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
-        price: 5,
+        price: 5n,
         stock: 1,
         name: 'Widget',
       });
@@ -592,7 +645,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
-        price: 5,
+        price: 5n,
         stock: null,
         name: 'Widget',
       });
@@ -608,7 +661,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
-        price: 5,
+        price: 5n,
         stock: null,
         name: 'Widget',
       });
@@ -616,7 +669,7 @@ describe('OrdersService', () => {
       const dto = { ...baseDto, items: [{ productId: 'p1', menuItemId: 'mi1', quantity: 1 }] };
       const result = await service.createOrder('r1', 'session1', dto as any);
       expect(mockOrderRepository.createWithItems).toHaveBeenCalledWith(
-        expect.objectContaining({ totalAmount: 5 }),
+        expect.objectContaining({ totalAmount: 5n }),
         expect.anything(),
       );
       expect(result).toBeDefined();
@@ -626,7 +679,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
-        price: 5,
+        price: 5n,
         stock: 10,
         name: 'Widget',
       });
@@ -642,7 +695,7 @@ describe('OrdersService', () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         id: 'p1',
         restaurantId: 'r1',
-        price: 5,
+        price: 5n,
         stock: 10,
         name: 'Widget',
       });
@@ -659,7 +712,7 @@ describe('OrdersService', () => {
 
     it('passes customerPhone, deliveryAddress and deliveryReferences to repository', async () => {
       mockPrisma.product.findUnique.mockResolvedValue({
-        id: 'p1', restaurantId: 'r1', price: 5, stock: 10, name: 'Widget',
+        id: 'p1', restaurantId: 'r1', price: 5n, stock: 10, name: 'Widget',
       });
       mockPrisma.product.updateMany.mockResolvedValue({ count: 1 });
 
@@ -685,7 +738,7 @@ describe('OrdersService', () => {
 
     it('increments the order counter inside the main transaction (after lock acquisition)', async () => {
       mockPrisma.product.findUnique.mockResolvedValue({
-        id: 'p1', restaurantId: 'r1', price: 5, stock: null, name: 'Widget',
+        id: 'p1', restaurantId: 'r1', price: 5n, stock: null, name: 'Widget',
       });
 
       await service.createOrder('r1', 'session1', baseDto as any);

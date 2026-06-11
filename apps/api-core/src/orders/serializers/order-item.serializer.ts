@@ -33,16 +33,8 @@ class OrderItemMenuItemSerializer {
   @Expose()
   id: string;
 
-  @ApiPropertyOptional({ description: 'Precio override en pesos' })
-  @Expose()
-  priceOverride: number | null;
-
-  constructor(partial: { id: string; priceOverride: bigint | number | null }) {
+  constructor(partial: { id: string }) {
     this.id = partial.id;
-    this.priceOverride =
-      partial.priceOverride === null || partial.priceOverride === undefined
-        ? null
-        : fromCents(partial.priceOverride as bigint | number);
   }
 }
 

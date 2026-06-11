@@ -134,4 +134,53 @@ describe('PATCH /v1/orders/:id/cancel - cancelOrder (e2e)', () => {
       .send({ reason: '' })
       .expect(400);
   });
+
+  // --- Stock restoration (audit R2-11) ----------------------------------
+  it('restaura el stock al cancelar una orden CREATED', async () => {
+    const product = await seedProduct(prisma, restaurantId, categoryId, { stock: 7 });
+    const shift = await openCashShift(prisma, restaurantId, adminId);
+    const order = await seedOrder(prisma, restaurantId, shift.id, product.id, { status: 'CREATED' });
+
+    await request(app.getHttpServer())
+      .patch(`/v1/orders/${order.id}/cancel`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
+      .send({ reason: 'Cliente se arrepintió' })
+      .expect(200);
+
+    const fresh = await prisma.product.findUnique({ where: { id: product.id } });
+    expect(fresh?.stock).toBe(8); // 7 + 1 (cantidad del item)
+  });
+
+  it('NO restaura el stock al cancelar una orden PROCESSING', async () => {
+    const product = await seedProduct(prisma, restaurantId, categoryId, { stock: 7 });
+    const shift = await openCashShift(prisma, restaurantId, adminId);
+    const order = await seedOrder(prisma, restaurantId, shift.id, product.id, { status: 'PROCESSING' });
+
+    await request(app.getHttpServer())
+      .patch(`/v1/orders/${order.id}/cancel`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
+      .send({ reason: 'Cancelada en cocina' })
+      .expect(200);
+
+    const fresh = await prisma.product.findUnique({ where: { id: product.id } });
+    expect(fresh?.stock).toBe(7); // sin cambios
+  });
+
+  it('no toca productos con stock=null al cancelar', async () => {
+    const product = await seedProduct(prisma, restaurantId, categoryId, { stock: null });
+    const shift = await openCashShift(prisma, restaurantId, adminId);
+    const order = await seedOrder(prisma, restaurantId, shift.id, product.id, { status: 'CREATED' });
+
+    await request(app.getHttpServer())
+      .patch(`/v1/orders/${order.id}/cancel`)
+      .set('Cookie', adminToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
+      .send({ reason: 'Sin control de stock' })
+      .expect(200);
+
+    const fresh = await prisma.product.findUnique({ where: { id: product.id } });
+    expect(fresh?.stock).toBeNull();
+  });
 });

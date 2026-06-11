@@ -32,6 +32,11 @@ export default function CancelOrderModal({ orderId, onConfirm, onClose }: Cancel
     >
       <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-xl">
         <h3 className="text-lg font-bold text-slate-800">Cancelar pedido</h3>
+        <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-2">
+          ℹ️ Si el pedido aún no entró a cocina (Creado o Confirmado), el stock de los
+          productos se restaurará al inventario. Si ya está En preparación o Servido, el
+          stock no se devuelve.
+        </p>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">
             Motivo de cancelación *

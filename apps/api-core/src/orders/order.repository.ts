@@ -12,7 +12,7 @@ const ORDER_WITH_ITEMS = {
 
 export interface CreateOrderData {
   orderNumber: number;
-  totalAmount: number;
+  totalAmount: bigint;
   restaurantId: string;
   cashShiftId: string;
   paymentMethod?: PaymentMethod;
@@ -29,8 +29,8 @@ export interface CreateOrderData {
     productId: string;
     menuItemId?: string;
     quantity: number;
-    unitPrice: number;
-    subtotal: number;
+    unitPrice: bigint;
+    subtotal: bigint;
     notes?: string;
   }[];
 }
@@ -300,5 +300,27 @@ export class OrderRepository {
       data: { status: OrderStatus.CANCELLED, cancellationReason: reason },
     });
     return result.count;
+  }
+
+  /**
+   * Restaura (incrementa) el stock de los ítems de una orden, espejando
+   * decrementAllStock. El guard `stock: { not: null }` asegura que solo se toquen
+   * productos con control de inventario (los que decrementaron al crear). Se ordena
+   * por productId para mantener un orden de locks consistente (anti-deadlock).
+   * La idempotencia la garantiza el llamador: solo se invoca cuando la cancelación
+   * ganó la carrera (cancelOrderIfCancellable devolvió count===1).
+   */
+  async restoreStockForOrder(tx: Prisma.TransactionClient, orderId: string): Promise<void> {
+    const items = await tx.orderItem.findMany({
+      where: { orderId },
+      select: { productId: true, quantity: true },
+    });
+    const sorted = [...items].sort((a, b) => a.productId.localeCompare(b.productId));
+    for (const it of sorted) {
+      await tx.product.updateMany({
+        where: { id: it.productId, stock: { not: null } },
+        data: { stock: { increment: it.quantity } },
+      });
+    }
   }
 }

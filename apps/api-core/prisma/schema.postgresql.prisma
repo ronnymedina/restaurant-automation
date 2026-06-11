@@ -102,11 +102,14 @@ model RestaurantSettings {
   kitchenTokenHash      String?
   kitchenTokenExpiresAt DateTime?
 
-  // Display settings — used by UI to format money amounts.
-  // country drives sensible defaults; the separators allow per-restaurant override.
-  // Amounts are always rendered with 2 decimal places.
-  country            String @default("CL") // ISO 3166-1 alpha-2
-  currency           String @default("CLP") // ISO 4217
+  // Display settings — usados por la UI para formatear montos.
+  // El sistema es currency-agnostic: SIEMPRE opera con 2 decimales internos
+  // (centavos ×100), sin importar la moneda. `currency` es solo una etiqueta de
+  // display (símbolo); NO se respetan las minor units de ISO 4217 (p.ej. CLP/JPY
+  // igual se renderizan con 2 decimales). Ocultar decimales por moneda, si se
+  // quisiera, sería un cambio de frontend (display), no del dominio.
+  country            String @default("CL") // ISO 3166-1 alpha-2; default para separadores
+  currency           String @default("CLP") // código de moneda — solo etiqueta de display
   decimalSeparator   String @default(",")
   thousandsSeparator String @default(".")
 
