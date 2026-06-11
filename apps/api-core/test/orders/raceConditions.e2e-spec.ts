@@ -131,7 +131,8 @@ describe('Order race conditions (H-05, H-13)', () => {
     // The runner-up may either short-circuit via the idempotent isPaid check
     // (if it observes the committed write) or surface
     // InvalidStatusTransitionException (if the optimistic UPDATE collided).
-    // Either way the order ends paid + COMPLETED with no duplicate metadata.
+    // Either way the order ends paid with no duplicate metadata. markAsPaid ya
+    // no auto-avanza el status (cobro en dos pasos, R2-02): queda SERVED + isPaid.
     const { restaurant, category, admin } = await seedRestaurant(prisma, 'h05-double');
     const product = await seedProduct(prisma, restaurant.id, category.id);
     const shift = await openCashShift(prisma, restaurant.id, admin.id);
@@ -156,10 +157,10 @@ describe('Order race conditions (H-05, H-13)', () => {
       );
     }
 
-    // Persisted state: paid exactly once, transitioned to COMPLETED.
+    // Persisted state: paid exactly once; el status no cambia por markAsPaid (R2-02).
     const final = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
     expect(final.isPaid).toBe(true);
-    expect(final.status).toBe(OrderStatus.COMPLETED);
+    expect(final.status).toBe(OrderStatus.SERVED);
     expect(final.paymentMethod).toBe('CASH');
   });
 });
