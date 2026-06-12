@@ -56,15 +56,18 @@ export default function OrderStatsPanel({
         </div>
       </div>
 
-      <div className="grid gap-3 items-stretch" style={{ gridTemplateColumns: '1fr 1.6fr' }}>
+      {/* Fixed height so the panel keeps the same size while loading and once
+          loaded (no jump). Sized to fit up to 5 top products without a scroll;
+          both columns stretch to this height (B-stats-jump). */}
+      <div className="grid gap-3 items-stretch h-[220px]" style={{ gridTemplateColumns: '1fr 1.6fr' }}>
         {/* KPI tiles — 2×2 grid */}
-        <div className="grid grid-cols-2 grid-rows-2 gap-2">
+        <div className="grid grid-cols-2 grid-rows-2 gap-2 h-full">
           {loading ? (
             <>
-              <div className="bg-slate-100 rounded-xl h-[72px] animate-pulse" />
-              <div className="bg-slate-100 rounded-xl h-[72px] animate-pulse" />
-              <div className="bg-slate-100 rounded-xl h-[72px] animate-pulse" />
-              <div className="bg-slate-100 rounded-xl h-[72px] animate-pulse" />
+              <div className="bg-slate-100 rounded-xl animate-pulse" />
+              <div className="bg-slate-100 rounded-xl animate-pulse" />
+              <div className="bg-slate-100 rounded-xl animate-pulse" />
+              <div className="bg-slate-100 rounded-xl animate-pulse" />
             </>
           ) : (
             <>
@@ -97,12 +100,12 @@ export default function OrderStatsPanel({
         </div>
 
         {/* Top products — horizontal bar chart */}
-        <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col">
+        <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col min-h-0 overflow-hidden">
           <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2.5">
             Top productos
           </p>
           {loading ? (
-            <div className="flex-1 flex flex-col gap-3 justify-evenly">
+            <div className="flex-1 flex flex-col gap-2 justify-evenly min-h-0">
               {[80, 65, 50, 40, 30].map((w, i) => (
                 <div key={i} className="space-y-1.5">
                   <div className="h-2.5 bg-slate-200 rounded animate-pulse" style={{ width: `${w}%` }} />
@@ -111,7 +114,7 @@ export default function OrderStatsPanel({
               ))}
             </div>
           ) : stats?.topProducts.length ? (
-            <div className="flex-1 flex flex-col gap-3 justify-evenly">
+            <div className="flex-1 flex flex-col gap-2 justify-evenly min-h-0">
               {stats.topProducts.slice(0, 5).map((p) => (
                 <div key={p.id}>
                   <div className="flex justify-between text-xs text-slate-700 mb-1">
