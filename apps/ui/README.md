@@ -73,4 +73,4 @@ El `Dockerfile` tiene 4 stages:
 
 Railway usa el stage `prod` (último stage por defecto).
 
-> Para más detalle sobre el mecanismo de inyección, ver [`docs/ui/dynamic-url-injection.md`](../../docs/ui/dynamic-url-injection.md).
+> Para más detalle sobre el mecanismo de inyección, ver [`docs/dynamic-url-injection.md`](docs/dynamic-url-injection.md).
