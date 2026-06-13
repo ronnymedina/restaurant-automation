@@ -59,12 +59,12 @@ toCents(0)     // → 0n
 
 ### `fromCents(cents: bigint | number): number`
 Convierte centavos BigInt a pesos decimales. Usar **únicamente en la capa de serialización**.
-Acepta `number` además de `bigint` por compatibilidad con el driver SQLite (better-sqlite3).
+Acepta `number` además de `bigint` por robustez (la firma cubre casos donde Prisma o serializadores intermedios entreguen un número).
 
 ```ts
 fromCents(30000n) // → 300
 fromCents(1250n)  // → 12.5
-fromCents(1250)   // → 12.5  (compat SQLite driver)
+fromCents(1250)   // → 12.5
 ```
 
 ## Reglas

@@ -3,7 +3,7 @@
 **Fecha:** 2026-03-08
 **Estado:** Aprobado
 
-> Documento de diseño para el plan de implementación. Ver también `docs/adr/2026-03-08-refactor-modules-design.md`.
+> Documento de diseño para el plan de implementación. Ver también [`apps/api-core/docs/adr/2026-03-08-refactor-modules-design.md`](../adr/2026-03-08-refactor-modules-design.md).
 
 ## Arquitectura General
 
