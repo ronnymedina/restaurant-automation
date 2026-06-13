@@ -39,6 +39,10 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 
 <script>
   import { apiFetch } from '../../lib/api';
+  import { fetchRestaurantSettings } from '../../lib/restaurant-settings';
+
+  // Restaurant timezone for date display (populated before first render).
+  let timezone = 'UTC';
 
   const card = document.getElementById('kitchenCard')!;
   const expiryModal = document.getElementById('expiryModal')!;
@@ -61,7 +65,9 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   }
 
   function formatDate(iso: string) {
-    return new Date(iso).toLocaleDateString('es', { day: '2-digit', month: 'long', year: 'numeric' });
+    return new Date(iso).toLocaleDateString('es', {
+      timeZone: timezone, day: '2-digit', month: 'long', year: 'numeric',
+    });
   }
 
   function openExpiryModal() {
@@ -189,5 +195,12 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     }
   }
 
-  load();
+  (async () => {
+    try {
+      timezone = (await fetchRestaurantSettings()).timezone;
+    } catch {
+      // keep UTC fallback
+    }
+    load();
+  })();
 </script>

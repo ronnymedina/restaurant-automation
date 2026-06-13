@@ -13,6 +13,10 @@
 export interface MoneyDisplaySettings {
   decimalSeparator: string;
   thousandsSeparator: string;
+  // ISO 4217 code — only picks the display symbol; the domain stays
+  // currency-agnostic (always 2 decimals). Optional so callers that only
+  // know the separators (e.g. the kiosk status payload) keep working.
+  currency?: string;
 }
 
 export const DEFAULT_MONEY_DISPLAY_SETTINGS: MoneyDisplaySettings = {
@@ -20,14 +24,28 @@ export const DEFAULT_MONEY_DISPLAY_SETTINGS: MoneyDisplaySettings = {
   thousandsSeparator: '.',
 };
 
+// Currency code → display symbol. Codes not listed fall back to '$' (most
+// LatAm currencies use it), preserving the previous hardcoded behaviour.
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: '$', CLP: '$', MXN: '$', ARS: '$', COP: '$', CAD: '$', UYU: '$',
+  EUR: '€', GBP: '£', BRL: 'R$', PEN: 'S/', BOB: 'Bs', PYG: '₲',
+};
+
+function currencySymbol(code?: string): string {
+  if (!code) return '$';
+  return CURRENCY_SYMBOLS[code.toUpperCase()] ?? '$';
+}
+
 export function formatMoney(
   amount: number,
   settings: MoneyDisplaySettings = DEFAULT_MONEY_DISPLAY_SETTINGS,
 ): string {
+  const symbol = currencySymbol(settings.currency);
+
   // Guard non-finite inputs (NaN, Infinity) — surface as $0,00 rather than "$NaN"
   // which would make a UI bug look like a backend bug to the cashier.
   if (!Number.isFinite(amount)) {
-    return `$0${settings.decimalSeparator}00`;
+    return `${symbol}0${settings.decimalSeparator}00`;
   }
 
   const sign = amount < 0 ? '-' : '';
@@ -35,5 +53,5 @@ export function formatMoney(
   const [intPart, decPart] = fixed.split('.');
   const withThousands = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, settings.thousandsSeparator);
 
-  return `${sign}$${withThousands}${settings.decimalSeparator}${decPart}`;
+  return `${sign}${symbol}${withThousands}${settings.decimalSeparator}${decPart}`;
 }
