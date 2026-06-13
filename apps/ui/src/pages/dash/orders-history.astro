@@ -86,12 +86,16 @@ import DataTable from '../../components/dash/DataTable.astro';
 <script>
   import { apiFetch } from '../../lib/api';
   import { renderPagination, setTableLoading, setTableEmpty, setTableError } from '../../lib/pagination';
-  import { getRestaurantTimezone, getMoneyDisplaySettings } from '../../lib/auth';
+  import { fetchRestaurantSettings } from '../../lib/restaurant-settings';
   import { formatDate as formatDateTz } from '../../lib/date';
-  import { formatMoney } from '../../lib/money';
+  import { formatMoney, DEFAULT_MONEY_DISPLAY_SETTINGS, type MoneyDisplaySettings } from '../../lib/money';
 
-  const timezone = getRestaurantTimezone();
-  const moneySettings = getMoneyDisplaySettings();
+  // Live settings from the API (same source as useRestaurantSettings in the
+  // React islands) — not the login-time localStorage snapshot, so a settings
+  // change is reflected here without re-login. Populated in the init IIFE below.
+  let timezone = 'UTC';
+  let moneySettings: MoneyDisplaySettings = DEFAULT_MONEY_DISPLAY_SETTINGS;
+  let today = '';
 
   const COLSPAN = 7;
   let currentPage = 1;
@@ -301,9 +305,17 @@ import DataTable from '../../components/dash/DataTable.astro';
     if (e.target === detailModal) detailModal.classList.add('hidden');
   });
 
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: timezone });
-  filterDateFrom.value = today;
-  filterDateTo.value = today;
-
-  loadPage(1);
+  (async () => {
+    const settings = await fetchRestaurantSettings();
+    timezone = settings.timezone;
+    moneySettings = {
+      decimalSeparator: settings.decimalSeparator,
+      thousandsSeparator: settings.thousandsSeparator,
+      currency: settings.currency,
+    };
+    today = new Date().toLocaleDateString('en-CA', { timeZone: timezone });
+    filterDateFrom.value = today;
+    filterDateTo.value = today;
+    loadPage(1);
+  })();
 </script>

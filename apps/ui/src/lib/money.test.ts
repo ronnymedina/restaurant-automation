@@ -40,4 +40,15 @@ describe('formatMoney', () => {
     expect(formatMoney(Infinity, cl)).toBe('$0,00');
     expect(formatMoney(NaN, mx)).toBe('$0.00');
   });
+
+  it('uses the currency symbol when a currency code is provided', () => {
+    expect(formatMoney(25000, { ...cl, currency: 'EUR' })).toBe('€25.000,00');
+    expect(formatMoney(25000, { ...mx, currency: 'USD' })).toBe('$25,000.00');
+    expect(formatMoney(1000, { ...cl, currency: 'BRL' })).toBe('R$1.000,00');
+  });
+
+  it('falls back to $ for unknown or missing currency codes', () => {
+    expect(formatMoney(1000, { ...cl, currency: 'ZZZ' })).toBe('$1.000,00');
+    expect(formatMoney(1000, cl)).toBe('$1.000,00');
+  });
 });

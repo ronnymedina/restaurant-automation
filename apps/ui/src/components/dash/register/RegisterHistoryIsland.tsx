@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 
 import Table from '../../commons/Table';
 import Modal from '../../commons/Modal';
 import IconButton from '../../commons/icons/IconButton';
 import ShiftSummaryView from '../../commons/ShiftSummaryView';
+import { queryClient } from '../../commons/Providers';
 import {
   getSessionHistory,
   getSessionDetail,
@@ -123,6 +125,7 @@ export default function RegisterHistoryIsland() {
   }
 
   return (
+    <QueryClientProvider client={queryClient}>
     <div className="space-y-6">
       <h2 className="text-lg font-bold text-slate-800">Historial de Caja</h2>
 
@@ -147,5 +150,6 @@ export default function RegisterHistoryIsland() {
         {renderDetailContent()}
       </Modal>
     </div>
+    </QueryClientProvider>
   );
 }

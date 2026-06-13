@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
 
 import Alert from '../../commons/Alert';
 import RegisterSummaryModal from './RegisterSummaryModal';
 import { EyeIcon, EyeOffIcon } from '../../commons/icons';
+import { queryClient } from '../../commons/Providers';
 
 import { getCurrentSession, openSession, closeSession } from './api';
 
@@ -176,6 +178,7 @@ export default function RegisterPanel() {
   }
 
   return (
+    <QueryClientProvider client={queryClient}>
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-slate-800">Caja Registradora</h2>
       <div className="bg-white rounded-xl border border-slate-200 p-6">{renderContent()}</div>
@@ -198,5 +201,6 @@ export default function RegisterPanel() {
         />
       )}
     </div>
+    </QueryClientProvider>
   );
 }
