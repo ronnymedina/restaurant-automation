@@ -285,7 +285,7 @@ describe('Products (e2e)', () => {
         .expect(404);
 
       expect(res.body.code).toBe('ENTITY_NOT_FOUND');
-      expect(res.body.message).toBe('Category not found');
+      expect(res.body.message).toEqual(['Category not found']);
       expect(res.body.details?.entity).toBe('Category');
     });
   });
