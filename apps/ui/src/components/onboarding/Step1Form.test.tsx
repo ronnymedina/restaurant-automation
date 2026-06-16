@@ -1,8 +1,17 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, test, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, test, expect, vi, beforeEach, it } from 'vitest';
 import Step1Form from './Step1Form';
 
 const noop = vi.fn();
+
+const countries = [
+  { code: 'AR', name: 'Argentina', currency: 'ARS', defaultDecimalSeparator: ',' },
+  { code: 'MX', name: 'México', currency: 'MXN', defaultDecimalSeparator: '.' },
+];
+
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => countries })) as unknown as typeof fetch);
+});
 
 describe('Step1Form', () => {
   test('renders email and restaurant name inputs', () => {
@@ -55,31 +64,37 @@ describe('Step1Form', () => {
     expect(screen.getByText('8 / 60')).toBeInTheDocument();
   });
 
-  test('submit button is enabled when both fields are valid', () => {
+  test('submit button is enabled when both fields and country are valid', async () => {
     render(<Step1Form onSubmit={noop} />);
+    await waitFor(() => screen.getByLabelText(/país/i));
     fireEvent.change(screen.getByLabelText(/correo electrónico/i), {
       target: { value: 'chef@local.com' },
     });
     fireEvent.change(screen.getByLabelText(/nombre del restaurante/i), {
       target: { value: 'Mi Local' },
     });
+    fireEvent.change(screen.getByLabelText(/país/i), { target: { value: 'AR' } });
     expect(screen.getByRole('button', { name: /siguiente/i })).not.toBeDisabled();
   });
 
-  test('calls onSubmit with email and restaurantName when valid', () => {
+  test('calls onSubmit with email and restaurantName when valid', async () => {
     const handleSubmit = vi.fn();
     render(<Step1Form onSubmit={handleSubmit} />);
+    await waitFor(() => screen.getByLabelText(/país/i));
     fireEvent.change(screen.getByLabelText(/correo electrónico/i), {
       target: { value: 'chef@local.com' },
     });
     fireEvent.change(screen.getByLabelText(/nombre del restaurante/i), {
       target: { value: 'Mi Local' },
     });
+    fireEvent.change(screen.getByLabelText(/país/i), { target: { value: 'AR' } });
     fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
-    expect(handleSubmit).toHaveBeenCalledWith({
-      email: 'chef@local.com',
-      restaurantName: 'Mi Local',
-    });
+    expect(handleSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'chef@local.com',
+        restaurantName: 'Mi Local',
+      }),
+    );
   });
 
   test('does not call onSubmit when fields are invalid', () => {
@@ -88,4 +103,33 @@ describe('Step1Form', () => {
     fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
     expect(handleSubmit).not.toHaveBeenCalled();
   });
+});
+
+it('renderiza el selector de país con las opciones del endpoint', async () => {
+  render(<Step1Form onSubmit={() => {}} />);
+  await waitFor(() => expect(screen.getByLabelText(/país/i)).toBeInTheDocument());
+  expect(screen.getByRole('option', { name: 'Argentina' })).toBeInTheDocument();
+  expect(screen.getByRole('option', { name: 'México' })).toBeInTheDocument();
+});
+
+it('preselecciona el separador por defecto del país elegido (overridable)', async () => {
+  render(<Step1Form onSubmit={() => {}} />);
+  await waitFor(() => screen.getByLabelText(/país/i));
+  fireEvent.change(screen.getByLabelText(/país/i), { target: { value: 'MX' } });
+  await waitFor(() =>
+    expect((screen.getByLabelText(/punto decimal/i) as HTMLInputElement).checked).toBe(true),
+  );
+});
+
+it('envía country y decimalSeparator en onSubmit', async () => {
+  const onSubmit = vi.fn();
+  render(<Step1Form onSubmit={onSubmit} />);
+  await waitFor(() => screen.getByLabelText(/país/i));
+  fireEvent.change(screen.getByLabelText(/correo/i), { target: { value: 'a@b.com' } });
+  fireEvent.change(screen.getByLabelText(/nombre/i), { target: { value: 'Mi Restaurante' } });
+  fireEvent.change(screen.getByLabelText(/país/i), { target: { value: 'AR' } });
+  fireEvent.submit(screen.getByRole('button', { name: /siguiente/i }));
+  expect(onSubmit).toHaveBeenCalledWith(
+    expect.objectContaining({ email: 'a@b.com', restaurantName: 'Mi Restaurante', country: 'AR', decimalSeparator: ',' }),
+  );
 });

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { config } from '../../config';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NAME_REGEX = /^[a-zA-ZÀ-ÿ \-_]+$/;
@@ -17,8 +18,15 @@ function validateName(value: string): string | null {
   return null;
 }
 
+interface Country {
+  code: string;
+  name: string;
+  currency: string;
+  defaultDecimalSeparator: '.' | ',';
+}
+
 interface Step1FormProps {
-  onSubmit: (data: { email: string; restaurantName: string }) => void;
+  onSubmit: (data: { email: string; restaurantName: string; country: string; decimalSeparator: '.' | ',' }) => void;
 }
 
 const inputBase =
@@ -29,14 +37,40 @@ export default function Step1Form({ onSubmit }: Step1FormProps) {
   const [restaurantName, setRestaurantName] = useState('');
   const [emailTouched, setEmailTouched] = useState(false);
   const [nameTouched, setNameTouched] = useState(false);
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [country, setCountry] = useState('');
+  const [decimalSeparator, setDecimalSeparator] = useState<'.' | ','>(',');
+
+  useEffect(() => {
+    fetch(`${config.apiUrl}/v1/onboarding/countries`)
+      .then((res) => {
+        if (res.ok) return res.json() as Promise<Country[]>;
+        return [];
+      })
+      .then((data) => setCountries(data))
+      .catch(() => {
+        // leave list empty on failure
+      });
+  }, []);
 
   const emailError = emailTouched ? validateEmail(email) : null;
   const nameError = nameTouched ? validateName(restaurantName) : null;
-  const isValid = validateEmail(email) === null && validateName(restaurantName) === null;
+  const isValid =
+    validateEmail(email) === null &&
+    validateName(restaurantName) === null &&
+    country !== '';
+
+  function handleCountryChange(value: string) {
+    setCountry(value);
+    const selected = countries.find((c) => c.code === value);
+    if (selected) {
+      setDecimalSeparator(selected.defaultDecimalSeparator);
+    }
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (isValid) onSubmit({ email: email.trim(), restaurantName: restaurantName.trim() });
+    if (isValid) onSubmit({ email: email.trim(), restaurantName: restaurantName.trim(), country, decimalSeparator });
   }
 
   const emailBorder = emailError
@@ -108,6 +142,51 @@ export default function Step1Form({ onSubmit }: Step1FormProps) {
             {restaurantName.length} / {NAME_MAX}
           </p>
         </div>
+
+        <div className="mb-6">
+          <label htmlFor="country" className="block font-semibold text-slate-800 mb-2 text-sm">
+            País
+          </label>
+          <select
+            id="country"
+            value={country}
+            onChange={(e) => handleCountryChange(e.target.value)}
+            className={`${inputBase} border-slate-200 focus:border-[#f97316]`}
+          >
+            <option value="" disabled>Selecciona tu país</option>
+            {countries.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <fieldset className="mb-6">
+          <legend className="block font-semibold text-slate-800 mb-2 text-sm">
+            Formato decimal
+          </legend>
+          <label className="inline-flex items-center mr-4">
+            <input
+              type="radio"
+              name="decimalSeparator"
+              value=","
+              checked={decimalSeparator === ','}
+              onChange={() => setDecimalSeparator(',')}
+            />
+            <span className="ml-2 text-sm">Coma decimal (1.234,56)</span>
+          </label>
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              name="decimalSeparator"
+              value="."
+              checked={decimalSeparator === '.'}
+              onChange={() => setDecimalSeparator('.')}
+            />
+            <span className="ml-2 text-sm">Punto decimal (1,234.56)</span>
+          </label>
+        </fieldset>
 
         <button
           type="submit"
