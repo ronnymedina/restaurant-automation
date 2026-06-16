@@ -142,7 +142,7 @@ export class OnboardingService {
     tx: TransactionClient,
   ): Promise<Restaurant> {
     try {
-      return await this.restaurantsService.createRestaurant(name, timezone, tx);
+      return await this.restaurantsService.createRestaurant({ name, timezone }, tx);
     } catch (error) {
       throw new RestaurantCreationFailedException({ restaurantName: name });
     }

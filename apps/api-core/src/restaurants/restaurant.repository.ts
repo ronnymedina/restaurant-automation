@@ -29,7 +29,15 @@ export class RestaurantRepository {
   }
 
   async createWithSettings(
-    data: { name: string; slug: string; timezone: string },
+    data: {
+      name: string;
+      slug: string;
+      timezone: string;
+      country?: string;
+      currency?: string;
+      decimalSeparator?: string;
+      thousandsSeparator?: string;
+    },
     tx?: TransactionClient,
   ): Promise<Restaurant> {
     const run = async (client: TransactionClient) => {
@@ -37,7 +45,14 @@ export class RestaurantRepository {
         data: { name: data.name, slug: data.slug },
       });
       await client.restaurantSettings.create({
-        data: { restaurantId: restaurant.id, timezone: data.timezone },
+        data: {
+          restaurantId: restaurant.id,
+          timezone: data.timezone,
+          ...(data.country ? { country: data.country } : {}),
+          ...(data.currency ? { currency: data.currency } : {}),
+          ...(data.decimalSeparator ? { decimalSeparator: data.decimalSeparator } : {}),
+          ...(data.thousandsSeparator ? { thousandsSeparator: data.thousandsSeparator } : {}),
+        },
       });
       return restaurant;
     };

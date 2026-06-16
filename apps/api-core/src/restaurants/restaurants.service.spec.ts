@@ -11,6 +11,7 @@ const mockRepo = {
   findByIdWithSettings: jest.fn(),
   findBySlug: jest.fn(),
   updateWithSettings: jest.fn(),
+  createWithSettings: jest.fn(),
 };
 const mockTimezoneService = { invalidate: jest.fn() };
 
@@ -160,5 +161,55 @@ describe('RestaurantsService.updateSettings', () => {
       restaurant: {},
       settings: {},
     });
+  });
+});
+
+describe('RestaurantsService.createRestaurant', () => {
+  let service: RestaurantsService;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    mockRepo.createWithSettings.mockResolvedValue({ id: 'r1' });
+    mockRepo.findBySlug.mockResolvedValue(null);
+
+    const moduleRef: TestingModule = await Test.createTestingModule({
+      providers: [
+        RestaurantsService,
+        { provide: RestaurantRepository, useValue: mockRepo },
+        { provide: TimezoneService, useValue: mockTimezoneService },
+      ],
+    }).compile();
+    service = moduleRef.get(RestaurantsService);
+  });
+
+  it('persiste country, currency y separadores junto al timezone', async () => {
+    await service.createRestaurant({
+      name: 'Tacos',
+      country: 'MX',
+      currency: 'MXN',
+      decimalSeparator: '.',
+      thousandsSeparator: ',',
+      timezone: 'America/Mexico_City',
+    });
+
+    expect(mockRepo.createWithSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Tacos',
+        country: 'MX',
+        currency: 'MXN',
+        decimalSeparator: '.',
+        thousandsSeparator: ',',
+        timezone: 'America/Mexico_City',
+      }),
+      undefined,
+    );
+  });
+
+  it('usa timezone UTC por defecto cuando no se provee', async () => {
+    await service.createRestaurant({ name: 'X' });
+    expect(mockRepo.createWithSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'X', timezone: 'UTC' }),
+      undefined,
+    );
   });
 });

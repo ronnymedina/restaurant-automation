@@ -13,6 +13,15 @@ import { RestaurantSettingsDto } from './dto/restaurant-settings.dto';
 
 type TransactionClient = Prisma.TransactionClient;
 
+export interface CreateRestaurantInput {
+  name: string;
+  timezone?: string;
+  country?: string;
+  currency?: string;
+  decimalSeparator?: string;
+  thousandsSeparator?: string;
+}
+
 @Injectable()
 export class RestaurantsService {
   constructor(
@@ -20,9 +29,20 @@ export class RestaurantsService {
     private readonly timezoneService: TimezoneService,
   ) {}
 
-  async createRestaurant(name: string, timezone = 'UTC', tx?: TransactionClient): Promise<Restaurant> {
-    const slug = await this.generateSlug(name, tx);
-    return this.restaurantRepository.createWithSettings({ name, slug, timezone }, tx);
+  async createRestaurant(input: CreateRestaurantInput, tx?: TransactionClient): Promise<Restaurant> {
+    const slug = await this.generateSlug(input.name, tx);
+    return this.restaurantRepository.createWithSettings(
+      {
+        name: input.name,
+        slug,
+        timezone: input.timezone ?? 'UTC',
+        country: input.country,
+        currency: input.currency,
+        decimalSeparator: input.decimalSeparator,
+        thousandsSeparator: input.thousandsSeparator,
+      },
+      tx,
+    );
   }
 
   async findById(id: string): Promise<Restaurant | null> {

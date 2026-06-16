@@ -52,7 +52,7 @@ export class CreateDummyCommand extends CommandRunner {
         restaurantSlug = restaurant?.slug ?? 'unknown';
         this.logger.log(`Restaurant already exists: ${restaurant?.name} (${restaurantId})`);
       } else {
-        const restaurant = await this.restaurantsService.createRestaurant(DUMMY_RESTAURANT_NAME, DUMMY_TIMEZONE);
+        const restaurant = await this.restaurantsService.createRestaurant({ name: DUMMY_RESTAURANT_NAME, timezone: DUMMY_TIMEZONE });
         restaurantId = restaurant.id;
         restaurantSlug = restaurant.slug;
         this.logger.log(`Restaurant created: ${restaurant.name} (${restaurantId})`);

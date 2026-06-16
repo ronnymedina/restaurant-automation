@@ -24,10 +24,10 @@ export class CreateRestaurantCommand extends CommandRunner {
     }
 
     try {
-      const restaurant = await this.restaurantsService.createRestaurant(
-        options.name,
-        options.timezone,
-      );
+      const restaurant = await this.restaurantsService.createRestaurant({
+        name: options.name,
+        timezone: options.timezone,
+      });
       this.logger.log(
         `Restaurant created successfully:\n  id:       ${restaurant.id}\n  name:     ${restaurant.name}\n  slug:     ${restaurant.slug}\n  timezone: ${options.timezone}`,
       );
