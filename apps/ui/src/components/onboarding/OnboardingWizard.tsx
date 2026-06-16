@@ -10,6 +10,8 @@ type ResendStatus = 'idle' | 'loading' | 'sent' | 'error';
 interface Step1Data {
   email: string;
   restaurantName: string;
+  country: string;
+  decimalSeparator: '.' | ',';
 }
 
 import { config } from '../../config';
@@ -91,6 +93,8 @@ export default function OnboardingWizard() {
     body.append('email', formData.email);
     body.append('restaurantName', formData.restaurantName);
     body.append('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone);
+    body.append('country', formData.country);
+    body.append('decimalSeparator', formData.decimalSeparator);
     if (useDemo) {
       body.append('createDemoData', 'true');
     } else if (photo) {
