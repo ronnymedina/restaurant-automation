@@ -62,10 +62,22 @@ export class OnboardingController {
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: OnboardingRegisterSwaggerDto })
   @ApiResponse({ status: 201, description: 'Restaurante registrado exitosamente', type: OnboardingResponseSerializer })
-  @ApiResponse({ status: 400, description: 'Datos de entrada inválidos o archivo rechazado' })
-  @ApiResponse({ status: 409, description: 'El email o nombre de restaurante ya está registrado' })
-  @ApiResponse({ status: 429, description: 'Demasiadas solicitudes — intente más tarde' })
-  @ApiResponse({ status: 500, description: 'Error interno durante el onboarding' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validación de DTO o archivo rechazado. Ver docs/onboarding-error-mapping.md.',
+    schema: { example: { message: ['country must be a supported LATAM ISO code'], code: 'VALIDATION_ERROR', statusCode: 400 } },
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'El email ya está registrado',
+    schema: { example: { message: ["Email 'x@y.com' is already registered"], code: 'EMAIL_ALREADY_EXISTS', statusCode: 409, details: { email: 'x@y.com' } } },
+  })
+  @ApiResponse({ status: 429, description: 'Demasiadas solicitudes — intente más tarde (rate limit 5/15min)' })
+  @ApiResponse({
+    status: 500,
+    description: 'Error interno durante el onboarding: ONBOARDING_FAILED | RESTAURANT_CREATION_FAILED | USER_CREATION_FAILED | DEFAULT_CATEGORY_CREATION_FAILED',
+    schema: { example: { message: ['Failed to create the restaurant'], code: 'RESTAURANT_CREATION_FAILED', statusCode: 500 } },
+  })
   @UseInterceptors(FileInterceptor('photo'))
   async register(
     @Body() body: OnboardingRegisterDto,
