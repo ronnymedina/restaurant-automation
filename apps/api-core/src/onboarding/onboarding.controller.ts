@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Body,
   UploadedFile,
@@ -23,11 +24,31 @@ import { OnboardingService } from './onboarding.service';
 import { OnboardingRegisterDto, OnboardingRegisterSwaggerDto } from './dto';
 import { MAX_FILE_SIZE } from '../config';
 import { OnboardingResponseSerializer } from './serializers/onboarding-response.serializer';
+import { LATAM_COUNTRIES } from './data/latam-countries';
+import { CountryOptionSerializer } from './serializers/country-option.serializer';
 
 @ApiTags('Onboarding')
 @Controller({ version: '1', path: 'onboarding' })
 export class OnboardingController {
   constructor(private readonly onboardingService: OnboardingService) {}
+
+  @Public()
+  @Get('countries')
+  @ApiOperation({
+    summary: 'Listar países soportados (LatAm)',
+    description: 'Lista curada de países con su moneda y separador decimal por defecto, para el wizard de onboarding.',
+  })
+  @ApiResponse({ status: 200, description: 'Lista de países', type: CountryOptionSerializer, isArray: true })
+  getCountries(): CountryOptionSerializer[] {
+    return [...LATAM_COUNTRIES]
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+      .map((c) => ({
+        code: c.code,
+        name: c.name,
+        currency: c.currency,
+        defaultDecimalSeparator: c.decimalSeparator,
+      }));
+  }
 
   @Public()
   @UseGuards(ThrottlerGuard)
