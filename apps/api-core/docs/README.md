@@ -23,7 +23,7 @@
 
 | Carpeta | Descripción |
 |---------|-------------|
-| [adr/](adr/README.md) | Architecture Decision Records en formato MADR (0001–0006 + históricos). |
+| [adr/](adr/README.md) | Architecture Decision Records en formato MADR (0001–0007 + históricos). |
 | [pending/](pending/) | Funcionalidades pendientes / ideas en evaluación. |
 | [plans/](plans/) | Planes de implementación de features y refactors. |
 | [superpowers/](superpowers/) | Specs y planes de trabajo generados para agentic development. |
