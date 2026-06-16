@@ -107,7 +107,7 @@ describe('OnboardingService', () => {
       mockUsersService.existsByEmail.mockResolvedValue(true);
 
       await expect(
-        service.registerRestaurant({ email: mockUser.email, restaurantName: 'Test Restaurant' }),
+        service.registerRestaurant({ email: mockUser.email, restaurantName: 'Test Restaurant', country: 'CL' }),
       ).rejects.toThrow(EmailAlreadyExistsException);
 
       expect(mockRestaurantsService.createRestaurant).not.toHaveBeenCalled();
@@ -122,7 +122,7 @@ describe('OnboardingService', () => {
       mockRestaurantsService.createRestaurant.mockRejectedValue(new Error('DB error'));
 
       await expect(
-        service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test' }),
+        service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test', country: 'CL' }),
       ).rejects.toThrow(RestaurantCreationFailedException);
 
       expect(mockUsersService.createOnboardingUser).not.toHaveBeenCalled();
@@ -132,7 +132,7 @@ describe('OnboardingService', () => {
       mockUsersService.createOnboardingUser.mockRejectedValue(new Error('DB error'));
 
       await expect(
-        service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test' }),
+        service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test', country: 'CL' }),
       ).rejects.toThrow(UserCreationFailedException);
     });
 
@@ -140,7 +140,7 @@ describe('OnboardingService', () => {
       mockProductsService.createDefaultCategory.mockRejectedValue(new Error('DB error'));
 
       await expect(
-        service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test' }),
+        service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test', country: 'CL' }),
       ).rejects.toThrow(DefaultCategoryCreationFailedException);
     });
   });
@@ -158,6 +158,7 @@ describe('OnboardingService', () => {
       await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
+        country: 'CL',
         createDemoData: true,
       });
 
@@ -174,7 +175,7 @@ describe('OnboardingService', () => {
     });
 
     it('sends activation email with correct args (email, token, timeoutMs)', async () => {
-      await service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test' });
+      await service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test', country: 'CL' });
 
       expect(mockEmailService.sendActivationEmail).toHaveBeenCalledWith(
         mockUser.email,
@@ -184,29 +185,48 @@ describe('OnboardingService', () => {
     });
   });
 
-  // ─── Timezone ─────────────────────────────────────────────────────────────
+  // ─── Localización ─────────────────────────────────────────────────────────
 
-  describe('timezone', () => {
-    it('passes timezone from input to createRestaurant', async () => {
+  describe('localización (país, moneda, separadores, timezone)', () => {
+    it('deriva currency y separadores desde el país y respeta el timezone válido', async () => {
       await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
-        timezone: 'America/Argentina/Buenos_Aires',
+        country: 'MX',
+        timezone: 'America/Mexico_City',
       });
 
       expect(mockRestaurantsService.createRestaurant).toHaveBeenCalledWith(
-        'Test',
-        'America/Argentina/Buenos_Aires',
+        expect.objectContaining({
+          name: 'Test',
+          country: 'MX',
+          currency: 'MXN',
+          decimalSeparator: '.',
+          thousandsSeparator: ',',
+          timezone: 'America/Mexico_City',
+        }),
         expect.anything(),
       );
     });
 
-    it('passes undefined timezone when not provided', async () => {
-      await service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test' });
-
+    it('respeta el override de decimalSeparator (y deriva thousands)', async () => {
+      await service.registerRestaurant({
+        email: 'new@test.com', restaurantName: 'Test', country: 'CL',
+        timezone: 'America/Santiago', decimalSeparator: '.',
+      });
       expect(mockRestaurantsService.createRestaurant).toHaveBeenCalledWith(
-        'Test',
-        undefined,
+        expect.objectContaining({ decimalSeparator: '.', thousandsSeparator: ',' }),
+        expect.anything(),
+      );
+    });
+
+    it('cae al primaryTimezone del país si el timezone no pertenece', async () => {
+      await service.registerRestaurant({
+        email: 'new@test.com', restaurantName: 'Test', country: 'CL',
+        timezone: 'America/Mexico_City', // no es de CL
+      });
+      expect(mockRestaurantsService.createRestaurant).toHaveBeenCalledWith(
+        expect.objectContaining({ timezone: 'America/Santiago' }),
         expect.anything(),
       );
     });
@@ -218,7 +238,7 @@ describe('OnboardingService', () => {
     it('completes onboarding even when sendActivationEmail returns false', async () => {
       mockEmailService.sendActivationEmail.mockResolvedValue(false);
 
-      const result = await service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test' });
+      const result = await service.registerRestaurant({ email: 'new@test.com', restaurantName: 'Test', country: 'CL' });
 
       expect(result.productsCreated).toBe(0);
     });
@@ -239,6 +259,7 @@ describe('OnboardingService', () => {
       const result = await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
+        country: 'CL',
         createDemoData: true,
       });
 
@@ -250,6 +271,7 @@ describe('OnboardingService', () => {
       await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
+        country: 'CL',
         createDemoData: true,
       });
 
@@ -269,6 +291,7 @@ describe('OnboardingService', () => {
       await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
+        country: 'CL',
         createDemoData: true,
       });
 
@@ -291,6 +314,7 @@ describe('OnboardingService', () => {
       const result = await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
+        country: 'CL',
         createDemoData: true,
       });
 
@@ -306,6 +330,7 @@ describe('OnboardingService', () => {
       const result = await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
+        country: 'CL',
       });
 
       expect(result.productsCreated).toBe(0);
@@ -329,6 +354,7 @@ describe('OnboardingService', () => {
       const result = await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
+        country: 'CL',
         photo,
       });
 
@@ -342,6 +368,7 @@ describe('OnboardingService', () => {
       const result = await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
+        country: 'CL',
         photo,
       });
 
@@ -355,6 +382,7 @@ describe('OnboardingService', () => {
       const result = await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
+        country: 'CL',
         photo,
       });
 
@@ -374,6 +402,7 @@ describe('OnboardingService', () => {
       await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
+        country: 'CL',
         photo,
       });
 
@@ -394,6 +423,7 @@ describe('OnboardingService', () => {
       await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
+        country: 'CL',
         photo: { buffer: Buffer.from('img'), mimeType: 'image/jpeg' },
       });
 
@@ -410,6 +440,7 @@ describe('OnboardingService', () => {
       await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
+        country: 'CL',
         photo,
       });
 
@@ -425,6 +456,7 @@ describe('OnboardingService', () => {
       const result = await service.registerRestaurant({
         email: 'new@test.com',
         restaurantName: 'Test',
+        country: 'CL',
       });
 
       expect(result.productsCreated).toBe(0);

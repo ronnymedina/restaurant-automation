@@ -85,7 +85,9 @@ export class OnboardingController {
     const result = await this.onboardingService.registerRestaurant({
       email: body.email,
       restaurantName: body.restaurantName,
+      country: body.country,
       timezone: body.timezone,
+      decimalSeparator: body.decimalSeparator,
       createDemoData: body.createDemoData,
       photo,
     });
