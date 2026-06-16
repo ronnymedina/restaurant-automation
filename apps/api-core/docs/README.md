@@ -12,6 +12,7 @@
 | [k6-metrics-guide.md](k6-metrics-guide.md) | Guía de métricas de stress testing con k6. |
 | [module-doc-requirements.md](module-doc-requirements.md) | Convención y requerimientos para documentar módulos NestJS (archivos `.module.info.md`). |
 | [money-conversion.md](money-conversion.md) | Conversión monetaria centavos ↔ pesos: `toCents`/`fromCents`, reglas y flujo completo. |
+| [onboarding-error-mapping.md](onboarding-error-mapping.md) | Catálogo de errores del onboarding (code → HTTP → significado → mensaje friendly) y flujo de email/reenvío. |
 | [opentelemetry.md](opentelemetry.md) | Configuración e integración de OpenTelemetry para observabilidad. |
 | [print-cloud.md](print-cloud.md) | Arquitectura de impresión remota en la nube. |
 | [testing.md](testing.md) | Guía general de tests (unitarios, e2e, convenciones). |
