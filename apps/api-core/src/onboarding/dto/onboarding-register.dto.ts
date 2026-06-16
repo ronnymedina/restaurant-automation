@@ -5,45 +5,64 @@ import {
   IsOptional,
   IsNotEmpty,
   IsEmail,
+  IsIn,
   Matches,
   MaxLength,
   IsTimeZone,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, IntersectionType } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
+import { LATAM_COUNTRY_CODES } from '../data/latam-countries';
 
 export class OnboardingRegisterDto {
   @ApiProperty({
-    description: 'Email del usuario',
-    example: 'usuario@restaurante.com',
+    description: 'Owner email address',
+    example: 'owner@restaurant.com',
   })
-  @IsEmail({}, { message: 'El email debe ser válido' })
-  @IsNotEmpty({ message: 'El email es requerido' })
+  @IsEmail({}, { message: 'email must be valid' })
+  @IsNotEmpty({ message: 'email is required' })
   email: string;
 
   @ApiProperty({
-    description: 'Nombre del restaurante. Solo letras, acentos, espacios, guion medio y guion bajo. Máximo 60 caracteres.',
+    description: 'Restaurant name. Letters, accents, spaces, hyphen and underscore only. Max 60 characters.',
     example: 'Mi Restaurante',
     maxLength: 60,
   })
   @IsString()
-  @IsNotEmpty({ message: 'El nombre del restaurante es requerido' })
-  @MaxLength(60, { message: 'El nombre del restaurante no puede superar 60 caracteres' })
+  @IsNotEmpty({ message: 'restaurantName is required' })
+  @MaxLength(60, { message: 'restaurantName must not exceed 60 characters' })
   @Matches(/^[a-zA-ZÀ-ÿ \-_]+$/, {
-    message: 'El nombre del restaurante solo puede contener letras, acentos, espacios, guión medio y guión bajo',
+    message: 'restaurantName may only contain letters, accents, spaces, hyphen and underscore',
   })
   restaurantName: string;
 
   @ApiProperty({
-    description: 'Zona horaria IANA del restaurante, obtenida del navegador.',
+    description: 'IANA timezone of the restaurant, obtained from the browser.',
     example: 'America/Argentina/Buenos_Aires',
   })
-  @IsTimeZone({ message: 'El timezone debe ser una zona horaria IANA válida' })
-  @IsNotEmpty({ message: 'El timezone es requerido' })
+  @IsTimeZone({ message: 'timezone must be a valid IANA timezone' })
+  @IsNotEmpty({ message: 'timezone is required' })
   timezone: string;
 
+  @ApiProperty({
+    description: 'Supported LATAM country (ISO 3166-1 alpha-2).',
+    example: 'CL',
+  })
+  @IsIn(LATAM_COUNTRY_CODES, { message: 'country must be a supported LATAM ISO code' })
+  @IsNotEmpty({ message: 'country is required' })
+  country: string;
+
   @ApiPropertyOptional({
-    description: 'Si es true, se crean 5 productos demo con un menú de ejemplo',
+    description: 'Decimal separator. Defaults to the country convention if omitted.',
+    enum: ['.', ','],
+    example: ',',
+  })
+  @IsOptional()
+  @IsIn(['.', ','], { message: 'decimalSeparator must be "." or ","' })
+  decimalSeparator?: '.' | ',';
+
+  @ApiPropertyOptional({
+    description: 'If true, creates 5 demo products with a sample menu',
     example: false,
     default: false,
   })
@@ -62,7 +81,7 @@ class OnboardingPhotosDto {
   @ApiPropertyOptional({
     type: 'string',
     format: 'binary',
-    description: 'Foto del menú para extraer productos (1 foto, max 5MB, solo PNG/JPG)',
+    description: 'Menu photo to extract products from (1 photo, max 5MB, PNG/JPG only)',
   })
   photo?: unknown;
 }
