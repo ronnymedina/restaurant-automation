@@ -25,6 +25,10 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@res-db:5432/${POSTGRES_DB:-restaurants}
       JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en el .env}
+      JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION:-15m}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-7d}
+      BCRYPT_SALT_ROUNDS: ${BCRYPT_SALT_ROUNDS:-10}
+      CACHE_DRIVER: ${CACHE_DRIVER:-memory}
       FRONTEND_URL: http://${SERVER_IP}:${UI_PORT:-8080}
       CORS_ORIGIN: http://${SERVER_IP}:${UI_PORT:-8080}
       COOKIE_SECURE: "false"
