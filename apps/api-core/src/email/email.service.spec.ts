@@ -95,4 +95,27 @@ describe('EmailService', () => {
       expect(result).toBe(false);
     }, 10000);
   });
+
+  describe('isEnabled', () => {
+    it('returns true when an API key is configured', () => {
+      expect(service.isEnabled()).toBe(true);
+    });
+
+    it('returns false when no API key is configured', async () => {
+      const module = await Test.createTestingModule({
+        providers: [
+          EmailService,
+          { provide: emailConfig.KEY, useValue: { ...mockConfig, resendApiKey: null } },
+        ],
+      }).compile();
+      const noKeyService = module.get<EmailService>(EmailService);
+      expect(noKeyService.isEnabled()).toBe(false);
+    });
+  });
+
+  describe('buildActivationUrl', () => {
+    it('builds the activation URL from the configured frontend URL', () => {
+      expect(service.buildActivationUrl('abc')).toBe('http://localhost:4321/activate?token=abc');
+    });
+  });
 });
