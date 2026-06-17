@@ -10,6 +10,8 @@ type ResendStatus = 'idle' | 'loading' | 'sent' | 'error';
 interface Step1Data {
   email: string;
   restaurantName: string;
+  country: string;
+  decimalSeparator: '.' | ',';
 }
 
 import { config } from '../../config';
@@ -71,6 +73,7 @@ export default function OnboardingWizard() {
   const [formData, setFormData] = useState<Step1Data | null>(null);
   const [productsCreated, setProductsCreated] = useState(0);
   const [productsWarning, setProductsWarning] = useState<string | undefined>(undefined);
+  const [activationUrl, setActivationUrl] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resendStatus, setResendStatus] = useState<ResendStatus>('idle');
@@ -91,6 +94,8 @@ export default function OnboardingWizard() {
     body.append('email', formData.email);
     body.append('restaurantName', formData.restaurantName);
     body.append('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone);
+    body.append('country', formData.country);
+    body.append('decimalSeparator', formData.decimalSeparator);
     if (useDemo) {
       body.append('createDemoData', 'true');
     } else if (photo) {
@@ -115,6 +120,7 @@ export default function OnboardingWizard() {
       const result = await response.json();
       setProductsCreated(result.productsCreated ?? 0);
       setProductsWarning(result.productsWarning);
+      setActivationUrl(result.activationUrl);
       setStep(3);
     } catch {
       setError('Hubo un error al procesar tu solicitud. Intenta nuevamente.');
@@ -157,6 +163,7 @@ export default function OnboardingWizard() {
           restaurantName={formData.restaurantName}
           productsCreated={productsCreated}
           productsWarning={productsWarning}
+          activationUrl={activationUrl}
           onResend={handleResend}
           resendStatus={resendStatus}
         />

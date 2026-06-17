@@ -21,6 +21,7 @@ Architecture Decision Records: registro inmutable de decisiones arquitectónicas
 | 0004 | [Presentación localizada por restaurante: timezone y separadores](./0004-presentacion-localizada-por-restaurante.md) | Aceptado | 2026-06-13 |
 | 0005 | [Roles y autorización](./0005-roles-y-autorizacion.md) | Aceptado | 2026-06-13 |
 | 0006 | [Ciclo de vida del pedido: kiosk, dashboard y cocina](./0006-ciclo-de-vida-del-pedido.md) | Aceptado | 2026-06-13 |
+| 0007 | [Contrato de error unificado de la API](./0007-contrato-de-error-unificado.md) | Aceptado | 2026-06-14 |
 
 ## Históricos (pre-numeración MADR)
 

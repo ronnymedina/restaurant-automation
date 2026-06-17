@@ -110,6 +110,8 @@ COPY --chown=node:node prisma.config.ts ./prisma.config.ts
 
 RUN chmod +x ./commands/execute-migrations.sh ./commands/resend-activation.sh
 
+RUN mkdir -p /app/uploads && chown node:node /app/uploads
+
 USER node
 
 EXPOSE 3000

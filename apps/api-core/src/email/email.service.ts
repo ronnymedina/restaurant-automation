@@ -24,8 +24,18 @@ export class EmailService {
     }
   }
 
+  /** True cuando Resend está configurado y los emails se envían de verdad. */
+  isEnabled(): boolean {
+    return this.resend !== null;
+  }
+
+  /** Construye la URL de activación. Reutilizada por el email y por el onboarding self-hosted. */
+  buildActivationUrl(token: string): string {
+    return `${this.configService.frontendUrl}/activate?token=${token}`;
+  }
+
   async sendActivationEmail(email: string, token: string, timeoutMs: number): Promise<boolean> {
-    const activationUrl = `${this.configService.frontendUrl}/activate?token=${token}`;
+    const activationUrl = this.buildActivationUrl(token);
 
     if (!this.resend) {
       this.logger.warn(

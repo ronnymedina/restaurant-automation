@@ -154,6 +154,11 @@ Both apps use multi-stage Dockerfiles. `docker-compose.yml` at root uses the `de
 | `dev` | NestJS hot reload | Astro dev server |
 | `prod` | node-slim, runs `node dist/src/main` | nginx + entrypoint injects `PUBLIC_API_URL` |
 
+## Convenciones del backend
+
+- **Sin `any`**: prohibido en todo el proyecto (ESLint `@typescript-eslint/no-explicit-any: error`). Cuando el tipo no se conozca, usar `unknown` + narrowing — nunca `any`.
+- **Errores documentados**: toda excepción lleva un comentario en su definición y un `@ApiResponse` en Swagger con su `code`. El contrato de error sigue el **[ADR 0007](apps/api-core/docs/adr/0007-contrato-de-error-unificado.md)**: `{ message: string[], code, statusCode, details? }`. Los mensajes técnicos van en inglés; el texto friendly (ES) vive en el frontend (`apps/ui/src/lib/error-messages.ts`), mapeado por `code`. Catálogo de códigos en `apps/api-core/docs/onboarding-error-mapping.md`.
+
 ## Documentation Convention
 
 Each app maintains its own `docs/` folder with a `README.md` index:

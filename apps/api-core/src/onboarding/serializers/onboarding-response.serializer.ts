@@ -12,4 +12,12 @@ export class OnboardingResponseSerializer {
     enum: ['products_extraction_failed', 'products_creation_failed'],
   })
   productsWarning?: ProductsWarning;
+
+  @ApiProperty({
+    description:
+      'Presente solo en modo self-hosted (sin proveedor de email). URL para activar la cuenta admin directamente desde la UI.',
+    example: 'http://192.168.1.50:8080/activate?token=2b1f...-uuid',
+    required: false,
+  })
+  activationUrl?: string;
 }

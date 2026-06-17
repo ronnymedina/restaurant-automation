@@ -1,0 +1,58 @@
+name: restaurantes
+
+services:
+  res-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-restaurants}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en el .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  res-api-core:
+    image: ghcr.io/${GHCR_OWNER}/restaurants-api-core:latest
+    restart: unless-stopped
+    depends_on:
+      res-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@res-db:5432/${POSTGRES_DB:-restaurants}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en el .env}
+      JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION:-15m}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-7d}
+      BCRYPT_SALT_ROUNDS: ${BCRYPT_SALT_ROUNDS:-10}
+      CACHE_DRIVER: ${CACHE_DRIVER:-memory}
+      FRONTEND_URL: http://${SERVER_IP}:${UI_PORT:-8080}
+      CORS_ORIGIN: http://${SERVER_IP}:${UI_PORT:-8080}
+      COOKIE_SECURE: "false"
+      TZ: ${TZ:-America/Argentina/Buenos_Aires}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-onboarding@resend.dev}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+    command: ["sh", "-c", "./commands/execute-migrations.sh && node dist/src/main"]
+    volumes:
+      - uploads_data:/app/uploads
+    ports:
+      - "${API_PORT:-3000}:3000"
+
+  res-ui:
+    image: ghcr.io/${GHCR_OWNER}/restaurants-ui:latest
+    restart: unless-stopped
+    depends_on:
+      - res-api-core
+    environment:
+      PUBLIC_API_URL: http://${SERVER_IP}:${API_PORT:-3000}
+    ports:
+      - "${UI_PORT:-8080}:80"
+
+volumes:
+  postgres_data:
+  uploads_data:

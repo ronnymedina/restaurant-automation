@@ -6,6 +6,9 @@ const errorMessages: Record<string, string> = {
   ACCOUNT_INACTIVE: 'Tu cuenta no está activa. Revisa tu correo para activarla.',
   INVALID_REFRESH_TOKEN: 'Tu sesión ha expirado. Inicia sesión nuevamente.',
   INVALID_ACTIVATION_TOKEN: 'El enlace no es válido o ya fue utilizado.',
+  RESTAURANT_CREATION_FAILED: 'No se pudo completar el registro del restaurante. Intenta nuevamente.',
+  USER_CREATION_FAILED: 'No se pudo crear la cuenta. Intenta nuevamente.',
+  DEFAULT_CATEGORY_CREATION_FAILED: 'Hubo un problema al completar el registro de tu restaurante. Intenta nuevamente.',
 };
 
 const DEFAULT_ERROR = 'Hubo un error inesperado. Intenta nuevamente.';

@@ -8,6 +8,7 @@ interface Step3SuccessProps {
   restaurantName: string;
   productsCreated: number;
   productsWarning?: string;
+  activationUrl?: string;
   onResend: () => void;
   resendStatus: 'idle' | 'loading' | 'sent' | 'error';
 }
@@ -17,6 +18,7 @@ export default function Step3Success({
   restaurantName,
   productsCreated,
   productsWarning,
+  activationUrl,
   onResend,
   resendStatus,
 }: Step3SuccessProps) {
@@ -61,49 +63,67 @@ export default function Step3Success({
         </div>
       )}
 
-      <div className="flex gap-4 p-5 bg-orange-50 rounded-xl border border-orange-200 mb-6">
-        <div className="text-[#f97316] flex-shrink-0 mt-0.5">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect width="20" height="16" x="2" y="4" rx="2" />
-            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-          </svg>
-        </div>
-        <div className="text-left">
-          <strong className="text-slate-800 block mb-1">Revisa tu correo</strong>
+      {activationUrl ? (
+        <div className="flex flex-col gap-3 p-5 bg-orange-50 rounded-xl border border-orange-200 mb-6 text-left">
+          <strong className="text-slate-800">Activá tu cuenta</strong>
           <p className="text-slate-500 m-0 text-sm leading-relaxed">
-            Hemos enviado un enlace de activación a tu dirección de correo.
-            Si no aparece en tu bandeja principal, revisa la carpeta de spam.
+            Tu instalación no tiene servicio de correo configurado. Hacé clic para
+            establecer tu contraseña y activar tu cuenta de administrador.
           </p>
+          <a
+            href={activationUrl}
+            className="w-full py-3 px-6 bg-[#f97316] text-white no-underline rounded-xl text-sm font-semibold flex items-center justify-center transition-all hover:bg-orange-600"
+          >
+            Activar mi cuenta
+          </a>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="flex gap-4 p-5 bg-orange-50 rounded-xl border border-orange-200 mb-6">
+            <div className="text-[#f97316] flex-shrink-0 mt-0.5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="20" height="16" x="2" y="4" rx="2" />
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+              </svg>
+            </div>
+            <div className="text-left">
+              <strong className="text-slate-800 block mb-1">Revisa tu correo</strong>
+              <p className="text-slate-500 m-0 text-sm leading-relaxed">
+                Hemos enviado un enlace de activación a tu dirección de correo.
+                Si no aparece en tu bandeja principal, revisa la carpeta de spam.
+              </p>
+            </div>
+          </div>
 
-      {resendStatus === 'sent' && (
-        <p className="text-sm text-emerald-600 mb-4">
-          Si el correo está registrado, recibirás un email en breve.
-        </p>
-      )}
-      {resendStatus === 'error' && (
-        <p className="text-sm text-red-500 mb-4">
-          Error de conexión. Intenta nuevamente.
-        </p>
-      )}
+          {resendStatus === 'sent' && (
+            <p className="text-sm text-emerald-600 mb-4">
+              Si el correo está registrado, recibirás un email en breve.
+            </p>
+          )}
+          {resendStatus === 'error' && (
+            <p className="text-sm text-red-500 mb-4">
+              Error de conexión. Intenta nuevamente.
+            </p>
+          )}
 
-      <div className="flex flex-col gap-3">
-        <button
-          type="button"
-          onClick={onResend}
-          disabled={resendStatus === 'loading' || resendStatus === 'sent'}
-          className="w-full py-3 px-6 bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-sm font-medium cursor-pointer transition-all hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {resendStatus === 'loading' ? 'Enviando...' : 'No me llegó el correo'}
-        </button>
-        <a
-          href="/login"
-          className="w-full py-3 px-6 bg-[#f97316] text-white no-underline rounded-xl text-sm font-semibold flex items-center justify-center transition-all hover:bg-orange-600"
-        >
-          Ir al login
-        </a>
-      </div>
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={onResend}
+              disabled={resendStatus === 'loading' || resendStatus === 'sent'}
+              className="w-full py-3 px-6 bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-sm font-medium cursor-pointer transition-all hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {resendStatus === 'loading' ? 'Enviando...' : 'No me llegó el correo'}
+            </button>
+            <a
+              href="/login"
+              className="w-full py-3 px-6 bg-[#f97316] text-white no-underline rounded-xl text-sm font-semibold flex items-center justify-center transition-all hover:bg-orange-600"
+            >
+              Ir al login
+            </a>
+          </div>
+        </>
+      )}
     </div>
   );
 }

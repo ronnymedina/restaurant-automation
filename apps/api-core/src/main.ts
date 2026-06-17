@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { validationExceptionFactory } from './common/validation-exception.factory';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import * as express from 'express';
@@ -34,6 +35,9 @@ async function bootstrap() {
       transform: true,
       whitelist: true,
       forbidNonWhitelisted: true,
+      // Contrato de error unificado (ADR 0007): los 400 de validación emiten
+      // { message: string[], code: 'VALIDATION_ERROR', statusCode: 400 }.
+      exceptionFactory: validationExceptionFactory,
     }),
   );
 

@@ -57,6 +57,20 @@ Con warning (si el procesamiento de productos falló):
 - La categoría por defecto se crea con `createDefaultCategory` (INSERT directo, sin lookup previo) ya que el restaurante es nuevo.
 - El email usa RxJS `defer()` + `timeout()` + `retry({ count: 2, delay: 1000 })` para resiliencia.
 
+## Modo self-hosted (sin proveedor de email)
+
+Cuando `RESEND_API_KEY` no está configurada (`EmailService.isEnabled() === false`),
+el email de activación no se envía. Para no bloquear el alta:
+
+- `registerRestaurant` devuelve `activationUrl` en `OnboardingResult` (construido con
+  `EmailService.buildActivationUrl(token)`, base `FRONTEND_URL`).
+- El controller lo expone en `OnboardingResponseSerializer.activationUrl`.
+- La UI (`Step3Success`) muestra un botón **"Activar mi cuenta"** con ese link en vez
+  del aviso "Revisa tu correo".
+
+Con email configurado el comportamiento no cambia: el link va por correo y
+`activationUrl` **no** se incluye en la respuesta.
+
 | Caso | Status | Code | `productsWarning` |
 |---|---|---|---|
 | Registro exitoso sin foto | 201 | — | — |

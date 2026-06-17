@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Body,
   UploadedFile,
@@ -23,11 +24,31 @@ import { OnboardingService } from './onboarding.service';
 import { OnboardingRegisterDto, OnboardingRegisterSwaggerDto } from './dto';
 import { MAX_FILE_SIZE } from '../config';
 import { OnboardingResponseSerializer } from './serializers/onboarding-response.serializer';
+import { LATAM_COUNTRIES } from './data/latam-countries';
+import { CountryOptionSerializer } from './serializers/country-option.serializer';
 
 @ApiTags('Onboarding')
 @Controller({ version: '1', path: 'onboarding' })
 export class OnboardingController {
   constructor(private readonly onboardingService: OnboardingService) {}
+
+  @Public()
+  @Get('countries')
+  @ApiOperation({
+    summary: 'Listar países soportados (LatAm)',
+    description: 'Lista curada de países con su moneda y separador decimal por defecto, para el wizard de onboarding.',
+  })
+  @ApiResponse({ status: 200, description: 'Lista de países', type: CountryOptionSerializer, isArray: true })
+  getCountries(): CountryOptionSerializer[] {
+    return [...LATAM_COUNTRIES]
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+      .map((c) => ({
+        code: c.code,
+        name: c.name,
+        currency: c.currency,
+        defaultDecimalSeparator: c.decimalSeparator,
+      }));
+  }
 
   @Public()
   @UseGuards(ThrottlerGuard)
@@ -36,15 +57,27 @@ export class OnboardingController {
   @ApiOperation({
     summary: 'Registrar un nuevo restaurante',
     description:
-      'Crea un restaurante y opcionalmente extrae productos desde una foto de menú usando IA. El email de activación se envía inmediatamente tras crear las entidades core, antes del procesamiento de productos.',
+      'Crea un restaurante + usuario ADMIN + categoría por defecto. El email de activación se envía inmediatamente si hay proveedor configurado; en modo self-hosted (sin RESEND_API_KEY) la respuesta incluye activationUrl para que la UI muestre el link.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: OnboardingRegisterSwaggerDto })
   @ApiResponse({ status: 201, description: 'Restaurante registrado exitosamente', type: OnboardingResponseSerializer })
-  @ApiResponse({ status: 400, description: 'Datos de entrada inválidos o archivo rechazado' })
-  @ApiResponse({ status: 409, description: 'El email o nombre de restaurante ya está registrado' })
-  @ApiResponse({ status: 429, description: 'Demasiadas solicitudes — intente más tarde' })
-  @ApiResponse({ status: 500, description: 'Error interno durante el onboarding' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validación de DTO o archivo rechazado. Ver docs/onboarding-error-mapping.md.',
+    schema: { example: { message: ['country must be a supported LATAM ISO code'], code: 'VALIDATION_ERROR', statusCode: 400 } },
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'El email ya está registrado',
+    schema: { example: { message: ["Email 'x@y.com' is already registered"], code: 'EMAIL_ALREADY_EXISTS', statusCode: 409, details: { email: 'x@y.com' } } },
+  })
+  @ApiResponse({ status: 429, description: 'Demasiadas solicitudes — intente más tarde (rate limit 5/15min)' })
+  @ApiResponse({
+    status: 500,
+    description: 'Error interno durante el onboarding: ONBOARDING_FAILED | RESTAURANT_CREATION_FAILED | USER_CREATION_FAILED | DEFAULT_CATEGORY_CREATION_FAILED',
+    schema: { example: { message: ['Failed to create the restaurant'], code: 'RESTAURANT_CREATION_FAILED', statusCode: 500 } },
+  })
   @UseInterceptors(FileInterceptor('photo'))
   async register(
     @Body() body: OnboardingRegisterDto,
@@ -64,11 +97,17 @@ export class OnboardingController {
     const result = await this.onboardingService.registerRestaurant({
       email: body.email,
       restaurantName: body.restaurantName,
+      country: body.country,
       timezone: body.timezone,
+      decimalSeparator: body.decimalSeparator,
       createDemoData: body.createDemoData,
       photo,
     });
 
-    return { productsCreated: result.productsCreated, productsWarning: result.productsWarning };
+    return {
+      productsCreated: result.productsCreated,
+      productsWarning: result.productsWarning,
+      activationUrl: result.activationUrl,
+    };
   }
 }

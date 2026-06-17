@@ -17,6 +17,9 @@ import {
   UserCreationFailedException,
   DefaultCategoryCreationFailedException,
 } from './exceptions/onboarding.exceptions';
+import { findLatamCountry } from './data/latam-countries';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ct: { getCountry: (id: string) => { timezones: string[] } | null } = require('countries-and-timezones');
 
 type TransactionClient = Prisma.TransactionClient;
 
@@ -25,12 +28,15 @@ export type ProductsWarning = 'products_extraction_failed' | 'products_creation_
 export interface OnboardingResult {
   productsCreated: number;
   productsWarning?: ProductsWarning;
+  activationUrl?: string;
 }
 
 export interface OnboardingInput {
   email: string;
   restaurantName: string;
+  country: string;
   timezone?: string;
+  decimalSeparator?: '.' | ',';
   createDemoData?: boolean;
   photo?: { buffer: Buffer; mimeType: string };
 }
@@ -76,10 +82,16 @@ export class OnboardingService {
     // 3. Send activation email right after core setup — independent of products
     await this.sendActivationEmail(user.email, user.activationToken!);
 
+    // Self-hosted (sin proveedor de email): exponer el link para que la UI lo muestre.
+    // Con email configurado, el link va por correo y NO se expone en la respuesta.
+    const activationUrl = this.emailService.isEnabled()
+      ? undefined
+      : this.emailService.buildActivationUrl(user.activationToken!);
+
     // 4. Process products — non-fatal, failure returns a warning for the frontend
     const { count: productsCreated, warning: productsWarning } = await this.resolveProducts(restaurant.id, defaultCategoryId, input);
 
-    return { productsCreated, productsWarning };
+    return { productsCreated, productsWarning, activationUrl };
   }
 
   private async sendActivationEmail(email: string, token: string): Promise<void> {
@@ -98,15 +110,39 @@ export class OnboardingService {
     }
   }
 
+  private resolveLocalization(input: OnboardingInput): {
+    country: string;
+    currency: string;
+    decimalSeparator: string;
+    thousandsSeparator: string;
+    timezone: string;
+  } {
+    const country = findLatamCountry(input.country);
+    if (!country) {
+      // El DTO ya valida @IsIn, pero defendemos el invariante.
+      throw new OnboardingFailedException(`Unsupported country: ${input.country}`);
+    }
+    const decimalSeparator = input.decimalSeparator ?? country.decimalSeparator;
+    const thousandsSeparator = decimalSeparator === '.' ? ',' : '.';
+
+    const countryTimezones = ct.getCountry(country.code)?.timezones ?? [];
+    const timezone =
+      input.timezone && countryTimezones.includes(input.timezone)
+        ? input.timezone
+        : country.primaryTimezone;
+
+    return { country: country.code, currency: country.currency, decimalSeparator, thousandsSeparator, timezone };
+  }
+
   private async setupCoreEntities(
     input: OnboardingInput,
   ): Promise<{ restaurant: Restaurant; user: User; defaultCategoryId: string }> {
     try {
       return await this.prisma.$transaction(async (tx: TransactionClient) => {
-        const {restaurantName, email, timezone} = input;
+        const { restaurantName, email } = input;
 
         this.logger.log("Creating restaurant...")
-        const restaurant = await this.createRestaurant(restaurantName, timezone, tx);
+        const restaurant = await this.createRestaurant(input, tx);
         this.logger.log("The restaurant was successfully created")
 
         this.logger.log("Creating the user")
@@ -137,14 +173,14 @@ export class OnboardingService {
   }
 
   private async createRestaurant(
-    name: string,
-    timezone: string | undefined,
+    input: OnboardingInput,
     tx: TransactionClient,
   ): Promise<Restaurant> {
+    const loc = this.resolveLocalization(input);
     try {
-      return await this.restaurantsService.createRestaurant(name, timezone, tx);
+      return await this.restaurantsService.createRestaurant({ name: input.restaurantName, ...loc }, tx);
     } catch (error) {
-      throw new RestaurantCreationFailedException({ restaurantName: name });
+      throw new RestaurantCreationFailedException({ restaurantName: input.restaurantName });
     }
   }
 
