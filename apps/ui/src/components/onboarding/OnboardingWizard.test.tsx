@@ -162,6 +162,30 @@ test('shows generic error when API returns non-JSON error', async () => {
   );
 });
 
+test('shows activation link on step 3 when register returns activationUrl', async () => {
+  vi.stubGlobal(
+    'fetch',
+    makeFetchMock({
+      ok: true,
+      json: async () => ({
+        productsCreated: 0,
+        activationUrl: 'http://192.168.1.50:8080/activate?token=abc',
+      }),
+    }),
+  );
+
+  render(<OnboardingWizard />);
+  await fillStep1();
+  fireEvent.click(screen.getByRole('button', { name: /^continuar/i }));
+
+  await waitFor(() =>
+    expect(screen.getByRole('link', { name: /activar mi cuenta/i })).toHaveAttribute(
+      'href',
+      'http://192.168.1.50:8080/activate?token=abc',
+    ),
+  );
+});
+
 test('register POST includes country and decimalSeparator from step 1', async () => {
   const fetchMock = vi.fn(async (url: string) => {
     if (String(url).endsWith('/v1/onboarding/countries')) {
