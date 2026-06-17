@@ -57,7 +57,7 @@ export class OnboardingController {
   @ApiOperation({
     summary: 'Registrar un nuevo restaurante',
     description:
-      'Crea un restaurante y opcionalmente extrae productos desde una foto de menú usando IA. El email de activación se envía inmediatamente tras crear las entidades core, antes del procesamiento de productos.',
+      'Crea un restaurante + usuario ADMIN + categoría por defecto. El email de activación se envía inmediatamente si hay proveedor configurado; en modo self-hosted (sin RESEND_API_KEY) la respuesta incluye activationUrl para que la UI muestre el link.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: OnboardingRegisterSwaggerDto })
@@ -104,6 +104,10 @@ export class OnboardingController {
       photo,
     });
 
-    return { productsCreated: result.productsCreated, productsWarning: result.productsWarning };
+    return {
+      productsCreated: result.productsCreated,
+      productsWarning: result.productsWarning,
+      activationUrl: result.activationUrl,
+    };
   }
 }
