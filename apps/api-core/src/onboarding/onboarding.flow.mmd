@@ -13,7 +13,9 @@ flowchart TD
     end
 
     E -->|ok| F[sendActivationEmail\ntimeout 5s · retry ×2]
-    F --> G{resolveProducts}
+    F -->|email habilitado| F1[link enviado por correo]
+    F -->|email deshabilitado| F2[activationUrl en la respuesta\nla UI muestra el link]
+    F1 & F2 --> G{resolveProducts}
 
     G -->|photo| H[Gemini AI extraction]
     H -->|ok| I1[productsCreated: N]

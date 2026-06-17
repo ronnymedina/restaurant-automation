@@ -64,6 +64,9 @@ El restaurante y la cuenta quedan creados igual; el dueño puede cargar producto
 
 ## Email de activación y reenvío
 
+> **Self-hosted:** si no hay `RESEND_API_KEY`, la respuesta 201 de `POST /v1/onboarding/register`
+> incluye `activationUrl`. La UI lo muestra como botón de activación. No se envía email.
+
 - El envío del email de activación es **no bloqueante**: el onboarding responde **`201` aunque el
   email falle** (solo no se entrega). La cuenta queda creada e inactiva.
 - **Reenvío:** `POST /v1/auth/recover { email }` (throttle 3/15 min). Para una cuenta **inactiva**
