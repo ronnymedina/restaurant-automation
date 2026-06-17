@@ -28,6 +28,7 @@ export type ProductsWarning = 'products_extraction_failed' | 'products_creation_
 export interface OnboardingResult {
   productsCreated: number;
   productsWarning?: ProductsWarning;
+  activationUrl?: string;
 }
 
 export interface OnboardingInput {
@@ -81,10 +82,16 @@ export class OnboardingService {
     // 3. Send activation email right after core setup — independent of products
     await this.sendActivationEmail(user.email, user.activationToken!);
 
+    // Self-hosted (sin proveedor de email): exponer el link para que la UI lo muestre.
+    // Con email configurado, el link va por correo y NO se expone en la respuesta.
+    const activationUrl = this.emailService.isEnabled()
+      ? undefined
+      : this.emailService.buildActivationUrl(user.activationToken!);
+
     // 4. Process products — non-fatal, failure returns a warning for the frontend
     const { count: productsCreated, warning: productsWarning } = await this.resolveProducts(restaurant.id, defaultCategoryId, input);
 
-    return { productsCreated, productsWarning };
+    return { productsCreated, productsWarning, activationUrl };
   }
 
   private async sendActivationEmail(email: string, token: string): Promise<void> {

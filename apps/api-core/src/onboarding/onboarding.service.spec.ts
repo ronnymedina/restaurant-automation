@@ -69,7 +69,11 @@ const mockUsersService = {
   existsByEmail: jest.fn(),
   createOnboardingUser: jest.fn(),
 };
-const mockEmailService = { sendActivationEmail: jest.fn() };
+const mockEmailService = {
+  sendActivationEmail: jest.fn(),
+  isEnabled: jest.fn(),
+  buildActivationUrl: jest.fn(),
+};
 
 describe('OnboardingService', () => {
   let service: OnboardingService;
@@ -98,6 +102,10 @@ describe('OnboardingService', () => {
     mockRestaurantsService.createRestaurant.mockResolvedValue(mockRestaurant);
     mockProductsService.createDefaultCategory.mockResolvedValue(mockCategory);
     mockEmailService.sendActivationEmail.mockResolvedValue(true);
+    mockEmailService.isEnabled.mockReturnValue(true);
+    mockEmailService.buildActivationUrl.mockReturnValue(
+      'http://host:8080/activate?token=activation-token-uuid',
+    );
   });
 
   // ─── Validation ──────────────────────────────────────────────────────────
@@ -461,6 +469,32 @@ describe('OnboardingService', () => {
 
       expect(result.productsCreated).toBe(0);
       expect(result.productsWarning).toBeUndefined();
+    });
+  });
+
+  // ─── Self-hosted activation link ──────────────────────────────────────────
+
+  describe('self-hosted activation link', () => {
+    it('omits activationUrl when email is enabled', async () => {
+      mockEmailService.isEnabled.mockReturnValue(true);
+
+      const result = await service.registerRestaurant({
+        email: 'new@test.com', restaurantName: 'Test', country: 'CL',
+      });
+
+      expect(result.activationUrl).toBeUndefined();
+      expect(mockEmailService.buildActivationUrl).not.toHaveBeenCalled();
+    });
+
+    it('returns activationUrl from the token when email is disabled', async () => {
+      mockEmailService.isEnabled.mockReturnValue(false);
+
+      const result = await service.registerRestaurant({
+        email: 'new@test.com', restaurantName: 'Test', country: 'CL',
+      });
+
+      expect(mockEmailService.buildActivationUrl).toHaveBeenCalledWith('activation-token-uuid');
+      expect(result.activationUrl).toBe('http://host:8080/activate?token=activation-token-uuid');
     });
   });
 });
