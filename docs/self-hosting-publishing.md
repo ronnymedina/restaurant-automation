@@ -12,9 +12,54 @@ Las imágenes públicas de self-hosting se publican a mano en GitHub Container R
 > imagen **multi-arquitectura** (un único tag `:latest` que resuelve a la variante correcta
 > según la CPU de quien hace el pull). No hace falta publicar nada específico de Windows.
 
-El stage `prod` ya es mínimo: parte de `node-slim` y copia **solo** `dist/` (el binario
-compilado), las `node_modules` de producción, `prisma/` y `commands/` — descarta el código
-fuente, las devDependencies y pnpm/npm. Arranca con `node dist/src/main`.
+## Cómo se compilan las imágenes (flujo multi-stage)
+
+Cada app se construye con un **Dockerfile multi-stage**: una línea de montaje con varias
+estaciones (`FROM ... AS <nombre>`). Cada estación fabrica una pieza; la imagen que se
+publica es **solo la última** (`prod`), y las anteriores existen para producir lo que `prod`
+copia. Así las herramientas pesadas de build quedan en estaciones intermedias que se
+descartan, y la imagen final queda mínima.
+
+### Backend — `apps/api-core/Dockerfile`
+
+| Estación | Qué hace | Pieza que produce |
+|----------|----------|-------------------|
+| `deps` | `pnpm install` con todas las dependencias (dev + prod) | `node_modules` completo |
+| `prod-deps` | instala, genera el cliente Prisma y `pnpm prune --prod` | `node_modules` **solo prod** |
+| `build` | compila NestJS: `src/` → `dist/` (TypeScript → JavaScript) | `dist/` |
+| `dev` | servidor con hot-reload (**no se publica**) | — |
+| `prod` | **no compila nada**: junta las piezas anteriores | imagen final |
+
+La estación `prod` (`node:24-...-slim`) solo copia: `dist/` desde `build`, `node_modules`
+solo-prod desde `prod-deps`, más `prisma/` y `commands/`. Descarta el código fuente, las
+devDependencies (TypeScript, el compilador de Nest) y pnpm/npm. Crea `/app/uploads` con
+dueño `node` (uploads escribibles) y arranca con `node dist/src/main`.
+
+> **Por qué tantas estaciones:** `build` necesita TODO para compilar, pero `dist/` ya es
+> JavaScript puro — para *correr* no hace falta TypeScript ni el compilador. Separar permite
+> que la imagen final no cargue con esas herramientas.
+
+### Frontend — `apps/ui/Dockerfile`
+
+| Estación | Qué hace |
+|----------|----------|
+| `deps` | `npm install` |
+| `dev` | servidor Astro con hot-reload (**no se publica**) |
+| `build` | compila Astro a estático (`dist/` con HTML/CSS/JS) |
+| `prod` | **nginx** sirviendo ese `dist/` |
+
+**El truco del placeholder (clave para una sola imagen multi-usuario):** el sitio Astro es
+estático, así que la URL de la API normalmente se "hornea" al compilar — pero no sabemos la
+IP de cada usuario. La solución:
+
+1. Al **buildear**, `--build-arg PUBLIC_API_URL=__PLACEHOLDER_API_URL__` incrusta un
+   texto-marcador donde iría la URL.
+2. Al **arrancar el contenedor**, `docker/entrypoint.sh` hace un `sed` que reemplaza ese
+   marcador por el `PUBLIC_API_URL` real (derivado del `SERVER_IP` del `.env` del usuario)
+   y recién ahí lanza nginx.
+
+Así, la **misma imagen** sirve a cualquier instalación: el ajuste ocurre en el arranque, no
+en el build.
 
 ## Requisitos
 
@@ -110,3 +155,45 @@ docker buildx build --platform linux/amd64,linux/arm64 \
   -t ghcr.io/<tu-usuario-github>/restaurants-api-core:v1.1.0 \
   --push apps/api-core
 ```
+
+## 7. Problemas comunes al publicar
+
+El build multi-arch es exigente porque la variante `linux/amd64` se compila por **emulación
+QEMU** en un Mac ARM. Estos tres errores son los que aparecen en la práctica:
+
+### `cannot allocate memory` / `ResourceExhausted` durante `pnpm install`
+
+Docker se quedó sin RAM. El default de Docker Desktop (~4 GB) no alcanza para emular amd64 +
+arm64 en paralelo. **Subí la memoria** en Docker Desktop → *Settings → Resources → Memory* a
+**~8 GB** y *Apply & Restart*. Verificá con:
+
+```bash
+docker info | grep "Total Memory"
+```
+
+### `no space left on device`
+
+El disco de la VM de Docker se llenó (imágenes viejas + caché de build). Liberá espacio
+**antes** de un build pesado:
+
+```bash
+docker buildx prune -f      # caché de build (suele ser lo que más ocupa)
+docker image prune -f       # imágenes dangling (sin tag)
+docker container prune -f   # contenedores detenidos
+docker system df            # ver cuánto queda / qué es reclamable
+```
+
+### `denied: permission_denied: The token provided does not match expected scopes`
+
+El push a GHCR necesita el scope **`write:packages`**, que `gh auth token` **no** incluye por
+defecto. Agregalo a tu sesión de `gh` y **re-logueá Docker** (el login viejo guardó el token
+sin el scope):
+
+```bash
+gh auth refresh -h github.com -s write:packages    # autoriza en el navegador
+echo "$(gh auth token)" | docker login ghcr.io -u <tu-usuario-github> --password-stdin
+```
+
+> Ojo: `docker login` puede decir `Login Succeeded` con un token sin el scope —
+> "succeeded" solo significa que autentica, no que pueda escribir paquetes. Confirmá el
+> scope con `gh auth status` (debe listar `write:packages`).
