@@ -1,0 +1,3 @@
+# El .env de cada instalación self-host lleva secretos (JWT_SECRET, POSTGRES_PASSWORD).
+# Nunca se commitea; usá .env.example como plantilla.
+.env
