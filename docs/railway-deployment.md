@@ -62,6 +62,12 @@ dockerfilePath = "apps/api-core/Dockerfile"
 restartPolicyType = "ON_FAILURE"
 ```
 
+> **Stage para cloud:** Railway usa el stage **`prod`** (sin ofuscar), no `prod-obfuscated`.
+> La ofuscación es solo para las imágenes que se **distribuyen** (self-host); en tu propio
+> cloud conviene el `dist/` legible para debugging. `prod` es el último stage del Dockerfile,
+> así que es el target por defecto: si configurás el Dockerfile Path en Railway, dejá que use
+> el target por defecto (`prod`) — Railway no permite fijar un `--target` distinto.
+
 ### Opción B — Imagen pública de GHCR
 
 Usa las imágenes multi-arch ya publicadas (ver

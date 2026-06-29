@@ -61,6 +61,15 @@ IP de cada usuario. La solución:
 Así, la **misma imagen** sirve a cualquier instalación: el ajuste ocurre en el arranque, no
 en el build.
 
+### Imagen ofuscada para distribución (`prod-obfuscated`)
+
+El backend se publica desde el stage **`prod-obfuscated`**, no `prod`. Ese stage parte del
+`dist/` compilado y le aplica `javascript-obfuscator` (script `apps/api-core/scripts/obfuscate.mjs`,
+settings conservadores seguros para NestJS) antes de empaquetarlo. El resultado se ejecuta
+igual, pero el código no es utilizable como base de un proyecto derivado. El stage `prod`
+(sin ofuscar) se reserva para el deploy cloud propio, donde conviene tener stack traces
+legibles — ver `railway-deployment.md`.
+
 ## Requisitos
 
 - `docker` y `gh` (GitHub CLI) instalados y autenticados.
@@ -96,10 +105,10 @@ list que no se puede cargar localmente con `--load`, así que se usa `--push` en
 Etiquetá `:latest` **y** una versión fija a la vez.
 
 ```bash
-# Backend (api-core)
+# Backend (api-core) — imagen ofuscada para distribución
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -f apps/api-core/Dockerfile --target prod \
+  -f apps/api-core/Dockerfile --target prod-obfuscated \
   -t ghcr.io/<tu-usuario-github>/restaurants-api-core:latest \
   -t ghcr.io/<tu-usuario-github>/restaurants-api-core:v1.0.0 \
   --push apps/api-core
@@ -136,12 +145,12 @@ máquina sin tocar el registry:
 ```bash
 # Build nativo para tu CPU actual, cargado al Docker local (sin push)
 docker buildx build \
-  -f apps/api-core/Dockerfile --target prod \
+  -f apps/api-core/Dockerfile --target prod-obfuscated \
   -t ghcr.io/<tu-usuario-github>/restaurants-api-core:test \
   --load apps/api-core
 ```
 
-(Equivale al viejo `docker build ... --target prod -t ... apps/api-core`.)
+(Equivale al viejo `docker build ... --target prod-obfuscated -t ... apps/api-core`.)
 
 ## 6. Publicar una versión nueva más adelante
 
@@ -150,7 +159,7 @@ Repetí el paso 3 bumpeando la etiqueta de versión (`:v1.1.0`, etc.) y mantenie
 
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -f apps/api-core/Dockerfile --target prod \
+  -f apps/api-core/Dockerfile --target prod-obfuscated \
   -t ghcr.io/<tu-usuario-github>/restaurants-api-core:latest \
   -t ghcr.io/<tu-usuario-github>/restaurants-api-core:v1.1.0 \
   --push apps/api-core
