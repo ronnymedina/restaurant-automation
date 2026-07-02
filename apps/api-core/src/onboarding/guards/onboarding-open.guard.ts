@@ -14,6 +14,9 @@ export class OnboardingOpenGuard implements CanActivate {
   constructor(private readonly restaurantsService: RestaurantsService) {}
 
   async canActivate(_context: ExecutionContext): Promise<boolean> {
+    // Cloud (flag apagado): siempre abierto, sin tocar la DB.
+    if (!SINGLE_RESTAURANT_MODE) return true;
+
     const count = await this.restaurantsService.count();
     if (!registrationOpen(SINGLE_RESTAURANT_MODE, count)) {
       throw new OnboardingClosedException();

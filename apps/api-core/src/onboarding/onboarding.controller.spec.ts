@@ -26,13 +26,10 @@ describe('OnboardingController.getCountries', () => {
   });
 });
 
-import { OnboardingController as _OC } from './onboarding.controller';
-import { OnboardingService as _OS } from './onboarding.service';
-
 describe('OnboardingController.getStatus', () => {
   it('registrationOpen=true cuando no hay restaurantes', async () => {
     const restaurants = { count: jest.fn().mockResolvedValue(0) } as unknown as RestaurantsService;
-    const controller = new _OC({} as _OS, restaurants);
+    const controller = new OnboardingController({} as OnboardingService, restaurants);
     await expect(controller.getStatus()).resolves.toEqual({ registrationOpen: true });
   });
 });

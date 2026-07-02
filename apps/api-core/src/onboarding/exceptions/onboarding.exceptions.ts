@@ -90,4 +90,3 @@ export class OnboardingClosedException extends BaseException {
     );
   }
 }
-

@@ -38,6 +38,7 @@ Ejemplos reales:
 |---|---|---|---|---|
 | `VALIDATION_ERROR` | 400 | DTO inválido: email/restaurantName/timezone/country/decimalSeparator | — | `Los datos ingresados no son válidos.` |
 | `EMAIL_ALREADY_EXISTS` | 409 | El email ya está registrado | `{ email }` | `Este correo ya está registrado` |
+| `ONBOARDING_CLOSED` | 403 | Registro cerrado (modo single-restaurant, ya existe ≥1 restaurante) | — | `El registro ya no está disponible en esta instalación.` |
 | `ONBOARDING_FAILED` | 500 | Error inesperado durante el setup | — | `Error en el proceso de registro. Intenta nuevamente.` |
 | `RESTAURANT_CREATION_FAILED` | 500 | Falló crear el restaurante | `{ restaurantName }` | `No se pudo completar el registro del restaurante. Intenta nuevamente.` |
 | `USER_CREATION_FAILED` | 500 | Falló crear el usuario | `{ email, restaurantName }` | `No se pudo crear la cuenta. Intenta nuevamente.` |
