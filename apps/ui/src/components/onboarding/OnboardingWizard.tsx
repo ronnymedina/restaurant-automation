@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Step1Form from './Step1Form';
 import Step2Upload from './Step2Upload';
 import Step3Success from './Step3Success';
@@ -69,6 +69,28 @@ function StepIndicator({ current }: { current: Step }) {
 }
 
 export default function OnboardingWizard() {
+  const [checkingAccess, setCheckingAccess] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/v1/onboarding/status`);
+        const data = (await res.json()) as { registrationOpen?: boolean };
+        if (!cancelled && data.registrationOpen === false) {
+          window.location.replace('/login');
+          return;
+        }
+      } catch {
+        // Si el chequeo falla, dejamos ver el wizard (no bloqueamos por un error de red).
+      }
+      if (!cancelled) setCheckingAccess(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [step, setStep] = useState<Step>(1);
   const [formData, setFormData] = useState<Step1Data | null>(null);
   const [productsCreated, setProductsCreated] = useState(0);
@@ -142,6 +164,14 @@ export default function OnboardingWizard() {
     } catch {
       setResendStatus('error');
     }
+  }
+
+  if (checkingAccess) {
+    return (
+      <div className="min-h-[300px] flex items-center justify-center text-slate-500">
+        Cargando…
+      </div>
+    );
   }
 
   return (

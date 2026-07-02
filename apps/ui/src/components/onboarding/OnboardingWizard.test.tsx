@@ -7,6 +7,9 @@ const COUNTRIES_MOCK = [
 
 function makeFetchMock(registerResponse: { ok: boolean; json: () => Promise<unknown> }) {
   return vi.fn(async (url: string) => {
+    if (String(url).endsWith('/v1/onboarding/status')) {
+      return { ok: true, json: async () => ({ registrationOpen: true }) };
+    }
     if (String(url).endsWith('/v1/onboarding/countries')) {
       return { ok: true, json: async () => COUNTRIES_MOCK };
     }
@@ -38,7 +41,7 @@ async function fillStep1() {
 test('renders step 1 initially', async () => {
   vi.stubGlobal('fetch', makeFetchMock({ ok: true, json: async () => ({ productsCreated: 0 }) }));
   render(<OnboardingWizard />);
-  expect(screen.getByLabelText(/correo electrónico/i)).toBeInTheDocument();
+  expect(await screen.findByLabelText(/correo electrónico/i)).toBeInTheDocument();
 });
 
 test('shows step 2 after step 1 is submitted', async () => {
@@ -59,7 +62,7 @@ test('goes back to step 1 when Volver is clicked in step 2', async () => {
 test('step 1 indicator is active on start', async () => {
   vi.stubGlobal('fetch', makeFetchMock({ ok: true, json: async () => ({ productsCreated: 0 }) }));
   render(<OnboardingWizard />);
-  expect(screen.getByTestId('step-1')).toHaveAttribute('data-active', 'true');
+  expect(await screen.findByTestId('step-1')).toHaveAttribute('data-active', 'true');
 });
 
 test('step 2 indicator is active after step 1 submit', async () => {
