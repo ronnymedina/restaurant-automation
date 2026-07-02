@@ -198,6 +198,19 @@ CORS_ORIGIN=http://localhost:4321
 
 ---
 
+### ONBOARDING / REGISTRO
+
+* **SINGLE_RESTAURANT_MODE**: Cierra el registro público de onboarding una vez que existe un
+  restaurante (instancias de un solo restaurante, típico de self-host). El primer registro por web
+  sigue permitido; los siguientes solo por CLI (`pnpm run cli create-restaurant`). La UI de
+  `/onboarding` redirige a `/login` cuando el registro está cerrado.
+  - Default: `false`
+  - Required: `false`
+  - Valores: `true`, `false`
+  - **Self-host**: `true`. **Cloud SaaS**: `false` (onboarding multi-restaurante abierto).
+
+---
+
 ### AI / ONBOARDING
 
 * **GEMINI_API_KEY**: API Key de Google Gemini.

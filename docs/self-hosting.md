@@ -60,6 +60,15 @@ curl http://localhost:3000/health   # debe responder {"status":"ok"}
    Hacé clic, definí tu contraseña y tu cuenta queda activa.
 4. Iniciá sesión y cargá tus productos **manualmente** desde el dashboard.
 
+> **Un solo restaurante por instancia.** Con `SINGLE_RESTAURANT_MODE=true` (default de la plantilla
+> self-host), una vez que registrás tu restaurante el formulario de `/onboarding` deja de estar
+> disponible: la página redirige a `/login`. Si en algún caso excepcional necesitás crear otro
+> restaurante en la misma instancia, hacelo por línea de comando:
+>
+> ```bash
+> docker compose exec res-api-core pnpm run cli create-restaurant --name "Otro Local"
+> ```
+
 ## 6. Conectar otros dispositivos
 
 Desde cualquier dispositivo en la misma red, abrí:
