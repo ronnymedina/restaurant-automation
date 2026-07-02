@@ -57,6 +57,11 @@ export class RestaurantsService {
     return this.restaurantRepository.findByIdWithRelations(id);
   }
 
+  /** Total de restaurantes. Usado por el modo single-restaurant del onboarding. */
+  count(): Promise<number> {
+    return this.restaurantRepository.count();
+  }
+
   async findAll(): Promise<Restaurant[]> {
     return this.restaurantRepository.findAll();
   }

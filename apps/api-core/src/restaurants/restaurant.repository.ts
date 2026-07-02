@@ -105,6 +105,10 @@ export class RestaurantRepository {
     });
   }
 
+  count(): Promise<number> {
+    return this.prisma.restaurant.count();
+  }
+
   async findBySlugWithSettings(slug: string, tx?: TransactionClient): Promise<RestaurantWithSettings | null> {
     const client = tx ?? this.prisma;
     return client.restaurant.findUnique({

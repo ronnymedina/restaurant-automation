@@ -164,6 +164,16 @@ describe('RestaurantsService.updateSettings', () => {
   });
 });
 
+describe('RestaurantsService.count', () => {
+  it('delega en el repositorio y devuelve el número', async () => {
+    const repo = { count: jest.fn().mockResolvedValue(2) } as unknown as RestaurantRepository;
+    const service = new RestaurantsService(repo, {} as TimezoneService);
+
+    await expect(service.count()).resolves.toBe(2);
+    expect(repo.count).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('RestaurantsService.createRestaurant', () => {
   let service: RestaurantsService;
 
