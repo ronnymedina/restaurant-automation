@@ -1,5 +1,5 @@
 import { render, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import OnboardingWizard from './OnboardingWizard';
 
 describe('OnboardingWizard registration gate', () => {
@@ -9,6 +9,10 @@ describe('OnboardingWizard registration gate', () => {
       value: { replace: vi.fn(), href: '' },
       writable: true,
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('redirige a /login cuando registrationOpen=false', async () => {
@@ -24,5 +28,17 @@ describe('OnboardingWizard registration gate', () => {
     await waitFor(() => {
       expect(window.location.replace).toHaveBeenCalledWith('/login');
     });
+  });
+
+  it('muestra el wizard (fail-open) cuando el chequeo de estado falla', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new Error('network down');
+    }));
+
+    const { findByLabelText } = render(<OnboardingWizard />);
+
+    // El wizard se muestra igual (Step 1 con el campo de email) y no se redirige.
+    expect(await findByLabelText(/correo electrónico/i)).toBeInTheDocument();
+    expect(window.location.replace).not.toHaveBeenCalled();
   });
 });

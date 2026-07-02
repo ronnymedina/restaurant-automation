@@ -76,10 +76,14 @@ export default function OnboardingWizard() {
     (async () => {
       try {
         const res = await fetch(`${API_URL}/v1/onboarding/status`);
-        const data = (await res.json()) as { registrationOpen?: boolean };
-        if (!cancelled && data.registrationOpen === false) {
-          window.location.replace('/login');
-          return;
+        // Fail-open: solo redirigimos ante un 200 que dice explícitamente que el
+        // registro está cerrado. Cualquier respuesta no-ok deja ver el wizard.
+        if (res.ok) {
+          const data = (await res.json()) as { registrationOpen?: boolean };
+          if (!cancelled && data.registrationOpen === false) {
+            window.location.replace('/login');
+            return;
+          }
         }
       } catch {
         // Si el chequeo falla, dejamos ver el wizard (no bloqueamos por un error de red).
