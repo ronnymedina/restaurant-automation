@@ -22,15 +22,22 @@ import {
 import { Public } from '../auth/decorators/public.decorator';
 import { OnboardingService } from './onboarding.service';
 import { OnboardingRegisterDto, OnboardingRegisterSwaggerDto } from './dto';
-import { MAX_FILE_SIZE } from '../config';
+import { MAX_FILE_SIZE, SINGLE_RESTAURANT_MODE } from '../config';
 import { OnboardingResponseSerializer } from './serializers/onboarding-response.serializer';
 import { LATAM_COUNTRIES } from './data/latam-countries';
 import { CountryOptionSerializer } from './serializers/country-option.serializer';
+import { RestaurantsService } from '../restaurants/restaurants.service';
+import { registrationOpen } from './onboarding-registration';
+import { OnboardingOpenGuard } from './guards/onboarding-open.guard';
+import { OnboardingStatusSerializer } from './serializers/onboarding-status.serializer';
 
 @ApiTags('Onboarding')
 @Controller({ version: '1', path: 'onboarding' })
 export class OnboardingController {
-  constructor(private readonly onboardingService: OnboardingService) {}
+  constructor(
+    private readonly onboardingService: OnboardingService,
+    private readonly restaurantsService: RestaurantsService,
+  ) {}
 
   @Public()
   @Get('countries')
@@ -51,7 +58,19 @@ export class OnboardingController {
   }
 
   @Public()
-  @UseGuards(ThrottlerGuard)
+  @Get('status')
+  @ApiOperation({
+    summary: 'Estado del registro de onboarding',
+    description: 'Indica si el registro público está disponible. En modo single-restaurant se cierra tras el primer restaurante.',
+  })
+  @ApiResponse({ status: 200, description: 'Estado del registro', type: OnboardingStatusSerializer })
+  async getStatus(): Promise<OnboardingStatusSerializer> {
+    const count = await this.restaurantsService.count();
+    return { registrationOpen: registrationOpen(SINGLE_RESTAURANT_MODE, count) };
+  }
+
+  @Public()
+  @UseGuards(ThrottlerGuard, OnboardingOpenGuard)
   @Throttle({ default: { ttl: 900_000, limit: 5 } })
   @Post('register')
   @ApiOperation({
@@ -71,6 +90,11 @@ export class OnboardingController {
     status: 409,
     description: 'El email ya está registrado',
     schema: { example: { message: ["Email 'x@y.com' is already registered"], code: 'EMAIL_ALREADY_EXISTS', statusCode: 409, details: { email: 'x@y.com' } } },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Registro cerrado en esta instancia (modo single-restaurant con restaurante ya registrado)',
+    schema: { example: { message: ['Onboarding registration is closed on this instance'], code: 'ONBOARDING_CLOSED', statusCode: 403 } },
   })
   @ApiResponse({ status: 429, description: 'Demasiadas solicitudes — intente más tarde (rate limit 5/15min)' })
   @ApiResponse({

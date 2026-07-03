@@ -23,6 +23,7 @@ Con warning (si el procesamiento de productos falló):
 | Método | Ruta | Auth | Respuesta | Descripción |
 |---|---|---|---|---|
 | `POST` | `/v1/onboarding/register` | Público | `OnboardingResponse` | Registrar restaurante (multipart/form-data) |
+| `GET` | `/v1/onboarding/status` | Público | `OnboardingStatus` | `{ registrationOpen }` — si el registro público está disponible |
 
 ---
 
@@ -113,3 +114,11 @@ Con email configurado el comportamiento no cambia: el link va por correo y
 | E2E — archivos | `test/onboarding/register-file.e2e-spec.ts` | ✅ 3 tests |
 | E2E — demo data | `test/onboarding/register-demo-data.e2e-spec.ts` | ✅ 4 tests |
 | E2E — rate limit | `test/onboarding/register-rate-limit.e2e-spec.ts` | ✅ 2 tests |
+
+### Modo single-restaurant (`SINGLE_RESTAURANT_MODE`)
+
+Cuando `SINGLE_RESTAURANT_MODE=true`, `OnboardingOpenGuard` bloquea `POST /register` si ya existe
+≥1 restaurante, devolviendo **403 `ONBOARDING_CLOSED`**. El primer registro (0 restaurantes) sigue
+permitido. `GET /status` expone `{ registrationOpen }` para que la UI redirija a `/login` cuando el
+registro está cerrado. Los restaurantes adicionales se crean por CLI (`create-restaurant`), que no
+pasa por el endpoint. Con el flag apagado (cloud), el registro está siempre abierto.

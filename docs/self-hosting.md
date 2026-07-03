@@ -47,11 +47,27 @@ curl http://localhost:3000/health   # debe responder {"status":"ok"}
 
 ## 5. Primer uso (onboarding)
 
-1. Abrí en el navegador de la PC: `http://localhost:8080`.
+1. Abrí en el navegador: `http://<SERVER_IP>:8080` (ej. `http://192.168.1.50:8080`),
+   usando el mismo `SERVER_IP` que pusiste en el `.env`.
+
+   > **Importante — no uses `localhost`.** Aunque estés en la propia PC servidor,
+   > entrá por `http://<SERVER_IP>:8080`. La API solo acepta peticiones desde ese
+   > origen (CORS), y para el navegador `localhost` y la IP son orígenes distintos:
+   > si abrís por `localhost`, el onboarding no podrá cargar (la lista de países
+   > aparece vacía y el registro falla).
 2. Entrá al onboarding y creá tu restaurante + tu usuario administrador.
 3. Como no hay email configurado, al terminar verás un botón **"Activar mi cuenta"**.
    Hacé clic, definí tu contraseña y tu cuenta queda activa.
 4. Iniciá sesión y cargá tus productos **manualmente** desde el dashboard.
+
+> **Un solo restaurante por instancia.** Con `SINGLE_RESTAURANT_MODE=true` (default de la plantilla
+> self-host), una vez que registrás tu restaurante el formulario de `/onboarding` deja de estar
+> disponible: la página redirige a `/login`. Si en algún caso excepcional necesitás crear otro
+> restaurante en la misma instancia, hacelo por línea de comando:
+>
+> ```bash
+> docker compose exec res-api-core pnpm run cli create-restaurant --name "Otro Local"
+> ```
 
 ## 6. Conectar otros dispositivos
 
@@ -74,6 +90,10 @@ http://<SERVER_IP>:8080
 
 ## 8. Problemas comunes
 
+- **El onboarding no carga la lista de países / el registro falla:** casi siempre es
+  por entrar con la URL equivocada. Accedé por `http://<SERVER_IP>:8080` (la IP que
+  pusiste en el `.env`), **nunca** por `http://localhost:8080`. La API solo permite
+  ese origen (CORS) y, para el navegador, `localhost` y la IP no son lo mismo.
 - **Otro dispositivo no conecta:** revisá que `SERVER_IP` sea correcto y que el
   firewall de la PC permita los puertos `8080` y `3000` entrantes en la red local.
 - **No puedo iniciar sesión / la sesión se cae:** asegurate de acceder por

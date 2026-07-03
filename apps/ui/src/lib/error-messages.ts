@@ -9,6 +9,7 @@ const errorMessages: Record<string, string> = {
   RESTAURANT_CREATION_FAILED: 'No se pudo completar el registro del restaurante. Intenta nuevamente.',
   USER_CREATION_FAILED: 'No se pudo crear la cuenta. Intenta nuevamente.',
   DEFAULT_CATEGORY_CREATION_FAILED: 'Hubo un problema al completar el registro de tu restaurante. Intenta nuevamente.',
+  ONBOARDING_CLOSED: 'El registro ya no está disponible en esta instalación.',
 };
 
 const DEFAULT_ERROR = 'Hubo un error inesperado. Intenta nuevamente.';

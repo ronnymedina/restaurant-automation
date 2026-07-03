@@ -76,4 +76,17 @@ export class DefaultCategoryCreationFailedException extends BaseException {
   }
 }
 
-
+/**
+ * Thrown when public onboarding registration is closed on this instance
+ * (single-restaurant mode with a restaurant already registered).
+ * code: `ONBOARDING_CLOSED` · HTTP 403. Ver docs/onboarding-error-mapping.md.
+ */
+export class OnboardingClosedException extends BaseException {
+  constructor() {
+    super(
+      'Onboarding registration is closed on this instance',
+      HttpStatus.FORBIDDEN,
+      'ONBOARDING_CLOSED',
+    );
+  }
+}

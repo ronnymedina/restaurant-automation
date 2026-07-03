@@ -82,6 +82,10 @@ class EnvironmentVariables {
   COOKIE_SECURE?: string;
 
   @IsOptional()
+  @IsString()
+  SINGLE_RESTAURANT_MODE?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(60_000)
   COOKIE_ACCESS_MAX_AGE?: number;
@@ -268,6 +272,9 @@ export const UPLOAD_CF_R2_ACCESS_KEY_ID = process.env.UPLOAD_CF_R2_ACCESS_KEY_ID
 export const UPLOAD_CF_R2_SECRET_ACCESS_KEY = process.env.UPLOAD_CF_R2_SECRET_ACCESS_KEY || '';
 export const UPLOAD_CF_R2_BUCKET_NAME = process.env.UPLOAD_CF_R2_BUCKET_NAME || '';
 export const UPLOAD_CF_R2_PUBLIC_URL = process.env.UPLOAD_CF_R2_PUBLIC_URL || '';
+
+export const SINGLE_RESTAURANT_MODE =
+  (process.env.SINGLE_RESTAURANT_MODE ?? 'false').toLowerCase() === 'true';
 
 // AI / onboarding
 export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
