@@ -20,7 +20,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "cli": "ts-node -r tsconfig-paths/register src/cli.ts",
-    "migrate:deploy": "prisma migrate deploy --schema=./prisma/schema.postgresql.prisma"
+    "migrate:deploy": "prisma migrate deploy --schema=./prisma/schema.postgresql.prisma",
+    "gen:openapi": "bash scripts/gen-openapi.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1030.0",

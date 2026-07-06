@@ -83,3 +83,27 @@ Also available as a shell script from the repo root:
 ```
 
 **Output:** Logs each processed email with `✓` (sent) or `✗` (failed), and prints a final summary `sent: N, failed: N`.
+
+## OpenAPI Spec
+
+Swagger is mounted **only in development** (`main.ts`: `if (!isProduction)`), so the production
+image does not expose `/docs`. To export the OpenAPI spec to a file:
+
+```bash
+# Requiere el api dev arriba: docker compose up -d res-db res-api-core
+pnpm gen:openapi     # -> apps/api-core/openapi.json (siempre en api-core; git-ignored)
+```
+
+The script (`scripts/gen-openapi.sh`) pulls the spec from the dev server's `/docs-json` — the
+real running app, so it never drifts from `main.ts`. It **assumes the dev API is already up**
+(it does not verify or start anything); if `/docs-json` doesn't answer, it errors telling you to
+bring the dev stack up. The output always lands at `apps/api-core/openapi.json` (an artifact,
+git-ignored), regardless of the current directory.
+
+To refresh the spec published in the blog (the sibling `daikulab` repo, served at `/api-docs`),
+copy it after generating:
+
+```bash
+pnpm gen:openapi
+cp openapi.json ../../../daikulab/public/openapi/restaurants-api-v1.json
+```
