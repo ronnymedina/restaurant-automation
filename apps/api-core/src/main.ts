@@ -54,6 +54,8 @@ async function bootstrap() {
     SwaggerModule.setup('docs', app, document);
   }
 
-  await app.listen(port);
+  // Bind a '::' (IPv6): requerido para que la red privada de Railway (IPv6-only)
+  // alcance el servicio. En Linux, '::' es dual-stack y sigue aceptando IPv4.
+  await app.listen(port, '::');
 }
 void bootstrap();
