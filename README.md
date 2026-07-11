@@ -99,6 +99,21 @@ Con la base vacía, entrá a **http://localhost:4321** y completá el onboarding
 
 ---
 
+## Imágenes publicadas (GHCR)
+
+Además de buildear desde el código, hay imágenes Docker públicas listas para usar en
+self-hosting:
+
+| Imagen | Package |
+|--------|---------|
+| `ghcr.io/ronnymedina/restaurants-api-core` | [ver en GHCR ↗](https://github.com/users/ronnymedina/packages/container/package/restaurants-api-core) |
+| `ghcr.io/ronnymedina/restaurants-ui` | [ver en GHCR ↗](https://github.com/users/ronnymedina/packages/container/package/restaurants-ui) |
+
+Guía paso a paso para autohospedar con estas imágenes:
+**[Autohospedá la plataforma con Docker ↗](https://daikulab.com/blog/autohospeda-la-plataforma-de-restaurantes-con-docker/)**
+
+---
+
 ## Variables de entorno
 
 Cada servicio lee su propio archivo `.env`. Las variables marcadas como obligatorias hacen que
