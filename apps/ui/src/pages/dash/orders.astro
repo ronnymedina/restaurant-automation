@@ -1,0 +1,9 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import OrdersPanel from '../../components/dash/orders/OrdersPanel';
+---
+
+<DashboardLayout>
+  <OrdersPanel client:load />
+</DashboardLayout>

@@ -1,0 +1,19 @@
+export const ORDERS_STATUS = {
+  LOADING: 'loading',
+  OPEN: 'open',
+  CLOSED: 'closed',
+  ERROR: 'error',
+} as const;
+
+export type OrdersStatus = (typeof ORDERS_STATUS)[keyof typeof ORDERS_STATUS];
+
+export const ORDER_STATUS = {
+  CREATED: 'CREATED',
+  CONFIRMED: 'CONFIRMED',
+  PROCESSING: 'PROCESSING',
+  SERVED: 'SERVED',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export type OrderStatus = (typeof ORDER_STATUS)[keyof typeof ORDER_STATUS];

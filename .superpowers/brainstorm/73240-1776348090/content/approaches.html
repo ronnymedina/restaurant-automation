@@ -1,0 +1,101 @@
+<h2>3 enfoques para unificar el frontend</h2>
+<p class="subtitle">Selecciona el que más se alinee con tus prioridades</p>
+
+<div class="options">
+
+  <!-- APPROACH 1 -->
+  <div class="option" data-choice="1" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Una sola app Astro — static + React islands <span style="color:#10b981;font-size:12px;margin-left:8px">★ Recomendado</span></h3>
+      <p style="margin:6px 0 10px">
+        <code>output: 'static'</code> + <code>@astrojs/react</code>. NestJS sirve los archivos estáticos y maneja un wildcard fallback para rutas dinámicas como <code>/kiosk/[slug]</code>. SSE reemplaza WebSockets.
+      </p>
+      <div class="pros-cons" style="font-size:12px">
+        <div class="pros">
+          <h4>A favor</h4>
+          <ul>
+            <li>Un solo proceso en Electron (NestJS + static files)</li>
+            <li>Build pipeline ya existe (copy-static.mjs)</li>
+            <li>Componentes React reutilizables entre kiosk y dash</li>
+            <li>URLs limpias (<code>/kiosk/mi-restaurante</code>)</li>
+            <li>Menos dependencias — sin adaptador Node en Astro</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>En contra</h4>
+          <ul>
+            <li>NestJS necesita configurar ServeStaticModule + fallback SPA</li>
+            <li>Sin SSR — SEO de homepage depende de prerender estático</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top:10px;padding:8px;background:#f0fdf4;border-radius:6px;font-size:12px">
+        <strong>Flujo:</strong> <code>astro build</code> → <code>copy-static.mjs</code> → <code>api-core/public/</code> → NestJS sirve todo
+      </div>
+    </div>
+  </div>
+
+  <!-- APPROACH 2 -->
+  <div class="option" data-choice="2" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Astro hybrid — páginas estáticas + kiosk SSR</h3>
+      <p style="margin:6px 0 10px">
+        <code>output: 'hybrid'</code>: dashboard y homepage se prerenderizan, kiosk es server-rendered. Para cloud funciona perfecto. Para Electron necesita dos procesos (Astro server + NestJS binary).
+      </p>
+      <div class="pros-cons" style="font-size:12px">
+        <div class="pros">
+          <h4>A favor</h4>
+          <ul>
+            <li>Kiosk puede tener lógica server-side si se necesita en el futuro</li>
+            <li>No requiere cambios en NestJS para routing</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>En contra</h4>
+          <ul>
+            <li>Electron necesita spawnear 2 procesos (complejo)</li>
+            <li>Contradice el objetivo de simplicidad desktop</li>
+            <li>Más configuración para coordinar puertos entre servicios</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top:10px;padding:8px;background:#fef9c3;border-radius:6px;font-size:12px">
+        <strong>Flujo Electron:</strong> spawn NestJS binary + spawn Astro server → abrir browser
+      </div>
+    </div>
+  </div>
+
+  <!-- APPROACH 3 -->
+  <div class="option" data-choice="3" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Dos apps — marketing separado del app</h3>
+      <p style="margin:6px 0 10px">
+        <code>apps/ui-marketing</code> (landing, ultra-liviano, CDN) + <code>apps/ui-app</code> (dashboard + kiosk, React). Build guide ya mencionaba esta estructura.
+      </p>
+      <div class="pros-cons" style="font-size:12px">
+        <div class="pros">
+          <h4>A favor</h4>
+          <ul>
+            <li>Landing puede deployarse en CDN independiente (Vercel free tier)</li>
+            <li>Separación de concerns — marketing no afecta el app</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>En contra</h4>
+          <ul>
+            <li>Dos apps para mantener (duplicación de config, deps)</li>
+            <li>No hay componentes compartidos fácilmente</li>
+            <li>Más mantenimiento para una sola persona</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top:10px;padding:8px;background:#fef2f2;border-radius:6px;font-size:12px">
+        <strong>Complejidad:</strong> más alto vs beneficio marginal para este stage del proyecto
+      </div>
+    </div>
+  </div>
+
+</div>

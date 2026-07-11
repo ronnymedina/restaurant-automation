@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kiosk Design Proposal</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 32px 24px; }
+
+  h1 { text-align: center; font-size: 18px; color: #1e293b; margin-bottom: 6px; font-weight: 700; }
+  .subtitle { text-align: center; color: #64748b; font-size: 13px; margin-bottom: 28px; }
+
+  .devices { display: flex; gap: 28px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+
+  /* PHONE */
+  .phone-shell {
+    width: 320px;
+    background: #1a1a2e;
+    border-radius: 40px;
+    padding: 12px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.06);
+  }
+  .phone-notch {
+    background: #111;
+    height: 28px;
+    border-radius: 14px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .phone-notch-dot { width: 8px; height: 8px; background: #333; border-radius: 50%; }
+  .phone-screen {
+    background: #f8fafc;
+    border-radius: 28px;
+    overflow: hidden;
+    height: 600px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* TABLET/DESKTOP */
+  .desktop-shell {
+    width: 760px;
+    background: #1a1a2e;
+    border-radius: 16px;
+    padding: 10px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.06);
+  }
+  .desktop-bar {
+    background: #111;
+    height: 24px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    gap: 5px;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .dot-r { background: #ef4444; }
+  .dot-y { background: #f59e0b; }
+  .dot-g { background: #22c55e; }
+  .desktop-screen {
+    background: #f8fafc;
+    border-radius: 8px;
+    overflow: hidden;
+    height: 540px;
+    display: flex;
+    flex-direction: row;
+  }
+
+  /* SHARED KIOSK COMPONENTS */
+  .kiosk-header {
+    background: #111827;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .kiosk-header-name { color: #fff; font-weight: 800; font-size: 15px; letter-spacing: -0.3px; }
+  .kiosk-header-badge {
+    background: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.8);
+    font-size: 10px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  .kiosk-tabs {
+    background: #fff;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 8px 12px;
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .tab {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    border: none;
+    cursor: pointer;
+  }
+  .tab-active { background: #111827; color: #fff; }
+  .tab-inactive { background: #f1f5f9; color: #64748b; }
+
+  .kiosk-main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    min-height: 0;
+  }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #94a3b8;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .product-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .product-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+
+  .product-card {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.05);
+  }
+  .product-img {
+    background: #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .product-img-sm { height: 72px; font-size: 26px; }
+  .product-img-md { height: 90px; font-size: 30px; }
+  .product-body { padding: 10px; }
+  .product-body-sm { padding: 8px; }
+  .product-name { font-weight: 700; color: #0f172a; line-height: 1.2; }
+  .product-name-sm { font-size: 10px; margin-bottom: 2px; }
+  .product-name-md { font-size: 12px; margin-bottom: 3px; }
+  .product-desc { color: #94a3b8; line-height: 1.3; }
+  .product-desc-sm { font-size: 8px; margin-bottom: 6px; }
+  .product-desc-md { font-size: 10px; margin-bottom: 8px; }
+  .product-price { font-weight: 900; color: #0f172a; }
+  .product-price-sm { font-size: 12px; margin-bottom: 6px; }
+  .product-price-md { font-size: 15px; margin-bottom: 8px; }
+  .product-btn {
+    background: #111827;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    width: 100%;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+  }
+  .product-btn-sm { padding: 6px 0; font-size: 9px; }
+  .product-btn-md { padding: 8px 0; font-size: 10px; }
+
+  /* CART FAB */
+  .cart-fab {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    width: 52px;
+    height: 52px;
+    background: #111827;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 4px 16px rgba(17,24,39,0.4);
+  }
+  .cart-badge {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #f8fafc;
+  }
+
+  /* SIDEBAR CART */
+  .sidebar-cart {
+    width: 240px;
+    flex-shrink: 0;
+    background: #fff;
+    border-left: 1px solid #f1f5f9;
+    display: flex;
+    flex-direction: column;
+  }
+  .cart-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .cart-title { font-weight: 800; font-size: 14px; color: #0f172a; }
+  .cart-items { flex: 1; padding: 12px 16px; overflow-y: auto; }
+  .cart-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f8fafc;
+  }
+  .cart-item-icon { font-size: 18px; width: 32px; text-align: center; }
+  .cart-item-info { flex: 1; min-width: 0; }
+  .cart-item-name { font-size: 10px; font-weight: 600; color: #0f172a; }
+  .cart-item-price { font-size: 9px; color: #64748b; margin-top: 1px; }
+  .cart-item-qty {
+    background: #f1f5f9;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .cart-footer {
+    padding: 14px 16px;
+    border-top: 1px solid #f1f5f9;
+  }
+  .cart-total {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 10px;
+  }
+  .cart-pay-btn {
+    background: #111827;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    width: 100%;
+    padding: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.2px;
+  }
+
+  /* LABELS */
+  .device-label {
+    text-align: center;
+    margin-top: 12px;
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .changes-list {
+    max-width: 760px;
+    margin: 28px auto 0;
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .changes-title { font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 12px; }
+  .change-row { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; }
+  .change-tag {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .tag-color { background: #dbeafe; color: #1d4ed8; }
+  .tag-layout { background: #dcfce7; color: #166534; }
+  .tag-type { background: #fef9c3; color: #854d0e; }
+  .change-text { font-size: 11px; color: #475569; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<h1>Propuesta de rediseño — Kiosk</h1>
+<p class="subtitle">Minimal · Negro carbón · Grid compacto · Sombras en lugar de bordes</p>
+
+<div class="devices">
+
+  <!-- PHONE -->
+  <div>
+    <div class="phone-shell">
+      <div class="phone-notch"><div class="phone-notch-dot"></div></div>
+      <div class="phone-screen" style="position:relative;">
+        <div class="kiosk-header">
+          <span class="kiosk-header-name">La Parrilla</span>
+          <span class="kiosk-header-badge">✓ Abierto</span>
+        </div>
+        <div class="kiosk-tabs">
+          <button class="tab tab-active">Almuerzo</button>
+          <button class="tab tab-inactive">Cena</button>
+          <button class="tab tab-inactive">Bebidas</button>
+        </div>
+        <div class="kiosk-main">
+          <div class="section-label">Principales</div>
+          <div class="product-grid">
+            <div class="product-card">
+              <div class="product-img product-img-sm">🍔</div>
+              <div class="product-body product-body-sm">
+                <div class="product-name product-name-sm">Hamburguesa Clásica</div>
+                <div class="product-desc product-desc-sm">Con lechuga, tomate y cheddar</div>
+                <div class="product-price product-price-sm">$1.200</div>
+                <button class="product-btn product-btn-sm">+ AGREGAR</button>
+              </div>
+            </div>
+            <div class="product-card">
+              <div class="product-img product-img-sm">🥩</div>
+              <div class="product-body product-body-sm">
+                <div class="product-name product-name-sm">Milanesa Napolitana</div>
+                <div class="product-desc product-desc-sm">Salsa, jamón, mozzarella</div>
+                <div class="product-price product-price-sm">$1.850</div>
+                <button class="product-btn product-btn-sm">+ AGREGAR</button>
+              </div>
+            </div>
+            <div class="product-card">
+              <div class="product-img product-img-sm">🍕</div>
+              <div class="product-body product-body-sm">
+                <div class="product-name product-name-sm">Pizza Napolitana</div>
+                <div class="product-desc product-desc-sm">Salsa, mozzarella, albahaca</div>
+                <div class="product-price product-price-sm">$1.500</div>
+                <button class="product-btn product-btn-sm">+ AGREGAR</button>
+              </div>
+            </div>
+            <div class="product-card">
+              <div class="product-img product-img-sm">🥗</div>
+              <div class="product-body product-body-sm">
+                <div class="product-name product-name-sm">Ensalada César</div>
+                <div class="product-desc product-desc-sm">Crutones, parmesano</div>
+                <div class="product-price product-price-sm">$950</div>
+                <button class="product-btn product-btn-sm">+ AGREGAR</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- FAB -->
+        <div class="cart-fab" style="position:absolute;">
+          🛍️
+          <div class="cart-badge">3</div>
+        </div>
+      </div>
+    </div>
+    <div class="device-label">📱 Mobile — vista producto</div>
+  </div>
+
+  <!-- DESKTOP SIDEBAR -->
+  <div>
+    <div class="desktop-shell">
+      <div class="desktop-bar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+      </div>
+      <div class="desktop-screen">
+        <!-- Left: menu + products -->
+        <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
+          <div class="kiosk-header">
+            <span class="kiosk-header-name">La Parrilla</span>
+            <span class="kiosk-header-badge">✓ Abierto</span>
+          </div>
+          <div class="kiosk-tabs">
+            <button class="tab tab-active">Almuerzo</button>
+            <button class="tab tab-inactive">Cena</button>
+            <button class="tab tab-inactive">Bebidas</button>
+            <button class="tab tab-inactive">Postres</button>
+          </div>
+          <div class="kiosk-main">
+            <div class="section-label">Principales</div>
+            <div class="product-grid-3">
+              <div class="product-card">
+                <div class="product-img product-img-md">🍔</div>
+                <div class="product-body">
+                  <div class="product-name product-name-md">Hamburguesa Clásica</div>
+                  <div class="product-desc product-desc-md">Con lechuga, tomate y cheddar</div>
+                  <div class="product-price product-price-md">$1.200</div>
+                  <button class="product-btn product-btn-md">+ AGREGAR</button>
+                </div>
+              </div>
+              <div class="product-card">
+                <div class="product-img product-img-md">🥩</div>
+                <div class="product-body">
+                  <div class="product-name product-name-md">Milanesa Napolitana</div>
+                  <div class="product-desc product-desc-md">Salsa, jamón, mozzarella</div>
+                  <div class="product-price product-price-md">$1.850</div>
+                  <button class="product-btn product-btn-md">+ AGREGAR</button>
+                </div>
+              </div>
+              <div class="product-card">
+                <div class="product-img product-img-md">🍕</div>
+                <div class="product-body">
+                  <div class="product-name product-name-md">Pizza Napolitana</div>
+                  <div class="product-desc product-desc-md">Salsa, mozzarella, albahaca</div>
+                  <div class="product-price product-price-md">$1.500</div>
+                  <button class="product-btn product-btn-md">+ AGREGAR</button>
+                </div>
+              </div>
+              <div class="product-card">
+                <div class="product-img product-img-md">🥗</div>
+                <div class="product-body">
+                  <div class="product-name product-name-md">Ensalada César</div>
+                  <div class="product-desc product-desc-md">Crutones, parmesano</div>
+                  <div class="product-price product-price-md">$950</div>
+                  <button class="product-btn product-btn-md">+ AGREGAR</button>
+                </div>
+              </div>
+              <div class="product-card">
+                <div class="product-img product-img-md">🍗</div>
+                <div class="product-body">
+                  <div class="product-name product-name-md">Pollo a la Parrilla</div>
+                  <div class="product-desc product-desc-md">Con papas y chimichurri</div>
+                  <div class="product-price product-price-md">$1.650</div>
+                  <button class="product-btn product-btn-md">+ AGREGAR</button>
+                </div>
+              </div>
+              <div class="product-card">
+                <div class="product-img product-img-md">🌮</div>
+                <div class="product-body">
+                  <div class="product-name product-name-md">Tacos de Carne</div>
+                  <div class="product-desc product-desc-md">x3 con guacamole</div>
+                  <div class="product-price product-price-md">$1.100</div>
+                  <button class="product-btn product-btn-md">+ AGREGAR</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: cart sidebar -->
+        <div class="sidebar-cart">
+          <div class="cart-header">
+            <div class="cart-title">Tu Pedido</div>
+          </div>
+          <div class="cart-items">
+            <div class="cart-item">
+              <div class="cart-item-icon">🍔</div>
+              <div class="cart-item-info">
+                <div class="cart-item-name">Hamburguesa Clásica</div>
+                <div class="cart-item-price">$1.200</div>
+              </div>
+              <div class="cart-item-qty">×2</div>
+            </div>
+            <div class="cart-item">
+              <div class="cart-item-icon">🍕</div>
+              <div class="cart-item-info">
+                <div class="cart-item-name">Pizza Napolitana</div>
+                <div class="cart-item-price">$1.500</div>
+              </div>
+              <div class="cart-item-qty">×1</div>
+            </div>
+            <div class="cart-item">
+              <div class="cart-item-icon">🥗</div>
+              <div class="cart-item-info">
+                <div class="cart-item-name">Ensalada César</div>
+                <div class="cart-item-price">$950</div>
+              </div>
+              <div class="cart-item-qty">×1</div>
+            </div>
+          </div>
+          <div class="cart-footer">
+            <div class="cart-total">
+              <span>Total</span>
+              <span>$5.850</span>
+            </div>
+            <button class="cart-pay-btn">Pagar →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="device-label">🖥️ Desktop — modo sidebar con carrito</div>
+  </div>
+
+</div>
+
+<!-- Change summary -->
+<div class="changes-list">
+  <div class="changes-title">Cambios respecto al diseño actual</div>
+  <div class="change-row">
+    <span class="change-tag tag-color">COLOR</span>
+    <span class="change-text">Paleta: charcoal <code>#111827</code> reemplaza el verde. Fondo <code>#f8fafc</code> en lugar de crema <code>#fffbeb</code>. Precios en negro en lugar de verde.</span>
+  </div>
+  <div class="change-row">
+    <span class="change-tag tag-layout">CARDS</span>
+    <span class="change-text">Sombras suaves (<code>box-shadow</code>) en lugar de bordes <code>border-slate-200</code>. Cards más "flotadas", aspecto más limpio.</span>
+  </div>
+  <div class="change-row">
+    <span class="change-tag tag-type">TIPO</span>
+    <span class="change-text">Botón "Agregar" con letras en uppercase y <code>letter-spacing</code>. Precio con <code>font-weight: 900</code> para más jerarquía visual.</span>
+  </div>
+  <div class="change-row">
+    <span class="change-tag tag-layout">HEADER</span>
+    <span class="change-text">Badge "Abierto" con fondo semitransparente en lugar de solo texto. Se mantiene la estructura actual.</span>
+  </div>
+  <div class="change-row">
+    <span class="change-tag tag-layout">TABS</span>
+    <span class="change-text">Fondo blanco con <code>border-bottom</code> en lugar de borde completo. Tabs con radio <code>8px</code> en lugar de <code>lg</code>.</span>
+  </div>
+  <div class="change-row">
+    <span class="change-tag tag-color">FAB</span>
+    <span class="change-text">Carrito circular charcoal con ícono 🛍️ (más minimal que 🛒). Sombra con color del fondo.</span>
+  </div>
+</div>
+
+</body>
+</html>

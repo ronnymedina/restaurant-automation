@@ -1,0 +1,64 @@
+---
+const items = [
+  {
+    q: "¿Necesito tarjeta de crédito para el plan gratuito?",
+    a: "No. El plan gratuito no requiere tarjeta de crédito ni límite de tiempo — usalo el tiempo que quieras.",
+  },
+  {
+    q: "¿Qué límites tiene el plan gratuito?",
+    a: "Hasta 20 productos, 1 menú activo y 500 órdenes por mes. Si tu operación crece, podés pasarte al plan Cloud o adquirir la Licencia Única cuando lo necesites.",
+  },
+  {
+    q: "¿Qué necesito para instalar la licencia única?",
+    a: "Una PC o mini PC dentro del restaurante con Windows o Mac. El software corre como servidor web en tu red local. Las tablets y monitores se conectan por WiFi interno, sin necesitar internet.",
+  },
+  {
+    q: "¿Puedo cambiar del plan Cloud a la Licencia Única después?",
+    a: "Sí. Si ya pagaste meses del plan Cloud y querés pasarte a la licencia, lo descontamos proporcionalmente.",
+  },
+];
+---
+<section class="py-20 px-4" style="background: #fafaf8;">
+  <div class="max-w-3xl mx-auto">
+    <div class="text-center mb-12">
+      <p class="text-sm font-bold uppercase tracking-widest mb-3" style="color: #f97316;">FAQ</p>
+      <h2 class="text-3xl font-extrabold" style="color: #111;">Preguntas frecuentes</h2>
+    </div>
+    <div class="flex flex-col gap-2" id="faq-list">
+      {items.map((faq, i) => (
+        <div class="rounded-xl border overflow-hidden" style="border-color: #ebebeb;">
+          <button
+            class="w-full flex justify-between items-center p-5 text-left font-semibold text-sm transition-colors hover:text-orange-500"
+            style="background: #ffffff; color: #111;"
+            data-faq={i}
+            aria-expanded="false"
+            aria-controls={"faq-answer-" + i}
+          >
+            {faq.q}
+            <span class="faq-icon text-lg flex-shrink-0 ml-4 transition-transform" style="color: #f97316;">+</span>
+          </button>
+          <div
+            id={"faq-answer-" + i}
+            class="faq-answer hidden px-5 pb-5 text-sm leading-relaxed"
+            style="background: #fafaf8; color: #555;"
+          >
+            {faq.a}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<script>
+  document.querySelectorAll('[data-faq]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const answer = btn.nextElementSibling as HTMLElement;
+      const icon = btn.querySelector('.faq-icon') as HTMLElement;
+      const isOpen = !answer.classList.contains('hidden');
+      answer.classList.toggle('hidden', isOpen);
+      icon.textContent = isOpen ? '+' : '−';
+      btn.setAttribute('aria-expanded', String(!isOpen));
+    });
+  });
+</script>

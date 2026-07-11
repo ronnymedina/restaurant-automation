@@ -1,0 +1,243 @@
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Prisma, User, Role } from '@prisma/client';
+import { randomUUID } from 'crypto';
+import * as bcrypt from 'bcryptjs';
+
+import { UserRepository } from './user.repository';
+import {
+  EmailAlreadyExistsException,
+  InactiveAccountException,
+  InvalidActivationTokenException,
+  InvalidRoleException,
+  LastAdminException,
+  UserAlreadyActiveException,
+} from './exceptions/users.exceptions';
+import {
+  EntityNotFoundException,
+  ForbiddenAccessException,
+} from '../common/exceptions';
+import { userConfig } from './users.config';
+import { type ConfigType } from '@nestjs/config';
+import { DEFAULT_PAGE_SIZE } from '../config';
+import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
+
+@Injectable()
+export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
+  constructor(
+    private readonly userRepository: UserRepository,
+    @Inject(userConfig.KEY)
+    private readonly configService: ConfigType<typeof userConfig>,
+  ) { }
+
+  async createOnboardingUser(
+    email: string,
+    restaurantId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<User> {
+    const activationToken = randomUUID();
+
+    const user = await this.userRepository.create({
+      email,
+      role: Role.ADMIN,
+      isActive: false,
+      activationToken,
+      restaurantId,
+    }, tx);
+
+    this.logger.log(`Onboarding user created: ${email}`);
+    return user;
+  }
+
+  async createAdminUser(
+    email: string,
+    password: string,
+    restaurantId: string,
+  ): Promise<User> {
+    const passwordHash = await bcrypt.hash(
+      password,
+      this.configService.bcryptSaltRounds,
+    );
+
+    const user = await this.userRepository.create({
+      email,
+      passwordHash,
+      role: Role.ADMIN,
+      isActive: true,
+      restaurantId,
+    });
+
+    this.logger.log(`Admin user created: ${email}`);
+    return user;
+  }
+
+  async activateUser(token: string, password: string): Promise<User> {
+    const user = await this.userRepository.findByActivationToken(token);
+
+    if (!user) {
+      throw new InvalidActivationTokenException();
+    }
+
+    if (user.isActive) {
+      throw new UserAlreadyActiveException(user.email);
+    }
+
+    this.logger.log(`User activated: ${user.email}`);
+    return this.commonActivationOrResetAccount(user.id, password);
+  }
+
+  async resetPassword(token: string, password: string): Promise<User> {
+    const user = await this.userRepository.findByActivationToken(token);
+
+    if (!user) {
+      throw new InvalidActivationTokenException();
+    }
+
+    if (!user.isActive) {
+      throw new InactiveAccountException();
+    }
+
+    this.logger.log(`Password reset for: ${user.email}`);
+    return this.commonActivationOrResetAccount(user.id, password);
+  }
+
+  private async commonActivationOrResetAccount(userId: string, password: string): Promise<User> {
+    const passwordHash = await bcrypt.hash(password, this.configService.bcryptSaltRounds);
+    return this.userRepository.update(userId, {
+      passwordHash,
+      isActive: true,
+      activationToken: null,
+    });
+  }
+
+  async createUser(
+    email: string,
+    password: string,
+    role: Role,
+    restaurantId: string,
+  ): Promise<Omit<User, 'passwordHash'>> {
+    const existing = await this.userRepository.findByEmail(email);
+    if (existing) {
+      throw new EmailAlreadyExistsException(email);
+    }
+
+    if (role === Role.ADMIN) {
+      throw new InvalidRoleException(role);
+    }
+
+    const passwordHash = await bcrypt.hash(
+      password,
+      this.configService.bcryptSaltRounds,
+    );
+
+    const user = await this.userRepository.create({
+      email,
+      passwordHash,
+      role,
+      isActive: true,
+      restaurantId,
+    });
+
+    this.logger.log(`User created by admin: ${email} with role ${role}`);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash: _, ...userWithoutPassword } = user;
+    return userWithoutPassword;
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    return this.userRepository.findByEmail(email);
+  }
+
+  async existsByEmail(email: string): Promise<boolean> {
+    return this.userRepository.existsByEmail(email);
+  }
+
+  async refreshActivationToken(userId: string, token: string): Promise<void> {
+    await this.userRepository.update(userId, { activationToken: token });
+  }
+
+  async findInactiveUsers(): Promise<User[]> {
+    return this.userRepository.findInactiveUsers();
+  }
+
+  async findById(id: string): Promise<User | null> {
+    return this.userRepository.findById(id);
+  }
+
+  async findByRestaurantId(restaurantId: string): Promise<User[]> {
+    return this.userRepository.findByRestaurantId(restaurantId);
+  }
+
+  async findByRestaurantIdPaginated(
+    restaurantId: string,
+    page?: number,
+    limit?: number,
+  ): Promise<PaginatedResult<User>> {
+    const currentPage = page || 1;
+    const currentLimit = limit || DEFAULT_PAGE_SIZE;
+    const skip = (currentPage - 1) * currentLimit;
+
+    const { data, total } = await this.userRepository.findByRestaurantIdPaginated(
+      restaurantId,
+      skip,
+      currentLimit,
+    );
+
+    return {
+      data,
+      meta: {
+        total,
+        page: currentPage,
+        limit: currentLimit,
+        totalPages: Math.ceil(total / currentLimit),
+      },
+    };
+  }
+
+  private async findByIdAndVerifyOwnership(
+    id: string,
+    restaurantId: string,
+  ): Promise<User> {
+    const user = await this.userRepository.findById(id);
+    if (!user) throw new EntityNotFoundException('User', id);
+    if (user.restaurantId !== restaurantId)
+      throw new ForbiddenAccessException();
+    return user;
+  }
+
+  async updateUser(
+    id: string,
+    restaurantId: string,
+    data: { email?: string; role?: Role; isActive?: boolean },
+  ): Promise<User> {
+    const user = await this.findByIdAndVerifyOwnership(id, restaurantId);
+
+    if (data.role === Role.ADMIN) {
+      throw new InvalidRoleException(data.role);
+    }
+
+    // Demoting an admin — ensure at least one other admin remains
+    if (data.role !== undefined && user.role === Role.ADMIN) {
+      const adminCount = await this.userRepository.countAdmins(restaurantId);
+      if (adminCount <= 1) {
+        throw new LastAdminException();
+      }
+    }
+
+    return this.userRepository.update(id, data);
+  }
+
+  async deleteUser(id: string, restaurantId: string): Promise<User> {
+    const user = await this.findByIdAndVerifyOwnership(id, restaurantId);
+
+    if (user.role === Role.ADMIN) {
+      const adminCount = await this.userRepository.countAdmins(restaurantId);
+      if (adminCount <= 1) {
+        throw new LastAdminException();
+      }
+    }
+
+    return this.userRepository.delete(id);
+  }
+}

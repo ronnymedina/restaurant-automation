@@ -1,0 +1,98 @@
+---
+export const prerender = true;
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout>
+  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#667eea] to-[#764ba2] p-8 px-4">
+    <div class="bg-white/95 rounded-3xl shadow-2xl w-full max-w-[440px] p-10 relative overflow-hidden">
+
+      <!-- Loading State -->
+      <div id="loadingState" class="text-center py-8">
+        <div class="flex justify-center mb-4">
+          <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-500"></div>
+        </div>
+        <p class="text-slate-500">Procesando confirmación...</p>
+      </div>
+
+      <!-- Success State -->
+      <div id="successState" class="hidden">
+        <div class="text-center mb-8 py-4">
+          <div class="text-emerald-500 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+          <h2 class="text-3xl text-slate-800 mb-2 font-bold">Operación confirmada</h2>
+          <p class="text-slate-500 text-base m-0" id="successMessage">La operación se realizó exitosamente.</p>
+        </div>
+        <a href="/dash/users" class="w-full py-4 px-6 bg-indigo-500 text-white no-underline border-none rounded-xl text-base font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all hover:bg-indigo-600 hover:-translate-y-0.5 text-center">
+          Ir a Usuarios
+        </a>
+      </div>
+
+      <!-- Error State -->
+      <div id="errorState" class="hidden">
+        <div class="text-center mb-8">
+          <div class="text-red-500 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="15" x2="9" y1="9" y2="15"></line>
+              <line x1="9" x2="15" y1="9" y2="15"></line>
+            </svg>
+          </div>
+          <h2 class="text-3xl text-slate-800 mb-2 font-bold">Error</h2>
+          <p class="text-slate-500 text-base m-0" id="errorMessage">El enlace no es válido o ya expiró.</p>
+        </div>
+        <a href="/dash/users" class="w-full py-4 px-6 bg-slate-500 text-white no-underline border-none rounded-xl text-base font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all hover:bg-slate-600 hover:-translate-y-0.5 text-center">
+          Volver a Usuarios
+        </a>
+      </div>
+
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import { apiFetch } from '../lib/api';
+
+  async function confirm() {
+    const token = new URLSearchParams(window.location.search).get('token');
+
+    if (!token) {
+      showError('No se encontró el token de confirmación.');
+      return;
+    }
+
+    try {
+      const res = await apiFetch(`/v1/users/confirm/${token}`, { method: 'GET' });
+      const data = await res.json();
+
+      if (res.ok) {
+        const msg = document.getElementById('successMessage');
+        if (msg) msg.textContent = data.message ?? 'La operación se realizó exitosamente.';
+        showState('successState');
+      } else {
+        showError(data.message ?? 'El enlace no es válido o ya expiró.');
+      }
+    } catch {
+      showError('Error de conexión. Inténtalo de nuevo.');
+    }
+  }
+
+  function showState(id: string) {
+    ['loadingState', 'successState', 'errorState'].forEach(s => {
+      const el = document.getElementById(s);
+      if (el) el.classList.toggle('hidden', s !== id);
+    });
+  }
+
+  function showError(msg: string) {
+    const el = document.getElementById('errorMessage');
+    if (el) el.textContent = msg;
+    showState('errorState');
+  }
+
+  confirm();
+</script>

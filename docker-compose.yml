@@ -1,0 +1,121 @@
+services:
+  res-api-core:
+    container_name: res-api-core
+    build:
+      context: ./apps/api-core
+      dockerfile: Dockerfile
+      target: dev
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - ./apps/api-core/src:/app/src
+      - ./apps/api-core/prisma:/app/prisma
+      - ./apps/api-core/test:/app/test
+    env_file:
+      - ./apps/api-core/.env
+    environment:
+      # El origen permitido (CORS + CSRF) sigue al puerto de la UI para que el
+      # ejemplo funcione con cualquier UI_PORT. Sobrescribe lo que venga en .env.
+      FRONTEND_URL: http://localhost:${UI_PORT:-4321}
+      CORS_ORIGIN: http://localhost:${UI_PORT:-4321}
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2.5G
+    depends_on:
+      res-db:
+        condition: service_healthy
+
+  res-db:
+    container_name: res-db
+    image: postgres:17-alpine
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-restaurants}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  res-ui:
+    container_name: res-ui
+    build:
+      context: ./apps/ui
+      target: dev
+    volumes:
+      - ./apps/ui/src:/app/src
+      - ./apps/ui/public:/app/public
+      - /app/node_modules
+    env_file: ./apps/ui/.env
+    environment:
+      PUBLIC_API_URL: http://localhost:3000
+      PUBLIC_SUPPORT_GOOGLE_FORM_URL: https://forms.gle/8174Fx4JJaXitqVp6
+    depends_on:
+      - res-api-core
+    ports:
+      - "${UI_PORT:-4321}:4321"
+
+  # profile: otel — distributed tracing via Jaeger
+  # UI: http://localhost:16686
+  jaeger:
+    profiles: ["otel"]
+    container_name: jaeger
+    image: jaegertracing/all-in-one:1.57
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      SPAN_STORAGE_TYPE: badger
+      BADGER_EPHEMERAL: "true"
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4318:4318"     # OTLP HTTP receiver
+    user: "0"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # profile: k6 — metrics storage and visualization for load tests
+  # Grafana: http://localhost:3001
+  # Run k6 with: k6 run --out influxdb=http://localhost:8086/k6 <script>
+  influxdb:
+    profiles: ["k6"]
+    container_name: k6-influxdb
+    image: influxdb:1.8-alpine
+    platform: linux/amd64
+    environment:
+      INFLUXDB_DB: k6
+    ports:
+      - "8086:8086"
+    volumes:
+      - k6_influxdb_data:/var/lib/influxdb
+
+  grafana:
+    profiles: ["k6"]
+    container_name: k6-grafana
+    image: grafana/grafana:latest
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    ports:
+      - "3001:3000"
+    volumes:
+      - k6_grafana_data:/var/lib/grafana
+      - ./apps/api-core/test/k6/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - influxdb
+
+volumes:
+  postgres_data:
+  k6_influxdb_data:
+  k6_grafana_data:

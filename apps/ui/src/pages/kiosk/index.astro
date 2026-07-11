@@ -1,0 +1,8 @@
+---
+import KioskLayout from '../../layouts/KioskLayout.astro';
+import { KioskApp } from '../../components/kiosk/KioskApp';
+---
+
+<KioskLayout>
+  <KioskApp client:only="react" />
+</KioskLayout>

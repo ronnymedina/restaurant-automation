@@ -1,0 +1,164 @@
+// test/orders/orders.helpers.ts
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
+import { App } from 'supertest/types';
+import * as bcrypt from 'bcryptjs';
+import { execSync } from 'child_process';
+import cookieParser from 'cookie-parser';
+
+import { AppModule } from '../../src/app.module';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import { loginCookie } from '../helpers/auth-cookie';
+
+export async function bootstrapApp(): Promise<{
+  moduleFixture: TestingModule;
+  app: INestApplication<App>;
+  prisma: PrismaService;
+}> {
+  execSync('pnpm exec prisma migrate deploy', {
+    env: process.env,
+    stdio: 'pipe',
+  });
+
+  const moduleFixture = await Test.createTestingModule({
+    imports: [AppModule],
+  }).compile();
+
+  const app = moduleFixture.createNestApplication<INestApplication<App>>();
+  app.use(cookieParser());
+  app.enableVersioning({ type: VersioningType.URI });
+  app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+
+  await app.init();
+
+  const prisma = app.get(PrismaService);
+  return { moduleFixture, app, prisma };
+}
+
+export async function seedRestaurant(prisma: PrismaService, suffix: string) {
+  const restaurant = await prisma.restaurant.create({
+    data: {
+      name: `Restaurant ${suffix} ${Date.now()}`,
+      slug: `rest-${suffix}-${Date.now()}`,
+    },
+  });
+
+  await prisma.restaurantSettings.create({
+    data: { restaurantId: restaurant.id, timezone: 'UTC' },
+  });
+
+  const category = await prisma.productCategory.create({
+    data: { name: 'General', restaurantId: restaurant.id },
+  });
+
+  const passwordHash = await bcrypt.hash('Admin1234!', 10);
+
+  const admin = await prisma.user.create({
+    data: {
+      email: `admin-${suffix}-${Date.now()}@test.com`,
+      passwordHash,
+      role: 'ADMIN',
+      isActive: true,
+      restaurantId: restaurant.id,
+    },
+  });
+
+  const manager = await prisma.user.create({
+    data: {
+      email: `manager-${suffix}-${Date.now()}@test.com`,
+      passwordHash,
+      role: 'MANAGER',
+      isActive: true,
+      restaurantId: restaurant.id,
+    },
+  });
+
+  const basic = await prisma.user.create({
+    data: {
+      email: `basic-${suffix}-${Date.now()}@test.com`,
+      passwordHash,
+      role: 'BASIC',
+      isActive: true,
+      restaurantId: restaurant.id,
+    },
+  });
+
+  return { restaurant, category, admin, manager, basic };
+}
+
+export async function login(
+  app: INestApplication<App>,
+  email: string,
+): Promise<string> {
+  const { accessCookie } = await loginCookie(app, email);
+  return accessCookie;
+}
+
+export async function seedProduct(
+  prisma: PrismaService,
+  restaurantId: string,
+  categoryId: string,
+  overrides: { name?: string; price?: bigint; stock?: number | null } = {},
+) {
+  return prisma.product.create({
+    data: {
+      name: overrides.name ?? `Producto ${Date.now()}`,
+      price: overrides.price ?? BigInt(1000), // 1000 cents = $10
+      stock: overrides.stock !== undefined ? overrides.stock : 10,
+      restaurantId,
+      categoryId,
+    },
+  });
+}
+
+export async function openCashShift(
+  prisma: PrismaService,
+  restaurantId: string,
+  userId: string,
+) {
+  // Honor the "one OPEN shift per restaurant" invariant (audit H-45). The
+  // partial unique index `one_open_shift_per_restaurant` forbids creating a
+  // second OPEN shift while another is still open, so the helper must close
+  // any pre-existing OPEN shift before opening a new one. Tests typically
+  // share `restaurantId` across iterations of a describe block — this keeps
+  // each iteration starting from a known-good single-OPEN state.
+  await prisma.cashShift.updateMany({
+    where: { restaurantId, status: 'OPEN' },
+    data: { status: 'CLOSED', closedAt: new Date() },
+  });
+  return prisma.cashShift.create({
+    data: { restaurantId, userId },
+  });
+}
+
+export async function seedOrder(
+  prisma: PrismaService,
+  restaurantId: string,
+  cashShiftId: string,
+  productId: string,
+  overrides: { status?: string; isPaid?: boolean; createdAt?: Date; paymentMethod?: string } = {},
+) {
+  const updatedShift = await prisma.cashShift.update({
+    where: { id: cashShiftId },
+    data: { lastOrderNumber: { increment: 1 } },
+  });
+
+  return prisma.order.create({
+    data: {
+      orderNumber: updatedShift.lastOrderNumber,
+      restaurantId,
+      cashShiftId,
+      totalAmount: BigInt(1000),
+      status: (overrides.status as any) ?? 'CREATED',
+      isPaid: overrides.isPaid ?? false,
+      orderSource: 'STAFF',
+      orderType: 'PICKUP',
+      ...(overrides.paymentMethod ? { paymentMethod: overrides.paymentMethod as any } : {}),
+      ...(overrides.createdAt ? { createdAt: overrides.createdAt } : {}),
+      items: {
+        create: [{ productId, quantity: 1, unitPrice: BigInt(1000), subtotal: BigInt(1000) }],
+      },
+    },
+    include: { items: true },
+  });
+}

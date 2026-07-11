@@ -1,0 +1,64 @@
+import type { CartItem, KioskTheme } from './types/kiosk.types'
+import { formatMoney } from '../../lib/money'
+import { useKioskStore } from './store/kiosk.store'
+
+type Props = {
+  orderNumber: number
+  items: CartItem[]
+  total: number
+  onNewOrder: () => void
+  theme: KioskTheme
+}
+
+export function OrderConfirmation({ orderNumber, items, total, onNewOrder, theme }: Props) {
+  const decimalSeparator = useKioskStore((s) => s.decimalSeparator)
+  const thousandsSeparator = useKioskStore((s) => s.thousandsSeparator)
+  const fmt = (v: number) => formatMoney(v, { decimalSeparator, thousandsSeparator })
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-6"
+      style={{ backgroundColor: theme.primary }}
+    >
+      <div className="bg-white rounded-2xl w-full max-w-md lg:max-w-lg p-8 md:p-10 text-center space-y-6">
+        <div className="text-6xl md:text-7xl">✅</div>
+        <h2 className="text-2xl md:text-3xl font-bold text-slate-800">¡Pedido Confirmado!</h2>
+
+        <div className="rounded-xl p-6 md:p-8" style={{ backgroundColor: `${theme.primary}15` }}>
+          <p className="text-sm md:text-base font-medium" style={{ color: theme.primary }}>
+            Tu número de pedido
+          </p>
+          <p className="text-6xl md:text-8xl font-black my-2" style={{ color: theme.primaryDark }}>
+            #{orderNumber}
+          </p>
+        </div>
+
+        <div className="text-left text-sm md:text-base text-slate-600 space-y-2">
+          {items.map((item) => (
+            <div key={`${item.productId}:${item.menuItemId ?? ''}`} className="flex justify-between items-start">
+              <div className="flex-1 pr-3">
+                <p className="text-slate-700">{item.name}</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {item.quantity} × {fmt(item.price)}
+                </p>
+              </div>
+              <span className="whitespace-nowrap">{fmt(item.price * item.quantity)}</span>
+            </div>
+          ))}
+          <div className="flex justify-between font-bold border-t border-slate-200 pt-2 mt-2">
+            <span>Total</span>
+            <span>{fmt(total)}</span>
+          </div>
+        </div>
+
+        <button
+          onClick={onNewOrder}
+          style={{ backgroundColor: theme.primary }}
+          className="w-full py-4 md:py-5 text-white font-bold text-lg md:text-xl rounded-xl cursor-pointer border-none active:opacity-90"
+        >
+          Nuevo Pedido
+        </button>
+      </div>
+    </div>
+  )
+}

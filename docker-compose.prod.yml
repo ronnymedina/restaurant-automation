@@ -1,0 +1,62 @@
+# Stack de PRODUCCIÓN local — imágenes prod reales (api compilada + nginx), sin hot reload.
+#
+# Uso (con el override self-host: un solo restaurante + sin email):
+#   docker compose -f docker-compose.prod.yml -f docker-compose.selfhost.yml up --build
+#
+# Sin el override corre en modo normal (multi + email según tu .env).
+# UI en http://localhost:${UI_PORT:-8080}  ·  API en http://localhost:3000
+services:
+  res-api-core:
+    container_name: res-api-core
+    build:
+      context: ./apps/api-core
+      dockerfile: Dockerfile
+      target: prod
+    # La imagen prod no migra sola: aplicamos migraciones y luego arrancamos.
+    command: ["sh", "-c", "./commands/execute-migrations.sh && node dist/src/main"]
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - ./apps/api-core/.env
+    environment:
+      NODE_ENV: production
+      # CORS/CSRF siguen al puerto público de la UI (prod usa 8080 por defecto).
+      FRONTEND_URL: http://localhost:${UI_PORT:-8080}
+      CORS_ORIGIN: http://localhost:${UI_PORT:-8080}
+    depends_on:
+      res-db:
+        condition: service_healthy
+
+  res-db:
+    container_name: res-db
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-restaurants}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  res-ui:
+    container_name: res-ui
+    build:
+      context: ./apps/ui
+      dockerfile: Dockerfile
+      target: prod
+    # El front es estático: el entrypoint inyecta PUBLIC_API_URL al arrancar.
+    environment:
+      PUBLIC_API_URL: http://localhost:3000
+    ports:
+      - "${UI_PORT:-8080}:80"
+    depends_on:
+      - res-api-core
+
+volumes:
+  postgres_data:

@@ -1,0 +1,17 @@
+# Override opt-in para el modo SELF-HOST (un solo restaurante, sin email).
+#
+# Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.selfhost.yml up
+#
+# Los valores de `environment:` pisan lo que venga en apps/api-core/.env
+# (en Docker: env_file < environment), así que activás este modo SIN tocar
+# tu .env actual. Tu `docker compose up` normal sigue con email + multi.
+services:
+  res-api-core:
+    environment:
+      # Cierra el registro público apenas existe el primer restaurante.
+      SINGLE_RESTAURANT_MODE: "true"
+      # Sin proveedor de email: emailService.isEnabled() -> false, así el
+      # registro devuelve `activationUrl` en la respuesta para setear la
+      # contraseña directo, sin enviar correo.
+      RESEND_API_KEY: ""

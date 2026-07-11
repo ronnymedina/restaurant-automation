@@ -1,0 +1,36 @@
+---
+const items = [
+  { icon: "👥", name: "Gestión de Usuarios", desc: "Tres roles: ADMIN (control total), MANAGER (operaciones), BASIC (toma de pedidos)." },
+  { icon: "🛒", name: "Productos, Categorías y Stock", desc: "Cargá productos con imágenes y categorías. El stock se descuenta automáticamente con cada pedido." },
+  { icon: "📋", name: "Gestión de Menús", desc: "Creá y configurá los menús de tu negocio. Activá o desactivá según el momento del día." },
+  { icon: "🍳", name: "Pantalla de Cocina & Dashboard", desc: "La cocina ve los pedidos en tiempo real. El dashboard te da una vista completa del estado de cada orden." },
+  { icon: "💰", name: "Apertura y Cierre de Caja", desc: "Control de caja completo: apertura, movimientos y cierre del día." },
+  { icon: "🖥️", name: "Kiosko / Totem", desc: "Colocá una pantalla en tu local como totem de autoservicio o compartí la URL para recibir pedidos desde la web. Soporta mobile." },
+  { icon: "📦", name: "Historial de Pedidos", desc: "Consultá todos los pedidos anteriores con detalle de productos, montos y estado." },
+  { icon: "🗂️", name: "Historial de Caja", desc: "Revisá los cierres de caja anteriores con el resumen de cada jornada." },
+];
+---
+<section id="modulos" class="py-20 px-4 scroll-mt-20" style="background: #fafaf8;">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center mb-12">
+      <p class="text-sm font-bold uppercase tracking-widest mb-3" style="color: #f97316;">Módulos</p>
+      <h2 class="text-3xl md:text-4xl font-extrabold" style="color: #111;">
+        Todo lo que necesitás para operar<br />desde el día 1
+      </h2>
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      {items.map((m) => (
+        <div
+          class="rounded-2xl p-5 border flex gap-4 items-start transition-all hover:-translate-y-1"
+          style="background: #ffffff; border-color: #ebebeb;"
+        >
+          <span class="text-2xl flex-shrink-0 mt-0.5">{m.icon}</span>
+          <div>
+            <h3 class="font-bold text-sm mb-1" style="color: #111;">{m.name}</h3>
+            <p class="text-xs leading-relaxed" style="color: #555;">{m.desc}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

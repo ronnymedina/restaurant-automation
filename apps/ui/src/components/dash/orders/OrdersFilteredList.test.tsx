@@ -1,0 +1,62 @@
+import { render, screen } from '@testing-library/react';
+import OrdersFilteredList from './OrdersFilteredList';
+import type { Order } from './api';
+
+// OrderCard (rendered for each order) calls useRestaurantSettings which needs
+// a QueryClientProvider in the tree. Mocking the hook keeps the test isolated
+// from react-query infrastructure.
+vi.mock('../../../lib/restaurant-settings', () => ({
+  useRestaurantSettings: () => ({
+    data: { decimalSeparator: ',', thousandsSeparator: '.' },
+  }),
+}));
+
+const makeOrder = (i: number): Order => ({
+  id: `order-${i}`,
+  orderNumber: i + 1,
+  cashShiftId: 'shift-1',
+  status: 'CREATED',
+  totalAmount: 100,
+  isPaid: false,
+  createdAt: '2026-05-14T10:00:00.000Z',
+  items: [],
+});
+
+const noop = () => {};
+const callbacks = {
+  onConfirm: noop,
+  onAdvance: noop,
+  onPay: noop,
+  onUnpay: noop,
+  onCancel: noop,
+  onCancelBlocked: noop,
+};
+
+describe('OrdersFilteredList', () => {
+  it('shows history link footer when orders.length === 100', () => {
+    const orders = Array.from({ length: 100 }, (_, i) => makeOrder(i));
+    render(
+      <OrdersFilteredList
+        orders={orders}
+        filterLabel="CREATED"
+        onClearFilter={noop}
+        {...callbacks}
+      />,
+    );
+    expect(screen.getByText(/ve al historial de pedidos/i)).toBeInTheDocument();
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/dash/orders-history');
+  });
+
+  it('does not show footer when orders.length < 100', () => {
+    const orders = Array.from({ length: 3 }, (_, i) => makeOrder(i));
+    render(
+      <OrdersFilteredList
+        orders={orders}
+        filterLabel="CREATED"
+        onClearFilter={noop}
+        {...callbacks}
+      />,
+    );
+    expect(screen.queryByText(/ve al historial de pedidos/i)).not.toBeInTheDocument();
+  });
+});

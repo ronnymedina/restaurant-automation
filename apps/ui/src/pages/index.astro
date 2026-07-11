@@ -1,0 +1,34 @@
+---
+export const prerender = true;
+import Layout from '../layouts/Layout.astro';
+import LandingNavbar from '../components/landing/LandingNavbar.astro';
+import LandingHero from '../components/landing/LandingHero.astro';
+import LandingDolor from '../components/landing/LandingDolor.astro';
+import LandingModulos from '../components/landing/LandingModulos.astro';
+import LandingPrecios from '../components/landing/LandingPrecios.astro';
+import LandingPrueba from '../components/landing/LandingPrueba.astro';
+import LandingRoadmap from '../components/landing/LandingRoadmap.astro';
+import LandingFAQ from '../components/landing/LandingFAQ.astro';
+import LandingContacto from '../components/landing/LandingContacto.astro';
+import LandingComoFunciona from '../components/landing/LandingComoFunciona.astro';
+import LandingFooter from '../components/landing/LandingFooter.astro';
+---
+
+<Layout
+  title="Daikulab para Restaurantes — Gratis para siempre o $59 una sola vez"
+  description="Manejá tu restaurante desde una sola pantalla. Pedidos, cocina, inventario y caja. Empezá gratis, sin tarjeta de crédito."
+>
+  <LandingNavbar />
+  <main>
+    <LandingHero />
+    <LandingComoFunciona />
+    <LandingDolor />
+    <LandingModulos />
+    <LandingPrecios />
+    <LandingPrueba />
+    <LandingRoadmap />
+    <LandingFAQ />
+    <LandingContacto />
+  </main>
+  <LandingFooter />
+</Layout>

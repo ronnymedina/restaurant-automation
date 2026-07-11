@@ -1,0 +1,8 @@
+dist/
+.astro/
+test-results/
+node_modules/
+.env
+e2e/
+playwright.config.ts
+vitest.config.ts

@@ -1,0 +1,280 @@
+// Schema para producción (PostgreSQL)
+// Incluye anotaciones de tipos nativos (@db.VarChar) que SQLite no soporta.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  BASIC
+}
+
+model User {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  passwordHash String?
+  role         Role    @default(BASIC)
+  isActive     Boolean @default(false)
+
+  activationToken String? @unique
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  refreshTokens RefreshToken[]
+  cashShifts    CashShift[]
+
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deletedAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+enum OrderStatus {
+  CREATED
+  CONFIRMED
+  PROCESSING
+  SERVED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CARD
+  CASH
+  DIGITAL_WALLET
+}
+
+enum CashShiftStatus {
+  OPEN
+  CLOSED
+}
+
+enum RestaurantStatus {
+  CREATED
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+model Restaurant {
+  id     String           @id @default(uuid())
+  name   String           @db.VarChar(255)
+  slug   String           @unique @db.VarChar(255)
+  status RestaurantStatus @default(CREATED)
+
+  users             User[]
+  products          Product[]
+  menus             Menu[]
+  productCategories ProductCategory[]
+  orders            Order[]
+  cashShifts        CashShift[]
+  settings          RestaurantSettings?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RestaurantSettings {
+  id           String     @id @default(uuid())
+  restaurantId String     @unique
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  timezone              String    @default("UTC")
+  kitchenTokenHash      String?
+  kitchenTokenExpiresAt DateTime?
+
+  // Display settings — usados por la UI para formatear montos.
+  // El sistema es currency-agnostic: SIEMPRE opera con 2 decimales internos
+  // (centavos ×100), sin importar la moneda. `currency` es solo una etiqueta de
+  // display (símbolo); NO se respetan las minor units de ISO 4217 (p.ej. CLP/JPY
+  // igual se renderizan con 2 decimales). Ocultar decimales por moneda, si se
+  // quisiera, sería un cambio de frontend (display), no del dominio.
+  country            String @default("CL") // ISO 3166-1 alpha-2; default para separadores
+  currency           String @default("CLP") // código de moneda — solo etiqueta de display
+  decimalSeparator   String @default(",")
+  thousandsSeparator String @default(".")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProductCategory {
+  id        String  @id @default(uuid())
+  name      String  @db.VarChar(255)
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([restaurantId, name])
+  @@map("product_categories")
+}
+
+model Product {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  price       BigInt  @default(0)
+  stock       Int?
+  active      Boolean @default(true)
+  sku         String?
+  imageUrl    String?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  categoryId String
+  category   ProductCategory @relation(fields: [categoryId], references: [id])
+
+  menuItems  MenuItem[]
+  orderItems OrderItem[]
+
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deletedAt])
+}
+
+model Menu {
+  id     String  @id @default(uuid())
+  name   String  @db.VarChar(100)
+  active Boolean @default(true)
+
+  startTime  String?
+  endTime    String?
+  daysOfWeek String?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  items MenuItem[]
+
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deletedAt])
+}
+
+model MenuItem {
+  id String @id @default(uuid())
+
+  menuId String
+  menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  sectionName String?
+  order       Int     @default(0)
+
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Order {
+  id                 String        @id @default(uuid())
+  orderNumber        Int
+  status             OrderStatus   @default(CREATED)
+  paymentMethod      PaymentMethod?
+  customerEmail      String?
+  customerName       String?
+  customerPhone      String?
+  deliveryAddress    String?
+  deliveryReferences String?
+  totalAmount        BigInt
+  isPaid             Boolean       @default(false)
+  cancellationReason String?
+  orderSource        String
+  orderType          String
+  tableNumber        String?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  cashShiftId  String
+  cashShift    CashShift  @relation(fields: [cashShiftId], references: [id])
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId, createdAt])
+  @@index([cashShiftId])
+  @@unique([cashShiftId, orderNumber])
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  quantity  Int
+  unitPrice BigInt
+  subtotal  BigInt
+  notes     String?
+
+  orderId    String
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product   @relation(fields: [productId], references: [id])
+  menuItemId String?
+  menuItem   MenuItem? @relation(fields: [menuItemId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+// PostgreSQL partial unique index — managed by migration
+// `20260529173000_add_one_open_shift_per_restaurant_index` (audit H-45).
+// CREATE UNIQUE INDEX "one_open_shift_per_restaurant" ON "CashShift"("restaurantId") WHERE status = 'OPEN';
+// Prisma does not model partial indexes, so the migration lives as raw SQL.
+model CashShift {
+  id              String          @id @default(uuid())
+  status          CashShiftStatus @default(OPEN)
+  lastOrderNumber Int             @default(0)
+  openingBalance  BigInt          @default(0)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  totalSales  BigInt?
+  totalOrders Int?
+  closedBy    String?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  orders Order[]
+
+  openedAt DateTime  @default(now())
+  closedAt DateTime?
+
+  @@index([restaurantId, status])
+}

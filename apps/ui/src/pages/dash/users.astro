@@ -1,0 +1,9 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import UsersIsland from '../../components/dash/users/UsersIsland';
+---
+
+<DashboardLayout>
+  <UsersIsland client:load />
+</DashboardLayout>

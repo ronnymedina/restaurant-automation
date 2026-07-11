@@ -1,0 +1,9 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import RegisterHistoryIsland from '../../components/dash/register/RegisterHistoryIsland';
+---
+
+<DashboardLayout>
+  <RegisterHistoryIsland client:load />
+</DashboardLayout>

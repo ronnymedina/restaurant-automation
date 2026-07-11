@@ -1,0 +1,444 @@
+---
+import KitchenConfirmModal from '../../components/kitchen/KitchenConfirmModal';
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cocina</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #111827; color: #f9fafb; font-family: system-ui, sans-serif; min-height: 100vh; }
+
+    #mobileTabBar { display: none; }
+
+    @media (max-width: 640px) {
+      #kitchenMain {
+        grid-template-columns: 1fr !important;
+      }
+      #colWrapCreated,
+      #colWrapProcessing {
+        display: none !important;
+        border-right: none !important;
+      }
+      #colWrapCreated.tab-visible,
+      #colWrapProcessing.tab-visible {
+        display: flex !important;
+      }
+      #colCreated,
+      #colProcessing {
+        padding-bottom: 80px;
+      }
+      #mobileTabBar {
+        display: flex;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Connection status banner -->
+  <div id="connBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:50;text-align:center;padding:8px;font-size:14px;font-weight:600;"></div>
+
+  <!-- Action error toast -->
+  <div id="errorToast" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:60;background:#dc2626;color:white;padding:14px 24px;border-radius:12px;font-size:16px;font-weight:600;box-shadow:0 4px 24px rgba(0,0,0,0.5);max-width:480px;text-align:center;"></div>
+
+  <!-- Offline overlay -->
+  <div id="offlineOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:50;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px;">
+    <div style="font-size:64px;">📡</div>
+    <h2 style="font-size:28px;font-weight:700;color:white;">Sin conexión</h2>
+    <p style="color:#9ca3af;text-align:center;max-width:400px;">La pantalla de cocina está desconectada.<br/>El equipo del restaurante fue notificado.</p>
+    <p style="color:#4b5563;font-size:14px;">Reconectando automáticamente...</p>
+  </div>
+
+  <!-- Header -->
+  <header style="background:#1f2937;border-bottom:1px solid #374151;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
+    <h1 style="font-size:20px;font-weight:700;letter-spacing:0.05em;">🍳 COCINA</h1>
+    <div id="connDot" style="width:12px;height:12px;border-radius:50%;background:#4ade80;"></div>
+  </header>
+
+  <!-- Kanban: NUEVOS | EN PROCESO -->
+  <main id="kitchenMain" style="display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 64px);">
+
+    <!-- NUEVOS (CONFIRMED) -->
+    <div id="colWrapCreated" style="border-right:1px solid #374151;display:flex;flex-direction:column;">
+      <div style="background:rgba(139,92,246,0.15);border-bottom:1px solid rgba(139,92,246,0.3);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
+        <h2 style="font-size:18px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:0.1em;">Confirmados</h2>
+        <span id="countCreated" style="background:rgba(167,139,250,0.25);color:#c4b5fd;font-size:14px;font-weight:700;padding:4px 12px;border-radius:9999px;">0</span>
+      </div>
+      <div id="colCreated" style="flex:1;padding:16px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;">
+        <p style="color:#4b5563;text-align:center;padding:32px 0;">Cargando...</p>
+      </div>
+    </div>
+
+    <!-- EN PROCESO (PROCESSING) -->
+    <div id="colWrapProcessing" style="display:flex;flex-direction:column;">
+      <div style="background:rgba(59,130,246,0.15);border-bottom:1px solid rgba(59,130,246,0.3);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
+        <h2 style="font-size:18px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:0.1em;">En Proceso</h2>
+        <span id="countProcessing" style="background:rgba(59,130,246,0.25);color:#93c5fd;font-size:14px;font-weight:700;padding:4px 12px;border-radius:9999px;">0</span>
+      </div>
+      <div id="colProcessing" style="flex:1;padding:16px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;">
+        <p style="color:#4b5563;text-align:center;padding:32px 0;">Cargando...</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Mobile tab bar (hidden on desktop via CSS) -->
+  <nav id="mobileTabBar" style="position:fixed;bottom:0;left:0;right:0;background:#111827;border-top:1px solid #374151;z-index:40;">
+    <button
+      id="tabCreated"
+      type="button"
+      style="flex:1;padding:10px 6px;text-align:center;background:none;border:none;cursor:pointer;border-top:3px solid transparent;"
+      onclick="switchTab('created')"
+    >
+      <div style="font-size:20px;">📋</div>
+      <div id="tabCreatedLabel" style="font-size:10px;font-weight:700;margin-top:2px;">Nuevos</div>
+      <div id="tabCreatedBadge" style="border-radius:9999px;padding:1px 8px;font-size:10px;font-weight:700;display:inline-block;margin-top:3px;">0</div>
+    </button>
+    <button
+      id="tabProcessing"
+      type="button"
+      style="flex:1;padding:10px 6px;text-align:center;background:none;border:none;cursor:pointer;border-top:3px solid transparent;"
+      onclick="switchTab('processing')"
+    >
+      <div style="font-size:20px;">🔥</div>
+      <div id="tabProcessingLabel" style="font-size:10px;font-weight:700;margin-top:2px;">En Proceso</div>
+      <div id="tabProcessingBadge" style="border-radius:9999px;padding:1px 8px;font-size:10px;font-weight:700;display:inline-block;margin-top:3px;">0</div>
+    </button>
+  </nav>
+
+  <!-- Confirmation modal (React island, client-only) -->
+  <KitchenConfirmModal client:only="react" />
+
+</body>
+</html>
+
+<script>
+  import { fetchEventSource } from '@microsoft/fetch-event-source';
+  import { ORDER_EVENTS } from '../../lib/sse-events';
+  import { config } from '../../config';
+
+  const API_URL = config.apiUrl;
+
+  const params = new URLSearchParams(window.location.search);
+  const slug = params.get('slug') ?? '';
+  const urlToken = params.get('token') ?? '';
+  const token = urlToken || sessionStorage.getItem(`kitchen_token_${slug}`) || '';
+
+  if (!token) {
+    document.body.innerHTML = '<div style="padding:2rem;text-align:center;color:#ef4444;font-size:1.5rem">Token de cocina requerido</div>';
+    throw new Error('No kitchen token');
+  }
+
+  if (urlToken) sessionStorage.setItem(`kitchen_token_${slug}`, urlToken);
+
+  const colCreated = document.getElementById('colCreated')!;
+  const colProcessing = document.getElementById('colProcessing')!;
+  const countCreated = document.getElementById('countCreated')!;
+  const countProcessing = document.getElementById('countProcessing')!;
+  const connBanner = document.getElementById('connBanner')!;
+  const connDot = document.getElementById('connDot')!;
+  const offlineOverlay = document.getElementById('offlineOverlay')!;
+  const errorToast = document.getElementById('errorToast')!;
+  const tabCreatedBadge = document.getElementById('tabCreatedBadge')!;
+  const tabProcessingBadge = document.getElementById('tabProcessingBadge')!;
+
+  // ── Tipos del payload SSE (espejo de KitchenOrderPayload del backend) ──
+  // Audit H-AUX-02. Si modificás esto, sincronizá:
+  //   apps/api-core/src/events/payloads/order-event-payloads.ts
+
+  type KitchenOrderItem = { quantity: number; notes: string | null; productName: string };
+  type KitchenOrder = {
+    id: string;
+    orderNumber: number;
+    status: 'CREATED' | 'CONFIRMED' | 'PROCESSING' | 'SERVED' | 'COMPLETED' | 'CANCELLED';
+    displayTime: string;
+    items: KitchenOrderItem[];
+  };
+
+  const ordersMap = new Map<string, KitchenOrder>();
+
+  // ── Tab switching ─────────────────────────────────────────────────
+
+  function switchTab(tab: 'created' | 'processing') {
+    const wrapCreated = document.getElementById('colWrapCreated')!;
+    const wrapProcessing = document.getElementById('colWrapProcessing')!;
+    const tabCreated = document.getElementById('tabCreated')!;
+    const tabProcessing = document.getElementById('tabProcessing')!;
+    const tabCreatedLabel = document.getElementById('tabCreatedLabel')!;
+    const tabProcessingLabel = document.getElementById('tabProcessingLabel')!;
+
+    if (tab === 'created') {
+      wrapCreated.classList.add('tab-visible');
+      wrapProcessing.classList.remove('tab-visible');
+      tabCreated.style.borderTopColor = '#a78bfa';
+      tabCreated.style.background = 'rgba(139,92,246,0.12)';
+      tabCreatedLabel.style.color = '#a78bfa';
+      tabCreatedBadge.style.background = '#a78bfa';
+      tabCreatedBadge.style.color = '#0f172a';
+      tabProcessing.style.borderTopColor = 'transparent';
+      tabProcessing.style.background = 'none';
+      tabProcessingLabel.style.color = '#4b5563';
+      tabProcessingBadge.style.background = '#374151';
+      tabProcessingBadge.style.color = '#6b7280';
+    } else {
+      wrapProcessing.classList.add('tab-visible');
+      wrapCreated.classList.remove('tab-visible');
+      tabProcessing.style.borderTopColor = '#60a5fa';
+      tabProcessing.style.background = 'rgba(59,130,246,0.12)';
+      tabProcessingLabel.style.color = '#60a5fa';
+      tabProcessingBadge.style.background = '#60a5fa';
+      tabProcessingBadge.style.color = '#0f172a';
+      tabCreated.style.borderTopColor = 'transparent';
+      tabCreated.style.background = 'none';
+      tabCreatedLabel.style.color = '#4b5563';
+      tabCreatedBadge.style.background = '#374151';
+      tabCreatedBadge.style.color = '#6b7280';
+    }
+  }
+
+  // Initialize mobile tab state (Nuevos active by default)
+  switchTab('created');
+
+  // Expose switchTab globally for inline onclick handlers
+  (window as any).switchTab = switchTab;
+
+  // ── API helper ────────────────────────────────────────────────────
+
+  async function kitchenFetch(path: string, options: RequestInit = {}) {
+    return fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Kitchen-Token': token,
+        ...(options.headers ?? {}),
+      },
+    });
+  }
+
+  // ── Connection UI ─────────────────────────────────────────────────
+
+  function showBanner(msg: string, bg: string, color: string) {
+    Object.assign(connBanner.style, { display: 'block', background: bg, color });
+    connBanner.textContent = msg;
+  }
+
+  function hideBanner() { connBanner.style.display = 'none'; }
+
+  function setConnected() {
+    connDot.style.background = '#4ade80';
+    hideBanner();
+    offlineOverlay.style.display = 'none';
+  }
+
+  function setOffline() {
+    connDot.style.background = '#f87171';
+    offlineOverlay.style.display = 'flex';
+  }
+
+  let errorToastTimer: ReturnType<typeof setTimeout> | null = null;
+  function showErrorToast(msg: string) {
+    errorToast.textContent = msg;
+    errorToast.style.display = 'block';
+    if (errorToastTimer) clearTimeout(errorToastTimer);
+    errorToastTimer = setTimeout(() => { errorToast.style.display = 'none'; }, 4000);
+  }
+
+  // ── Render cards ──────────────────────────────────────────────────
+  // H-03 — All user-controlled text (notes, product names, order numbers)
+  // is written via textContent / createTextNode. No string interpolation
+  // into HTML — eliminates the XSS vector from kiosk-supplied `notes`.
+
+  function el(tag: string, style: string): HTMLElement {
+    const node = document.createElement(tag);
+    node.setAttribute('style', style);
+    return node;
+  }
+
+  function renderCard(order: any): HTMLElement {
+    const card = el('div', 'background:#1f2937;border:1px solid #374151;border-radius:16px;padding:20px;');
+    card.dataset.orderId = String(order.id ?? '');
+
+    const header = el('div', 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;');
+    const num = el('span', 'font-size:32px;font-weight:900;color:white;');
+    num.textContent = `#${order.orderNumber ?? '?'}`;
+    const time = el('span', 'color:#6b7280;font-size:16px;');
+    time.textContent = String(order.displayTime ?? '');
+    header.append(num, time);
+
+    const itemsWrap = el('div', 'border-top:1px solid #374151;padding-top:12px;display:flex;flex-direction:column;gap:4px;');
+    for (const i of (order.items || [])) {
+      const line = el('p', 'color:white;font-size:22px;font-weight:500;');
+      const qty = el('span', 'font-size:26px;font-weight:900;');
+      qty.textContent = `${i.quantity}× `;
+      line.append(qty, document.createTextNode(i.product?.name || i.productName || '?'));
+      itemsWrap.append(line);
+      if (i.notes) {
+        const note = el('p', 'color:#fbbf24;font-size:16px;font-style:italic;margin-left:16px;margin-top:4px;');
+        note.textContent = String(i.notes);
+        itemsWrap.append(note);
+      }
+    }
+
+    const isConfirmed = order.status === 'CONFIRMED';
+    const btn = el(
+      'button',
+      `width:100%;padding:20px;font-size:20px;font-weight:900;background:${isConfirmed ? '#2563eb' : '#ea580c'};color:white;border:none;border-radius:12px;cursor:pointer;margin-top:8px;`,
+    );
+    btn.textContent = isConfirmed ? 'EN PROCESO →' : '✓ LISTO';
+    btn.dataset.advance = String(order.id ?? '');
+    btn.dataset.next = isConfirmed ? 'PROCESSING' : 'SERVED';
+
+    card.append(header, itemsWrap, btn);
+    return card;
+  }
+
+  function renderEmptyState(): HTMLElement {
+    const p = el('p', 'color:#4b5563;text-align:center;padding:48px 0;font-size:18px;');
+    p.textContent = 'Sin pedidos';
+    return p;
+  }
+
+  function bindCardEvents(container: HTMLElement) {
+    container.querySelectorAll('[data-advance]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const el = btn as HTMLElement;
+        const orderId = el.dataset.advance!;
+        const next = el.dataset.next!;
+
+        // "✓ LISTO" button: delegate to confirmation modal
+        if (next === 'SERVED') {
+          const order = ordersMap.get(orderId);
+          window.dispatchEvent(new CustomEvent('kitchen:confirm', {
+            detail: {
+              orderId,
+              orderNumber: order?.orderNumber,
+              items: (order?.items || []).map((i: any) => ({
+                quantity: i.quantity,
+                productName: i.product?.name || i.productName || '?',
+                notes: i.notes,
+              })),
+            },
+          }));
+          return;
+        }
+
+        // "EN PROCESO →" button: advance directly, no confirmation
+        (btn as HTMLButtonElement).disabled = true;
+        const res = await kitchenFetch(`/v1/kitchen/${slug}/orders/${orderId}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: next }),
+        });
+        (btn as HTMLButtonElement).disabled = false;
+        if (res.ok) {
+          loadOrders();
+        } else {
+          const ERROR_MESSAGES: Record<string, string> = {
+            INVALID_STATUS_TRANSITION: 'Transición no permitida para este pedido',
+            ORDER_ALREADY_CANCELLED: 'El pedido ya fue cancelado',
+            ORDER_NOT_FOUND: 'Pedido no encontrado',
+          };
+          let msg = 'Error del servidor, intente nuevamente';
+          try {
+            const body = await res.json();
+            if (body?.code && ERROR_MESSAGES[body.code]) msg = ERROR_MESSAGES[body.code];
+          } catch { /* ignore parse errors */ }
+          showErrorToast(msg);
+        }
+      });
+    });
+  }
+
+  // ── Render ────────────────────────────────────────────────────────
+  // ordersMap es la fuente de verdad. loadOrders() (montaje/reconexión)
+  // y el listener SSE (patch local, H-AUX-02) actualizan el map; nadie
+  // pinta sin pasar por renderColumns().
+
+  function renderColumns() {
+    const created: KitchenOrder[] = [];
+    const processing: KitchenOrder[] = [];
+    for (const o of ordersMap.values()) {
+      if (o.status === 'CONFIRMED') created.push(o);
+      else if (o.status === 'PROCESSING') processing.push(o);
+    }
+    // FIFO: orderNumber asc dentro del mismo turno equivale a createdAt asc.
+    const byOrderNumberAsc = (a: KitchenOrder, b: KitchenOrder) =>
+      (a.orderNumber ?? 0) - (b.orderNumber ?? 0);
+    created.sort(byOrderNumberAsc);
+    processing.sort(byOrderNumberAsc);
+
+    countCreated.textContent = String(created.length);
+    countProcessing.textContent = String(processing.length);
+    tabCreatedBadge.textContent = String(created.length);
+    tabProcessingBadge.textContent = String(processing.length);
+
+    colCreated.replaceChildren(
+      ...(created.length ? created.map(renderCard) : [renderEmptyState()]),
+    );
+    colProcessing.replaceChildren(
+      ...(processing.length ? processing.map(renderCard) : [renderEmptyState()]),
+    );
+
+    bindCardEvents(colCreated);
+    bindCardEvents(colProcessing);
+  }
+
+  // ── Load orders ───────────────────────────────────────────────────
+
+  async function loadOrders() {
+    const res = await kitchenFetch(`/v1/kitchen/${slug}/orders`).catch(() => null);
+    if (!res || !res.ok) return;
+    const orders: KitchenOrder[] = await res.json();
+    ordersMap.clear();
+    orders.forEach((o) => ordersMap.set(o.id, o));
+    renderColumns();
+  }
+
+  // ── SSE ───────────────────────────────────────────────────────────
+
+  const sseController = new AbortController();
+  window.addEventListener('beforeunload', () => sseController.abort());
+
+  // NOTE: do NOT await — fetchEventSource resolves only when the stream closes,
+  // so awaiting would block all the listener registrations and the initial load
+  // that follow this block.
+  fetchEventSource(`${API_URL}/v1/events/kitchen?slug=${encodeURIComponent(slug)}`, {
+    headers: { 'X-Kitchen-Token': token },
+    signal: sseController.signal,
+    openWhenHidden: true,
+    async onopen(response) {
+      if (response.ok && response.headers.get('content-type')?.includes('text/event-stream')) {
+        setConnected();
+        loadOrders();
+        return;
+      }
+      setOffline();
+      throw new Error(`SSE open failed: ${response.status}`);
+    },
+    onerror() { setOffline(); /* allow library to retry */ },
+    onmessage(msg) {
+      if (msg.event !== ORDER_EVENTS.NEW && msg.event !== ORDER_EVENTS.UPDATED) return;
+      try {
+        const payload = JSON.parse(msg.data) as KitchenOrder;
+        if (!payload?.id) return;
+        // H-AUX-02: solo CONFIRMED/PROCESSING viven en cocina; cualquier otro
+        // status (SERVED/COMPLETED/CANCELLED/CREATED) se traduce en remover.
+        if (payload.status === 'CONFIRMED' || payload.status === 'PROCESSING') {
+          ordersMap.set(payload.id, payload);
+        } else {
+          ordersMap.delete(payload.id);
+        }
+        renderColumns();
+      } catch { /* ignore malformed payload */ }
+    },
+  }).catch(() => setOffline());
+
+  // Remove confirmed order from local map when KitchenConfirmModal reports SERVED
+  window.addEventListener('kitchen:order-updated', ((ev: CustomEvent) => {
+    const orderId = ev?.detail?.orderId as string | undefined;
+    if (orderId) ordersMap.delete(orderId);
+    renderColumns();
+  }) as EventListener);
+</script>

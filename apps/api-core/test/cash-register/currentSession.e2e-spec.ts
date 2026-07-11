@@ -1,0 +1,87 @@
+// test/cash-register/currentSession.e2e-spec.ts
+import request from 'supertest';
+import { INestApplication } from '@nestjs/common';
+import { App } from 'supertest/types';
+
+import { PrismaService } from '../../src/prisma/prisma.service';
+import { bootstrapApp, seedRestaurant, login, openCashShiftViaApi } from './cash-register.helpers';
+import { ALLOWED_TEST_ORIGIN } from '../helpers/auth-cookie';
+describe('GET /v1/cash-register/current - currentSession (e2e)', () => {
+  let app: INestApplication<App>;
+  let prisma: PrismaService;
+
+  beforeAll(async () => {
+    ({ app, prisma } = await bootstrapApp());
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('Sin token recibe 401', async () => {
+    await request(app.getHttpServer()).get('/v1/cash-register/current').expect(401);
+  });
+
+  it('Sin sesión abierta → 200 null (H-27)', async () => {
+    const restA = await seedRestaurant(prisma, 'A');
+    const token = await login(app, restA.admin.email);
+
+    const res = await request(app.getHttpServer())
+      .get('/v1/cash-register/current')
+      .set('Cookie', token)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
+      .expect(200);
+
+    // NestJS serializes a `null` return as an empty response body.
+    // supertest parses an empty body to `{}`; we assert no `id` field
+    // is present (the only contract callers care about — see H-27).
+    expect(res.body.id).toBeUndefined();
+    expect(Object.keys(res.body)).toHaveLength(0);
+  });
+
+  it('Con sesión abierta → 200 con CashShiftDto', async () => {
+    const restB = await seedRestaurant(prisma, 'B');
+    const token = await login(app, restB.admin.email);
+    await openCashShiftViaApi(app, token);
+
+    const res = await request(app.getHttpServer())
+      .get('/v1/cash-register/current')
+      .set('Cookie', token)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
+      .expect(200);
+
+    expect(res.body.id).toBeDefined();
+    expect(res.body.status).toBe('OPEN');
+  });
+
+  it('Con sesión abierta → respuesta incluye user.email del abridor', async () => {
+    const restC = await seedRestaurant(prisma, 'C');
+    const token = await login(app, restC.admin.email);
+    await openCashShiftViaApi(app, token);
+
+    const res = await request(app.getHttpServer())
+      .get('/v1/cash-register/current')
+      .set('Cookie', token)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
+      .expect(200);
+
+    expect(res.body.userId).toBeUndefined();
+    expect(res.body.user).toBeUndefined();
+    expect(res.body.openedByEmail).toBe(restC.admin.email);
+  });
+
+  it('BASIC puede acceder a la sesión actual → 200 (no 403)', async () => {
+    const restD = await seedRestaurant(prisma, 'D');
+    const basicToken = await login(app, restD.basic.email);
+
+    const res = await request(app.getHttpServer())
+      .get('/v1/cash-register/current')
+      .set('Cookie', basicToken)
+      .set('Origin', ALLOWED_TEST_ORIGIN)
+      .expect(200);
+
+    // No active session → null (H-27); empty response body
+    expect(res.body.id).toBeUndefined();
+    expect(Object.keys(res.body)).toHaveLength(0);
+  });
+});

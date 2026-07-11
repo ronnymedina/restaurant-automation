@@ -1,0 +1,9 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import RestaurantSettingsForm from '../../components/dash/RestaurantSettingsForm';
+---
+
+<DashboardLayout>
+  <RestaurantSettingsForm client:load />
+</DashboardLayout>

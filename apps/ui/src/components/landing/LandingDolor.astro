@@ -1,0 +1,41 @@
+---
+const items = [
+  {
+    icon: "📋",
+    title: "Operación en papel",
+    desc: "Pedidos que se pierden, comandas ilegibles, cocina sin información en tiempo real.",
+  },
+  {
+    icon: "⏳",
+    title: "Esperar mesa → esperar menú → esperar al mozo → pedir",
+    desc: "Cada cliente pasa 20 minutos esperando antes de hacer su primer pedido. Con el tótem de autoservicio, empiezan a pedir desde que llegan.",
+  },
+  {
+    icon: "🗒️",
+    title: "Comandas en papel que se mezclan y se pierden",
+    desc: "Muchos pedidos, papeles por todos lados y nadie sabe cuál va primero. Un error de lectura y el pedido equivocado llega al cliente equivocado.",
+  },
+];
+---
+<section class="py-20 px-4" style="background: #fafaf8;">
+  <div class="max-w-5xl mx-auto">
+    <p
+      class="text-center text-sm font-bold uppercase tracking-widest mb-10"
+      style="color: #f97316;"
+    >
+      ¿Te suena familiar?
+    </p>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {items.map((item) => (
+        <div
+          class="rounded-2xl p-6 border flex flex-col gap-3"
+          style="background: #ffffff; border-color: #ebebeb;"
+        >
+          <span class="text-3xl">{item.icon}</span>
+          <h3 class="font-bold text-base leading-snug" style="color: #111;">{item.title}</h3>
+          <p class="text-sm leading-relaxed" style="color: #555;">{item.desc}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

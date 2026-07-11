@@ -1,0 +1,78 @@
+import { HttpStatus } from '@nestjs/common';
+import { BaseException } from '../../common/exceptions';
+
+export class OrderNotFoundException extends BaseException {
+  constructor(orderId: string) {
+    super(
+      `Order '${orderId}' not found`,
+      HttpStatus.NOT_FOUND,
+      'ORDER_NOT_FOUND',
+      { orderId },
+    );
+  }
+}
+
+export class StockInsufficientException extends BaseException {
+  constructor(productName: string, available: number, requested: number) {
+    super(
+      `Insufficient stock for '${productName}'. Available: ${available}, requested: ${requested}`,
+      HttpStatus.CONFLICT,
+      'STOCK_INSUFFICIENT',
+      { productName, available, requested },
+    );
+  }
+}
+
+export class RegisterNotOpenException extends BaseException {
+  constructor() {
+    super(
+      'No cash register session is currently open. Open a register before creating orders.',
+      HttpStatus.CONFLICT,
+      'NO_OPEN_CASH_REGISTER',
+    );
+  }
+}
+
+export class InvalidStatusTransitionException extends BaseException {
+  constructor(currentStatus: string, targetStatus: string) {
+    super(
+      `Cannot transition order from '${currentStatus}' to '${targetStatus}'`,
+      HttpStatus.BAD_REQUEST,
+      'INVALID_STATUS_TRANSITION',
+      { currentStatus, targetStatus },
+    );
+  }
+}
+
+export class OrderNotPaidException extends BaseException {
+  constructor(orderId: string) {
+    super(
+      `Order '${orderId}' must be paid before it can be completed`,
+      HttpStatus.CONFLICT,
+      'ORDER_NOT_PAID',
+      { orderId },
+    );
+  }
+}
+
+export class OrderAlreadyCancelledException extends BaseException {
+  constructor(orderId: string) {
+    super(
+      `Order '${orderId}' is already cancelled`,
+      HttpStatus.CONFLICT,
+      'ORDER_ALREADY_CANCELLED',
+      { orderId },
+    );
+  }
+}
+
+export class CannotCancelPaidOrderException extends BaseException {
+  constructor(orderId: string) {
+    super(
+      `Order '${orderId}' cannot be cancelled because it is already paid. Call PATCH /:id/unpay first.`,
+      HttpStatus.CONFLICT,
+      'CANNOT_CANCEL_PAID_ORDER',
+      { orderId },
+    );
+  }
+}

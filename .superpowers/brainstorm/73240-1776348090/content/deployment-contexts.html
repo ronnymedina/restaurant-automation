@@ -1,0 +1,54 @@
+<h2>Dos contextos de deployment — mismo código</h2>
+<p class="subtitle">El sistema debe funcionar tanto en la nube como instalado localmente en la máquina del restaurante</p>
+
+<div class="section" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px">
+
+  <!-- CLOUD -->
+  <div style="border:2px solid #6366f1;border-radius:12px;padding:20px">
+    <div style="font-size:13px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">☁️ Cloud / SaaS</div>
+    <div style="background:#f8f8ff;border-radius:8px;padding:12px;margin-bottom:10px;font-size:13px">
+      <strong>Browser</strong><br>
+      <span style="color:#666">Cliente accede desde cualquier dispositivo</span>
+    </div>
+    <div style="text-align:center;color:#aaa;font-size:18px">↕</div>
+    <div style="background:#f8f8ff;border-radius:8px;padding:12px;margin-bottom:10px;font-size:13px">
+      <strong>Astro UI</strong> (Vercel / Railway / VPS)<br>
+      <span style="color:#666">Sirve el frontend</span>
+    </div>
+    <div style="text-align:center;color:#aaa;font-size:18px">↕ HTTP/WS</div>
+    <div style="background:#f8f8ff;border-radius:8px;padding:12px;font-size:13px">
+      <strong>api-core</strong> (NestJS)<br>
+      <span style="color:#666">REST API + WebSockets + SQLite/Postgres</span>
+    </div>
+  </div>
+
+  <!-- LOCAL / ELECTRON -->
+  <div style="border:2px solid #10b981;border-radius:12px;padding:20px">
+    <div style="font-size:13px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">🖥️ Local / Electron (Desktop)</div>
+    <div style="background:#f0fdf4;border-radius:8px;padding:12px;margin-bottom:10px;font-size:13px">
+      <strong>Ventana Electron</strong><br>
+      <span style="color:#666">Apunta a http://localhost:PORT</span>
+    </div>
+    <div style="text-align:center;color:#aaa;font-size:18px">↕</div>
+    <div style="background:#f0fdf4;border-radius:8px;padding:12px;margin-bottom:10px;font-size:13px">
+      <strong>api-core binary</strong> (pkg/nexe)<br>
+      <span style="color:#666">Sirve archivos estáticos + API en el mismo proceso</span>
+    </div>
+    <div style="text-align:center;color:#aaa;font-size:18px">↕ local DB</div>
+    <div style="background:#f0fdf4;border-radius:8px;padding:12px;font-size:13px">
+      <strong>SQLite</strong><br>
+      <span style="color:#666">Archivo local en la máquina del cliente</span>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:28px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:16px">
+  <div style="font-weight:700;margin-bottom:6px">⚠️ Implicación clave</div>
+  <p style="font-size:14px;margin:0;color:#444">
+    Para que Electron funcione con <strong>un solo proceso</strong>, el frontend tiene que ser archivos estáticos que NestJS sirva directamente.
+    Si el frontend es SSR (requiere su propio servidor Node), necesitarías dos procesos en el binary — mucho más complejo.
+    <br><br>
+    Esto impacta directamente en la decisión de <strong>SSR vs Static SPA</strong>.
+  </p>
+</div>

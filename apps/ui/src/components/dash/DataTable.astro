@@ -1,0 +1,50 @@
+---
+export interface Column {
+  label: string;
+  align?: 'left' | 'right';
+  nowrap?: boolean;
+}
+
+interface Props {
+  /** ID que se asignará al <tbody> para que el script pueda referenciarlo */
+  tbodyId: string;
+  /** ID del div de paginación. Si no se pasa, no se renderiza la paginación */
+  paginationId?: string;
+  columns: Column[];
+  /** Ancho mínimo de la tabla, ej: "640px". Evita scroll horizontal inesperado */
+  minWidth?: string;
+}
+
+const { tbodyId, paginationId, columns, minWidth = '400px' } = Astro.props;
+---
+
+<div class="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+  <table class="w-full text-sm" style={`min-width: ${minWidth}`}>
+    <thead class="bg-slate-50 border-b border-slate-200">
+      <tr>
+        {columns.map(col => (
+          <th
+            class:list={[
+              'px-4 py-3 font-medium text-slate-600',
+              col.align === 'right' ? 'text-right' : 'text-left',
+              col.nowrap && 'whitespace-nowrap',
+            ]}
+          >
+            {col.label}
+          </th>
+        ))}
+      </tr>
+    </thead>
+    <tbody id={tbodyId}>
+      <tr>
+        <td colspan={columns.length} class="px-4 py-8 text-center text-slate-400">
+          Cargando...
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+{paginationId && (
+  <div id={paginationId} class="flex justify-center gap-2"></div>
+)}

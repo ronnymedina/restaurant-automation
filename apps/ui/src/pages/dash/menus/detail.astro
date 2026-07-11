@@ -1,0 +1,9 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+import MenuDetailIsland from '../../../components/dash/menus/MenuDetailIsland';
+---
+
+<DashboardLayout>
+  <MenuDetailIsland client:only="react" />
+</DashboardLayout>

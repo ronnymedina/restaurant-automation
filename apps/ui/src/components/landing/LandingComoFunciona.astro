@@ -1,0 +1,65 @@
+---
+const pasos = [
+  {
+    num: "01",
+    title: "Tus clientes ordenan desde el kiosko",
+    desc: "Colocá una pantalla en tu local o compartí el link del menú. Los clientes eligen, agregan al carrito y confirman su pedido sin necesitar un mozo.",
+    img: "/screenshots/kiosk.png",
+    alt: "Pantalla del kiosko de autoservicio",
+  },
+  {
+    num: "02",
+    title: "La cocina recibe los pedidos al instante",
+    desc: "Cada pedido aparece en la pantalla de cocina en tiempo real. Sin papel, sin intermediarios. El equipo ve qué preparar y en qué orden.",
+    img: "/screenshots/kitchen.png",
+    alt: "Pantalla de cocina con pedidos en tiempo real",
+  },
+  {
+    num: "03",
+    title: "Gestionás todo desde el dashboard",
+    desc: "Seguí el estado de cada pedido, cerrá la caja al final del día y revisá el historial completo. Todo en un solo lugar, desde cualquier dispositivo.",
+    img: "/screenshots/dashboard.png",
+    alt: "Dashboard de gestión de pedidos",
+  },
+];
+---
+<section class="py-20 px-4" style="background: #fafaf8;">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center mb-16">
+      <p class="text-sm font-bold uppercase tracking-widest mb-3" style="color: #f97316;">Cómo funciona</p>
+      <h2 class="text-3xl md:text-4xl font-extrabold" style="color: #111;">
+        Del pedido al plato, sin fricción
+      </h2>
+    </div>
+
+    <div class="flex flex-col gap-16">
+      {pasos.map((paso) => (
+        <div class="flex flex-col gap-6">
+          <!-- Texto -->
+          <div class="flex items-start gap-4">
+            <span
+              class="text-4xl font-black leading-none flex-shrink-0"
+              style="color: rgba(249,115,22,0.2); letter-spacing: -2px;"
+            >
+              {paso.num}
+            </span>
+            <div class="flex flex-col gap-1">
+              <h3 class="text-xl font-extrabold" style="color: #111;">{paso.title}</h3>
+              <p class="text-base leading-relaxed" style="color: #555;">{paso.desc}</p>
+            </div>
+          </div>
+
+          <!-- Screenshot full width -->
+          <div class="rounded-2xl overflow-hidden border shadow-md" style="border-color: #ebebeb;">
+            <img
+              src={paso.img}
+              alt={paso.alt}
+              class="w-full h-auto block"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

@@ -1,0 +1,9 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import CategoriesTable from '../../components/dash/CategoriesTable';
+---
+
+<DashboardLayout>
+  <CategoriesTable client:load />
+</DashboardLayout>

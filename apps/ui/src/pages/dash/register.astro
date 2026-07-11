@@ -1,0 +1,9 @@
+---
+export const prerender = true;
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import RegisterPanel from '../../components/dash/register/RegisterPanel';
+---
+
+<DashboardLayout>
+  <RegisterPanel client:load />
+</DashboardLayout>

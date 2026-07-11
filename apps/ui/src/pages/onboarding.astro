@@ -1,0 +1,11 @@
+---
+export const prerender = true;
+import Layout from "../layouts/Layout.astro";
+import OnboardingWizard from "../components/onboarding/OnboardingWizard";
+---
+
+<Layout>
+  <div class="min-h-screen flex items-center justify-center bg-[#fafaf8] p-8 px-4">
+    <OnboardingWizard client:load />
+  </div>
+</Layout>
